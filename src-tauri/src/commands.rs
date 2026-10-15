@@ -3,14 +3,19 @@ use std::sync::Mutex;
 
 use tauri::State;
 
+use crate::pane_commands::LaunchLookup;
+use crate::panes::PaneRegistry;
 use crate::workspace::{
-    AddOutcome, DiskProbe, NoPanes, RemoveError, WorkspaceId, WorkspaceList, WorkspaceStore,
+    AddOutcome, DiskProbe, OpenPanes, RemoveError, WorkspaceId, WorkspaceList, WorkspaceStore,
     WorkspaceView,
 };
 
+/// Lock order: `list` before `panes` whenever both are held.
 pub struct AppState {
     pub list: Mutex<WorkspaceList>,
     pub store: WorkspaceStore,
+    pub panes: Mutex<PaneRegistry>,
+    pub launch: LaunchLookup,
 }
 
 #[tauri::command]
@@ -29,7 +34,8 @@ pub fn add_workspace(path: String, state: State<'_, AppState>) -> Result<AddOutc
 #[tauri::command]
 pub fn remove_workspace(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let mut list = state.list.lock().unwrap();
-    remove_and_save(&mut list, &state.store, &WorkspaceId(id))
+    let panes = state.panes.lock().unwrap();
+    remove_and_save(&mut list, &state.store, &WorkspaceId(id), &*panes)
 }
 
 fn validate_folder(path: &Path) -> Result<(), String> {
@@ -61,9 +67,10 @@ fn remove_and_save(
     list: &mut WorkspaceList,
     store: &WorkspaceStore,
     id: &WorkspaceId,
+    panes: &dyn OpenPanes,
 ) -> Result<(), String> {
     let before = list.paths().to_vec();
-    list.remove(id, &NoPanes).map_err(|e| match e {
+    list.remove(id, panes).map_err(|e| match e {
         RemoveError::HasOpenPanes => "has_open_panes".to_string(),
         RemoveError::NotFound => "not_found".to_string(),
     })?;
@@ -77,6 +84,7 @@ fn remove_and_save(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::workspace::NoPanes;
     use tempfile::{NamedTempFile, tempdir};
 
     // A store whose directory is a regular file, so every save fails.
@@ -129,7 +137,7 @@ mod tests {
         let existing = tempdir().unwrap();
         let mut list = WorkspaceList::from_paths(vec![existing.path().to_path_buf()]);
         let id = WorkspaceId(existing.path().to_string_lossy().into_owned());
-        assert!(remove_and_save(&mut list, &store, &id).is_err());
+        assert!(remove_and_save(&mut list, &store, &id, &NoPanes).is_err());
         assert_eq!(list.paths(), [existing.path().to_path_buf()]);
     }
 }

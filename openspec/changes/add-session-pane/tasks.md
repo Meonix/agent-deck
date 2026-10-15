@@ -13,8 +13,8 @@
 
 ## 3. Pane registry and commands (seam S4)
 
-- [ ] 3.1 `PaneRegistry` with `Spawner` trait: open (rejects a `Missing` workspace — SRS-FR-020), close, implements `OpenPanes` (SRS-FR-006 source)
-- [ ] 3.2 Commands `open_pane(workspace_id, cols, rows, channel)`, `pane_write`, `pane_resize`, `close_pane`; `remove_workspace` uses the registry instead of `NoPanes`; close all panes on app exit
+- [x] 3.1 `PaneRegistry` with `Spawner` trait: open (rejects a `Missing` workspace — SRS-FR-020), close, implements `OpenPanes` (SRS-FR-006 source)
+- [x] 3.2 Commands `open_pane(workspace_id, cols, rows, channel)`, `pane_write`, `pane_resize`, `close_pane`; `remove_workspace` uses the registry instead of `NoPanes`; close all panes on app exit
 
 ## 4. Session title (seam S5)
 
