@@ -19,7 +19,7 @@
 
 ## 4. Tauri commands
 
-- [ ] 4.1 `list_workspaces`, `add_workspace`, `remove_workspace` commands over a shared `WorkspaceList` + `WorkspaceStore` in the app data dir, `NoPanes` as the `OpenPanes` implementation; typed client `src/api/workspaces.ts`
+- [x] 4.1 `list_workspaces`, `add_workspace`, `remove_workspace` commands over a shared `WorkspaceList` + `WorkspaceStore` in the app data dir, `NoPanes` as the `OpenPanes` implementation; typed client `src/api/workspaces.ts`
 
 ## 5. UI (seam S3)
 
