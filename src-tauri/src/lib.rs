@@ -8,6 +8,7 @@ pub mod workspace;
 
 use std::sync::Mutex;
 
+use tauri::webview::PageLoadEvent;
 use tauri::{Manager, RunEvent};
 
 use commands::AppState;
@@ -29,6 +30,11 @@ pub fn run() {
                 launch: LaunchLookup::start(),
             });
             Ok(())
+        })
+        .on_page_load(|webview, payload| {
+            if payload.event() == PageLoadEvent::Started {
+                pane_commands::close_all_on_reload(webview.app_handle());
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_workspaces,

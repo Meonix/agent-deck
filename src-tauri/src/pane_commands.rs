@@ -94,6 +94,18 @@ pub fn close_pane(pane_id: String, state: State<'_, AppState>) {
     }
 }
 
+/// A reloaded page has lost the channels and ids of its panes, so their
+/// sessions could never be used or closed again.
+pub fn close_all_on_reload(app: &AppHandle) {
+    let Some(state) = app.try_state::<AppState>() else {
+        return;
+    };
+    let processes = state.panes.lock().unwrap().take_all();
+    if !processes.is_empty() {
+        std::thread::spawn(move || close_in_parallel(processes));
+    }
+}
+
 pub fn close_all_on_exit(app: &AppHandle) {
     let Some(state) = app.try_state::<AppState>() else {
         return;
