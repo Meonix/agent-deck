@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@import "../design/agent-deck/tokens.css";
+@config "../design/agent-deck/tailwind.preset.js";
+@source "./";
