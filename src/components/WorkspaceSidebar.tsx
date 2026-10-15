@@ -12,15 +12,8 @@ export function WorkspaceSidebar({ client }: { client: WorkspacesClient }) {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  useEffect(() => {
-    let live = true;
-    void client.list().then((list) => live && setItems(list));
-    return () => {
-      live = false;
-    };
-  }, [client]);
-
-  useEffect(() => () => clearTimeout(toastTimer.current), []);
+  const busy = useRef(false);
+  const refreshSeq = useRef(0);
 
   const showToast = useCallback((text: string) => {
     setToast(text);
@@ -28,27 +21,75 @@ export function WorkspaceSidebar({ client }: { client: WorkspacesClient }) {
     toastTimer.current = setTimeout(() => setToast(null), TOAST_MS);
   }, []);
 
-  const addFolder = useCallback(async () => {
-    const path = await client.pickFolder();
-    if (path === null) return;
-    const result = await client.add(path);
-    setItems(await client.list());
-    setSelectedId(result.id);
+  // Only the most recent refresh may write, so out-of-order responses cannot leave a stale list.
+  const refresh = useCallback(async () => {
+    const seq = ++refreshSeq.current;
+    const list = await client.list();
+    if (seq === refreshSeq.current) setItems(list);
   }, [client]);
+
+  const fail = useCallback(
+    (prefix: string, e: unknown) => {
+      const detail = e instanceof Error ? e.message : e == null ? "" : String(e);
+      showToast(detail ? `${prefix}: ${detail}` : prefix);
+    },
+    [showToast],
+  );
+
+  useEffect(() => {
+    let live = true;
+    client.list().then(
+      (list) => live && setItems(list),
+      (e) => {
+        if (!live) return;
+        setItems([]);
+        fail("Could not load folders", e);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [client, fail]);
+
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
+
+  const addFolder = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      const path = await client.pickFolder();
+      if (path === null) return;
+      const result = await client.add(path);
+      setSelectedId(result.id);
+      await refresh();
+    } catch (e) {
+      fail("Could not add folder", e);
+    } finally {
+      busy.current = false;
+    }
+  }, [client, refresh, fail]);
 
   const removeFolder = useCallback(
     async (id: string) => {
-      const result = await client.remove(id);
-      if (result.ok) {
-        setItems(await client.list());
-        setSelectedId((cur) => (cur === id ? null : cur));
-      } else if (result.reason === "has_open_panes") {
-        showToast(BLOCKED_REMOVE_MESSAGE);
-      } else {
-        showToast(result.message ?? "Could not remove the folder");
+      if (busy.current) return;
+      busy.current = true;
+      try {
+        const result = await client.remove(id);
+        if (result.ok) {
+          setSelectedId((cur) => (cur === id ? null : cur));
+          await refresh();
+        } else if (result.reason === "has_open_panes") {
+          showToast(BLOCKED_REMOVE_MESSAGE);
+        } else {
+          fail("Could not remove folder", result.message);
+        }
+      } catch (e) {
+        fail("Could not remove folder", e);
+      } finally {
+        busy.current = false;
       }
     },
-    [client, showToast],
+    [client, refresh, fail, showToast],
   );
 
   return (
@@ -65,22 +106,22 @@ export function WorkspaceSidebar({ client }: { client: WorkspacesClient }) {
             <li
               key={w.id}
               aria-current={w.id === selectedId ? "true" : undefined}
-              onClick={() => setSelectedId(w.id)}
-              className={`group flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer ${w.id === selectedId ? "bg-accent text-accent-foreground font-medium" : "text-foreground"}`}
+              className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm ${w.id === selectedId ? "bg-accent text-accent-foreground font-medium" : "text-foreground"}`}
             >
-              <span className={`truncate ${w.missing ? "line-through text-muted-foreground" : ""}`}>{w.name}</span>
-              <span className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => setSelectedId(w.id)}
+                className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+              >
+                <span className={`truncate ${w.missing ? "line-through text-muted-foreground" : ""}`}>{w.name}</span>
                 {w.missing && <span className="text-xs text-error-foreground">Missing</span>}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void removeFolder(w.id);
-                  }}
-                  className="text-xs text-muted-foreground border border-border rounded px-1.5"
-                >
-                  Remove
-                </button>
-              </span>
+              </button>
+              <button
+                aria-label={`Remove ${w.name}`}
+                onClick={() => void removeFolder(w.id)}
+                className="shrink-0 text-xs text-muted-foreground border border-border rounded px-1.5"
+              >
+                Remove
+              </button>
             </li>
           ))}
         </ul>

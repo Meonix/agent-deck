@@ -99,7 +99,7 @@ describe("removing (5.3)", () => {
     const user = userEvent.setup();
     render(<WorkspaceSidebar client={fakeClient([ws("a", "alpha"), ws("b", "beta")])} />);
     const row = (await screen.findByText("alpha")).closest("li") as HTMLElement;
-    await user.click(within(row).getByRole("button", { name: "Remove" }));
+    await user.click(within(row).getByRole("button", { name: /^Remove / }));
     await vi.waitFor(() => expect(screen.queryByText("alpha")).not.toBeInTheDocument());
     expect(screen.getByText("beta")).toBeInTheDocument();
   });
@@ -111,7 +111,7 @@ describe("removing (5.3)", () => {
     });
     render(<WorkspaceSidebar client={client} />);
     const row = (await screen.findByText("alpha")).closest("li") as HTMLElement;
-    await user.click(within(row).getByRole("button", { name: "Remove" }));
+    await user.click(within(row).getByRole("button", { name: /^Remove / }));
     expect(
       await screen.findByText("Close the open sessions of this folder first"),
     ).toBeInTheDocument();
@@ -130,5 +130,71 @@ describe("empty state (5.4)", () => {
     await user.click(within(main).getByRole("button", { name: "+ Add Folder" }));
     expect(await screen.findByText("gamma")).toBeInTheDocument();
     expect(screen.queryByText("No folders yet")).not.toBeInTheDocument();
+  });
+});
+
+describe("robustness (fix round 1)", () => {
+  const reject = (m: string) => vi.fn(async () => Promise.reject(new Error(m)));
+
+  it("shows a toast and still renders when the first load fails", async () => {
+    render(<WorkspaceSidebar client={fakeClient([], { list: reject("disk") })} />);
+    expect(await screen.findByText("Could not load folders: disk")).toBeInTheDocument();
+    expect(screen.getByText("Folders")).toBeInTheDocument();
+    expect(screen.getByText("No folders yet")).toBeInTheDocument();
+  });
+
+  it("shows a toast when picking or adding fails", async () => {
+    const user = userEvent.setup();
+    const client = fakeClient([ws("a", "alpha")], {
+      pickFolder: vi.fn(async () => "/p/x"),
+      add: reject("boom"),
+    });
+    render(<WorkspaceSidebar client={client} />);
+    await screen.findByText("alpha");
+    await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
+    expect(await screen.findByText("Could not add folder: boom")).toBeInTheDocument();
+  });
+
+  it("shows a toast when remove rejects", async () => {
+    const user = userEvent.setup();
+    const client = fakeClient([ws("a", "alpha")], { remove: reject("nope") });
+    render(<WorkspaceSidebar client={client} />);
+    await screen.findByText("alpha");
+    await user.click(screen.getByRole("button", { name: "Remove alpha" }));
+    expect(await screen.findByText("Could not remove folder: nope")).toBeInTheDocument();
+  });
+
+  it("opens the picker once on a double click", async () => {
+    const user = userEvent.setup();
+    let release: (v: string | null) => void = () => {};
+    const client = fakeClient([ws("a", "alpha")], {
+      pickFolder: vi.fn(() => new Promise<string | null>((r) => (release = r))),
+    });
+    render(<WorkspaceSidebar client={client} />);
+    await screen.findByText("alpha");
+    await user.dblClick(screen.getByRole("button", { name: "+ Add Folder" }));
+    expect(client.pickFolder).toHaveBeenCalledTimes(1);
+    release(null);
+    await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
+    expect(client.pickFolder).toHaveBeenCalledTimes(2);
+    release(null);
+  });
+
+  it("selects a row from the keyboard", async () => {
+    const user = userEvent.setup();
+    render(<WorkspaceSidebar client={fakeClient([ws("a", "alpha"), ws("b", "beta")])} />);
+    await screen.findByText("beta");
+    await user.tab();
+    await user.tab();
+    await user.keyboard("{Enter}");
+    expect(screen.getByText("alpha").closest("li")).toHaveAttribute("aria-current", "true");
+  });
+
+  it("gives each Remove button a distinct name and exposes Missing", async () => {
+    render(<WorkspaceSidebar client={fakeClient([ws("a", "alpha"), ws("b", "beta", true)])} />);
+    await screen.findByText("beta");
+    expect(screen.getByRole("button", { name: "Remove alpha" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove beta" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /beta.*Missing/ })).toBeInTheDocument();
   });
 });
