@@ -23,10 +23,10 @@
 
 ## 5. UI (seam S3)
 
-- [ ] 5.1 `WorkspaceSidebar` lists entries, highlights the selected one, shows `Missing` (SRS-FR-005) — styled per `design/agent-deck` P4
-- [ ] 5.2 "+ Add Folder" opens the picker; Cancel leaves the list unchanged (SRS-FR-001); a duplicate selects the existing entry (SRS-FR-003)
-- [ ] 5.3 Remove action; blocked removal shows "Close the open sessions of this folder first" (SRS-FR-006)
-- [ ] 5.4 Main-area empty state "No folders yet" per story `States/EmptyNoFolders`; all labels English (SRS-NFR-008)
+- [x] 5.1 `WorkspaceSidebar` lists entries, highlights the selected one, shows `Missing` (SRS-FR-005) — styled per `design/agent-deck` P4
+- [x] 5.2 "+ Add Folder" opens the picker; Cancel leaves the list unchanged (SRS-FR-001); a duplicate selects the existing entry (SRS-FR-003)
+- [x] 5.3 Remove action; blocked removal shows "Close the open sessions of this folder first" (SRS-FR-006)
+- [x] 5.4 Main-area empty state "No folders yet" per story `States/EmptyNoFolders`; all labels English (SRS-NFR-008)
 
 ## 6. Verification
 
