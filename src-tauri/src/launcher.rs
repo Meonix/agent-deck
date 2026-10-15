@@ -96,13 +96,38 @@ fn is_executable(path: &Path) -> bool {
     path.is_file()
 }
 
-/// Environment for a session: `base` with PATH/TERM/COLORTERM set, plus `LANG`
-/// only when no locale variable is present.
+/// Set by a Claude Code session or a terminal that launched the app; passed on,
+/// they would make `claude` think it runs nested or inside that terminal.
+const INHERITED_ONLY: [&str; 7] = [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_SSE_PORT",
+    "CLAUDE_PID",
+    "TERM_SESSION_ID",
+];
+const INHERITED_ONLY_PREFIXES: [&str; 6] = [
+    "CLAUDE_CODE_SESSION_",
+    "CLAUDE_CODE_MESSAGING_",
+    "TERM_PROGRAM",
+    "ITERM_",
+    "VSCODE_",
+    "npm_",
+];
+
+fn is_inherited_only(key: &str) -> bool {
+    INHERITED_ONLY.contains(&key) || INHERITED_ONLY_PREFIXES.iter().any(|p| key.starts_with(p))
+}
+
+/// Environment for a session: `base` without what only the launching context
+/// set, with PATH/TERM/COLORTERM set, plus `LANG` only when no locale variable
+/// is present.
 pub fn session_env(base: &[(String, String)], resolved_path: &str) -> Vec<(String, String)> {
     const OVERRIDDEN: [&str; 3] = ["PATH", "TERM", "COLORTERM"];
     let mut env: Vec<(String, String)> = base
         .iter()
-        .filter(|(k, _)| !OVERRIDDEN.contains(&k.as_str()))
+        .filter(|(k, _)| !OVERRIDDEN.contains(&k.as_str()) && !is_inherited_only(k))
         .cloned()
         .collect();
     let has_locale = env
@@ -230,6 +255,47 @@ mod tests {
         let env = session_env(&[pair("LC_ALL", "vi_VN.UTF-8")], "/p");
         assert_eq!(get(&env, "LC_ALL"), Some("vi_VN.UTF-8"));
         assert_eq!(get(&env, "LANG"), None);
+    }
+
+    #[test]
+    fn session_env_drops_what_the_parent_terminal_and_claude_set() {
+        let leaked = [
+            "CLAUDECODE",
+            "CLAUDE_CODE_ENTRYPOINT",
+            "CLAUDE_CODE_SESSION_ID",
+            "CLAUDE_CODE_SESSION_ACCESS_TOKEN",
+            "CLAUDE_CODE_CHILD_SESSION",
+            "CLAUDE_CODE_MESSAGING_SOCKET",
+            "CLAUDE_CODE_EXECPATH",
+            "CLAUDE_CODE_SSE_PORT",
+            "CLAUDE_PID",
+            "TERM_PROGRAM",
+            "TERM_PROGRAM_VERSION",
+            "TERM_SESSION_ID",
+            "ITERM_SESSION_ID",
+            "ITERM_PROFILE",
+            "VSCODE_PID",
+            "VSCODE_GIT_IPC_HANDLE",
+            "npm_config_prefix",
+            "npm_lifecycle_event",
+        ];
+        let kept = [
+            "CLAUDE_CODE_USE_BEDROCK",
+            "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_BASE_URL",
+            "HOME",
+            "SHELL",
+            "NPM_TOKEN",
+        ];
+        let base: Vec<_> = leaked.iter().chain(&kept).map(|k| pair(k, "v")).collect();
+        let env = session_env(&base, "/p");
+        for k in leaked {
+            assert_eq!(get(&env, k), None, "{k} leaked");
+        }
+        for k in kept {
+            assert_eq!(get(&env, k), Some("v"), "{k} dropped");
+        }
     }
 
     #[test]
