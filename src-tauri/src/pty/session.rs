@@ -1,6 +1,8 @@
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -40,10 +42,38 @@ pub struct PtySession {
     writer: Option<Box<dyn Write + Send>>,
     /// Finishes once the child is reaped.
     waiter: Option<JoinHandle<()>>,
+    killer: ProcessKiller,
+}
+
+/// Ends a session's processes from any thread, without the session itself,
+/// so a thread blocked writing to the session cannot prevent it.
+#[derive(Clone)]
+pub struct ProcessKiller(Arc<Killer>);
+
+struct Killer {
+    /// True once `end` has run; also serialises concurrent calls.
+    ended: Mutex<bool>,
     #[cfg(unix)]
     pgid: libc::pid_t,
+    #[cfg(unix)]
+    reaped: Arc<AtomicBool>,
     #[cfg(windows)]
-    job: Option<job::Job>,
+    job: Mutex<Option<job::Job>>,
+}
+
+impl ProcessKiller {
+    /// Idempotent; ends the whole process group (SIGHUP, SIGTERM, SIGKILL).
+    pub fn end(&self) {
+        let mut ended = self.0.ended.lock().unwrap();
+        if *ended {
+            return;
+        }
+        #[cfg(unix)]
+        end_process_group(self.0.pgid, &self.0.reaped);
+        #[cfg(windows)]
+        drop(self.0.job.lock().unwrap().take());
+        *ended = true;
+    }
 }
 
 enum Event {
@@ -98,6 +128,17 @@ impl PtySession {
             .process_id()
             .ok_or_else(|| io::Error::other("child has no pid"))? as libc::pid_t;
 
+        let reaped = Arc::new(AtomicBool::new(false));
+        let killer = ProcessKiller(Arc::new(Killer {
+            ended: Mutex::new(false),
+            #[cfg(unix)]
+            pgid,
+            #[cfg(unix)]
+            reaped: reaped.clone(),
+            #[cfg(windows)]
+            job: Mutex::new(job),
+        }));
+
         let (tx, rx) = mpsc::channel();
         spawn_reader(reader, tx.clone());
         let waiter = std::thread::spawn(move || {
@@ -105,6 +146,7 @@ impl PtySession {
                 Ok(status) if status.signal().is_none() => Some(status.exit_code() as i32),
                 _ => None,
             };
+            reaped.store(true, Ordering::SeqCst);
             let _ = tx.send(Event::Exited(code));
         });
         std::thread::spawn(move || pump(rx, sink));
@@ -113,11 +155,12 @@ impl PtySession {
             master: Some(pair.master),
             writer: Some(writer),
             waiter: Some(waiter),
-            #[cfg(unix)]
-            pgid,
-            #[cfg(windows)]
-            job,
+            killer,
         })
+    }
+
+    pub fn killer(&self) -> ProcessKiller {
+        self.killer.clone()
     }
 }
 
@@ -140,10 +183,7 @@ impl PaneProcess for PtySession {
         let Some(waiter) = self.waiter.take() else {
             return;
         };
-        #[cfg(unix)]
-        end_process_group(self.pgid, &waiter);
-        #[cfg(windows)]
-        drop(self.job.take());
+        self.killer.end();
         let _ = waiter.join();
         // Only now: portable-pty's writer sends "\n" + VEOF to the terminal when
         // dropped, which a live program would read as Enter and Ctrl-D.
@@ -163,11 +203,11 @@ impl Drop for PtySession {
 /// `KILL_AFTER` after the start. The child is a session leader (portable-pty
 /// calls `setsid`), so its pid is the group id.
 #[cfg(unix)]
-fn end_process_group(pgid: libc::pid_t, waiter: &JoinHandle<()>) {
+fn end_process_group(pgid: libc::pid_t, reaped: &AtomicBool) {
     const TERM_AFTER: Duration = Duration::from_millis(150);
     const KILL_AFTER: Duration = Duration::from_secs(2);
     let start = Instant::now();
-    let done = || waiter.is_finished() && group_is_empty(pgid);
+    let done = || reaped.load(Ordering::SeqCst) && group_is_empty(pgid);
     let done_by = |deadline: Instant| {
         while Instant::now() < deadline {
             if done() {
@@ -538,7 +578,7 @@ mod tests {
         let (sink, probe) = sink();
         let script = "sleep 1000 & sleep 1000 & wait";
         let mut session = PtySession::spawn(sh(script, dir.path().into()), sink).unwrap();
-        let members = wait_for_members(session.pgid, 3);
+        let members = wait_for_members(session.killer.0.pgid, 3);
         assert_eq!(members.len(), 3, "sh and two sleeps: {members:?}");
 
         let start = Instant::now();
@@ -548,7 +588,7 @@ mod tests {
             start.elapsed() < Duration::from_secs(1),
             "SIGHUP should be enough"
         );
-        assert!(group_members(session.pgid).is_empty());
+        assert!(group_members(session.killer.0.pgid).is_empty());
 
         session.close();
         assert!(session.write(b"x").is_err());
@@ -565,7 +605,7 @@ mod tests {
         let (sink, _probe) = sink();
         let script = "trap '' HUP TERM; sleep 1000 & wait";
         let mut session = PtySession::spawn(sh(script, dir.path().into()), sink).unwrap();
-        let members = wait_for_members(session.pgid, 2);
+        let members = wait_for_members(session.killer.0.pgid, 2);
         assert_eq!(members.len(), 2, "{members:?}");
 
         let start = Instant::now();
@@ -583,7 +623,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (sink, _probe) = sink();
         let session = PtySession::spawn(sh("sleep 1000", dir.path().into()), sink).unwrap();
-        let pgid = session.pgid;
+        let pgid = session.killer.0.pgid;
         let members = wait_for_members(pgid, 1);
         drop(session);
         assert_all_gone(&members, Duration::from_secs(3));

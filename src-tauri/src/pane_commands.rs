@@ -1,5 +1,6 @@
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::JoinHandle;
@@ -7,12 +8,12 @@ use std::time::Duration;
 
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::commands::AppState;
 use crate::launcher::{find_in_path, login_shell_path_with, session_env};
 use crate::panes::{OpenError, PaneId, SessionId, Spawner, close_in_parallel};
-use crate::pty::{OutputSink, PaneProcess, PtySession, SpawnSpec};
+use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
 use crate::workspace::{DiskProbe, WorkspaceId};
 
 /// Upper bound on waiting for panes to close when the app quits.
@@ -103,12 +104,7 @@ fn open_blocking(
         cols,
         rows,
     };
-    let exit = Arc::new(Mutex::new(ExitSlot::default()));
-    let sink = ChannelSink {
-        output,
-        app: app.clone(),
-        exit: exit.clone(),
-    };
+    let sink = ChannelSink(output);
     let opened = {
         // Holding `list` keeps the workspace from being removed until the pane is registered.
         let list = state.list.lock().unwrap();
@@ -123,7 +119,6 @@ fn open_blocking(
             .open(&workspace, &spawner, Box::new(sink))
             .map_err(open_error)?
     };
-    exit.lock().unwrap().bind(app, &opened.pane_id);
     Ok(OpenedPane {
         pane_id: opened.pane_id,
         session_id: opened.session_id,
@@ -255,7 +250,13 @@ impl Spawner for PtySpawner<'_> {
             rows: self.rows,
         };
         match PtySession::spawn(spec, sink) {
-            Ok(session) => Some(Box::new(QueuedProcess::new(Box::new(session)))),
+            Ok(session) => {
+                let killer = session.killer();
+                Some(Box::new(QueuedProcess::new(
+                    Box::new(session),
+                    Some(killer),
+                )))
+            }
             Err(e) => {
                 eprintln!("claude could not be started: {e}");
                 None
@@ -264,50 +265,22 @@ impl Spawner for PtySpawner<'_> {
     }
 }
 
-#[derive(Clone, Serialize)]
-struct ExitedPayload {
-    code: Option<i32>,
-}
-
-/// The pane id is only known after the spawn, and the child may exit before
-/// that; such an exit is held until `bind`.
-#[derive(Default)]
-struct ExitSlot {
-    pane: Option<PaneId>,
-    pending: Option<Option<i32>>,
-}
-
-impl ExitSlot {
-    fn bind(&mut self, app: &AppHandle, pane: &PaneId) {
-        self.pane = Some(pane.clone());
-        if let Some(code) = self.pending.take() {
-            emit_exited(app, pane, code);
-        }
-    }
-}
-
-fn emit_exited(app: &AppHandle, pane: &PaneId, code: Option<i32>) {
-    let _ = app.emit(&format!("pane://{}/exited", pane.0), ExitedPayload { code });
-}
-
-struct ChannelSink {
-    output: Channel<InvokeResponseBody>,
-    app: AppHandle,
-    exit: Arc<Mutex<ExitSlot>>,
-}
+/// Output as raw bytes, then the exit as the last message, `{"exited": code}`,
+/// on the same channel so it can neither be missed nor overtake output.
+struct ChannelSink(Channel<InvokeResponseBody>);
 
 impl OutputSink for ChannelSink {
     fn output(&self, chunk: Vec<u8>) {
-        let _ = self.output.send(InvokeResponseBody::Raw(chunk));
+        let _ = self.0.send(InvokeResponseBody::Raw(chunk));
     }
 
     fn exited(&self, code: Option<i32>) {
-        let mut slot = self.exit.lock().unwrap();
-        match &slot.pane {
-            Some(pane) => emit_exited(&self.app, pane, code),
-            None => slot.pending = Some(code),
-        }
+        let _ = self.0.send(exit_message(code));
     }
+}
+
+fn exit_message(code: Option<i32>) -> InvokeResponseBody {
+    InvokeResponseBody::Json(serde_json::json!({ "exited": code }).to_string())
 }
 
 enum Op {
@@ -320,23 +293,40 @@ enum Op {
 pub struct QueuedProcess {
     ops: Option<Sender<Op>>,
     worker: Option<JoinHandle<()>>,
+    /// Ends the processes even while the worker is stuck in a write.
+    killer: Option<ProcessKiller>,
+    closing: Arc<AtomicBool>,
 }
 
 impl QueuedProcess {
-    pub fn new(mut process: Box<dyn PaneProcess>) -> Self {
+    pub fn new(mut process: Box<dyn PaneProcess>, killer: Option<ProcessKiller>) -> Self {
         let (ops, rx) = mpsc::channel();
+        let closing = Arc::new(AtomicBool::new(false));
+        let skip = closing.clone();
         let worker = std::thread::spawn(move || {
+            let mut logged = false;
             for op in rx {
-                let _ = match op {
+                if skip.load(Ordering::SeqCst) {
+                    continue;
+                }
+                let result = match op {
                     Op::Write(data) => process.write(&data),
                     Op::Resize(cols, rows) => process.resize(cols, rows),
                 };
+                if let Err(e) = result
+                    && !logged
+                {
+                    eprintln!("pane input failed: {e}");
+                    logged = true;
+                }
             }
             process.close();
         });
         QueuedProcess {
             ops: Some(ops),
             worker: Some(worker),
+            killer,
+            closing,
         }
     }
 
@@ -357,8 +347,12 @@ impl PaneProcess for QueuedProcess {
         self.send(Op::Resize(cols, rows))
     }
 
-    /// Runs queued work first, then closes the process and waits for it.
+    /// Ends the processes, drops queued work and waits for the worker.
     fn close(&mut self) {
+        self.closing.store(true, Ordering::SeqCst);
+        if let Some(killer) = &self.killer {
+            killer.end();
+        }
         self.ops = None;
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
@@ -375,6 +369,7 @@ impl Drop for QueuedProcess {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Instant;
 
     #[derive(Debug, PartialEq)]
     enum Call {
@@ -400,13 +395,17 @@ mod tests {
     }
 
     #[test]
-    fn queued_process_keeps_order_and_closes_after_queued_work() {
+    fn queued_process_keeps_order_and_closes_the_process() {
         let calls = Arc::new(Mutex::new(Vec::new()));
-        let mut queued = QueuedProcess::new(Box::new(Recorder(calls.clone())));
+        let mut queued = QueuedProcess::new(Box::new(Recorder(calls.clone())), None);
 
         queued.write(b"a").unwrap();
         queued.resize(100, 30).unwrap();
         queued.write(b"b").unwrap();
+        let end = Instant::now() + Duration::from_secs(3);
+        while calls.lock().unwrap().len() < 3 && Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(1));
+        }
         queued.close();
 
         assert_eq!(
@@ -501,6 +500,77 @@ mod tests {
                 .spawn(dir.path(), &SessionId("s".into()), Box::new(Null))
                 .is_none()
         );
+    }
+
+    #[test]
+    fn exit_message_is_json_with_the_code() {
+        for (code, json) in [(Some(7), r#"{"exited":7}"#), (None, r#"{"exited":null}"#)] {
+            match exit_message(code) {
+                InvokeResponseBody::Json(s) => assert_eq!(s, json),
+                InvokeResponseBody::Raw(_) => panic!("exit must be JSON"),
+            }
+        }
+    }
+
+    /// FR-029: a child that stops reading input must not keep close from ending it.
+    #[cfg(unix)]
+    #[test]
+    fn close_ends_a_session_whose_writer_is_stuck() {
+        struct Sink(Arc<Mutex<Vec<u8>>>);
+        impl OutputSink for Sink {
+            fn output(&self, chunk: Vec<u8>) {
+                self.0.lock().unwrap().extend(chunk);
+            }
+            fn exited(&self, _code: Option<i32>) {}
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let out = Arc::new(Mutex::new(Vec::new()));
+        let spec = SpawnSpec {
+            program: "/bin/sh".into(),
+            args: vec![
+                "-c".into(),
+                "stty raw -echo; printf 'pid=%s;' $$; exec sleep 1000".into(),
+            ],
+            cwd: dir.path().into(),
+            env: vec![],
+            cols: 80,
+            rows: 24,
+        };
+        let session = PtySession::spawn(spec, Box::new(Sink(out.clone()))).unwrap();
+        let killer = session.killer();
+        let mut queued = QueuedProcess::new(Box::new(session), Some(killer));
+
+        let pgid = {
+            let end = Instant::now() + Duration::from_secs(3);
+            loop {
+                let text = String::from_utf8_lossy(&out.lock().unwrap()).into_owned();
+                if let Some(pid) = text
+                    .split_once("pid=")
+                    .and_then(|(_, rest)| rest.split_once(';'))
+                    .and_then(|(pid, _)| pid.parse::<libc::pid_t>().ok())
+                {
+                    break pid;
+                }
+                assert!(Instant::now() < end, "no pid in {text:?}");
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        };
+        queued.write(&vec![b'x'; 256 * 1024]).unwrap();
+        queued.write(b"more").unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+
+        let start = Instant::now();
+        queued.close();
+
+        assert!(
+            start.elapsed() < Duration::from_secs(3),
+            "{:?}",
+            start.elapsed()
+        );
+        let rc = unsafe { libc::kill(-pgid, 0) };
+        assert_eq!(rc, -1, "group {pgid} still alive");
+        assert_eq!(io::Error::last_os_error().raw_os_error(), Some(libc::ESRCH));
     }
 
     #[cfg(target_os = "macos")]
