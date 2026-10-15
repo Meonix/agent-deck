@@ -20,14 +20,24 @@ pub fn list_workspaces(state: State<'_, AppState>) -> Vec<WorkspaceView> {
 
 #[tauri::command]
 pub fn add_workspace(path: String, state: State<'_, AppState>) -> Result<AddOutcome, String> {
+    let path = Path::new(&path);
+    validate_folder(path)?;
     let mut list = state.list.lock().unwrap();
-    add_and_save(&mut list, &state.store, Path::new(&path))
+    add_and_save(&mut list, &state.store, path)
 }
 
 #[tauri::command]
 pub fn remove_workspace(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let mut list = state.list.lock().unwrap();
     remove_and_save(&mut list, &state.store, &WorkspaceId(id))
+}
+
+fn validate_folder(path: &Path) -> Result<(), String> {
+    if path.is_absolute() && path.is_dir() {
+        Ok(())
+    } else {
+        Err("invalid_folder".to_string())
+    }
 }
 
 // On a failed save the list is restored, so memory never diverges from disk.
@@ -38,7 +48,9 @@ fn add_and_save(
 ) -> Result<AddOutcome, String> {
     let before = list.paths().to_vec();
     let outcome = list.add(path);
-    if let Err(e) = store.save(list) {
+    if matches!(outcome, AddOutcome::Added(_))
+        && let Err(e) = store.save(list)
+    {
         *list = WorkspaceList::from_paths(before);
         return Err(e.to_string());
     }
@@ -82,6 +94,33 @@ mod tests {
         let mut list = WorkspaceList::from_paths(vec![existing.path().to_path_buf()]);
         assert!(add_and_save(&mut list, &store, new.path()).is_err());
         assert_eq!(list.paths(), [existing.path().to_path_buf()]);
+    }
+
+    #[test]
+    fn duplicate_add_does_not_touch_disk() {
+        let (_f, store) = failing_store();
+        let existing = tempdir().unwrap();
+        // Canonical, so the list recognises the folder (tmp is a symlink on macOS).
+        let canonical = std::fs::canonicalize(existing.path()).unwrap();
+        let mut list = WorkspaceList::from_paths(vec![canonical]);
+        let outcome = add_and_save(&mut list, &store, existing.path()).unwrap();
+        assert!(matches!(outcome, AddOutcome::AlreadyPresent(_)));
+    }
+
+    #[test]
+    fn validate_folder_accepts_existing_absolute_dir() {
+        let dir = tempdir().unwrap();
+        assert_eq!(validate_folder(dir.path()), Ok(()));
+    }
+
+    #[test]
+    fn validate_folder_rejects_relative_missing_and_file() {
+        let dir = tempdir().unwrap();
+        let file = NamedTempFile::new().unwrap();
+        let invalid = Err("invalid_folder".to_string());
+        assert_eq!(validate_folder(Path::new("relative/dir")), invalid);
+        assert_eq!(validate_folder(&dir.path().join("missing")), invalid);
+        assert_eq!(validate_folder(file.path()), invalid);
     }
 
     #[test]
