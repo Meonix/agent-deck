@@ -117,10 +117,10 @@ fn display_name(path: &Path) -> String {
         .into_owned()
 }
 
-// A folder that no longer exists cannot be canonicalized; the component
+// dunce keeps Windows paths free of the \\?\ verbatim prefix. A folder that no longer exists cannot be canonicalized; the component
 // round-trip still drops a trailing separator so duplicates compare equal.
 fn canonical_form(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path).unwrap_or_else(|_| path.components().collect())
+    dunce::canonicalize(path).unwrap_or_else(|_| path.components().collect())
 }
 
 #[cfg(test)]
