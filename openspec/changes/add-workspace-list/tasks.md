@@ -13,9 +13,9 @@
 
 ## 3. Persistence (seam S2)
 
-- [ ] 3.1 `WorkspaceStore::save` + `load` round-trip keeps entries and order (SRS-FR-002), atomic write
-- [ ] 3.2 Remove + save leaves the workspace folder and every file in it untouched (SRS-FR-004)
-- [ ] 3.3 Corrupt `workspaces.json` loads as an empty list and is kept as `workspaces.json.bak`
+- [x] 3.1 `WorkspaceStore::save` + `load` round-trip keeps entries and order (SRS-FR-002), atomic write
+- [x] 3.2 Remove + save leaves the workspace folder and every file in it untouched (SRS-FR-004)
+- [x] 3.3 Corrupt `workspaces.json` loads as an empty list and is kept as `workspaces.json.bak`
 
 ## 4. Tauri commands
 
