@@ -1,0 +1,70 @@
+/* Nguồn: https://cdn.jsdelivr.net/npm/@radix-ui/colors@3.0.0/{slate,slate-dark,iris,iris-dark,green,green-dark,amber,amber-dark,red,red-dark}.css
+   App mới, chưa có màu thương hiệu: xám slate + nhấn iris (chốt ngày 2026-10-16).
+   Màu trạng thái dành riêng: green = Running, amber = Needs Approval, red = Error.
+   Độ tương phản đo bằng script WCAG trong TOKENS.md mục 5. */
+
+:root {
+  --background: #fcfcfd;             /* slate-1 */
+  --foreground: #1c2024;             /* slate-12 · 15.98 AA trên --background */
+  --card: #f9f9fb;                   /* slate-2 */
+  --card-foreground: #1c2024;        /* slate-12 · 15.58 AA trên --card */
+  --muted: #f0f0f3;                  /* slate-3 */
+  --muted-foreground: #60646c;       /* slate-11 · 5.22 AA trên --muted, 5.79 AA trên --background */
+  --accent: #f0f1fe;                 /* iris-3 — nền mục đang chọn */
+  --accent-foreground: #5753c6;      /* iris-11 · 5.41 AA trên --accent */
+  --input: #e8e8ec;                  /* slate-4 */
+  --border: #d9d9e0;                 /* slate-6 */
+  --ring: #9b9ef0;                   /* iris-8 */
+  --primary: #5b5bd6;                /* iris-9 */
+  --primary-foreground: #ffffff;     /* 5.37 AA trên --primary */
+
+  --running: #30a46c;                /* green-9 — chấm, viền trái thẻ; không đặt chữ trắng lên (3.16 AA-large) */
+  --running-bg: #e6f6eb;             /* green-3 */
+  --running-border: #adddc0;         /* green-6 */
+  --running-foreground: #193b2d;     /* green-12 · 11.00 AA trên --running-bg (green-11 chỉ 4.21) */
+
+  --approval: #ffc53d;               /* amber-9 — chấm, viền trái thẻ */
+  --approval-bg: #fff7c2;            /* amber-3 */
+  --approval-border: #f3d673;        /* amber-6 */
+  --approval-foreground: #4f3422;    /* amber-12 · 10.47 AA trên --approval-bg (amber-11 chỉ 4.25) */
+
+  --error: #e5484d;                  /* red-9 — chấm, viền trái thẻ; không đặt chữ trắng lên (3.91 AA-large) */
+  --error-bg: #feebec;               /* red-3 */
+  --error-border: #fdbdbe;           /* red-6 */
+  --error-foreground: #641723;       /* red-12 · 10.84 AA trên --error-bg */
+
+  --radius: 10px;                    /* bo góc kiểu Linear/Raycast (references #1, #3) */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+
+.dark {
+  --background: #111113;             /* slate-dark-1 */
+  --foreground: #edeef0;             /* slate-dark-12 · 16.25 AA */
+  --card: #18191b;                   /* slate-dark-2 */
+  --card-foreground: #edeef0;        /* slate-dark-12 · 15.15 AA trên --card */
+  --muted: #212225;                  /* slate-dark-3 */
+  --muted-foreground: #b0b4ba;       /* slate-dark-11 · 7.64 AA trên --muted, 9.06 AA trên --background */
+  --accent: #202248;                 /* iris-dark-3 */
+  --accent-foreground: #b1a9ff;      /* iris-dark-11 · 7.22 AA trên --accent */
+  --input: #272a2d;                  /* slate-dark-4 */
+  --border: #363a3f;                 /* slate-dark-6 */
+  --ring: #5958b1;                   /* iris-dark-8 */
+  --primary: #5b5bd6;                /* iris-dark-9 */
+  --primary-foreground: #ffffff;     /* 5.37 AA trên --primary */
+
+  --running: #30a46c;                /* green-dark-9 */
+  --running-bg: #132d21;             /* green-dark-3 */
+  --running-border: #20573e;         /* green-dark-6 */
+  --running-foreground: #3dd68c;     /* green-dark-11 · 7.86 AA trên --running-bg */
+
+  --approval: #ffc53d;               /* amber-dark-9 */
+  --approval-bg: #302008;            /* amber-dark-3 */
+  --approval-border: #5c3d05;        /* amber-dark-6 */
+  --approval-foreground: #ffca16;    /* amber-dark-11 · 10.26 AA trên --approval-bg */
+
+  --error: #e5484d;                  /* red-dark-9 */
+  --error-bg: #3b1219;               /* red-dark-3 */
+  --error-border: #72232d;           /* red-dark-6 */
+  --error-foreground: #ff9592;       /* red-dark-11 · 7.75 AA trên --error-bg */
+}
