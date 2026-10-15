@@ -140,12 +140,14 @@ impl PaneProcess for PtySession {
         let Some(waiter) = self.waiter.take() else {
             return;
         };
-        self.writer = None;
         #[cfg(unix)]
         end_process_group(self.pgid, &waiter);
         #[cfg(windows)]
         drop(self.job.take());
         let _ = waiter.join();
+        // Only now: portable-pty's writer sends "\n" + VEOF to the terminal when
+        // dropped, which a live program would read as Enter and Ctrl-D.
+        self.writer = None;
         self.master = None;
     }
 }
@@ -156,26 +158,37 @@ impl Drop for PtySession {
     }
 }
 
-/// SIGHUP then SIGTERM to the group; SIGKILL if the child is not reaped or any
-/// member is still alive after `KILL_AFTER`. The child is a session leader
-/// (portable-pty calls `setsid`), so its pid is the group id.
+/// SIGHUP, then SIGTERM after `TERM_AFTER` so a hangup handler can finish,
+/// then SIGKILL if the child is not reaped or any member is still alive
+/// `KILL_AFTER` after the start. The child is a session leader (portable-pty
+/// calls `setsid`), so its pid is the group id.
 #[cfg(unix)]
 fn end_process_group(pgid: libc::pid_t, waiter: &JoinHandle<()>) {
+    const TERM_AFTER: Duration = Duration::from_millis(150);
     const KILL_AFTER: Duration = Duration::from_secs(2);
+    let start = Instant::now();
     let done = || waiter.is_finished() && group_is_empty(pgid);
+    let done_by = |deadline: Instant| {
+        while Instant::now() < deadline {
+            if done() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        done()
+    };
     // Once the group is empty its id may be reused, so it must not be signalled.
     if done() {
         return;
     }
     let signal = |sig| unsafe { libc::killpg(pgid, sig) };
     signal(libc::SIGHUP);
+    if done_by(start + TERM_AFTER) {
+        return;
+    }
     signal(libc::SIGTERM);
-    let deadline = Instant::now() + KILL_AFTER;
-    while Instant::now() < deadline {
-        if done() {
-            return;
-        }
-        std::thread::sleep(Duration::from_millis(10));
+    if done_by(start + KILL_AFTER) {
+        return;
     }
     signal(libc::SIGKILL);
 }
@@ -592,6 +605,34 @@ mod tests {
             start.elapsed() < Duration::from_millis(500),
             "{:?}",
             start.elapsed()
+        );
+    }
+
+    #[test]
+    fn close_types_nothing_into_the_session() {
+        let dir = tempfile::tempdir().unwrap();
+        let (sink, probe) = sink();
+        let script = "trap '' HUP TERM; printf ready; IFS= read -r x; echo got > marker";
+        let mut session = PtySession::spawn(sh(script, dir.path().into()), sink).unwrap();
+        assert!(probe.wait_for(Duration::from_secs(3), |t| t.contains("ready")));
+
+        session.close();
+        assert!(!dir.path().join("marker").exists(), "close sent input");
+    }
+
+    #[test]
+    fn close_gives_a_sighup_handler_time_before_sigterm() {
+        let dir = tempfile::tempdir().unwrap();
+        let (sink, probe) = sink();
+        let script = "trap 'sleep 0.05; [ -e term ] || echo ok > hup_clean; exit 0' HUP; \
+                      trap 'echo > term' TERM; printf ready; sleep 1000 & wait";
+        let mut session = PtySession::spawn(sh(script, dir.path().into()), sink).unwrap();
+        assert!(probe.wait_for(Duration::from_secs(3), |t| t.contains("ready")));
+
+        session.close();
+        assert!(
+            dir.path().join("hup_clean").exists(),
+            "SIGTERM came during the HUP handler"
         );
     }
 }
