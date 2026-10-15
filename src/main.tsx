@@ -1,6 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { tauriSessionsClient } from "./api/sessions";
+import { tauriWorkspacesClient } from "./api/workspaces";
 import App from "./App";
+import { createXtermAdapter } from "./components/xtermAdapter";
 import "./index.css";
 
 const darkScheme = window.matchMedia("(prefers-color-scheme: dark)");
@@ -10,6 +13,6 @@ darkScheme.addEventListener("change", applyScheme);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <App workspaces={tauriWorkspacesClient} sessions={tauriSessionsClient} createTerminal={createXtermAdapter} />
   </React.StrictMode>,
 );

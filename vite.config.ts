@@ -10,6 +10,10 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
 
+  // The bundle is loaded from disk by the Tauri webview, so splitting it gains nothing;
+  // xterm and its WebGL renderer push the single bundle past the 500 kB default.
+  build: { chunkSizeWarningLimit: 1024 },
+
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],

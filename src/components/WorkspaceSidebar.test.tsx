@@ -2,7 +2,11 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Workspace, WorkspacesClient } from "../api/workspaces";
-import { WorkspaceSidebar } from "./WorkspaceSidebar";
+import App from "../App";
+import { fakeAdapter, fakeSessions } from "../test/fakes";
+
+const renderSidebar = (client: WorkspacesClient) =>
+  render(<App workspaces={client} sessions={fakeSessions()} createTerminal={() => fakeAdapter()} />);
 
 const ws = (id: string, name: string, missing = false): Workspace => ({
   id,
@@ -34,14 +38,14 @@ function fakeClient(initial: Workspace[], over: Partial<WorkspacesClient> = {}) 
 
 describe("listing (5.1)", () => {
   it("renders each folder name", async () => {
-    render(<WorkspaceSidebar client={fakeClient([ws("a", "alpha"), ws("b", "beta")])} />);
+    renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
     expect(await screen.findByText("alpha")).toBeInTheDocument();
     expect(screen.getByText("beta")).toBeInTheDocument();
     expect(screen.getByText("Folders")).toBeInTheDocument();
   });
 
   it("shows Missing only on a missing entry", async () => {
-    render(<WorkspaceSidebar client={fakeClient([ws("a", "alpha"), ws("b", "beta", true)])} />);
+    renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta", true)]));
     const row = (await screen.findByText("beta")).closest("li") as HTMLElement;
     expect(within(row).getByText("Missing")).toBeInTheDocument();
     expect(screen.getAllByText("Missing")).toHaveLength(1);
@@ -49,7 +53,7 @@ describe("listing (5.1)", () => {
 
   it("highlights the clicked entry", async () => {
     const user = userEvent.setup();
-    render(<WorkspaceSidebar client={fakeClient([ws("a", "alpha"), ws("b", "beta")])} />);
+    renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
     await user.click(await screen.findByText("beta"));
     expect(screen.getByText("beta").closest("li")).toHaveAttribute("aria-current", "true");
     expect(screen.getByText("alpha").closest("li")).not.toHaveAttribute("aria-current");
@@ -60,7 +64,7 @@ describe("adding (5.2)", () => {
   it("leaves the list unchanged when the picker is cancelled", async () => {
     const user = userEvent.setup();
     const client = fakeClient([ws("a", "alpha")]);
-    render(<WorkspaceSidebar client={client} />);
+    renderSidebar(client);
     await screen.findByText("alpha");
     await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
     expect(client.pickFolder).toHaveBeenCalled();
@@ -71,7 +75,7 @@ describe("adding (5.2)", () => {
   it("adds a picked folder and selects it", async () => {
     const user = userEvent.setup();
     const client = fakeClient([ws("a", "alpha")], { pickFolder: vi.fn(async () => "/p/gamma") });
-    render(<WorkspaceSidebar client={client} />);
+    renderSidebar(client);
     await screen.findByText("alpha");
     await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
     const added = await screen.findByText("gamma");
@@ -84,7 +88,7 @@ describe("adding (5.2)", () => {
     const client = fakeClient([ws("a", "alpha"), ws("b", "beta")], {
       pickFolder: vi.fn(async () => "/p/beta"),
     });
-    render(<WorkspaceSidebar client={client} />);
+    renderSidebar(client);
     await screen.findByText("beta");
     await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
     await vi.waitFor(() =>
@@ -97,7 +101,7 @@ describe("adding (5.2)", () => {
 describe("removing (5.3)", () => {
   it("removes the entry on success", async () => {
     const user = userEvent.setup();
-    render(<WorkspaceSidebar client={fakeClient([ws("a", "alpha"), ws("b", "beta")])} />);
+    renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
     const row = (await screen.findByText("alpha")).closest("li") as HTMLElement;
     await user.click(within(row).getByRole("button", { name: /^Remove / }));
     await vi.waitFor(() => expect(screen.queryByText("alpha")).not.toBeInTheDocument());
@@ -109,7 +113,7 @@ describe("removing (5.3)", () => {
     const client = fakeClient([ws("a", "alpha")], {
       remove: vi.fn(async () => ({ ok: false as const, reason: "has_open_panes" as const })),
     });
-    render(<WorkspaceSidebar client={client} />);
+    renderSidebar(client);
     const row = (await screen.findByText("alpha")).closest("li") as HTMLElement;
     await user.click(within(row).getByRole("button", { name: /^Remove / }));
     expect(
@@ -123,7 +127,7 @@ describe("empty state (5.4)", () => {
   it("shows No folders yet with a working Add Folder button", async () => {
     const user = userEvent.setup();
     const client = fakeClient([], { pickFolder: vi.fn(async () => "/p/gamma") });
-    render(<WorkspaceSidebar client={client} />);
+    renderSidebar(client);
     expect(await screen.findByText("No folders yet")).toBeInTheDocument();
     expect(screen.getByText("Add a folder you work in with Claude Code.")).toBeInTheDocument();
     const main = screen.getByRole("main");
@@ -137,7 +141,7 @@ describe("robustness (fix round 1)", () => {
   const reject = (m: string) => vi.fn(async () => Promise.reject(new Error(m)));
 
   it("shows a toast and still renders when the first load fails", async () => {
-    render(<WorkspaceSidebar client={fakeClient([], { list: reject("disk") })} />);
+    renderSidebar(fakeClient([], { list: reject("disk") }));
     expect(await screen.findByText("Could not load folders: disk")).toBeInTheDocument();
     expect(screen.getByText("Folders")).toBeInTheDocument();
     expect(screen.getByText("No folders yet")).toBeInTheDocument();
@@ -149,7 +153,7 @@ describe("robustness (fix round 1)", () => {
       pickFolder: vi.fn(async () => "/p/x"),
       add: reject("boom"),
     });
-    render(<WorkspaceSidebar client={client} />);
+    renderSidebar(client);
     await screen.findByText("alpha");
     await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
     expect(await screen.findByText("Could not add folder: boom")).toBeInTheDocument();
@@ -158,7 +162,7 @@ describe("robustness (fix round 1)", () => {
   it("shows a toast when remove rejects", async () => {
     const user = userEvent.setup();
     const client = fakeClient([ws("a", "alpha")], { remove: reject("nope") });
-    render(<WorkspaceSidebar client={client} />);
+    renderSidebar(client);
     await screen.findByText("alpha");
     await user.click(screen.getByRole("button", { name: "Remove alpha" }));
     expect(await screen.findByText("Could not remove folder: nope")).toBeInTheDocument();
@@ -170,7 +174,7 @@ describe("robustness (fix round 1)", () => {
     const client = fakeClient([ws("a", "alpha")], {
       pickFolder: vi.fn(() => new Promise<string | null>((r) => (release = r))),
     });
-    render(<WorkspaceSidebar client={client} />);
+    renderSidebar(client);
     await screen.findByText("alpha");
     await user.dblClick(screen.getByRole("button", { name: "+ Add Folder" }));
     expect(client.pickFolder).toHaveBeenCalledTimes(1);
@@ -182,7 +186,7 @@ describe("robustness (fix round 1)", () => {
 
   it("selects a row from the keyboard", async () => {
     const user = userEvent.setup();
-    render(<WorkspaceSidebar client={fakeClient([ws("a", "alpha"), ws("b", "beta")])} />);
+    renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
     await screen.findByText("beta");
     await user.tab();
     await user.tab();
@@ -191,7 +195,7 @@ describe("robustness (fix round 1)", () => {
   });
 
   it("gives each Remove button a distinct name and exposes Missing", async () => {
-    render(<WorkspaceSidebar client={fakeClient([ws("a", "alpha"), ws("b", "beta", true)])} />);
+    renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta", true)]));
     await screen.findByText("beta");
     expect(screen.getByRole("button", { name: "Remove alpha" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove beta" })).toBeInTheDocument();

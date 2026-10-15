@@ -22,10 +22,10 @@
 
 ## 5. UI (seam S6)
 
-- [ ] 5.1 `SessionsClient` (TS) over the commands and the binary channel; npm `@xterm/xterm`, `@xterm/addon-fit`, `@xterm/addon-webgl`
-- [ ] 5.2 `insertRight` and `PaneGrid`: new pane right of the focused one, equal columns (SRS-FR-021)
-- [ ] 5.3 `TerminalPane` with `TerminalAdapter` (xterm + fit + webgl fallback): focus on open (SRS-FR-014), fit on resize → `pane_resize` (SRS-FR-024), "Claude Code could not be started" (SRS-FR-017), "Session ended" keeps scrollback (SRS-FR-028), close (SRS-FR-029), header `<workspace> · <title>` refreshed every 10 s (SRS-FR-030)
-- [ ] 5.4 Sidebar Sessions header with "New Session"; `Missing` workspace → "Folder not found" toast, no client call (SRS-FR-018, SRS-FR-020); dev-only latency log for the NFR-002 demo
+- [x] 5.1 `SessionsClient` (TS) over the commands and the binary channel; npm `@xterm/xterm`, `@xterm/addon-fit`, `@xterm/addon-webgl`
+- [x] 5.2 `insertRight` and `PaneGrid`: new pane right of the focused one, equal columns (SRS-FR-021)
+- [x] 5.3 `TerminalPane` with `TerminalAdapter` (xterm + fit + webgl fallback): focus on open (SRS-FR-014), fit on resize → `pane_resize` (SRS-FR-024), "Claude Code could not be started" (SRS-FR-017), "Session ended" keeps scrollback (SRS-FR-028), close (SRS-FR-029), header `<workspace> · <title>` refreshed every 10 s (SRS-FR-030)
+- [x] 5.4 Sidebar Sessions header with "New Session"; `Missing` workspace → "Folder not found" toast, no client call (SRS-FR-018, SRS-FR-020); dev-only latency log for the NFR-002 demo
 
 ## 6. Verification
 
