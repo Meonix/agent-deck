@@ -3,6 +3,7 @@ pub mod launcher;
 mod pane_commands;
 pub mod panes;
 pub mod pty;
+pub mod session_title;
 pub mod workspace;
 
 use std::sync::Mutex;
@@ -36,6 +37,7 @@ pub fn run() {
             pane_commands::open_pane,
             pane_commands::pane_write,
             pane_commands::pane_resize,
+            pane_commands::pane_title,
             pane_commands::close_pane
         ])
         .build(tauri::generate_context!())

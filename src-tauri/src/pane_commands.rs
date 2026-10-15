@@ -14,6 +14,7 @@ use crate::commands::AppState;
 use crate::launcher::{find_in_path, login_shell_path_with, session_env};
 use crate::panes::{OpenError, PaneId, SessionId, Spawner, close_in_parallel};
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
+use crate::session_title::{UNTITLED, session_title};
 use crate::workspace::{DiskProbe, WorkspaceId};
 
 /// Upper bound on waiting for panes to close when the app quits.
@@ -64,6 +65,16 @@ pub fn pane_resize(
 ) -> Result<(), String> {
     let mut panes = state.panes.lock().unwrap();
     panes.resize(&PaneId(pane_id), cols, rows).map_err(io_error)
+}
+
+#[tauri::command]
+pub fn pane_title(pane_id: String, app: AppHandle, state: State<'_, AppState>) -> String {
+    // Copy the id out and release the lock before touching the disk.
+    let session = state.panes.lock().unwrap().session_of(&PaneId(pane_id));
+    let (Some(session), Ok(home)) = (session, app.path().home_dir()) else {
+        return UNTITLED.to_string();
+    };
+    session_title(&home.join(".claude").join("projects"), &session.0)
 }
 
 #[tauri::command]

@@ -18,7 +18,7 @@
 
 ## 4. Session title (seam S5)
 
-- [ ] 4.1 `session_title(projects_dir, session_id)` per RULE-01 (`ai-title` → `last-prompt` → "(untitled)"), parse failures → "(untitled)"; command `pane_title(pane_id)` (SRS-FR-030)
+- [x] 4.1 `session_title(projects_dir, session_id)` per RULE-01 (`ai-title` → `last-prompt` → "(untitled)"), parse failures → "(untitled)"; command `pane_title(pane_id)` (SRS-FR-030)
 
 ## 5. UI (seam S6)
 
