@@ -31,5 +31,5 @@
 ## 6. Verification
 
 - [ ] 6.1 Run `cargo test`, `npm test`, `npm run build`, `npm run tauri build` on macOS and paste the output
-- [ ] 6.2 macOS demo: walk the 6 `workspace-list` scenarios in the built `.app` (SRS-NFR-004 macOS scenario)
+- [ ] 6.2 macOS demo: walk the `workspace-list` scenarios in the built `.app` (SRS-NFR-004 macOS scenario); SRS-FR-006 cannot occur in the app until add-session-pane wires real panes, so it stays proven by `remove_is_blocked_while_panes_are_open` and the Vitest blocked-removal test
 - [ ] 6.3 Windows 11 demo — deferred by the PO on 2026-10-16; leave unchecked and say so in the report
