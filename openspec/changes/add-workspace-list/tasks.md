@@ -6,10 +6,10 @@
 
 ## 2. Workspace rules in Rust (seam S1)
 
-- [ ] 2.1 `WorkspaceList::add` adds a new entry named after the folder (SRS-FR-001) — RED → GREEN → REFACTOR
-- [ ] 2.2 `add` of an existing canonical path returns `AlreadyPresent` with the existing id and adds nothing (SRS-FR-003)
-- [ ] 2.3 `entries` marks an entry `Missing` when `FolderProbe` says the folder is gone (SRS-FR-005)
-- [ ] 2.4 `remove` deletes the entry when `OpenPanes` reports none, and returns `RemoveError::HasOpenPanes` otherwise (SRS-FR-004, SRS-FR-006)
+- [x] 2.1 `WorkspaceList::add` adds a new entry named after the folder (SRS-FR-001) — RED → GREEN → REFACTOR
+- [x] 2.2 `add` of an existing canonical path returns `AlreadyPresent` with the existing id and adds nothing (SRS-FR-003)
+- [x] 2.3 `entries` marks an entry `Missing` when `FolderProbe` says the folder is gone (SRS-FR-005)
+- [x] 2.4 `remove` deletes the entry when `OpenPanes` reports none, and returns `RemoveError::HasOpenPanes` otherwise (SRS-FR-004, SRS-FR-006)
 
 ## 3. Persistence (seam S2)
 
