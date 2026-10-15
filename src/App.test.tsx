@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Workspace, WorkspacesClient } from "./api/workspaces";
 import App from "./App";
+import type { TerminalSize } from "./components/TerminalPane";
 import { fakeAdapter, fakeSessions, type FakeAdapter, type FakeSessions } from "./test/fakes";
 
 const ws = (id: string, name: string, missing = false): Workspace => ({ id, name, path: `/p/${name}`, missing });
@@ -16,10 +17,10 @@ function workspacesClient(items: Workspace[]): WorkspacesClient {
   };
 }
 
-function setup(items: Workspace[], sessions: FakeSessions = fakeSessions()) {
+function setup(items: Workspace[], sessions: FakeSessions = fakeSessions(), size?: TerminalSize) {
   const adapters: FakeAdapter[] = [];
   const createTerminal = vi.fn(() => {
-    const a = fakeAdapter();
+    const a = fakeAdapter(size);
     adapters.push(a);
     return a;
   });
@@ -61,10 +62,12 @@ describe("New Session (5.4)", () => {
 
   it("shows Folder not found when the backend reports the folder missing", async () => {
     const sessions = fakeSessions({ open: vi.fn(async () => Promise.reject("folder_missing")) });
-    const { user } = setup([ws("a", "agent-deck")], sessions);
+    const { user, adapters } = setup([ws("a", "agent-deck")], sessions);
     await selectAndStart(user, "agent-deck");
     expect(await screen.findByText("Folder not found")).toBeInTheDocument();
     expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument();
+    expect(adapters).toHaveLength(1);
+    expect(adapters[0].dispose).toHaveBeenCalled();
   });
 
   it("opens a pane titled after the folder, focuses it, then shows the session title", async () => {
@@ -115,10 +118,34 @@ describe("New Session (5.4)", () => {
   });
 
   it("shows the start failure without a terminal when Claude Code did not start", async () => {
-    const { user, createTerminal } = setup([ws("a", "agent-deck")], fakeSessions({ started: false }));
+    const { user, adapters } = setup([ws("a", "agent-deck")], fakeSessions({ started: false }));
     await selectAndStart(user, "agent-deck");
     expect(await screen.findByText("Claude Code could not be started")).toBeInTheDocument();
-    expect(createTerminal).not.toHaveBeenCalled();
+    // The terminal made to measure the pane is not kept.
+    expect(adapters).toHaveLength(1);
+    expect(adapters[0].dispose).toHaveBeenCalled();
+  });
+
+  it("opens the session at the size its pane will have (M1)", async () => {
+    const { user, sessions, adapters } = setup([ws("a", "agent-deck")], fakeSessions(), { cols: 132, rows: 40 });
+    vi.spyOn(screen.getByRole("main"), "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 1000, 600));
+    await selectAndStart(user, "agent-deck");
+    await screen.findByTestId("pane-grid");
+
+    expect(sessions.open).toHaveBeenCalledWith("a", 132, 40);
+    const [first] = adapters;
+    const probe = vi.mocked(first.open).mock.calls[0][0];
+    expect([probe.style.width, probe.style.height]).toEqual(["974px", "545px"]);
+    expect(probe.isConnected).toBe(false);
+    expect(vi.mocked(first.fit).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(sessions.open).mock.invocationCallOrder[0],
+    );
+    expect(first.container).not.toBe(probe);
+    expect(sessions.resize).not.toHaveBeenCalled();
+
+    await user.click(newSessionButton());
+    await vi.waitFor(() => expect(adapters).toHaveLength(2));
+    expect(vi.mocked(adapters[1].open).mock.calls[0][0].style.width).toBe("478px");
   });
 
   it("keeps earlier output and shows Session ended when the session exits", async () => {

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { insertRight } from "./paneLayout";
+import { insertRight, paneBodySize } from "./paneLayout";
 import { PaneGrid } from "./PaneGrid";
 
 describe("insertRight (5.2)", () => {
@@ -33,5 +33,17 @@ describe("PaneGrid (5.2)", () => {
     const grid = screen.getByTestId("pane-grid");
     expect(grid.style.gridTemplateColumns).toBe("repeat(3, minmax(0,1fr))");
     expect([...grid.children].map((c) => c.getAttribute("aria-label"))).toEqual(["one", "two", "three"]);
+  });
+});
+
+describe("paneBodySize (M1)", () => {
+  it("splits the grid into equal columns and leaves out the pane chrome", () => {
+    // (1000 - 2×8 padding - 8 gap) / 2 = 488 per pane, less 2 border and 8 body padding;
+    // 600 less 16 padding, 2 border, 29 header and 8 body padding.
+    expect(paneBodySize({ width: 1000, height: 600 }, 2)).toEqual({ width: 478, height: 545 });
+  });
+
+  it("never goes below zero", () => {
+    expect(paneBodySize({ width: 10, height: 10 }, 3)).toEqual({ width: 0, height: 0 });
   });
 });

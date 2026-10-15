@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { SessionsClient } from "./api/sessions";
 import type { WorkspacesClient } from "./api/workspaces";
 import { PaneGrid } from "./components/PaneGrid";
@@ -29,7 +30,8 @@ function App(deps: Deps) {
 function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: Deps) {
   const workspaces = useWorkspaces(workspacesClient);
   const { refresh } = workspaces;
-  const panes = useSessionPanes(sessions, createTerminal, () => void refresh().catch(() => {}));
+  const paneArea = useRef<HTMLElement>(null);
+  const panes = useSessionPanes(sessions, createTerminal, () => void refresh().catch(() => {}), paneArea);
   const newSession = () => {
     if (workspaces.selected) void panes.newSession(workspaces.selected);
   };
@@ -37,7 +39,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
   return (
     <div className="flex-1 min-h-0 grid grid-cols-[240px_1fr]">
       <WorkspaceSidebar workspaces={workspaces} onNewSession={newSession} />
-      <main className="min-h-0 min-w-0">
+      <main ref={paneArea} className="min-h-0 min-w-0">
         {panes.entries.length > 0 ? (
           <PaneGrid>
             {panes.entries.map((entry) => (
