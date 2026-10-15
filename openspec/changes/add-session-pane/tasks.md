@@ -29,6 +29,6 @@
 
 ## 6. Verification
 
-- [ ] 6.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app` and paste the output
+- [x] 6.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app` and paste the output
 - [ ] 6.2 macOS demo in the built `.app` started from Finder: New Session runs `claude`; Telex "sửa lỗi đăng nhập" (SRS-FR-026); colours/selection/copy/paste/mouse vs Terminal.app (SRS-FR-025); second pane splits right and the first reflows (SRS-FR-021, SRS-FR-024); `/exit` → "Session ended"; close pane → `ps` shows no leftover `claude`; remove a folder with an open pane → blocked (SRS-FR-006); latency log p95 ≤ 100 ms measured in `npm run tauri dev` (Web Inspector console; the release build has no devtools) (SRS-NFR-002)
 - [ ] 6.3 Windows 11 — deferred by the PO; leave unchecked
