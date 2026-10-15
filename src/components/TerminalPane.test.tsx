@@ -140,6 +140,51 @@ describe("TerminalPane (5.3)", () => {
     expect(client.resize).not.toHaveBeenCalled();
   });
 
+  it("opens xterm in a container without padding, so the fit matches the visible area", async () => {
+    const adapter = fakeAdapter();
+    renderPane(entry(adapter));
+    await flush();
+    expect(adapter.container).not.toBeNull();
+    expect(adapter.container!.className).not.toMatch(/(^|\s)p[xytrbl]?-/);
+  });
+
+  it("sends binary input such as mouse reports to the session, until it ends", async () => {
+    const adapter = fakeAdapter();
+    const { client, view } = renderPane(entry(adapter));
+    await flush();
+    adapter.sendBinary("\x1b[M #!");
+    expect(client.write).toHaveBeenCalledWith("p1", "\x1b[M #!");
+    view.rerender(
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused onFocus={vi.fn()} onClose={vi.fn()} />,
+    );
+    adapter.sendBinary("\x1b[M #!");
+    expect(client.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("never asks for the title of a pane that did not start", async () => {
+    vi.useFakeTimers();
+    const client = fakeSessions();
+    renderPane(entry(null), client);
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(client.title).not.toHaveBeenCalled();
+    expect(screen.getByRole("region", { name: "agent-deck · (untitled)" })).toBeInTheDocument();
+  });
+
+  it("stops polling the title once the session has ended and keeps the last one", async () => {
+    vi.useFakeTimers();
+    const adapter = fakeAdapter();
+    const client = fakeSessions({ titles: ["Fix login"] });
+    const { view } = renderPane(entry(adapter), client);
+    await act(async () => {});
+    expect(client.title).toHaveBeenCalledTimes(1);
+    view.rerender(
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused onFocus={vi.fn()} onClose={vi.fn()} />,
+    );
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(client.title).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("region", { name: "agent-deck · Fix login" })).toBeInTheDocument();
+  });
+
   it("asks the parent to close it from the close button", async () => {
     const user = userEvent.setup();
     const { on } = renderPane(entry(fakeAdapter()));

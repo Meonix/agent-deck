@@ -6,8 +6,10 @@ export type TerminalSize = { cols: number; rows: number };
 export interface TerminalAdapter {
   open(container: HTMLElement): void;
   write(bytes: Uint8Array): void;
-  /** Returns a function that removes the listener. */
+  /** Typed and composed (IME) text. Returns a function that removes the listener. */
   onData(cb: (data: string) => void): () => void;
+  /** Input that is not text, such as some mouse reports. Returns a function that removes the listener. */
+  onBinary(cb: (data: string) => void): () => void;
   focus(): void;
   fit(): TerminalSize;
   dispose(): void;
@@ -44,7 +46,7 @@ export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props
   const endedRef = useRef(ended);
   endedRef.current = ended;
   const lastSize = useRef(openedSize);
-  const title = useTitle(client, paneId);
+  const title = useTitle(client, paneId, pane.started && !ended);
 
   useEffect(() => {
     const container = body.current;
@@ -60,13 +62,16 @@ export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props
       if (!endedRef.current) client.resize(paneId, size.cols, size.rows).catch(() => {});
     };
     fit();
-    const stopInput = adapter.onData((data) => {
+    const send = (data: string) => {
       if (!endedRef.current) client.write(paneId, data).catch(() => {});
-    });
+    };
+    const stopData = adapter.onData(send);
+    const stopBinary = adapter.onBinary(send);
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
     observer?.observe(container);
     return () => {
-      stopInput();
+      stopData();
+      stopBinary();
       observer?.disconnect();
     };
   }, [adapter, client, paneId]);
@@ -91,7 +96,11 @@ export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props
         </span>
       </header>
       {pane.started ? (
-        <div ref={body} className="flex-1 min-h-0 p-1" />
+        // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
+        // so the padding sits on a wrapper and xterm gets an unpadded container.
+        <div className="flex-1 min-h-0 min-w-0 flex p-1">
+          <div ref={body} className="flex-1 min-h-0 min-w-0" />
+        </div>
       ) : (
         <div className="flex-1 p-3 font-mono text-xs leading-5 text-foreground">
           <div>Claude Code could not be started</div>
@@ -105,9 +114,11 @@ export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props
   );
 }
 
-function useTitle(client: SessionsClient, paneId: string): string {
+/** Polls only while `polling`: a session that never started or has ended gets no new title. */
+function useTitle(client: SessionsClient, paneId: string, polling: boolean): string {
   const [title, setTitle] = useState(UNTITLED);
   useEffect(() => {
+    if (!polling) return;
     let live = true;
     // A failed lookup keeps the last title; the next tick tries again.
     const load = () =>
@@ -121,6 +132,6 @@ function useTitle(client: SessionsClient, paneId: string): string {
       live = false;
       clearInterval(timer);
     };
-  }, [client, paneId]);
+  }, [client, paneId, polling]);
   return title;
 }

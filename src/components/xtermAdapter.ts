@@ -47,6 +47,10 @@ export function createXtermAdapter(): TerminalAdapter {
       const subscription = terminal.onData(cb);
       return () => subscription.dispose();
     },
+    onBinary(cb) {
+      const subscription = terminal.onBinary(cb);
+      return () => subscription.dispose();
+    },
     focus: () => terminal.focus(),
     fit() {
       fitAddon.fit();

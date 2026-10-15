@@ -29,6 +29,8 @@ export function withLatencyLog(
     focus: () => adapter.focus(),
     fit: () => adapter.fit(),
     dispose: () => adapter.dispose(),
+    // Mouse reports are not keystrokes; they pass through untimed.
+    onBinary: (cb) => adapter.onBinary(cb),
     onData: (cb) =>
       adapter.onData((data) => {
         waitingSince ??= now();

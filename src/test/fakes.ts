@@ -7,11 +7,13 @@ export type FakeAdapter = TerminalAdapter & {
   written: string[];
   container: HTMLElement | null;
   type(data: string): void;
+  sendBinary(data: string): void;
   inputWired(): boolean;
 };
 
 export function fakeAdapter(size: TerminalSize = { cols: 80, rows: 24 }): FakeAdapter {
   let dataCb: ((data: string) => void) | null = null;
+  let binaryCb: ((data: string) => void) | null = null;
   const adapter: FakeAdapter = {
     size,
     written: [],
@@ -28,10 +30,17 @@ export function fakeAdapter(size: TerminalSize = { cols: 80, rows: 24 }): FakeAd
         if (dataCb === cb) dataCb = null;
       };
     }),
+    onBinary: vi.fn((cb: (data: string) => void) => {
+      binaryCb = cb;
+      return () => {
+        if (binaryCb === cb) binaryCb = null;
+      };
+    }),
     focus: vi.fn(),
     fit: vi.fn(() => ({ ...adapter.size })),
     dispose: vi.fn(),
     type: (data) => dataCb?.(data),
+    sendBinary: (data) => binaryCb?.(data),
     inputWired: () => dataCb !== null,
   };
   return adapter;
