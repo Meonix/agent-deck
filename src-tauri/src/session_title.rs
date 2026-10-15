@@ -11,13 +11,17 @@ pub fn session_title(projects_dir: &Path, session_id: &str) -> String {
     let Some(file) = find_session_file(projects_dir, session_id) else {
         return UNTITLED.to_string();
     };
-    let Ok(text) = fs::read_to_string(file) else {
+    let Ok(bytes) = fs::read(file) else {
         return UNTITLED.to_string();
     };
     let mut ai_title = None;
     let mut last_prompt = None;
-    for line in text.lines() {
-        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+    for line in bytes.split(|&b| b == b'\n') {
+        // Cheap filter: most lines are conversation records that never need parsing.
+        if !contains(line, b"\"ai-title\"") && !contains(line, b"\"last-prompt\"") {
+            continue;
+        }
+        let Ok(value) = serde_json::from_slice::<serde_json::Value>(line) else {
             continue;
         };
         let (slot, field) = match value.get("type").and_then(|t| t.as_str()) {
@@ -37,6 +41,10 @@ pub fn session_title(projects_dir: &Path, session_id: &str) -> String {
     ai_title
         .or(last_prompt)
         .unwrap_or_else(|| UNTITLED.to_string())
+}
+
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack.windows(needle.len()).any(|w| w == needle)
 }
 
 fn find_session_file(projects_dir: &Path, session_id: &str) -> Option<PathBuf> {
@@ -143,5 +151,40 @@ mod tests {
         write_session(&root, "-a", "s0", &[r#"{"type":"ai-title","aiTitle":"A"}"#]);
         write_session(&root, "-b", "s1", &[r#"{"type":"ai-title","aiTitle":"B"}"#]);
         assert_eq!(session_title(root.path(), "s1"), "B");
+    }
+
+    #[test]
+    fn large_file_with_title_at_the_end() {
+        let root = TempDir::new().unwrap();
+        let dir = root.path().join("p");
+        fs::create_dir_all(&dir).unwrap();
+        let filler = format!("{{\"type\":\"user\",\"text\":\"{}\"}}\n", "x".repeat(1000));
+        let mut data = filler.repeat(20_000);
+        data.push_str(r#"{"type":"ai-title","aiTitle":"Tail"}"#);
+        fs::write(dir.join("s1.jsonl"), data).unwrap();
+        assert_eq!(session_title(root.path(), "s1"), "Tail");
+    }
+
+    #[test]
+    fn invalid_utf8_line_is_skipped() {
+        let root = TempDir::new().unwrap();
+        let dir = root.path().join("p");
+        fs::create_dir_all(&dir).unwrap();
+        let mut data = b"{\"type\":\"ai-title\",\"aiTitle\":\"Ok\"}\n".to_vec();
+        data.extend_from_slice(b"{\"type\":\"ai-title\",\"aiTitle\":\"\xff\xfe\"}\n");
+        fs::write(dir.join("s1.jsonl"), data).unwrap();
+        assert_eq!(session_title(root.path(), "s1"), "Ok");
+    }
+
+    #[test]
+    fn vietnamese_prompt_truncates_on_char_boundary() {
+        let root = TempDir::new().unwrap();
+        let prompt = "ứng dụng quản lý đồng thời nhiều phiên làm việc ".repeat(5);
+        let line = serde_json::json!({"type":"last-prompt","lastPrompt":prompt}).to_string();
+        write_session(&root, "p", "s1", &[&line]);
+        let got = session_title(root.path(), "s1");
+        assert_eq!(got.chars().count(), 80);
+        assert!(got.ends_with('…'));
+        assert!(got.starts_with("ứng dụng"));
     }
 }

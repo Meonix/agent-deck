@@ -68,13 +68,22 @@ pub fn pane_resize(
 }
 
 #[tauri::command]
-pub fn pane_title(pane_id: String, app: AppHandle, state: State<'_, AppState>) -> String {
+pub async fn pane_title(pane_id: String, app: AppHandle) -> String {
     // Copy the id out and release the lock before touching the disk.
-    let session = state.panes.lock().unwrap().session_of(&PaneId(pane_id));
+    let session = app
+        .state::<AppState>()
+        .panes
+        .lock()
+        .unwrap()
+        .session_of(&PaneId(pane_id));
     let (Some(session), Ok(home)) = (session, app.path().home_dir()) else {
         return UNTITLED.to_string();
     };
-    session_title(&home.join(".claude").join("projects"), &session.0)
+    tauri::async_runtime::spawn_blocking(move || {
+        session_title(&home.join(".claude").join("projects"), &session.0)
+    })
+    .await
+    .unwrap_or_else(|_| UNTITLED.to_string())
 }
 
 #[tauri::command]
