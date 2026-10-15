@@ -6,7 +6,7 @@
 
 ## 2. PTY session and output (seams S2, S3)
 
-- [ ] 2.1 `OutputBatcher` with injected clock: 16 ms / 64 KiB flush, order preserved (SRS-NFR-002)
+- [x] 2.1 `OutputBatcher` with injected clock: 16 ms / 64 KiB flush, order preserved (SRS-NFR-002)
 - [ ] 2.2 `PtySession::spawn` in a given cwd with env and size; output reader thread through the batcher; exit notification with code (SRS-FR-018, SRS-FR-028)
 - [ ] 2.3 `write` and `resize` — child sees the new size (SRS-FR-024); PTY echo round trip p95 < 100 ms over 200 bytes with `cat` (SRS-NFR-002)
 - [ ] 2.4 `close` ends the whole process group (SIGHUP → SIGTERM → SIGKILL after 2 s); Windows Job Object behind `cfg(windows)` (SRS-FR-029)
