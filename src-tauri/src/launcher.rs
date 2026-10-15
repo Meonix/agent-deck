@@ -10,8 +10,8 @@ pub fn parse_login_path(output: &str) -> Option<String> {
     (!path.is_empty()).then(|| path.to_string())
 }
 
-/// PATH as seen by the user's login shell, so a Finder launch finds `~/.local/bin`.
-/// Returns `fallback` on any failure.
+/// PATH as seen by the user's interactive login shell, so a Finder launch finds
+/// `~/.local/bin`. Returns `fallback` on any failure.
 pub fn login_shell_path(fallback: &str) -> String {
     login_shell_path_with(std::env::var("SHELL").ok().as_deref(), fallback)
 }
@@ -19,25 +19,39 @@ pub fn login_shell_path(fallback: &str) -> String {
 #[cfg(unix)]
 pub fn login_shell_path_with(shell: Option<&str>, fallback: &str) -> String {
     use std::io::Read;
+    use std::os::unix::process::CommandExt;
     use std::process::{Command, Stdio};
     use std::sync::mpsc;
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     let Some(shell) = shell.filter(|s| !s.is_empty()) else {
         return fallback.to_string();
     };
+    let deadline = Instant::now() + Duration::from_secs(3);
     let script = format!("printf \"{PATH_MARKER}%s{PATH_MARKER}\" \"$PATH\"");
-    let Ok(mut child) = Command::new(shell)
-        .args(["-l", "-c", &script])
+    let mut command = Command::new(shell);
+    // `-i` too: installers often add `~/.local/bin` only in `~/.zshrc`, which
+    // a login shell skips unless it is also interactive.
+    command
+        .args(["-i", "-l", "-c", &script])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-    else {
+        .stderr(Stdio::null());
+    // In a session of its own the interactive shell has no controlling terminal
+    // to take over from a terminal-launched app, and its group can be killed.
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setsid() == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+    let Ok(mut child) = command.spawn() else {
         return fallback.to_string();
     };
     let Some(mut stdout) = child.stdout.take() else {
-        let _ = child.kill();
+        stop(&mut child);
         return fallback.to_string();
     };
 
@@ -49,17 +63,34 @@ pub fn login_shell_path_with(shell: Option<&str>, fallback: &str) -> String {
         let _ = stdout.read_to_string(&mut buf);
         let _ = tx.send(buf);
     });
-    let Ok(output) = rx.recv_timeout(Duration::from_secs(3)) else {
-        let _ = child.kill();
-        let _ = child.wait();
+    let Ok(output) = rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) else {
+        stop(&mut child);
         return fallback.to_string();
     };
-    match child.wait() {
-        Ok(status) if status.success() => {
-            parse_login_path(&output).unwrap_or_else(|| fallback.to_string())
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => {
+                return parse_login_path(&output).unwrap_or_else(|| fallback.to_string());
+            }
+            Ok(Some(_)) => return fallback.to_string(),
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            _ => {
+                stop(&mut child);
+                return fallback.to_string();
+            }
         }
-        _ => fallback.to_string(),
     }
+}
+
+/// Kills the shell with everything it started, then reaps it.
+#[cfg(unix)]
+fn stop(child: &mut std::process::Child) {
+    // Not reaped yet, so the group id cannot have been reused.
+    unsafe { libc::killpg(child.id() as libc::pid_t, libc::SIGKILL) };
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 #[cfg(not(unix))]
@@ -82,6 +113,31 @@ pub fn find_in_path(name: &str, path: &str) -> Option<PathBuf> {
         .filter(|dir| !dir.as_os_str().is_empty())
         .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
         .find(|candidate| is_executable(candidate))
+}
+
+/// `claude` on `path`, else in the directories its installers use, for a
+/// PATH that lacks them.
+pub fn find_claude(path: &str, home: Option<&Path>) -> Option<PathBuf> {
+    find_in_path("claude", path).or_else(|| {
+        install_dirs(home)
+            .into_iter()
+            .map(|dir| dir.join("claude"))
+            .find(|candidate| is_executable(candidate))
+    })
+}
+
+#[cfg(unix)]
+fn install_dirs(home: Option<&Path>) -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = home
+        .map(|h| vec![h.join(".local/bin"), h.join(".claude/local")])
+        .unwrap_or_default();
+    dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
+    dirs
+}
+
+#[cfg(not(unix))]
+fn install_dirs(_home: Option<&Path>) -> Vec<PathBuf> {
+    Vec::new()
 }
 
 #[cfg(unix)]
@@ -196,6 +252,77 @@ mod tests {
         let p = login_shell_path_with(fake.to_str(), "/fb");
         assert_eq!(p, "/fb");
         assert!(start.elapsed() < Duration::from_secs(5));
+    }
+
+    #[cfg(unix)]
+    fn fake_shell(dir: &std::path::Path, body: &str) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let shell = dir.join("fakesh");
+        fs::write(&shell, format!("#!/bin/sh\n{body}")).unwrap();
+        fs::set_permissions(&shell, fs::Permissions::from_mode(0o755)).unwrap();
+        shell
+    }
+
+    /// `~/.local/bin` is often added only in `~/.zshrc`, which a login shell
+    /// reads only when it is also interactive.
+    #[cfg(unix)]
+    #[test]
+    fn login_shell_runs_interactive_so_rc_files_count() {
+        let dir = tempfile::tempdir().unwrap();
+        let shell = fake_shell(
+            dir.path(),
+            "for a in \"$@\"; do [ \"$a\" = -i ] && printf '__AD__/rc/bin__AD__'; done\nexit 0\n",
+        );
+        assert_eq!(login_shell_path_with(shell.to_str(), "/fb"), "/rc/bin");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn login_shell_deadline_covers_a_shell_that_outlives_its_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let shell = fake_shell(dir.path(), "printf '__AD__/x__AD__'\nexec >&-\nsleep 10\n");
+        let start = Instant::now();
+        let p = login_shell_path_with(shell.to_str(), "/fb");
+        assert_eq!(p, "/fb");
+        assert!(
+            start.elapsed() < Duration::from_millis(3500),
+            "{:?}",
+            start.elapsed()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn find_claude_prefers_the_path() {
+        let bin = tempfile::tempdir().unwrap();
+        let home = tempfile::tempdir().unwrap();
+        make_file(bin.path(), "claude", 0o755);
+        fs::create_dir_all(home.path().join(".local/bin")).unwrap();
+        make_file(&home.path().join(".local/bin"), "claude", 0o755);
+        assert_eq!(
+            find_claude(bin.path().to_str().unwrap(), Some(home.path())),
+            Some(bin.path().join("claude"))
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn find_claude_probes_known_install_dirs_in_order() {
+        let home = tempfile::tempdir().unwrap();
+        let local_bin = home.path().join(".local/bin");
+        let claude_local = home.path().join(".claude/local");
+        fs::create_dir_all(&local_bin).unwrap();
+        fs::create_dir_all(&claude_local).unwrap();
+        make_file(&claude_local, "claude", 0o755);
+        assert_eq!(
+            find_claude("", Some(home.path())),
+            Some(claude_local.join("claude"))
+        );
+        make_file(&local_bin, "claude", 0o755);
+        assert_eq!(
+            find_claude("", Some(home.path())),
+            Some(local_bin.join("claude"))
+        );
     }
 
     #[cfg(unix)]

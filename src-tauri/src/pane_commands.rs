@@ -11,7 +11,7 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Manager, State};
 
 use crate::commands::AppState;
-use crate::launcher::{find_in_path, login_shell_path_with, session_env};
+use crate::launcher::{find_claude, login_shell_path_with, session_env};
 use crate::panes::{OpenError, PaneId, SessionId, Spawner, close_in_parallel};
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
 use crate::session_title::{UNTITLED, session_title};
@@ -198,8 +198,9 @@ fn resolve_launch() -> Launch {
 }
 
 fn launch_for(path: String) -> Launch {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
     Launch {
-        claude: find_in_path("claude", &path),
+        claude: find_claude(&path, home.as_deref()),
         path,
     }
 }
