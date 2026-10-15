@@ -141,12 +141,16 @@ impl PtySession {
 
         let (tx, rx) = mpsc::channel();
         spawn_reader(reader, tx.clone());
+        let group = killer.clone();
         let waiter = std::thread::spawn(move || {
             let code = match child.wait() {
                 Ok(status) if status.signal().is_none() => Some(status.exit_code() as i32),
                 _ => None,
             };
             reaped.store(true, Ordering::SeqCst);
+            // End what the child left running now, while the group id is still
+            // ours; once ended, a later close never signals that id again.
+            group.end();
             let _ = tx.send(Event::Exited(code));
         });
         std::thread::spawn(move || pump(rx, sink));
@@ -646,6 +650,36 @@ mod tests {
             "{:?}",
             start.elapsed()
         );
+    }
+
+    fn printed_pid(probe: &Probe, tag: &str) -> libc::pid_t {
+        let text = probe.text();
+        text.split_once(tag)
+            .and_then(|(_, rest)| rest.split_once(';'))
+            .and_then(|(pid, _)| pid.parse().ok())
+            .unwrap_or_else(|| panic!("no {tag} in {text:?}"))
+    }
+
+    #[test]
+    fn a_natural_exit_ends_the_rest_of_the_group() {
+        let dir = tempfile::tempdir().unwrap();
+        let (sink, probe) = sink();
+        // The kernel hangs up the group when the leader exits; ignoring that is
+        // what lets a background child outlive it.
+        let script = "trap '' HUP; sleep 1000 & printf 'bg=%s;' $!; exit 0";
+        let mut session = PtySession::spawn(sh(script, dir.path().into()), sink).unwrap();
+        assert_eq!(
+            probe.exit.recv_timeout(Duration::from_secs(5)).unwrap(),
+            Some(0)
+        );
+        let bg = printed_pid(&probe, "bg=");
+
+        assert_all_gone(&[bg], Duration::from_millis(200));
+        assert!(
+            *session.killer.0.ended.lock().unwrap(),
+            "a later close could signal a reused group id"
+        );
+        session.close();
     }
 
     #[test]
