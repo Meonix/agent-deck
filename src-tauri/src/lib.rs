@@ -1,4 +1,5 @@
 mod commands;
+pub mod launcher;
 pub mod workspace;
 
 use std::sync::Mutex;

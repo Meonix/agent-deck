@@ -1,8 +1,8 @@
 ## 1. Launcher (seam S1)
 
-- [ ] 1.1 `parse_login_path` and the startup login-shell PATH lookup with 3 s timeout and fallback (D1)
-- [ ] 1.2 `find_in_path("claude", path)`; not found → start failure, no spawn (SRS-FR-017)
-- [ ] 1.3 `session_env`: resolved PATH, `TERM`, `COLORTERM`, `LANG=en_US.UTF-8` only when no locale is set (D2)
+- [x] 1.1 `parse_login_path` and the startup login-shell PATH lookup with 3 s timeout and fallback (D1)
+- [x] 1.2 `find_in_path("claude", path)`; not found → start failure, no spawn (SRS-FR-017)
+- [x] 1.3 `session_env`: resolved PATH, `TERM`, `COLORTERM`, `LANG=en_US.UTF-8` only when no locale is set (D2)
 
 ## 2. PTY session and output (seams S2, S3)
 
