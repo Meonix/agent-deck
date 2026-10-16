@@ -6,6 +6,7 @@ mod pane_commands;
 pub mod pane_status;
 pub mod panes;
 pub mod pty;
+pub mod session_list;
 pub mod session_title;
 pub mod status;
 pub mod status_latency;
