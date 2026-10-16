@@ -136,12 +136,15 @@ mod tests {
         for (from, row) in table {
             for (signal, expected) in signals().into_iter().zip(row) {
                 let mut m = machine_in(from);
-                m.apply(signal.clone(), 500);
-                assert_eq!(
-                    m.current().state,
-                    expected.unwrap_or(from),
-                    "{from:?} + {signal:?}"
-                );
+                let change = m.apply(signal.clone(), 500);
+                let want = expected.unwrap_or(from);
+                assert_eq!(m.current().state, want, "{from:?} + {signal:?}");
+                match expected {
+                    Some(to) if to != from => {
+                        assert_eq!(change.map(|c| c.state), Some(to), "{from:?} + {signal:?}")
+                    }
+                    _ => assert_eq!(change, None, "{from:?} + {signal:?}"),
+                }
             }
         }
     }

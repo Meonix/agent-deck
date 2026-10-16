@@ -20,9 +20,11 @@ pub fn signal_of(event: &serde_json::Value, workspace: &Path) -> Option<Signal> 
             event, workspace,
         ))),
         "Notification" => match str_field("notification_type")? {
-            "permission_prompt" | "elicitation_dialog" => Some(Signal::ApprovalRequested(cap(
-                str_field("message").unwrap_or("Waiting for you"),
-            ))),
+            "permission_prompt" | "elicitation_dialog" => {
+                Some(Signal::ApprovalRequested(cap(str_field("message")
+                    .filter(|m| !m.trim().is_empty())
+                    .unwrap_or("Waiting for you"))))
+            }
             _ => None,
         },
         "PreToolUse" if str_field("tool_name") == Some("AskUserQuestion") => {
@@ -226,6 +228,14 @@ mod tests {
             ),
             approval("Waiting for you")
         );
+        for blank in ["", "   \n"] {
+            assert_eq!(
+                sig(
+                    json!({"hook_event_name": "Notification", "notification_type": "permission_prompt", "message": blank})
+                ),
+                approval("Waiting for you")
+            );
+        }
         assert_eq!(sig(json!({"hook_event_name": "Notification"})), None);
     }
 
