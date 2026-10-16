@@ -4,6 +4,7 @@ mod pane_commands;
 pub mod panes;
 pub mod pty;
 pub mod session_title;
+pub mod status;
 pub mod workspace;
 
 use std::sync::Mutex;

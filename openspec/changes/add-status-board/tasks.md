@@ -4,8 +4,8 @@
 
 ## 2. State model (seams S1, S2)
 
-- [ ] 2.1 `signal_of` per D3: every listed event, reason text for `Edit`/`Bash`/`Write`/notifications, `PostToolUseFailure` is not an error (SRS-FR-032, SRS-FR-033, RULE-06, A-06)
-- [ ] 2.2 `StatusMachine` per D4: all 35 cells of the SRS section 5 table, re-entry keeps `since`/`reason`, exit codes → `Ended`/`Error` (SRS-FR-032, SRS-FR-035, RULE-08)
+- [x] 2.1 `signal_of` per D3: every listed event, reason text for `Edit`/`Bash`/`Write`/notifications, `PostToolUseFailure` is not an error (SRS-FR-032, SRS-FR-033, RULE-06, A-06)
+- [x] 2.2 `StatusMachine` per D4: all 35 cells of the SRS section 5 table, re-entry keeps `since`/`reason`, exit codes → `Ended`/`Error` (SRS-FR-032, SRS-FR-035, RULE-08)
 
 ## 3. Hook listener and wiring (seams S3, S4)
 
