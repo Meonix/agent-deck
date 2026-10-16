@@ -11,6 +11,6 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app` and paste the output
+- [x] 3.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app` and paste the output
 - [ ] 3.2 Real data: time `scan_sessions` over this machine's `~/.claude/projects` for its largest workspace (SRS-NFR-003); grep the code path for network APIs (SRS-NFR-007); demo in the `.app`: select `agent-deck` → its sessions newest first with titles; New Session → `Live` row on top; close the pane → label gone; `shasum` of a session file before/after selecting (SRS-NFR-005)
 - [ ] 3.3 Windows 11 — deferred by the PO; leave unchecked

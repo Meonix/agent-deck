@@ -628,3 +628,28 @@ mod tests {
         assert!(took < Duration::from_secs(3), "{took:?}");
     }
 }
+
+/// Real data check (task 3.2): `AD_WORKSPACE=<folder> cargo test --release real_projects -- --ignored --nocapture`.
+/// Reads `~/.claude/projects` only.
+#[cfg(test)]
+mod real_data {
+    use super::*;
+
+    #[test]
+    #[ignore = "reads this machine's Claude Code sessions"]
+    fn real_projects() {
+        let projects = PathBuf::from(std::env::var("HOME").unwrap()).join(".claude/projects");
+        let workspace = PathBuf::from(std::env::var("AD_WORKSPACE").unwrap());
+        let started = std::time::Instant::now();
+        let listing = scan_sessions(&projects, &workspace);
+        println!(
+            "{} sessions, {} unreadable, in {:?}",
+            listing.sessions.len(),
+            listing.unreadable,
+            started.elapsed()
+        );
+        for row in &listing.sessions {
+            println!("  {} · {} · {}", row.id, row.title, row.last_activity);
+        }
+    }
+}
