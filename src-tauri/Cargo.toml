@@ -25,7 +25,6 @@ serde_json = "1"
 dunce = "1"
 portable-pty = "0.9"
 uuid = { version = "1", features = ["v4"] }
-tiny_http = "0.12"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
