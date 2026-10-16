@@ -683,7 +683,7 @@ describe("Resume (2.1, 2.2)", () => {
 
   it("focuses the pane that already holds the session instead of opening another", async () => {
     const sessions = fakeSessions({ list: list(), title: vi.fn(async (id: string) => (id === "p1" ? "Scaffold Tauri app" : "Other")) });
-    const { user } = setup([ws("a", "agent-deck")], sessions);
+    const { user, adapters } = setup([ws("a", "agent-deck")], sessions);
     await selectRow(user, "agent-deck", "Scaffold");
     await user.click(resumeButton());
     await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" });
@@ -692,10 +692,22 @@ describe("Resume (2.1, 2.2)", () => {
     const focusedLabel = () => panes().find((p) => p.classList.contains("border-ring"))?.getAttribute("aria-label");
     expect(focusedLabel()).not.toBe("agent-deck · Scaffold Tauri app");
 
+    const focusCalls = vi.mocked(adapters[0].focus).mock.calls.length;
     await user.click(resumeButton());
+    expect(adapters[0].focus).toHaveBeenCalledTimes(focusCalls + 1);
     expect(sessions.open).toHaveBeenCalledTimes(2);
     expect(panes()).toHaveLength(2);
     expect(focusedLabel()).toBe("agent-deck · Scaffold Tauri app");
+  });
+
+  it("moves keyboard focus to the pane even when it is already the focused one", async () => {
+    const { user, adapters } = setup([ws("a", "agent-deck")], fakeSessions({ list: list() }));
+    await selectRow(user, "agent-deck", "Scaffold");
+    await user.click(resumeButton());
+    await screen.findByRole("region", { name: /agent-deck/ });
+    const focusCalls = vi.mocked(adapters[0].focus).mock.calls.length;
+    await user.click(resumeButton());
+    expect(adapters[0].focus).toHaveBeenCalledTimes(focusCalls + 1);
   });
 
   it("shows Folder not found when the backend reports the folder missing", async () => {

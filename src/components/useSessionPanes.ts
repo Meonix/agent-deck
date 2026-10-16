@@ -108,6 +108,15 @@ export function useSessionPanes(
     [],
   );
 
+  // The terminal needs real keyboard focus too: the pane may already be the focused one.
+  const focusHolder = useCallback(
+    (holder: PaneEntry) => {
+      focusPane(holder.pane.paneId);
+      holder.adapter?.focus();
+    },
+    [focusPane],
+  );
+
   const openPane = useCallback(
     async (workspace: Workspace, resumed?: { id: string; title: string }) => {
       if (workspace.missing) {
@@ -117,7 +126,7 @@ export function useSessionPanes(
       if (resumed) {
         const open = openHolder(entries.current, resumed.id);
         if (open) {
-          focusPane(open.pane.paneId);
+          focusHolder(open);
           return;
         }
       }
@@ -169,7 +178,7 @@ export function useSessionPanes(
           showToast(FOLDER_NOT_FOUND);
           onFolderMissing();
         } else if (holder) {
-          focusPane(holder.pane.paneId);
+          focusHolder(holder);
         } else {
           const detail = errorDetail(e);
           showToast(detail ? `Could not open session: ${detail}` : "Could not open session");
@@ -179,7 +188,7 @@ export function useSessionPanes(
         opening.current = false;
       }
     },
-    [client, createTerminal, focusPane, onFolderMissing, paneArea, showToast, update],
+    [client, createTerminal, focusHolder, onFolderMissing, paneArea, showToast, update],
   );
 
   const newSession = useCallback((workspace: Workspace) => openPane(workspace), [openPane]);
