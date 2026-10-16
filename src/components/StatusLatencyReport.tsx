@@ -7,6 +7,7 @@ type Props = { client: SessionsClient; onClose(): void };
 export function StatusLatencyReport({ client, onClose }: Props) {
   const [report, setReport] = useState<LatencyReport | null>(null);
   const [failed, setFailed] = useState(false);
+  const dialog = useRef<HTMLElement>(null);
   const close = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -22,20 +23,30 @@ export function StatusLatencyReport({ client, onClose }: Props) {
 
   useEffect(() => {
     close.current?.focus();
-    // Capture phase, so the Escape that closes the report never reaches a terminal behind it.
+    // Capture phase on the document, and focus held on the close button (the only control),
+    // so no key — Escape, or an Enter or digit that would answer a permission prompt —
+    // reaches a terminal behind the overlay.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" && e.key !== "Tab") return;
       e.preventDefault();
       e.stopPropagation();
-      onClose();
+      if (e.key === "Escape") onClose();
+    };
+    const onFocus = (e: FocusEvent) => {
+      if (!dialog.current?.contains(e.target as Node)) close.current?.focus();
     };
     document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
+    document.addEventListener("focusin", onFocus);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("focusin", onFocus);
+    };
   }, [onClose]);
 
   return (
     <div className="absolute inset-0 z-10 bg-black/50 flex items-start justify-center p-8">
       <section
+        ref={dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby="status-latency-title"

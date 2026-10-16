@@ -1,5 +1,5 @@
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,9 @@ const TMP: &str = "status-latency.jsonl.tmp";
 pub const WINDOW_MS: u64 = 14 * 24 * 60 * 60 * 1000;
 /// BO-01: a change counts when the board showed it within 3 s.
 pub const TARGET_MS: u64 = 3000;
+
+/// The names a record may carry, so a record can never hold anything but a state (SRS-NFR-007).
+pub const STATE_NAMES: [&str; 5] = ["Running", "Needs Approval", "Idle", "Error", "Ended"];
 
 /// One state change: when it was reported to the app and when the board showed it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,21 +41,28 @@ impl StatusLatencyLog {
 
     pub fn append(&self, record: &LatencyRecord) -> io::Result<()> {
         fs::create_dir_all(&self.dir)?;
-        let mut line = serde_json::to_vec(record).map_err(io::Error::other)?;
+        let path = self.dir.join(FILE);
+        let mut line = Vec::new();
+        // A line cut off by a crash must not swallow this record.
+        if !ends_with_newline(&path)? {
+            line.push(b'\n');
+        }
+        line.extend(serde_json::to_vec(record).map_err(io::Error::other)?);
         line.push(b'\n');
         OpenOptions::new()
             .create(true)
             .append(true)
-            .open(self.dir.join(FILE))?
+            .open(path)?
             .write_all(&line)
     }
 
     pub fn report(&self, now: u64) -> io::Result<LatencyReport> {
+        let since = now.saturating_sub(WINDOW_MS);
         let mut report = LatencyReport {
             within: 0,
             total: 0,
         };
-        for record in self.in_window(now)? {
+        for record in self.records()?.iter().filter(|r| r.shown_at >= since) {
             report.total += 1;
             if record.shown_at.saturating_sub(record.reported_at) <= TARGET_MS {
                 report.within += 1;
@@ -61,34 +71,53 @@ impl StatusLatencyLog {
         Ok(report)
     }
 
-    /// Rewrites the file with only the records inside the report window.
+    /// Rewrites the file with only the records inside the report window, when any is older.
     pub fn prune(&self, now: u64) -> io::Result<()> {
-        if !self.dir.join(FILE).exists() {
+        let since = now.saturating_sub(WINDOW_MS);
+        let records = self.records()?;
+        if records.iter().all(|r| r.shown_at >= since) {
             return Ok(());
         }
         let mut kept = Vec::new();
-        for record in self.in_window(now)? {
-            kept.extend(serde_json::to_vec(&record).map_err(io::Error::other)?);
+        for record in records.iter().filter(|r| r.shown_at >= since) {
+            kept.extend(serde_json::to_vec(record).map_err(io::Error::other)?);
             kept.push(b'\n');
         }
         let tmp = self.dir.join(TMP);
-        fs::write(&tmp, kept)?;
+        let mut file = File::create(&tmp)?;
+        file.write_all(&kept)?;
+        // Durable before the rename replaces the only copy of the trial's records.
+        file.sync_all()?;
         fs::rename(&tmp, self.dir.join(FILE))
     }
 
-    fn in_window(&self, now: u64) -> io::Result<Vec<LatencyRecord>> {
-        let text = match fs::read_to_string(self.dir.join(FILE)) {
-            Ok(text) => text,
+    /// Every readable record; lines that are cut off, not JSON or not UTF-8 are skipped.
+    fn records(&self) -> io::Result<Vec<LatencyRecord>> {
+        let bytes = match fs::read(self.dir.join(FILE)) {
+            Ok(bytes) => bytes,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(e) => return Err(e),
         };
-        let since = now.saturating_sub(WINDOW_MS);
-        Ok(text
-            .lines()
-            .filter_map(|line| serde_json::from_str::<LatencyRecord>(line).ok())
-            .filter(|record| record.shown_at >= since)
+        Ok(bytes
+            .split(|b| *b == b'\n')
+            .filter_map(|line| serde_json::from_slice::<LatencyRecord>(line).ok())
             .collect())
     }
+}
+
+fn ends_with_newline(path: &std::path::Path) -> io::Result<bool> {
+    let mut file = match File::open(path) {
+        Ok(file) => file,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(true),
+        Err(e) => return Err(e),
+    };
+    if file.metadata()?.len() == 0 {
+        return Ok(true);
+    }
+    file.seek(SeekFrom::End(-1))?;
+    let mut last = [0u8; 1];
+    file.read_exact(&mut last)?;
+    Ok(last[0] == b'\n')
 }
 
 #[cfg(test)]
@@ -214,6 +243,90 @@ mod tests {
                 total: 1
             }
         );
+    }
+
+    #[test]
+    fn a_line_cut_off_by_a_crash_does_not_swallow_the_next_record() {
+        let (_dir, log) = log();
+        log.append(&record(NOW - 10, NOW)).unwrap();
+        let mut file = OpenOptions::new()
+            .append(true)
+            .open(log.dir.join(FILE))
+            .unwrap();
+        file.write_all(b"{\"session\":\"s-1\",\"sta").unwrap();
+        log.append(&record(NOW - 20, NOW)).unwrap();
+        assert_eq!(
+            log.report(NOW).unwrap(),
+            LatencyReport {
+                within: 2,
+                total: 2
+            }
+        );
+        log.prune(NOW).unwrap();
+        assert_eq!(
+            log.report(NOW).unwrap(),
+            LatencyReport {
+                within: 2,
+                total: 2
+            }
+        );
+    }
+
+    #[test]
+    fn bytes_that_are_not_utf8_only_cost_their_line() {
+        let (_dir, log) = log();
+        log.append(&record(NOW - 10, NOW)).unwrap();
+        let mut file = OpenOptions::new()
+            .append(true)
+            .open(log.dir.join(FILE))
+            .unwrap();
+        file.write_all(b"\xff\xfe broken\n").unwrap();
+        log.append(&record(NOW - 20, NOW)).unwrap();
+        assert_eq!(
+            log.report(NOW).unwrap(),
+            LatencyReport {
+                within: 2,
+                total: 2
+            }
+        );
+        log.prune(NOW).unwrap();
+        assert_eq!(
+            log.report(NOW).unwrap(),
+            LatencyReport {
+                within: 2,
+                total: 2
+            }
+        );
+    }
+
+    #[test]
+    fn prune_leaves_the_file_alone_when_nothing_is_old() {
+        let (_dir, log) = log();
+        log.append(&record(NOW - 10, NOW)).unwrap();
+        let mut file = OpenOptions::new()
+            .append(true)
+            .open(log.dir.join(FILE))
+            .unwrap();
+        file.write_all(b"kept as is\n").unwrap();
+        log.prune(NOW).unwrap();
+        let text = fs::read_to_string(log.dir.join(FILE)).unwrap();
+        assert!(text.ends_with("kept as is\n"));
+    }
+
+    #[test]
+    fn state_names_are_exactly_the_states_the_tracker_sends() {
+        use crate::status::State::*;
+        let sent: Vec<String> = [Running, NeedsApproval, Idle, Error, Ended]
+            .iter()
+            .map(|s| {
+                serde_json::to_value(s)
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .to_string()
+            })
+            .collect();
+        assert_eq!(sent, STATE_NAMES);
     }
 
     #[test]

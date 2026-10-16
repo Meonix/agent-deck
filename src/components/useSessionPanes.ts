@@ -44,26 +44,25 @@ export function useSessionPanes(
     [],
   );
 
-  // One interval per live pane, started once and stopped when the pane ends or closes,
-  // so other panes opening never restart it. A failed lookup keeps the last title.
-  const titleTimers = useRef(new Map<string, () => void>());
-
-  // SRS-FR-038: a change counts as shown once the frame after its commit is painted.
+  // SRS-FR-038: a change counts as shown once its commit has reached the board. Passive
+  // effects run after the browser paints, and unlike requestAnimationFrame they are not held
+  // back while the window is hidden, so time the user spends away is not counted as latency.
   const unrecorded = useRef<{ pane: OpenedPane; state: SessionState; reportedAt: number }[]>([]);
   useEffect(() => {
     if (unrecorded.current.length === 0) return;
     const changes = unrecorded.current;
     unrecorded.current = [];
-    requestAnimationFrame(() => {
-      const shownAt = Date.now();
-      const open = new Set(entries.current.map((e) => e.pane.paneId));
-      for (const { pane, state, reportedAt } of changes) {
-        if (!open.has(pane.paneId)) continue;
-        // A lost record must never disturb the panes.
-        client.recordStatusShown(pane.sessionId, state, reportedAt, Math.max(shownAt, reportedAt)).catch(() => {});
-      }
-    });
+    const shownAt = Date.now();
+    for (const { pane, state, reportedAt } of changes) {
+      // A lost record must never disturb the panes.
+      client.recordStatusShown(pane.sessionId, state, reportedAt, Math.max(shownAt, reportedAt)).catch(() => {});
+    }
   }, [client, layout]);
+
+  // One interval per live pane, started once and stopped when the pane ends or closes,
+  // so other panes opening never restart it. A failed lookup keeps the last title.
+  const titleTimers = useRef(new Map<string, () => void>());
+
   const graceTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const polled = layout.entries
     .filter((e) => e.pane.started && !e.ended)

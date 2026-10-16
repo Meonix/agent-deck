@@ -32,21 +32,25 @@ GATE 1.
 changed the state: hook arrival, the answer key from the pane, or the PTY exit. Messages that only mark a
 pane tracked carry `null`. This is "the time Claude Code reported the change" as the app can see it.
 
-**D2 — The UI records after the board has painted.**
+**D2 — The UI records once the board has committed the change.**
 When `useSessionPanes` stores a status with a non-null `reportedAt` for a tracked pane, it queues
-`{sessionId, state, reportedAt}`. After React commits, one `requestAnimationFrame` callback takes
-`shownAt = Date.now()` (same wall clock as Rust) for every queued change and calls
-`client.recordStatusShown(...)` per change; failures are ignored (a lost record must not disturb the
-panes). A change whose pane is gone before the frame is dropped. `shownAt` is raised to `reportedAt`
-when the clocks disagree (data rule: shown is never earlier than reported).
+`{sessionId, state, reportedAt}`. The passive effect after that commit (React runs it after the browser
+paints) takes `shownAt = Date.now()` (same wall clock as Rust) and calls `client.recordStatusShown(...)`
+per queued change; failures are ignored (a lost record must not disturb the panes). `shownAt` is raised to
+`reportedAt` when the clocks disagree (data rule: shown is never earlier than reported).
+`requestAnimationFrame` was tried first and dropped after review: WKWebView holds frames back while the
+window is minimised or covered, which would count the time the user is away as board latency and make the
+trial fail for the wrong reason.
 
 **D3 — `StatusLatencyLog` in Rust, JSON lines in the app data folder.**
 `status_latency.rs`: `StatusLatencyLog::new(dir)`, `append(record)`, `report(now) -> { within, total }`,
 `prune(now)`. File `status-latency.jsonl`, one line
 `{"session": "<id>", "state": "Needs Approval", "reportedAt": …, "shownAt": …}`; appended with
-`OpenOptions::append`. `report` counts records with `shownAt >= now − 14 days`; `within` when
+`OpenOptions::append`; a file whose last line was cut off by a crash gets a newline first, so the cut line
+costs only itself. Lines are parsed from bytes, so a non-UTF-8 line is skipped too. `report` counts records with `shownAt >= now − 14 days`; `within` when
 `shownAt − reportedAt <= 3000` ms. Unreadable lines are skipped. `prune` rewrites the file keeping the
-window (temp file + rename) and runs once at startup. The log sits behind its own `Mutex` in `AppState`;
+window (temp file, `sync_all`, rename) only when a record is older than the window; it runs at startup and
+each time the report opens. The record command accepts only the five state names (SRS-NFR-007). The log sits behind its own `Mutex` in `AppState`;
 no other lock is held while it is used. Records hold a session id and a state — no session content, so
 SRS-NFR-007 holds.
 
@@ -81,9 +85,11 @@ design shows the card only. `total = 0` → "No data yet". Otherwise the share
 - [Clock steps (NTP, sleep)] → `Date.now()` and Rust `SystemTime` share the wall clock; a step between the
   two times can skew one record. `shownAt` is raised to `reportedAt`, so a step never gives a negative
   latency.
-- [Hidden window] → `requestAnimationFrame` waits while the window is hidden, so a change that arrives
-  while the app is minimised records the time the user could first see it. That matches "showed on the
-  board".
+- [Hidden window] → recorded at commit, not at the next frame (D2), so time away is not latency.
+- [Exit report time] → an exit's `reportedAt` is taken after the PTY drain (~100 ms), so exit-driven
+  changes read up to ~100 ms faster than they were; small against the 3 s target.
+- [Changes in one batch] → two changes committed together (e.g. `Running` then `Needs Approval` within
+  one frame) are both recorded at that commit, although the first never showed on its own.
 - [File growth] → a few hundred records a day; pruned at startup.
 
 ## Open Questions

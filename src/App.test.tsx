@@ -454,22 +454,9 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
 });
 
 describe("Status latency (2.1, 2.2)", () => {
-  let frames: FrameRequestCallback[] = [];
-  const runFrame = () =>
-    act(() => {
-      const queued = frames;
-      frames = [];
-      queued.forEach((cb) => cb(0));
-    });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-    frames = [];
-  });
+  afterEach(() => vi.restoreAllMocks());
 
   async function openPane() {
-    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => frames.push(cb));
     const sessions = fakeSessions();
     const ctx = setup([ws("a", "agent-deck")], sessions);
     await selectAndStart(ctx.user, "agent-deck");
@@ -477,38 +464,39 @@ describe("Status latency (2.1, 2.2)", () => {
     return { ...ctx, stream: sessions.opened[0].stream };
   }
 
-  it("records a state change with the time the board painted it", async () => {
+  it("records a state change with the time the board committed it", async () => {
     const { sessions, stream } = await openPane();
-    act(() => stream.status({ state: "Needs Approval", reason: "Edit src/main.rs", reportedAt: 1_000_200 }));
-    expect(sessions.recordStatusShown).not.toHaveBeenCalled();
     vi.spyOn(Date, "now").mockReturnValue(1_000_450);
-    runFrame();
+    act(() => stream.status({ state: "Needs Approval", reason: "Edit src/main.rs", reportedAt: 1_000_200 }));
     expect(sessions.recordStatusShown).toHaveBeenCalledTimes(1);
     expect(sessions.recordStatusShown).toHaveBeenCalledWith("s1", "Needs Approval", 1_000_200, 1_000_450);
+  });
+
+  it("records each change that arrives in the same batch, in order", async () => {
+    const { sessions, stream } = await openPane();
+    vi.spyOn(Date, "now").mockReturnValue(5_000_000);
+    act(() => {
+      stream.status({ state: "Running", reportedAt: 4_999_000 });
+      stream.status({ state: "Needs Approval", reason: "Bash npm test", reportedAt: 4_999_500 });
+    });
+    expect(vi.mocked(sessions.recordStatusShown).mock.calls).toEqual([
+      ["s1", "Running", 4_999_000, 5_000_000],
+      ["s1", "Needs Approval", 4_999_500, 5_000_000],
+    ]);
   });
 
   it("does not record a message that only marks the pane tracked", async () => {
     const { sessions, stream } = await openPane();
     act(() => stream.status({ state: "Idle", reportedAt: null }));
-    runFrame();
+    act(() => stream.status({ state: "Running", tracked: false, reportedAt: 7 }));
     expect(sessions.recordStatusShown).not.toHaveBeenCalled();
   });
 
   it("never records a shown time earlier than the report time", async () => {
     const { sessions, stream } = await openPane();
-    act(() => stream.status({ state: "Running", reportedAt: 2_000_000 }));
     vi.spyOn(Date, "now").mockReturnValue(1_999_000);
-    runFrame();
+    act(() => stream.status({ state: "Running", reportedAt: 2_000_000 }));
     expect(sessions.recordStatusShown).toHaveBeenCalledWith("s1", "Running", 2_000_000, 2_000_000);
-  });
-
-  it("drops a change whose pane closed before the frame", async () => {
-    const { user, sessions, stream } = await openPane();
-    act(() => stream.status({ state: "Idle", reportedAt: 3_000_000 }));
-    await user.click(screen.getByRole("button", { name: "Close pane" }));
-    await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
-    runFrame();
-    expect(sessions.recordStatusShown).not.toHaveBeenCalled();
   });
 
   it("opens the report from the title bar with the share within 3 s", async () => {
@@ -532,5 +520,17 @@ describe("Status latency (2.1, 2.2)", () => {
     expect(sessions.latencyReport).toHaveBeenCalledTimes(1);
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "Status Latency" })).not.toBeInTheDocument();
+  });
+
+  it("keeps focus inside the report so no key reaches a terminal behind it", async () => {
+    const { user } = await openPane();
+    await user.click(screen.getByRole("button", { name: "Status Latency" }));
+    const report = await screen.findByRole("dialog", { name: "Status Latency" });
+    await within(report).findByText("No data yet");
+    expect(report).toContainElement(document.activeElement as HTMLElement);
+    await user.tab();
+    expect(report).toContainElement(document.activeElement as HTMLElement);
+    await user.tab({ shift: true });
+    expect(report).toContainElement(document.activeElement as HTMLElement);
   });
 });
