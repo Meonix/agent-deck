@@ -41,6 +41,14 @@ export function setRatio(layout: Layout, path: SplitPath, ratio: number): Layout
   return child === layout[head] ? layout : { ...layout, [head]: child };
 }
 
+/** The least pixels a layout needs along an axis so every pane in it keeps minPx. */
+export function minSpan(layout: Layout, dir: SplitDir, minPx: number): number {
+  if ("pane" in layout) return minPx;
+  const first = minSpan(layout.first, dir, minPx);
+  const second = minSpan(layout.second, dir, minPx);
+  return layout.split === dir ? first + second : Math.max(first, second);
+}
+
 export function paneOrder(layout: Layout | null): string[] {
   if (layout === null) return [];
   if ("pane" in layout) return [layout.pane];

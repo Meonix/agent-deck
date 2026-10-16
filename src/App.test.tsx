@@ -861,6 +861,21 @@ describe("Split layout (2.1 to 2.3)", () => {
       expect(widths()[0]).toBeCloseTo((200 / 1200) * 100, 5);
     });
 
+    it("keeps the panes nested in the far side at least 200 px wide", async () => {
+      const { user } = await startOne();
+      await user.click(splitRight(paneNamed("p1")));
+      await screen.findByRole("region", { name: "agent-deck · p2" });
+      await user.click(splitRight(paneNamed("p2")));
+      await screen.findByRole("region", { name: "agent-deck · p3" });
+      vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 1200, 800));
+      const divider = screen.getAllByRole("separator")[0];
+      fireEvent.pointerDown(divider, { clientX: 600, pointerId: 1 });
+      fireEvent.pointerMove(divider, { clientX: 1150, pointerId: 1 });
+      expect(rectOf(paneNamed("p2"))[2]).toBeGreaterThanOrEqual((200 / 1200) * 100 - 1e-9);
+      expect(rectOf(paneNamed("p3"))[2]).toBeGreaterThanOrEqual((200 / 1200) * 100 - 1e-9);
+      expect(rectOf(paneNamed("p1"))[2]).toBeCloseTo((800 / 1200) * 100, 5);
+    });
+
     it("stops following the pointer when it is cancelled", async () => {
       const divider = await twoPanes();
       fireEvent.pointerDown(divider, { clientX: 600, pointerId: 1 });

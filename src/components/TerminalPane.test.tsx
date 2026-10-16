@@ -211,3 +211,13 @@ describe("TerminalPane (5.3)", () => {
     expect(at(s("Running", false))).toContain("border-ring");
   });
 });
+
+describe("TerminalPane header in a narrow pane", () => {
+  it("never shrinks the buttons and lets the chip truncate first", () => {
+    renderPane(entry(fakeAdapter()));
+    for (const name of ["Split right", "Split down", "Close pane"]) {
+      expect(screen.getByRole("button", { name })).toHaveClass("shrink-0");
+    }
+    expect(screen.getByText("Idle")).toHaveClass("min-w-0", "truncate");
+  });
+});

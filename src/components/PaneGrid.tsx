@@ -1,9 +1,13 @@
 import { type PointerEvent, type ReactNode, useRef } from "react";
-import { type DividerRect, type Layout, type SplitPath, layoutRects } from "./paneTree";
+import { type DividerRect, type Layout, type SplitPath, layoutRects, minSpan } from "./paneTree";
 
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 120;
 const DIVIDER_SIZE = 8;
+
+function subtree(layout: Layout, path: SplitPath): Layout {
+  return path.reduce<Layout>((node, step) => ("pane" in node ? node : node[step]), layout);
+}
 
 type Props = {
   layout: Layout;
@@ -25,8 +29,14 @@ export function PaneGrid({ layout, panes, onResize }: Props) {
       ? area.left + area.width * divider.box.x
       : area.top + area.height * divider.box.y;
     const ratio = ((right ? e.clientX : e.clientY) - start) / size;
-    const min = Math.min((right ? MIN_WIDTH : MIN_HEIGHT) / size, 0.5);
-    return Math.max(min, Math.min(1 - min, ratio));
+    const minPx = right ? MIN_WIDTH : MIN_HEIGHT;
+    const split = subtree(layout, divider.path);
+    if ("pane" in split) return null;
+    const minFirst = minSpan(split.first, divider.dir, minPx) / size;
+    const minSecond = minSpan(split.second, divider.dir, minPx) / size;
+    // Both sides cannot fit: keep the ratio rather than jump.
+    if (minFirst + minSecond > 1) return null;
+    return Math.max(minFirst, Math.min(1 - minSecond, ratio));
   };
 
   return (
@@ -76,13 +86,14 @@ function Divider({ divider, ratioAt, onResize }: DividerProps) {
     <div
       role="separator"
       aria-orientation={right ? "vertical" : "horizontal"}
-      className={right ? "absolute touch-none cursor-col-resize" : "absolute touch-none cursor-row-resize"}
+      className={right ? "absolute touch-none select-none cursor-col-resize" : "absolute touch-none select-none cursor-row-resize"}
       style={
         right
           ? { left: `calc(${at * 100}% - ${DIVIDER_SIZE / 2}px)`, top: `${box.y * 100}%`, width: DIVIDER_SIZE, height: `${box.height * 100}%` }
           : { top: `calc(${at * 100}% - ${DIVIDER_SIZE / 2}px)`, left: `${box.x * 100}%`, height: DIVIDER_SIZE, width: `${box.width * 100}%` }
       }
       onPointerDown={(e) => {
+        e.preventDefault();
         dragging.current = true;
         e.currentTarget.setPointerCapture?.(e.pointerId);
       }}

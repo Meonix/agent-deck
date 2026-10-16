@@ -18,7 +18,7 @@ const FALLBACK_SIZE: TerminalSize = { cols: 80, rows: 24 };
 // Pixel sizes of the classes in PaneGrid (p-1 container, p-1 around each pane) and
 // TerminalPane (border, header, p-1 around the terminal); keep them in step.
 const GRID_PADDING = 8;
-const DIVIDER = 8;
+const PANE_GAP = 8;
 const PANE_BORDER = 1;
 const PANE_HEADER = 29;
 const BODY_PADDING = 4;
@@ -315,7 +315,7 @@ function newBodySize(area: HTMLElement | null, layout: Layout | null, target: st
   if (!box) return none;
   const { width, height } = box.getBoundingClientRect();
   if (width === 0 || height === 0) return none;
-  const half = (size: number, chrome: number) => Math.max(0, Math.floor((size + chrome - DIVIDER) / 2 - chrome));
+  const half = (size: number, chrome: number) => Math.max(0, Math.floor((size + chrome - PANE_GAP) / 2 - chrome));
   return dir === "right"
     ? { width: half(width, CHROME_WIDTH), height }
     : { width, height: half(height, CHROME_HEIGHT) };

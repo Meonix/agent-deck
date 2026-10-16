@@ -106,22 +106,41 @@ export function TerminalPane({ entry, client, focused, onFocus, onSplit, onClose
         <span className="min-w-0 text-xs text-foreground truncate">
           <span className="text-muted-foreground">{workspaceName} ·</span> {title}
         </span>
-        <span className="flex shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span className="flex min-w-0 items-center gap-2 text-xs whitespace-nowrap">
           {badge ? (
-            <span className="border border-border rounded-md px-1.5 text-muted-foreground">{badge}</span>
+            <span className="min-w-0 shrink-[10] truncate border border-border rounded-md px-1.5 text-muted-foreground">
+              {badge}
+            </span>
           ) : (
-            <span className={`flex items-center gap-1 border rounded-md px-1.5 ${tone[status.state].chip}`}>
-              <StateMarker state={status.state} />
+            <span className={`min-w-0 shrink-[10] truncate border rounded-md px-1.5 ${tone[status.state].chip}`}>
+              <span className="mr-1 align-middle">
+                <StateMarker state={status.state} />
+              </span>
               {status.state}
             </span>
           )}
-          <button aria-label="Split right" onClick={() => onSplit(paneId, "right")} className="text-muted-foreground">
+          <button
+            aria-label="Split right"
+            title="Split right"
+            onClick={() => onSplit(paneId, "right")}
+            className="shrink-0 text-muted-foreground"
+          >
             ⇥
           </button>
-          <button aria-label="Split down" onClick={() => onSplit(paneId, "down")} className="text-muted-foreground">
+          <button
+            aria-label="Split down"
+            title="Split down"
+            onClick={() => onSplit(paneId, "down")}
+            className="shrink-0 text-muted-foreground"
+          >
             ⇣
           </button>
-          <button aria-label="Close pane" onClick={() => onClose(paneId)} className="text-muted-foreground">
+          <button
+            aria-label="Close pane"
+            title="Close pane"
+            onClick={() => onClose(paneId)}
+            className="shrink-0 text-muted-foreground"
+          >
             ✕
           </button>
         </span>

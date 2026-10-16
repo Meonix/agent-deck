@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { layoutRects, paneOrder, removePane, setRatio, splitPane, type Layout } from "./paneTree";
+import { layoutRects, minSpan, paneOrder, removePane, setRatio, splitPane, type Layout } from "./paneTree";
 
 const full = { x: 0, y: 0, width: 1, height: 1 };
 
@@ -134,5 +134,34 @@ describe("removePane", () => {
     const copy = structuredClone(layout);
     removePane(layout, "B");
     expect(layout).toEqual(copy);
+  });
+});
+
+describe("minSpan", () => {
+  const abc: Layout = {
+    split: "right",
+    ratio: 0.5,
+    first: { pane: "A" },
+    second: { split: "right", ratio: 0.5, first: { pane: "B" }, second: { pane: "C" } },
+  };
+
+  it("is the minimum for a leaf", () => {
+    expect(minSpan({ pane: "A" }, "right", 200)).toBe(200);
+  });
+
+  it("adds both children along the split's own axis", () => {
+    expect(minSpan(abc, "right", 200)).toBe(600);
+  });
+
+  it("takes the larger child across the axis", () => {
+    expect(minSpan(abc, "down", 120)).toBe(120);
+    const mixed: Layout = {
+      split: "down",
+      ratio: 0.5,
+      first: { pane: "A" },
+      second: { split: "right", ratio: 0.5, first: { pane: "B" }, second: { pane: "C" } },
+    };
+    expect(minSpan(mixed, "right", 200)).toBe(400);
+    expect(minSpan(mixed, "down", 120)).toBe(240);
   });
 });
