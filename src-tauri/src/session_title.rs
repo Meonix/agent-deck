@@ -4,47 +4,15 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::session_list::read_tail;
+
 pub const UNTITLED: &str = "(untitled)";
 const MAX_CHARS: usize = 80;
 
 pub fn session_title(projects_dir: &Path, session_id: &str) -> String {
-    let Some(file) = find_session_file(projects_dir, session_id) else {
-        return UNTITLED.to_string();
-    };
-    let Ok(bytes) = fs::read(file) else {
-        return UNTITLED.to_string();
-    };
-    let mut ai_title = None;
-    let mut last_prompt = None;
-    for line in bytes.split(|&b| b == b'\n') {
-        // Cheap filter: most lines are conversation records that never need parsing.
-        if !contains(line, b"\"ai-title\"") && !contains(line, b"\"last-prompt\"") {
-            continue;
-        }
-        let Ok(value) = serde_json::from_slice::<serde_json::Value>(line) else {
-            continue;
-        };
-        let (slot, field) = match value.get("type").and_then(|t| t.as_str()) {
-            Some("ai-title") => (&mut ai_title, "aiTitle"),
-            Some("last-prompt") => (&mut last_prompt, "lastPrompt"),
-            _ => continue,
-        };
-        if let Some(clean) = value
-            .get(field)
-            .and_then(|v| v.as_str())
-            .map(one_line)
-            .filter(|s| !s.is_empty())
-        {
-            *slot = Some(clean);
-        }
-    }
-    ai_title
-        .or(last_prompt)
-        .unwrap_or_else(|| UNTITLED.to_string())
-}
-
-fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    haystack.windows(needle.len()).any(|w| w == needle)
+    find_session_file(projects_dir, session_id)
+        .and_then(|file| read_tail(&file).ok())
+        .map_or_else(|| UNTITLED.to_string(), |facts| facts.title())
 }
 
 fn find_session_file(projects_dir: &Path, session_id: &str) -> Option<PathBuf> {
@@ -56,7 +24,7 @@ fn find_session_file(projects_dir: &Path, session_id: &str) -> Option<PathBuf> {
         .find(|path| path.is_file())
 }
 
-fn one_line(text: &str) -> String {
+pub(crate) fn one_line(text: &str) -> String {
     let collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
     if collapsed.chars().count() <= MAX_CHARS {
         return collapsed;
