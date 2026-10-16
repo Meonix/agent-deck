@@ -15,7 +15,7 @@ GATE 1.
 
 **Goals:**
 
-- One record per state change of a tracked pane, with the report time and the time the board painted it.
+- One record per state change of a tracked pane, with the report time and the time the board committed it.
 - The report in SRS-FR-039, from records that survive app restarts for the 14-day window.
 
 **Non-Goals:**
@@ -35,12 +35,13 @@ pane tracked carry `null`. This is "the time Claude Code reported the change" as
 **D2 — The UI records once the board has committed the change.**
 When `useSessionPanes` stores a status with a non-null `reportedAt` for a tracked pane, it queues
 `{sessionId, state, reportedAt}`. The passive effect after that commit (React runs it after the browser
-paints) takes `shownAt = Date.now()` (same wall clock as Rust) and calls `client.recordStatusShown(...)`
+paints when the window is visible) takes `shownAt = Date.now()` (same wall clock as Rust) and calls `client.recordStatusShown(...)`
 per queued change; failures are ignored (a lost record must not disturb the panes). `shownAt` is raised to
 `reportedAt` when the clocks disagree (data rule: shown is never earlier than reported).
 `requestAnimationFrame` was tried first and dropped after review: WKWebView holds frames back while the
 window is minimised or covered, which would count the time the user is away as board latency and make the
-trial fail for the wrong reason.
+trial fail for the wrong reason. That passive effects keep running while the WKWebView window is
+hidden is checked in the demo (task 3.2).
 
 **D3 — `StatusLatencyLog` in Rust, JSON lines in the app data folder.**
 `status_latency.rs`: `StatusLatencyLog::new(dir)`, `append(record)`, `report(now) -> { within, total }`,
@@ -90,7 +91,7 @@ design shows the card only. `total = 0` → "No data yet". Otherwise the share
   changes read up to ~100 ms faster than they were; small against the 3 s target.
 - [Changes in one batch] → two changes committed together (e.g. `Running` then `Needs Approval` within
   one frame) are both recorded at that commit, although the first never showed on its own.
-- [File growth] → a few hundred records a day; pruned at startup.
+- [File growth] → a few hundred records a day; pruned at startup and each time the report opens.
 
 ## Open Questions
 
