@@ -1,6 +1,6 @@
 ## 1. Layout (seam S1)
 
-- [ ] 1.1 `paneTree.ts`: `splitPane`, `removePane`, `setRatio`, `paneOrder`, `layoutRects` (SRS-FR-021, SRS-FR-022, SRS-FR-023)
+- [x] 1.1 `paneTree.ts`: `splitPane`, `removePane`, `setRatio`, `paneOrder`, `layoutRects` (SRS-FR-021, SRS-FR-022, SRS-FR-023)
 
 ## 2. UI (seam S2)
 
