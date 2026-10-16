@@ -549,7 +549,8 @@ mod tests {
         impl OutputSink for Probe {
             fn output(&self, _chunk: Vec<u8>) {}
             fn exited(&self, _code: Option<i32>) {
-                self.1.store(self.0.load(Ordering::SeqCst), Ordering::SeqCst);
+                self.1
+                    .store(self.0.load(Ordering::SeqCst), Ordering::SeqCst);
             }
         }
         let ended = Arc::new(AtomicBool::new(false));
