@@ -11,7 +11,7 @@
 
 - [x] 3.1 `HookServer` on `127.0.0.1:0` with per-pane tokens, immediate empty `200`, body cap, unknown token dropped, `tracked` on first request; POST → sink p95 < 100 ms over 50 requests (SRS-FR-034)
 - [x] 3.2 `hook_settings(url)` (command `curl` hook for `SessionStart`, `http` for the rest) and the real `Spawner` passing `--settings <inline JSON>`; no file written under `HOME` (SRS-NFR-006); listener down → spawn without hooks
-- [x] 3.3 Registry keeps token → pane and machine; listener applies signals and sends `{"status": …}` on the pane channel before `{"exited": …}`; PTY exit applies `ExitedNormally`/`ExitedAbnormally`
+- [x] 3.3 `HookServer` keeps token → `StatusTracker` (R1, the listener never locks `panes`); the tracker applies signals and sends `{"status": …}` on the pane channel; PTY exit applies `ExitedNormally`/`ExitedAbnormally` and sends the final status, then `{"exited": …}` last; hooks after exit are dropped
 
 ## 4. UI (seam S5)
 

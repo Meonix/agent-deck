@@ -39,7 +39,7 @@ shapes how state is tracked.
 
 - Rust: new modules for the hook signal mapping, the per-pane state machine and the local hook listener;
   the `claude` command line gains `--settings <inline JSON>`; the pane channel carries state messages.
-- New Rust dependency: `tiny_http` (local HTTP listener on 127.0.0.1).
+- No new HTTP dependency: the local hook listener on 127.0.0.1 is built on `std::net`.
 - UI: Status Board column, state chip and border in the pane header, `Status unavailable` badge,
   confirmation dialog on close; the grid becomes `240px 1fr 280px` as in design proposal 4.
 - Depends on Claude Code hook events documented at code.claude.com/docs/en/hooks.md; checked on Claude

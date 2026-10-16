@@ -58,18 +58,24 @@ UI source of truth: `design/agent-deck/` proposal 4 "Dark attention" — `render
 ## Decisions
 
 **D1 — One local HTTP listener, one secret token per pane.**
-At startup Rust binds `tiny_http` on `127.0.0.1:0` (random port, loopback only) and serves on one thread.
-Each pane gets a random token (UUID v4, not the pane id); hook URLs are
-`http://127.0.0.1:<port>/hook/<token>`. The listener answers every request at once with an empty `200` (so Claude
-Code is never held), caps bodies at 256 KiB, and drops requests whose token is unknown. Alternatives:
-command hooks writing to a socket (one process per event, `.exe` path issues on Windows — option B at
-GATE 1); a Tauri-managed server plugin (more surface than needed).
+At startup Rust binds a `std::net::TcpListener` on `127.0.0.1:0` (random port, loopback only); one accept
+thread hands each connection to its own short-lived thread (at most 64 at once) with 2 s read and write
+timeouts, so a stalled client never holds up another pane. Each pane gets a random token (UUID v4, not the
+pane id); hook URLs are `http://127.0.0.1:<port>/hook/<token>`. The listener reads a header block of at most
+16 KiB (else `431`), requires `Content-Length` (absent or chunked → `411`), refuses more than 256 KiB with `413`
+before reading any body, answers `Expect: 100-continue` with `100 Continue`, and drops requests whose
+token is unknown (`404`). Every answer is an empty body with `Content-Length: 0` and `Connection: close`;
+a valid hook gets `200` and reaches its sink before the connection closes. `tiny_http` 0.12 was dropped: a
+huge `Content-Length` made it allocate that size and abort the app, and it read bodies on one thread.
+Alternatives: command hooks writing to a socket (one process per event, `.exe` path issues on Windows —
+option B at GATE 1); a Tauri-managed server plugin (more surface than needed).
 
 **D2 — Hooks go inline on the command line, never into a file under `~/.claude/`.**
 `hook_settings(url) -> String` builds `{"hooks": {<Event>: [{"hooks": [{"type": "http", "url": …,
 "timeout": 5}]}]}}` for the events in Context, except `SessionStart`, which only accepts command hooks: it
-gets `{"type": "command", "async": true, "command": "curl -s -m 3 -X POST --data-binary @- <url>"}`
-(`curl` ships with macOS and Windows 10+). The listener answers with an empty body, so the hook prints
+gets `{"type": "command", "async": true, "command": "curl -s -m 3 -X POST --data-binary '@-' <url>"}`
+(`curl.exe` on Windows, where PowerShell aliases `curl` to `Invoke-WebRequest`; `'@-'` is quoted because `@`
+is special in PowerShell; `curl` ships with macOS and Windows 10+). The listener answers with an empty body, so the hook prints
 nothing — `SessionStart` stdout would otherwise be added to Claude's context; the pane spawns `claude --settings <that JSON> --session-id
 <uuid>`. No file is written, so nothing needs cleanup and SRS-NFR-006 holds by construction. If the
 listener failed to start, panes spawn without `--settings` and their state is unavailable (D5).
@@ -112,14 +118,17 @@ still waiting at the trust prompt; once hooks arrive the badge goes away. The 5 
 
 **D6 — State travels on the pane's existing channel.**
 Each change is sent on the pane's channel as JSON `{"status": {"state", "since", "reason", "tracked"}}`
-(`since` = Unix ms), in order with output and before `{"exited": …}`. No new event type, no listener
+(`since` = Unix ms), and `{"exited": …}` is the last message. No new event type, no listener
 permission, and messages that arrive before the UI subscribes are buffered by `createStream` as today.
 The `HookServer` owns its own token → sink map; the listener thread never locks `AppState.panes` or `list`.
 Each pane gets a `StatusTracker` (its machine, the `tracked` flag and a clone of the pane's channel). The
 spawner registers the tracker under a fresh token before `claude` starts and unregisters it if the spawn
-fails; the pane's process wrapper unregisters it on `close()`. The tracker applies a signal under its own
-small lock and sends after releasing it; the PTY exit goes through the same tracker first, so the final
-`{"status": …}` precedes `{"exited": …}`. Lock order stays `list` before `panes`.
+fails; the pane's process wrapper unregisters it on `close()`. The tracker is the pane's single ordered
+writer: it applies a signal and sends the status while holding its own leaf lock (never `panes`;
+`Channel::send` only enqueues). The PTY exit calls the tracker, which under the same lock sends the final
+status if the exit changes it, then `{"exited": code}`, and marks itself finished; hooks that arrive later
+are dropped, so nothing follows `{"exited"}` and a finished pane cannot return to the board. Lock order
+stays `list` before `panes`.
 
 **D7 — UI: board derived from pane entries.**
 Pane entries gain `status` and `title` (the title poll moves from `TerminalPane` into the entry so cards can
