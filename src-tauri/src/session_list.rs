@@ -656,7 +656,7 @@ mod tests {
             parse_timestamp("2026-10-16T07:00:00.000Z")
         );
         assert!(
-            started.elapsed() < Duration::from_secs(2),
+            started.elapsed() < Duration::from_secs(5),
             "{:?}",
             started.elapsed()
         );

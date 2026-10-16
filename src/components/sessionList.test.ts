@@ -18,7 +18,7 @@ describe("formatWhen", () => {
     expect(formatWhen(at(2025, 11, 30, 9), now)).toBe("Dec 30, 2025");
   });
 
-  it("never says Yesterday for the same calendar day, even on a 25-hour day", () => {
+  it("says hours, not Yesterday, for a time earlier the same day (the branch a 25-hour DST day needs)", () => {
     const longDay = new Date(2026, 9, 25, 23, 50).getTime();
     expect(formatWhen(new Date(2026, 9, 25, 0, 10).getTime(), longDay)).toMatch(/h ago$/);
   });
