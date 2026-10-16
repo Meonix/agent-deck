@@ -20,9 +20,18 @@ Facts (Claude Code 2.1.300, docs at code.claude.com/docs/en/hooks.md and cli-ref
 - Measured: in a folder the user has not trusted yet, `claude` stops at the trust prompt and no hook runs
   before the user accepts. A `--settings` path that does not exist makes `claude` exit with code 1.
 
-Not documented, to be measured in task 1 before the code depends on it: whether `--settings` hooks add to
-the user's own hooks or replace them; whether hook `session_id` equals the `--session-id` we pass; which
-hook follows an answered (allowed or denied) permission prompt and an answered question.
+Measured in task 1.1 (Claude Code 2.1.301, trusted folder, no prompt sent, Claude env markers removed as
+the app does):
+
+- Hooks passed as inline JSON through `--settings` run.
+- Hook `session_id` equals the `--session-id` we pass.
+- An `http` hook on `SessionStart` does not run; a `command` hook on the same event does. The docs confirm:
+  "SessionStart … Only type: "command" and type: "mcp_tool" hooks are supported."
+- An `http` hook on `SessionEnd` runs (on `/exit`) and carries its configured header.
+- `PermissionDenied` fires only for auto-mode denials, not for a permission dialog the user denies (docs).
+- Still unmeasured because they need a real prompt (moved to the demo, task 5.2): whether the user's own
+  hooks still run next to the `--settings` hooks, and which hooks follow an answered permission prompt or
+  question.
 
 UI source of truth: `design/agent-deck/` proposal 4 "Dark attention" — `render.js` `board`, `card`,
 `pane()` header chip and status border; `States.stories.js` `StatusUnavailable`, `ConfirmClose`,
@@ -51,14 +60,17 @@ UI source of truth: `design/agent-deck/` proposal 4 "Dark attention" — `render
 **D1 — One local HTTP listener, one secret token per pane.**
 At startup Rust binds `tiny_http` on `127.0.0.1:0` (random port, loopback only) and serves on one thread.
 Each pane gets a random token (UUID v4, not the pane id); hook URLs are
-`http://127.0.0.1:<port>/hook/<token>`. The listener answers every request at once with `200 {}` (so Claude
+`http://127.0.0.1:<port>/hook/<token>`. The listener answers every request at once with an empty `200` (so Claude
 Code is never held), caps bodies at 256 KiB, and drops requests whose token is unknown. Alternatives:
 command hooks writing to a socket (one process per event, `.exe` path issues on Windows — option B at
 GATE 1); a Tauri-managed server plugin (more surface than needed).
 
 **D2 — Hooks go inline on the command line, never into a file under `~/.claude/`.**
 `hook_settings(url) -> String` builds `{"hooks": {<Event>: [{"hooks": [{"type": "http", "url": …,
-"timeout": 5}]}]}}` for the events in Context; the pane spawns `claude --settings <that JSON> --session-id
+"timeout": 5}]}]}}` for the events in Context, except `SessionStart`, which only accepts command hooks: it
+gets `{"type": "command", "async": true, "command": "curl -s -m 3 -X POST --data-binary @- <url>"}`
+(`curl` ships with macOS and Windows 10+). The listener answers with an empty body, so the hook prints
+nothing — `SessionStart` stdout would otherwise be added to Claude's context; the pane spawns `claude --settings <that JSON> --session-id
 <uuid>`. No file is written, so nothing needs cleanup and SRS-NFR-006 holds by construction. If the
 listener failed to start, panes spawn without `--settings` and their state is unavailable (D5).
 If task 1 shows that `--settings` hooks replace the user's own hooks, stop and revise this decision through
@@ -75,6 +87,7 @@ If task 1 shows that `--settings` hooks replace the user's own hooks, stop and r
   `ApprovalRequested(reason)`, reason from `message`
 - `PreToolUse` with `tool_name` `AskUserQuestion` → `ApprovalRequested("Question")` (A-06)
 - `PostToolUse`, `PostToolUseFailure`, `PermissionDenied`, other `PreToolUse` → `ApprovalAnswered`
+  (a denied dialog has no documented hook; the turn's `Stop` or the next tool call moves the session on)
 - `Stop` → `TurnFinished`
 - `StopFailure` → `ErrorOccurred(reason = error)`, e.g. `overloaded`
 - `SessionStart`, `SessionEnd`, anything else → no signal (`SessionStart` still marks the pane tracked, D5)
