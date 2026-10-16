@@ -79,7 +79,7 @@ describe("New Session (5.4)", () => {
     expect(await screen.findByRole("region", { name: "agent-deck · (untitled)" })).toBeInTheDocument();
     await act(async () => resolveTitle("Fix login"));
     expect(screen.getByRole("region", { name: "agent-deck · Fix login" })).toBeInTheDocument();
-    expect(sessions.open).toHaveBeenCalledWith("a", 80, 24);
+    expect(sessions.open).toHaveBeenCalledWith("a", 80, 24, undefined);
     expect(adapters[0].focus).toHaveBeenCalled();
     expect(screen.queryByText("No open sessions")).not.toBeInTheDocument();
   });
@@ -133,7 +133,7 @@ describe("New Session (5.4)", () => {
     await selectAndStart(user, "agent-deck");
     await screen.findByTestId("pane-grid");
 
-    expect(sessions.open).toHaveBeenCalledWith("a", 132, 40);
+    expect(sessions.open).toHaveBeenCalledWith("a", 132, 40, undefined);
     const [first] = adapters;
     const probe = vi.mocked(first.open).mock.calls[0][0];
     expect([probe.style.width, probe.style.height]).toEqual(["974px", "545px"]);
@@ -626,5 +626,93 @@ describe("Session list (2.1, 2.2)", () => {
     await vi.waitFor(() => expect(rowTexts()).toEqual([expect.stringContaining("Beta work")]));
     await act(async () => answerFirst({ sessions: [{ id: "a1", title: "Alpha work", lastActivity: now }], unreadable: 0 }));
     expect(rowTexts()).toEqual([expect.stringContaining("Beta work")]);
+  });
+});
+
+describe("Resume (2.1, 2.2)", () => {
+  const SCAFFOLD = "11111111-1111-4111-8111-111111111111";
+  const BRD = "22222222-2222-4222-8222-222222222222";
+  const list = () =>
+    vi.fn(async () => ({
+      sessions: [
+        { id: SCAFFOLD, title: "Scaffold Tauri app", lastActivity: 2_000 },
+        { id: BRD, title: "Write BRD and SRS", lastActivity: 1_000 },
+      ],
+      unreadable: 0,
+    }));
+  const row = (title: string) => within(sidebar()).getByRole("button", { name: new RegExp(title) });
+  const resumeButton = () => within(sidebar()).getByRole("button", { name: "Resume" });
+
+  async function selectRow(user: ReturnType<typeof userEvent.setup>, folder: string, title: string) {
+    await user.click(await within(sidebar()).findByText(folder));
+    await user.click(await within(sidebar()).findByRole("button", { name: new RegExp(title) }));
+  }
+
+  it("offers Resume only on the selected row", async () => {
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list: list() }));
+    await user.click(await within(sidebar()).findByText("agent-deck"));
+    await within(sidebar()).findByRole("button", { name: /Scaffold/ });
+    expect(within(sidebar()).queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
+    expect(row("Scaffold")).toHaveAttribute("aria-pressed", "false");
+    await user.click(row("Scaffold"));
+    expect(row("Scaffold")).toHaveAttribute("aria-pressed", "true");
+    expect(resumeButton()).toBeInTheDocument();
+    await user.click(row("Write BRD"));
+    expect(within(sidebar()).getAllByRole("button", { name: "Resume" })).toHaveLength(1);
+  });
+
+  it("clears the selection when another folder is selected", async () => {
+    const { user } = setup([ws("a", "alpha"), ws("b", "beta")], fakeSessions({ list: list() }));
+    await selectRow(user, "alpha", "Scaffold");
+    expect(resumeButton()).toBeInTheDocument();
+    await user.click(within(sidebar()).getByText("beta"));
+    await within(sidebar()).findByRole("button", { name: /Scaffold/ });
+    expect(within(sidebar()).queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
+  });
+
+  it("opens the session with its id in a focused pane titled after the row", async () => {
+    const title = vi.fn(() => new Promise<string>(() => {}));
+    const { user, sessions, adapters } = setup([ws("a", "agent-deck")], fakeSessions({ list: list(), title }));
+    await selectRow(user, "agent-deck", "Scaffold");
+    await user.click(resumeButton());
+    expect(await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" })).toBeInTheDocument();
+    expect(sessions.open).toHaveBeenCalledWith("a", 80, 24, SCAFFOLD);
+    expect(adapters[0].focus).toHaveBeenCalled();
+    expect(panes()).toHaveLength(1);
+  });
+
+  it("focuses the pane that already holds the session instead of opening another", async () => {
+    const sessions = fakeSessions({ list: list(), title: vi.fn(async (id: string) => (id === "p1" ? "Scaffold Tauri app" : "Other")) });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await selectRow(user, "agent-deck", "Scaffold");
+    await user.click(resumeButton());
+    await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" });
+    await user.click(newSessionButton());
+    await vi.waitFor(() => expect(panes()).toHaveLength(2));
+    const focusedLabel = () => panes().find((p) => p.classList.contains("border-ring"))?.getAttribute("aria-label");
+    expect(focusedLabel()).not.toBe("agent-deck · Scaffold Tauri app");
+
+    await user.click(resumeButton());
+    expect(sessions.open).toHaveBeenCalledTimes(2);
+    expect(panes()).toHaveLength(2);
+    expect(focusedLabel()).toBe("agent-deck · Scaffold Tauri app");
+  });
+
+  it("shows Folder not found when the backend reports the folder missing", async () => {
+    const sessions = fakeSessions({ list: list(), open: vi.fn(async () => Promise.reject("folder_missing")) });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await selectRow(user, "agent-deck", "Scaffold");
+    await user.click(resumeButton());
+    expect(await screen.findByText("Folder not found")).toBeInTheDocument();
+    expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument();
+  });
+
+  it("opens no second pane when the backend says the session is already open", async () => {
+    const sessions = fakeSessions({ list: list(), open: vi.fn(async () => Promise.reject("already_open")) });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await selectRow(user, "agent-deck", "Scaffold");
+    await user.click(resumeButton());
+    expect(await screen.findByText(/Could not open session/)).toBeInTheDocument();
+    expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument();
   });
 });

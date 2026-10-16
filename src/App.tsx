@@ -50,6 +50,10 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
     if (workspaces.selected) void panes.newSession(workspaces.selected);
   };
 
+  const resume = (row: { id: string; title: string }) => {
+    if (workspaces.selected) void panes.resume(workspaces.selected, row);
+  };
+
   const openSessions: OpenSession[] = panes.entries
     .filter((e) => e.pane.started && !e.ended)
     .map((e) => ({ sessionId: e.pane.sessionId, workspaceId: e.workspaceId, title: e.title, openedAt: e.openedAt }));
@@ -80,6 +84,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
       <WorkspaceSidebar
         workspaces={workspaces}
         onNewSession={newSession}
+        onResume={resume}
         sessions={sessionList}
         openSessions={openSessions}
         now={now}

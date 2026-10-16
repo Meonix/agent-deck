@@ -19,6 +19,7 @@ type Layout = { entries: PaneEntry[]; focusedId: string | null };
 
 export type SessionPanes = Layout & {
   newSession(workspace: Workspace): Promise<void>;
+  resume(workspace: Workspace, session: { id: string; title: string }): Promise<void>;
   closePane(paneId: string): Promise<void>;
   focusPane(paneId: string): void;
 };
@@ -102,11 +103,23 @@ export function useSessionPanes(
     };
   }, []);
 
-  const newSession = useCallback(
-    async (workspace: Workspace) => {
+  const focusPane = useCallback(
+    (paneId: string) => setLayout((l) => (l.focusedId === paneId ? l : { ...l, focusedId: paneId })),
+    [],
+  );
+
+  const openPane = useCallback(
+    async (workspace: Workspace, resumed?: { id: string; title: string }) => {
       if (workspace.missing) {
         showToast(FOLDER_NOT_FOUND);
         return;
+      }
+      if (resumed) {
+        const open = openHolder(entries.current, resumed.id);
+        if (open) {
+          focusPane(open.pane.paneId);
+          return;
+        }
       }
       if (opening.current) return;
       opening.current = true;
@@ -115,7 +128,7 @@ export function useSessionPanes(
       let kept = false;
       try {
         const openedSize = measureOpenSize(measuring, paneArea.current, entries.current.length + 1);
-        const { pane, stream } = await client.open(workspace.id, openedSize.cols, openedSize.rows);
+        const { pane, stream } = await client.open(workspace.id, openedSize.cols, openedSize.rows, resumed?.id);
         kept = pane.started;
         const adapter = pane.started ? measuring : null;
         const status: PaneStatus = { state: "Idle", since: Date.now(), reason: null, tracked: false, reportedAt: null };
@@ -129,7 +142,7 @@ export function useSessionPanes(
           openedSize,
           ended: false,
           status,
-          title: UNTITLED,
+          title: resumed?.title ?? UNTITLED,
           graceOver: false,
         };
         setLayout((l) => {
@@ -151,9 +164,12 @@ export function useSessionPanes(
           setTimeout(() => update(pane.paneId, () => ({ graceOver: true })), STATUS_GRACE_MS),
         );
       } catch (e) {
+        const holder = e === "already_open" && resumed ? openHolder(entries.current, resumed.id) : undefined;
         if (e === "folder_missing") {
           showToast(FOLDER_NOT_FOUND);
           onFolderMissing();
+        } else if (holder) {
+          focusPane(holder.pane.paneId);
         } else {
           const detail = errorDetail(e);
           showToast(detail ? `Could not open session: ${detail}` : "Could not open session");
@@ -163,7 +179,13 @@ export function useSessionPanes(
         opening.current = false;
       }
     },
-    [client, createTerminal, onFolderMissing, paneArea, showToast, update],
+    [client, createTerminal, focusPane, onFolderMissing, paneArea, showToast, update],
+  );
+
+  const newSession = useCallback((workspace: Workspace) => openPane(workspace), [openPane]);
+  const resume = useCallback(
+    (workspace: Workspace, session: { id: string; title: string }) => openPane(workspace, session),
+    [openPane],
   );
 
   const closePane = useCallback(
@@ -187,12 +209,11 @@ export function useSessionPanes(
     [client, showToast],
   );
 
-  const focusPane = useCallback(
-    (paneId: string) => setLayout((l) => (l.focusedId === paneId ? l : { ...l, focusedId: paneId })),
-    [],
-  );
+  return { ...layout, newSession, resume, closePane, focusPane };
+}
 
-  return { ...layout, newSession, closePane, focusPane };
+function openHolder(entries: PaneEntry[], sessionId: string): PaneEntry | undefined {
+  return entries.find((e) => e.pane.sessionId === sessionId && e.pane.started && !e.ended);
 }
 
 function terminal(createTerminal: TerminalAdapterFactory) {

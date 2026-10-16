@@ -38,6 +38,7 @@ describe("tauriSessionsClient (5.1)", () => {
       workspaceId: "w1",
       cols: 120,
       rows: 40,
+      resumeSessionId: null,
       output: tauri.FakeChannel.last,
     });
   });

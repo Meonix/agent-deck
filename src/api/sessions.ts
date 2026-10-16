@@ -26,7 +26,13 @@ export interface PaneStream {
 }
 
 export interface SessionsClient {
-  open(workspaceId: string, cols: number, rows: number): Promise<{ pane: OpenedPane; stream: PaneStream }>;
+  /** Passing `resumeSessionId` continues that session; rejects with "already_open" while a pane runs it. */
+  open(
+    workspaceId: string,
+    cols: number,
+    rows: number,
+    resumeSessionId?: string,
+  ): Promise<{ pane: OpenedPane; stream: PaneStream }>;
   write(paneId: string, data: string): Promise<void>;
   resize(paneId: string, cols: number, rows: number): Promise<void>;
   close(paneId: string): Promise<void>;
@@ -152,11 +158,11 @@ function createStream(channel: Channel<unknown>): PaneStream {
 }
 
 export const tauriSessionsClient: SessionsClient = {
-  async open(workspaceId, cols, rows) {
+  async open(workspaceId, cols, rows, resumeSessionId) {
     const output = new Channel<unknown>();
     const stream = createStream(output);
     try {
-      const pane = await invoke<OpenedPane>("open_pane", { workspaceId, cols, rows, output });
+      const pane = await invoke<OpenedPane>("open_pane", { workspaceId, cols, rows, resumeSessionId: resumeSessionId ?? null, output });
       return { pane, stream };
     } catch (e) {
       stream.dispose();

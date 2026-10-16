@@ -1,16 +1,18 @@
-import { formatWhen, mergeSessions, type OpenSession } from "./sessionList";
+import { useState } from "react";
+import { formatWhen, type ListedSession, mergeSessions, type OpenSession } from "./sessionList";
 import type { SessionListState } from "./useSessionList";
 import type { WorkspacesState } from "./useWorkspaces";
 
 type Props = {
   workspaces: WorkspacesState;
   onNewSession(): void;
+  onResume(row: { id: string; title: string }): void;
   sessions: SessionListState;
   openSessions: OpenSession[];
   now: number;
 };
 
-export function WorkspaceSidebar({ workspaces, onNewSession, sessions, openSessions, now }: Props) {
+export function WorkspaceSidebar({ workspaces, onNewSession, onResume, sessions, openSessions, now }: Props) {
   const { items, selected, select, addFolder, removeFolder } = workspaces;
   return (
     <aside aria-label="Workspaces" className="bg-card overflow-auto border-r border-border">
@@ -54,12 +56,19 @@ export function WorkspaceSidebar({ workspaces, onNewSession, sessions, openSessi
           New Session
         </button>
       </div>
-      <SessionList state={sessions} openSessions={openSessions} now={now} />
+      <SessionList state={sessions} openSessions={openSessions} now={now} onResume={onResume} />
     </aside>
   );
 }
 
-function SessionList({ state, openSessions, now }: { state: SessionListState; openSessions: OpenSession[]; now: number }) {
+type ListProps = {
+  state: SessionListState;
+  openSessions: OpenSession[];
+  now: number;
+  onResume(row: { id: string; title: string }): void;
+};
+
+function SessionList({ state, openSessions, now, onResume }: ListProps) {
   switch (state.kind) {
     case "none":
       return <div className="px-4 py-2 text-xs text-muted-foreground">Select a folder to see its sessions.</div>;
@@ -89,27 +98,49 @@ function SessionList({ state, openSessions, now }: { state: SessionListState; op
           {rows.length === 0 ? (
             <div className="px-4 py-2 text-sm text-muted-foreground">No sessions yet</div>
           ) : (
-            <ul aria-label="Sessions" className="px-2 space-y-0.5">
-              {rows.map((row) => (
-                <li key={row.id} className="rounded-md px-2 py-1.5">
-                  <div className="flex items-center justify-between gap-2 text-sm text-foreground">
-                    <span className="truncate">{row.title}</span>
-                    {row.live ? (
-                      <span className="shrink-0 text-[10px] uppercase font-medium text-accent-foreground bg-accent rounded px-1">
-                        Live
-                      </span>
-                    ) : (
-                      <span className="shrink-0 text-xs text-muted-foreground">{formatWhen(row.lastActivity, now)}</span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <SessionRows key={state.workspaceId} rows={rows} now={now} onResume={onResume} />
           )}
         </>
       );
     }
   }
+}
+
+function SessionRows({ rows, now, onResume }: { rows: ListedSession[]; now: number; onResume: ListProps["onResume"] }) {
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const picked = rows.find((r) => r.id === pickedId) ?? null;
+  return (
+    <ul aria-label="Sessions" className="px-2 space-y-0.5">
+      {rows.map((row) => (
+        <li key={row.id} className={`rounded-md px-2 py-1.5 ${row === picked ? "bg-muted" : ""}`}>
+          <button
+            aria-pressed={row === picked}
+            onClick={() => setPickedId(row.id)}
+            className="flex w-full items-center justify-between gap-2 text-left text-sm text-foreground"
+          >
+            <span className="truncate">{row.title}</span>
+            {row.live ? (
+              <span className="shrink-0 text-[10px] uppercase font-medium text-accent-foreground bg-accent rounded px-1">
+                Live
+              </span>
+            ) : (
+              <span className="shrink-0 text-xs text-muted-foreground">{formatWhen(row.lastActivity, now)}</span>
+            )}
+          </button>
+          {row === picked && (
+            <div className="mt-1 flex justify-end">
+              <button
+                onClick={() => onResume({ id: row.id, title: row.title })}
+                className="text-xs text-foreground border border-border rounded px-1.5"
+              >
+                Resume
+              </button>
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function Notice({ text }: { text: string }) {

@@ -81,9 +81,9 @@ export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean
   let titleCall = 0;
   const client: FakeSessions = {
     opened: [],
-    open: vi.fn(async () => {
+    open: vi.fn(async (_workspaceId: string, _cols: number, _rows: number, resumeSessionId?: string) => {
       next += 1;
-      const pane = { paneId: `p${next}`, sessionId: `s${next}`, started };
+      const pane = { paneId: `p${next}`, sessionId: resumeSessionId ?? `s${next}`, started };
       const stream = fakeStream();
       client.opened.push({ pane, stream });
       return { pane, stream };
