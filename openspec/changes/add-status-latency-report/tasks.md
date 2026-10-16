@@ -11,6 +11,6 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app` and paste the output
+- [x] 3.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app` and paste the output
 - [ ] 3.2 macOS demo in the built `.app`: before any change → "No data yet"; a few real state changes (prompt, permission prompt, answer, finish) → report shows `n of n`; the lines in `status-latency.jsonl` hold no prompt text (SRS-NFR-007)
 - [ ] 3.3 Windows 11 — deferred by the PO; leave unchecked
