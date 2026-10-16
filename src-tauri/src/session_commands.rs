@@ -26,5 +26,6 @@ pub async fn list_sessions(workspace_id: String, app: AppHandle) -> Result<Sessi
         .join("projects");
     tauri::async_runtime::spawn_blocking(move || scan_sessions(&projects, &workspace.path))
         .await
+        .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
 }

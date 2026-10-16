@@ -1,7 +1,7 @@
 //! The Claude Code sessions of a workspace, read from Claude Code's own session files.
 //! The format is internal to Claude Code: membership needs only `cwd`; title and activity degrade.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -12,7 +12,8 @@ use serde::Serialize;
 use crate::session_title::{UNTITLED, one_line};
 
 const CHUNK: usize = 64 * 1024;
-const HEAD_LIMIT: u64 = 1024 * 1024;
+/// The first `cwd` was always within the first 35 lines on the measured machine.
+const HEAD_LINES: usize = 200;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -114,36 +115,45 @@ fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
 
 /// Reads the file backwards in chunks until the newest timestamp and title are known.
 pub fn read_tail(path: &Path) -> io::Result<TailFacts> {
+    read_tail_until(path, |f| f.last_activity.is_some() && f.ai_title.is_some())
+}
+
+/// Like `read_tail`, but stops as soon as `done` holds (a pane header needs only the title).
+pub fn read_tail_until(path: &Path, done: impl Fn(&TailFacts) -> bool) -> io::Result<TailFacts> {
     let mut file = File::open(path)?;
     let mut pos = file.metadata()?.len();
     let mut facts = TailFacts::default();
-    // The start of the line cut by the previous chunk boundary.
-    let mut carry: Vec<u8> = Vec::new();
-    while pos > 0 && !(facts.last_activity.is_some() && facts.ai_title.is_some()) {
+    // The start of the line cut by the previous chunk boundary. A deque, so prepending the
+    // next chunk of a very long line stays linear in the line's length.
+    let mut carry: VecDeque<u8> = VecDeque::new();
+    while pos > 0 && !done(&facts) {
         let start = pos.saturating_sub(CHUNK as u64);
-        let mut data = vec![0; (pos - start) as usize];
+        let mut chunk = vec![0; (pos - start) as usize];
         file.seek(SeekFrom::Start(start))?;
-        file.read_exact(&mut data)?;
-        data.extend_from_slice(&carry);
+        file.read_exact(&mut chunk)?;
         pos = start;
-        let complete = if start == 0 {
-            carry = Vec::new();
-            &data[..]
+        let cut = if start == 0 {
+            None
         } else {
-            match data.iter().position(|&b| b == b'\n') {
-                Some(cut) => {
-                    carry = data[..cut].to_vec();
-                    &data[cut + 1..]
-                }
+            match chunk.iter().position(|&b| b == b'\n') {
+                Some(cut) => Some(cut),
                 None => {
-                    carry = data;
+                    for &b in chunk.iter().rev() {
+                        carry.push_front(b);
+                    }
                     continue;
                 }
             }
         };
+        let from = cut.map_or(0, |c| c + 1);
+        let mut complete = chunk[from..].to_vec();
+        complete.extend(carry.drain(..));
+        if let Some(cut) = cut {
+            carry.extend(&chunk[..cut]);
+        }
         for line in complete.rsplit(|&b| b == b'\n') {
             note_line(line, &mut facts);
-            if facts.last_activity.is_some() && facts.ai_title.is_some() {
+            if done(&facts) {
                 break;
             }
         }
@@ -181,24 +191,28 @@ fn note_line(line: &[u8], facts: &mut TailFacts) {
 }
 
 /// Every session of `workspace` (RULE-02), newest first, and how many of its files could not be read.
-pub fn scan_sessions(projects_dir: &Path, workspace: &Path) -> SessionListing {
+pub fn scan_sessions(projects_dir: &Path, workspace: &Path) -> io::Result<SessionListing> {
     let home_folder = encoded(workspace);
     let mut matches = CwdMatcher::new(workspace);
     let mut listing = SessionListing {
         sessions: Vec::new(),
         unreadable: 0,
     };
-    for (folder, file) in session_files(projects_dir) {
-        let ours = folder == home_folder;
-        let Some(cwd) = first_cwd(&file) else {
-            listing.unreadable += usize::from(ours);
-            continue;
+    for (folder, file) in session_files(projects_dir)? {
+        let cwd = match first_cwd(&file) {
+            Head::Cwd(cwd) => cwd,
+            // Not written far enough yet (a session that is just starting): not a failure.
+            Head::NoCwd => continue,
+            Head::Broken => {
+                listing.unreadable += usize::from(folder == home_folder);
+                continue;
+            }
         };
         if !matches.is(&cwd) {
             continue;
         }
         let Ok(facts) = read_tail(&file) else {
-            listing.unreadable += usize::from(ours);
+            listing.unreadable += 1;
             continue;
         };
         let last_activity = facts.last_activity.unwrap_or_else(|| modified_ms(&file));
@@ -217,7 +231,7 @@ pub fn scan_sessions(projects_dir: &Path, workspace: &Path) -> SessionListing {
             .cmp(&a.last_activity)
             .then_with(|| a.id.cmp(&b.id))
     });
-    listing
+    Ok(listing)
 }
 
 /// How Claude Code names a project folder today: every non-alphanumeric character becomes `-`.
@@ -229,9 +243,12 @@ fn encoded(path: &Path) -> String {
 }
 
 /// `(project folder name, session file)` for every `*.jsonl` one level below `projects_dir`.
-fn session_files(projects_dir: &Path) -> Vec<(String, PathBuf)> {
-    let Ok(folders) = fs::read_dir(projects_dir) else {
-        return Vec::new();
+/// No projects folder means no sessions; any other failure to list it is an error.
+fn session_files(projects_dir: &Path) -> io::Result<Vec<(String, PathBuf)>> {
+    let folders = match fs::read_dir(projects_dir) {
+        Ok(folders) => folders,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(e),
     };
     let mut files = Vec::new();
     for folder in folders.flatten() {
@@ -247,16 +264,45 @@ fn session_files(projects_dir: &Path) -> Vec<(String, PathBuf)> {
             }
         }
     }
-    files
+    Ok(files)
+}
+
+enum Head {
+    Cwd(String),
+    /// Readable records (or none yet), but no `cwd` among them.
+    NoCwd,
+    /// Cannot be opened, or nothing in the head is a JSON record.
+    Broken,
 }
 
 /// The folder the session started in: the first record's `cwd`, looked for in the head only.
-fn first_cwd(file: &Path) -> Option<String> {
-    let reader = BufReader::new(File::open(file).ok()?.take(HEAD_LIMIT));
-    reader.split(b'\n').map_while(Result::ok).find_map(|line| {
-        let value = serde_json::from_slice::<serde_json::Value>(&line).ok()?;
-        value.get("cwd")?.as_str().map(str::to_owned)
-    })
+fn first_cwd(file: &Path) -> Head {
+    let Ok(opened) = File::open(file) else {
+        return Head::Broken;
+    };
+    let mut lines = 0;
+    let mut parsed = 0;
+    for line in BufReader::new(opened).split(b'\n').take(HEAD_LINES) {
+        let Ok(line) = line else {
+            return Head::Broken;
+        };
+        if line.is_empty() {
+            continue;
+        }
+        lines += 1;
+        let Ok(serde_json::Value::Object(record)) = serde_json::from_slice(&line) else {
+            continue;
+        };
+        parsed += 1;
+        if let Some(cwd) = record.get("cwd").and_then(|c| c.as_str()) {
+            return Head::Cwd(cwd.to_owned());
+        }
+    }
+    if lines > 0 && parsed == 0 {
+        Head::Broken
+    } else {
+        Head::NoCwd
+    }
 }
 
 fn modified_ms(file: &Path) -> u64 {
@@ -440,7 +486,7 @@ mod tests {
         );
         // Not a session: a subfolder of a project folder.
         fs::create_dir_all(root.path().join(enc).join("a")).unwrap();
-        let listing = scan_sessions(root.path(), Path::new(WS));
+        let listing = scan_sessions(root.path(), Path::new(WS)).unwrap();
         assert_eq!(ids(&listing), ["b", "a"]);
         assert_eq!(listing.unreadable, 0);
         assert_eq!(listing.sessions[1].title, "A");
@@ -468,7 +514,10 @@ mod tests {
                 &format!("\"assistant\",\"cwd\":\"{WS}\""),
             ),
         );
-        assert_eq!(ids(&scan_sessions(root.path(), Path::new(WS))), ["moved"]);
+        assert_eq!(
+            ids(&scan_sessions(root.path(), Path::new(WS)).unwrap()),
+            ["moved"]
+        );
     }
 
     #[test]
@@ -485,7 +534,10 @@ mod tests {
             "via-link",
             &session(link.to_str().unwrap(), "2026-10-16T07:00:00.000Z", None),
         );
-        assert_eq!(ids(&scan_sessions(root.path(), &workspace)), ["via-link"]);
+        assert_eq!(
+            ids(&scan_sessions(root.path(), &workspace).unwrap()),
+            ["via-link"]
+        );
     }
 
     #[test]
@@ -509,7 +561,7 @@ mod tests {
             "bare",
             &line(serde_json::json!({"type": "mode", "cwd": WS})),
         );
-        let listing = scan_sessions(root.path(), Path::new(WS));
+        let listing = scan_sessions(root.path(), Path::new(WS)).unwrap();
         assert_eq!(ids(&listing), ["bare", "today", "yesterday"]);
         let mtime = fs::metadata(&bare)
             .unwrap()
@@ -524,14 +576,16 @@ mod tests {
     fn no_sessions_gives_an_empty_listing() {
         let root = TempDir::new().unwrap();
         assert_eq!(
-            scan_sessions(root.path(), Path::new(WS)),
+            scan_sessions(root.path(), Path::new(WS)).unwrap(),
             SessionListing {
                 sessions: vec![],
                 unreadable: 0
             }
         );
         assert_eq!(
-            scan_sessions(&root.path().join("missing"), Path::new(WS)).sessions,
+            scan_sessions(&root.path().join("missing"), Path::new(WS))
+                .unwrap()
+                .sessions,
             vec![]
         );
     }
@@ -549,16 +603,76 @@ mod tests {
             );
         }
         write(&root, enc, "broken", "not json at all\n");
+        write(&root, enc, "binary", "\u{1}\u{2}\u{3}\n[1,2]\n");
+        write(&root, "-Users-me-other", "elsewhere", "garbage\n");
+        let listing = scan_sessions(root.path(), Path::new(WS)).unwrap();
+        assert_eq!(listing.sessions.len(), 8);
+        assert_eq!(listing.unreadable, 2);
+    }
+
+    #[test]
+    fn a_session_without_cwd_yet_is_not_unreadable() {
+        let root = TempDir::new().unwrap();
+        let enc = "-Users-me-Project-agent-deck";
         write(
             &root,
             enc,
-            "nocwd",
+            "starting",
             &line(serde_json::json!({"type": "mode"})),
         );
-        write(&root, "-Users-me-other", "elsewhere", "garbage\n");
-        let listing = scan_sessions(root.path(), Path::new(WS));
-        assert_eq!(listing.sessions.len(), 8);
-        assert_eq!(listing.unreadable, 2);
+        write(&root, enc, "empty", "");
+        assert_eq!(
+            scan_sessions(root.path(), Path::new(WS))
+                .unwrap()
+                .unreadable,
+            0
+        );
+    }
+
+    #[test]
+    fn a_huge_first_record_does_not_hide_the_session() {
+        let root = TempDir::new().unwrap();
+        let mut text = line(
+            serde_json::json!({"type": "user", "cwd": WS, "timestamp": "2026-10-16T07:00:00.000Z", "image": "x".repeat(3 * 1024 * 1024)}),
+        );
+        text += &line(serde_json::json!({"type": "ai-title", "aiTitle": "Pasted a screenshot"}));
+        write(&root, "p", "big-head", &text);
+        let listing = scan_sessions(root.path(), Path::new(WS)).unwrap();
+        assert_eq!(ids(&listing), ["big-head"]);
+        assert_eq!(listing.sessions[0].title, "Pasted a screenshot");
+    }
+
+    #[test]
+    fn one_very_long_line_is_read_in_linear_time() {
+        let root = TempDir::new().unwrap();
+        let mut text = session(WS, "2026-10-16T07:00:00.000Z", None);
+        text += &line(serde_json::json!({"type": "user", "text": "x".repeat(30 * 1024 * 1024)}));
+        let path = write(&root, "p", "long", &text);
+        let started = Instant::now();
+        let facts = read_tail(&path).unwrap();
+        println!("30 MB line read back in {:?}", started.elapsed());
+        assert_eq!(
+            facts.last_activity,
+            parse_timestamp("2026-10-16T07:00:00.000Z")
+        );
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "{:?}",
+            started.elapsed()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_unreadable_projects_folder_is_an_error_not_an_empty_list() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = TempDir::new().unwrap();
+        let projects = root.path().join("projects");
+        fs::create_dir_all(&projects).unwrap();
+        fs::set_permissions(&projects, fs::Permissions::from_mode(0o000)).unwrap();
+        let result = scan_sessions(&projects, Path::new(WS));
+        fs::set_permissions(&projects, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(result.is_err());
     }
 
     #[test]
@@ -581,7 +695,7 @@ mod tests {
             fs::read(&path).unwrap(),
             fs::metadata(&path).unwrap().modified().unwrap(),
         );
-        scan_sessions(root.path(), Path::new(WS));
+        scan_sessions(root.path(), Path::new(WS)).unwrap();
         let after = (
             fs::read(&path).unwrap(),
             fs::metadata(&path).unwrap().modified().unwrap(),
@@ -621,7 +735,7 @@ mod tests {
             );
         }
         let started = Instant::now();
-        let listing = scan_sessions(root.path(), Path::new(WS));
+        let listing = scan_sessions(root.path(), Path::new(WS)).unwrap();
         let took = started.elapsed();
         println!("200 sessions scanned in {took:?}");
         assert_eq!(listing.sessions.len(), 200);
@@ -641,7 +755,7 @@ mod real_data {
         let projects = PathBuf::from(std::env::var("HOME").unwrap()).join(".claude/projects");
         let workspace = PathBuf::from(std::env::var("AD_WORKSPACE").unwrap());
         let started = std::time::Instant::now();
-        let listing = scan_sessions(&projects, &workspace);
+        let listing = scan_sessions(&projects, &workspace).unwrap();
         println!(
             "{} sessions, {} unreadable, in {:?}",
             listing.sessions.len(),

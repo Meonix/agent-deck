@@ -4,14 +4,14 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::session_list::read_tail;
+use crate::session_list::read_tail_until;
 
 pub const UNTITLED: &str = "(untitled)";
 const MAX_CHARS: usize = 80;
 
 pub fn session_title(projects_dir: &Path, session_id: &str) -> String {
     find_session_file(projects_dir, session_id)
-        .and_then(|file| read_tail(&file).ok())
+        .and_then(|file| read_tail_until(&file, |f| f.ai_title.is_some()).ok())
         .map_or_else(|| UNTITLED.to_string(), |facts| facts.title())
 }
 
