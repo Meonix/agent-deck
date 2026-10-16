@@ -39,11 +39,21 @@ function asExit(message: unknown): ExitMessage | null {
   return value !== null && typeof value === "object" && "exited" in value ? (value as ExitMessage) : null;
 }
 
+const STATES: readonly SessionState[] = ["Running", "Needs Approval", "Idle", "Error", "Ended"];
+
 function asStatus(message: unknown): PaneStatus | null {
   const value = typeof message === "string" ? safeParse(message) : message;
   if (value === null || typeof value !== "object" || !("status" in value)) return null;
   const status = (value as { status: unknown }).status;
-  return status !== null && typeof status === "object" && "state" in status ? (status as PaneStatus) : null;
+  if (status === null || typeof status !== "object") return null;
+  const { state, since, reason, tracked } = status as Record<string, unknown>;
+  const valid =
+    typeof state === "string" &&
+    (STATES as readonly string[]).includes(state) &&
+    typeof since === "number" &&
+    (reason === null || typeof reason === "string") &&
+    typeof tracked === "boolean";
+  return valid ? (status as PaneStatus) : null;
 }
 
 function safeParse(text: string): unknown {
@@ -64,9 +74,9 @@ function createStream(channel: Channel<unknown>): PaneStream {
   let exitCb: ((code: number | null) => void) | null = null;
   let statusCb: ((status: PaneStatus) => void) | null = null;
 
-  // The exit waits for queued statuses: the final status always precedes it.
+  // The exit waits for queued statuses once a status listener exists: the final status precedes it.
   const deliverExit = () => {
-    if (pendingExit && exitCb && pendingOutput.length === 0 && pendingStatus.length === 0) {
+    if (pendingExit && exitCb && pendingOutput.length === 0 && (pendingStatus.length === 0 || !statusCb)) {
       const { exited } = pendingExit;
       pendingExit = null;
       exitCb(exited);

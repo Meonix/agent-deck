@@ -4,12 +4,14 @@ type Props = { workspaceName: string; title: string; onCancel(): void; onConfirm
 
 export function ConfirmClose({ workspaceName, title, onCancel, onConfirm }: Props) {
   const cancel = useRef<HTMLButtonElement>(null);
-  useEffect(() => cancel.current?.focus(), []);
+  useEffect(() => {
+    cancel.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
   return (
-    <div
-      className="absolute inset-0 z-10 bg-black/50 flex items-center justify-center"
-      onKeyDown={(e) => e.key === "Escape" && onCancel()}
-    >
+    <div className="absolute inset-0 z-10 bg-black/50 flex items-center justify-center">
       <div
         role="dialog"
         aria-modal="true"

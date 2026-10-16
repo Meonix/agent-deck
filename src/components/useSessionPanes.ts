@@ -44,15 +44,24 @@ export function useSessionPanes(
     [],
   );
 
-  // One interval per live pane. A failed lookup keeps the last title; the next tick retries.
+  // One interval per live pane, started once and stopped when the pane ends or closes,
+  // so other panes opening never restart it. A failed lookup keeps the last title.
+  const titleTimers = useRef(new Map<string, () => void>());
+  const graceTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const polled = layout.entries
     .filter((e) => e.pane.started && !e.ended)
     .map((e) => e.pane.paneId)
     .join(",");
   useEffect(() => {
-    if (!polled) return;
-    let live = true;
-    const stops = polled.split(",").map((paneId) => {
+    const wanted = new Set(polled ? polled.split(",") : []);
+    for (const [paneId, stop] of titleTimers.current) {
+      if (wanted.has(paneId)) continue;
+      stop();
+      titleTimers.current.delete(paneId);
+    }
+    for (const paneId of wanted) {
+      if (titleTimers.current.has(paneId)) continue;
+      let live = true;
       const load = () =>
         client.title(paneId).then(
           (title) => live && update(paneId, () => ({ title })),
@@ -60,13 +69,22 @@ export function useSessionPanes(
         );
       void load();
       const timer = setInterval(load, TITLE_REFRESH_MS);
-      return () => clearInterval(timer);
-    });
-    return () => {
-      live = false;
-      stops.forEach((stop) => stop());
-    };
+      titleTimers.current.set(paneId, () => {
+        live = false;
+        clearInterval(timer);
+      });
+    }
   }, [client, polled, update]);
+  useEffect(() => {
+    const titles = titleTimers.current;
+    const graces = graceTimers.current;
+    return () => {
+      titles.forEach((stop) => stop());
+      titles.clear();
+      graces.forEach(clearTimeout);
+      graces.clear();
+    };
+  }, []);
 
   const newSession = useCallback(
     async (workspace: Workspace) => {
@@ -105,7 +123,10 @@ export function useSessionPanes(
         if (adapter) stream.onOutput((bytes) => adapter.write(bytes));
         stream.onStatus((next) => update(pane.paneId, () => ({ status: next })));
         stream.onExit(() => update(pane.paneId, () => ({ ended: true })));
-        setTimeout(() => update(pane.paneId, () => ({ graceOver: true })), STATUS_GRACE_MS);
+        graceTimers.current.set(
+          pane.paneId,
+          setTimeout(() => update(pane.paneId, () => ({ graceOver: true })), STATUS_GRACE_MS),
+        );
       } catch (e) {
         if (e === "folder_missing") {
           showToast(FOLDER_NOT_FOUND);
@@ -130,6 +151,8 @@ export function useSessionPanes(
         showToast(`Could not close session: ${errorDetail(e)}`);
         return;
       }
+      clearTimeout(graceTimers.current.get(paneId));
+      graceTimers.current.delete(paneId);
       const closing = entries.current.find((e) => e.pane.paneId === paneId);
       closing?.stream.dispose();
       closing?.adapter?.dispose();

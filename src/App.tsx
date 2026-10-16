@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SessionsClient } from "./api/sessions";
 import type { WorkspacesClient } from "./api/workspaces";
 import { ConfirmClose } from "./components/ConfirmClose";
 import { PaneGrid } from "./components/PaneGrid";
-import { TerminalPane, type TerminalAdapterFactory } from "./components/TerminalPane";
+import { TerminalPane, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
 import { StatusBoard } from "./components/BoardColumn";
 import { ToastProvider } from "./components/Toast";
 import { useSessionPanes } from "./components/useSessionPanes";
@@ -40,10 +40,14 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
 
   const [confirming, setConfirming] = useState<string | null>(null);
   const confirmed = panes.entries.find((e) => e.pane.paneId === confirming);
+  const stillBusy = confirmed !== undefined && !confirmed.ended && isBusy(confirmed);
+  useEffect(() => {
+    if (confirming !== null && !stillBusy) setConfirming(null);
+  }, [confirming, stillBusy]);
+  const cancelConfirm = useCallback(() => setConfirming(null), []);
   const requestClose = (paneId: string) => {
     const entry = panes.entries.find((e) => e.pane.paneId === paneId);
-    const busy = entry?.status.tracked && (entry.status.state === "Running" || entry.status.state === "Needs Approval");
-    if (busy && !entry.ended) setConfirming(paneId);
+    if (entry && !entry.ended && isBusy(entry)) setConfirming(paneId);
     else void panes.closePane(paneId);
   };
 
@@ -82,11 +86,11 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
         )}
       </main>
       <StatusBoard entries={panes.entries} />
-      {confirmed && (
+      {confirmed && stillBusy && (
         <ConfirmClose
           workspaceName={confirmed.workspaceName}
           title={confirmed.title}
-          onCancel={() => setConfirming(null)}
+          onCancel={cancelConfirm}
           onConfirm={() => {
             setConfirming(null);
             void panes.closePane(confirmed.pane.paneId);
@@ -98,6 +102,10 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
 }
 
 type CenteredStateProps = { title: string; hint: string; action: string; disabled?: boolean; onAction(): void };
+
+function isBusy({ status }: PaneEntry): boolean {
+  return status.tracked && (status.state === "Running" || status.state === "Needs Approval");
+}
 
 function CenteredState({ title, hint, action, disabled = false, onAction }: CenteredStateProps) {
   return (

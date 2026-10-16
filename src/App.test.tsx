@@ -277,7 +277,59 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
     expect(sessions.title).not.toHaveBeenCalled();
   });
 
+  it("leaves no timer behind once its pane is closed", async () => {
+    vi.useFakeTimers();
+    const sessions = fakeSessions();
+    await openWithFakeClock(sessions);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Close pane" }));
+    await act(async () => vi.advanceTimersByTimeAsync(0));
+    expect(sessions.close).toHaveBeenCalled();
+    expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("does not refetch the first pane's title when a second pane opens", async () => {
+    const sessions = fakeSessions({ titles: ["Fix login"] });
+    const { user } = await openPane(sessions);
+    await screen.findByRole("region", { name: "agent-deck · Fix login" });
+    expect(sessions.title).toHaveBeenCalledTimes(1);
+    await user.click(newSessionButton());
+    await vi.waitFor(() => expect(panes()).toHaveLength(2));
+    await act(async () => {});
+    expect(sessions.title).toHaveBeenCalledTimes(2);
+    expect(sessions.title).toHaveBeenNthCalledWith(1, "p1");
+    expect(sessions.title).toHaveBeenNthCalledWith(2, "p2");
+  });
+
   describe("confirm close", () => {
+    it("dismisses the dialog when the pane stops being busy", async () => {
+      const { user, sessions, stream } = await openPane();
+      act(() => stream.status({ state: "Running" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      act(() => stream.status({ state: "Idle" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(sessions.close).not.toHaveBeenCalled();
+    });
+
+    it("dismisses the dialog when the session ends", async () => {
+      const { user, stream } = await openPane();
+      act(() => stream.status({ state: "Needs Approval" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      act(() => stream.exit(0));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("cancels on Escape even after focus left the dialog", async () => {
+      const { user, stream } = await openPane();
+      act(() => stream.status({ state: "Running" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      (document.activeElement as HTMLElement).blur();
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
     it("asks before closing a Running pane; Cancel keeps it", async () => {
       const { user, sessions, stream } = await openPane();
       act(() => stream.status({ state: "Running" }));

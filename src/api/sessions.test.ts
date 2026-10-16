@@ -91,9 +91,33 @@ describe("tauriSessionsClient (5.1)", () => {
     });
     const { stream } = await tauriSessionsClient.open("w1", 80, 24);
     const events: string[] = [];
-    stream.onExit((code) => events.push(`exit ${code}`));
     stream.onStatus((s) => events.push(`status ${s.state}`));
+    stream.onExit((code) => events.push(`exit ${code}`));
     expect(events).toEqual(["status Ended", "exit 0"]);
+  });
+
+  it("ignores a status with an unknown state or wrong field types", async () => {
+    tauri.invoke.mockResolvedValue(opened);
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen: unknown[] = [];
+    stream.onStatus((s) => seen.push(s));
+    send({ status: { state: "Sleeping", since: 1, reason: null, tracked: true } });
+    send({ status: { state: "Idle", since: "1", reason: null, tracked: true } });
+    send({ status: { state: "Idle", since: 1, reason: null, tracked: "yes" } });
+    send({ status: { state: "Idle", since: 1, reason: 5, tracked: true } });
+    expect(seen).toEqual([]);
+  });
+
+  it("delivers the exit when no status listener was registered", async () => {
+    tauri.invoke.mockImplementation(async () => {
+      send({ status: { state: "Ended", since: 1, reason: null, tracked: true } });
+      send({ exited: 0 });
+      return opened;
+    });
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const onExit = vi.fn();
+    stream.onExit(onExit);
+    expect(onExit).toHaveBeenCalledWith(0);
   });
 
   it("passes a null exit code through", async () => {
