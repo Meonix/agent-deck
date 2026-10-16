@@ -1,8 +1,8 @@
 ## 1. Rust (seams S1, S2)
 
-- [ ] 1.1 `StatusLatencyLog`: append, `report(now)` over 14 days with `<= 3000` ms inclusive, bad lines skipped, `prune(now)` via temp file + rename (SRS-FR-038, SRS-FR-039)
-- [ ] 1.2 Tracker status message gains `reportedAt` = the change time; `null` for tracked-only messages (SRS-FR-038)
-- [ ] 1.3 Commands `record_status_shown` and `status_latency_report`; log in `AppState`, pruned at startup
+- [x] 1.1 `StatusLatencyLog`: append, `report(now)` over 14 days with `<= 3000` ms inclusive, bad lines skipped, `prune(now)` via temp file + rename (SRS-FR-038, SRS-FR-039)
+- [x] 1.2 Tracker status message gains `reportedAt` = the change time; `null` for tracked-only messages (SRS-FR-038)
+- [x] 1.3 Commands `record_status_shown` and `status_latency_report`; log in `AppState`, pruned at startup
 
 ## 2. UI (seams S3, S4)
 
