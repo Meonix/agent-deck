@@ -6,8 +6,8 @@
 
 ## 2. UI (seam S4)
 
-- [ ] 2.1 `SessionsClient.open(workspaceId, cols, rows, resumeSessionId?)`; `useSessionPanes.resume` sharing one open path with `newSession`: `Missing` toast, focus an open pane, row title as the first pane title, `already_open` → focus (SRS-FR-013, SRS-FR-015, SRS-FR-016)
-- [ ] 2.2 Selectable session rows with a Resume button per design; `onResume` wired through `App` (SRS-FR-013)
+- [x] 2.1 `SessionsClient.open(workspaceId, cols, rows, resumeSessionId?)`; `useSessionPanes.resume` sharing one open path with `newSession`: `Missing` toast, focus an open pane, row title as the first pane title, `already_open` → focus (SRS-FR-013, SRS-FR-015, SRS-FR-016)
+- [x] 2.2 Selectable session rows with a Resume button per design; `onResume` wired through `App` (SRS-FR-013)
 
 ## 3. Verification
 
