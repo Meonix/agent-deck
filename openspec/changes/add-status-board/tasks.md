@@ -15,10 +15,10 @@
 
 ## 4. UI (seam S5)
 
-- [ ] 4.1 `SessionsClient` stream `onStatus`; entries carry `status` and `title`; `boardCards` (SRS-FR-032)
-- [ ] 4.2 `StatusBoard` column, grid `240px 1fr 280px`, cards with workspace · `HH:MM` · reason, "Nothing here" (SRS-FR-031, SRS-FR-033)
-- [ ] 4.3 `TerminalPane` header state chip and border colour; `Status unavailable` after 5 s untracked, cleared when tracked (SRS-FR-036)
-- [ ] 4.4 Confirm dialog on closing a `Running` / `Needs Approval` pane, Cancel default, Escape cancels (SRS-FR-027)
+- [x] 4.1 `SessionsClient` stream `onStatus`; entries carry `status` and `title`; `boardCards` (SRS-FR-032)
+- [x] 4.2 `StatusBoard` column, grid `240px 1fr 280px`, cards with workspace · `HH:MM` · reason, "Nothing here" (SRS-FR-031, SRS-FR-033)
+- [x] 4.3 `TerminalPane` header state chip and border colour; `Status unavailable` after 5 s untracked, cleared when tracked (SRS-FR-036)
+- [x] 4.4 Confirm dialog on closing a `Running` / `Needs Approval` pane, Cancel default, Escape cancels (SRS-FR-027)
 
 ## 5. Verification
 

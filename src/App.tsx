@@ -1,8 +1,10 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { SessionsClient } from "./api/sessions";
 import type { WorkspacesClient } from "./api/workspaces";
+import { ConfirmClose } from "./components/ConfirmClose";
 import { PaneGrid } from "./components/PaneGrid";
 import { TerminalPane, type TerminalAdapterFactory } from "./components/TerminalPane";
+import { StatusBoard } from "./components/BoardColumn";
 import { ToastProvider } from "./components/Toast";
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useWorkspaces } from "./components/useWorkspaces";
@@ -36,8 +38,17 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
     if (workspaces.selected) void panes.newSession(workspaces.selected);
   };
 
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const confirmed = panes.entries.find((e) => e.pane.paneId === confirming);
+  const requestClose = (paneId: string) => {
+    const entry = panes.entries.find((e) => e.pane.paneId === paneId);
+    const busy = entry?.status.tracked && (entry.status.state === "Running" || entry.status.state === "Needs Approval");
+    if (busy && !entry.ended) setConfirming(paneId);
+    else void panes.closePane(paneId);
+  };
+
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-[240px_1fr]">
+    <div className="flex-1 min-h-0 grid grid-cols-[240px_1fr_280px]">
       <WorkspaceSidebar workspaces={workspaces} onNewSession={newSession} />
       <main ref={paneArea} className="min-h-0 min-w-0">
         {panes.entries.length > 0 ? (
@@ -49,7 +60,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
                 client={sessions}
                 focused={entry.pane.paneId === panes.focusedId}
                 onFocus={panes.focusPane}
-                onClose={(id) => void panes.closePane(id)}
+                onClose={requestClose}
               />
             ))}
           </PaneGrid>
@@ -70,6 +81,18 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
           />
         )}
       </main>
+      <StatusBoard entries={panes.entries} />
+      {confirmed && (
+        <ConfirmClose
+          workspaceName={confirmed.workspaceName}
+          title={confirmed.title}
+          onCancel={() => setConfirming(null)}
+          onConfirm={() => {
+            setConfirming(null);
+            void panes.closePane(confirmed.pane.paneId);
+          }}
+        />
+      )}
     </div>
   );
 }

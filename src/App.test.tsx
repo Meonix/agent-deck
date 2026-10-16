@@ -1,6 +1,6 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Workspace, WorkspacesClient } from "./api/workspaces";
 import App from "./App";
 import type { TerminalSize } from "./components/TerminalPane";
@@ -28,7 +28,8 @@ function setup(items: Workspace[], sessions: FakeSessions = fakeSessions(), size
   return { user: userEvent.setup(), sessions, adapters, createTerminal };
 }
 
-const sidebar = () => screen.getByRole("complementary");
+const sidebar = () => screen.getByRole("complementary", { name: "Workspaces" });
+const board = () => screen.getByRole("complementary", { name: "Status Board" });
 const newSessionButton = () => within(sidebar()).getByRole("button", { name: "New Session" });
 const panes = () => within(screen.getByTestId("pane-grid")).getAllByRole("region");
 
@@ -171,5 +172,159 @@ describe("New Session (5.4)", () => {
     expect(adapters[0].dispose).toHaveBeenCalled();
     expect(sessions.opened[0].stream.dispose).toHaveBeenCalled();
     expect(screen.getByText("No open sessions")).toBeInTheDocument();
+  });
+});
+
+describe("Status Board and pane state (4.2 to 4.4)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  const section = (name: string) => within(board()).getByText(name).closest("div")!.parentElement!;
+  const since = new Date(2026, 9, 16, 14, 2).getTime();
+
+  async function openPane(sessions = fakeSessions({ titles: ["Scaffold Tauri app"] })) {
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await screen.findByTestId("pane-grid");
+    return { ...ctx, stream: sessions.opened[0].stream };
+  }
+
+  // Testing Library's async helpers wait on setTimeout, so with a fake clock the test drives the UI by hand.
+  async function openWithFakeClock(sessions: FakeSessions) {
+    setup([ws("a", "agent-deck")], sessions);
+    const settle = () => act(async () => vi.advanceTimersByTimeAsync(0));
+    await settle();
+    fireEvent.click(within(sidebar()).getByText("agent-deck"));
+    fireEvent.click(newSessionButton());
+    await settle();
+    return { stream: sessions.opened[0].stream };
+  }
+
+  it("shows three empty sections when no pane is open", async () => {
+    setup([ws("a", "agent-deck")]);
+    await within(sidebar()).findByText("agent-deck");
+    expect(within(board()).getByText("Status Board")).toBeInTheDocument();
+    const names = within(board()).getAllByText(/^(Needs Approval|Error|Running)$/).map((n) => n.textContent);
+    expect(names).toEqual(["Needs Approval", "Error", "Running"]);
+    expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
+  });
+
+  it("follows a pane through Needs Approval, Idle and Error", async () => {
+    const { stream } = await openPane();
+    await vi.waitFor(() => expect(screen.getAllByText("Scaffold Tauri app").length).toBeGreaterThan(0));
+    act(() => stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
+    expect(within(section("Needs Approval")).getByText("Scaffold Tauri app")).toBeInTheDocument();
+    expect(within(board()).getByText(/agent-deck · 14:02 ·/)).toHaveTextContent("agent-deck · 14:02 · Edit src/main.rs");
+    expect(within(board()).getAllByText("Nothing here")).toHaveLength(2);
+
+    act(() => stream.status({ state: "Idle", since }));
+    expect(within(board()).queryByRole("article")).not.toBeInTheDocument();
+    expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
+
+    act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
+    expect(within(section("Error")).getByText("Scaffold Tauri app")).toBeInTheDocument();
+    expect(within(board()).getByRole("article")).toHaveTextContent("agent-deck · 14:02 · overloaded");
+  });
+
+  it("omits the reason part when there is none", async () => {
+    const { stream } = await openPane();
+    act(() => stream.status({ state: "Running", since, reason: null }));
+    expect(within(board()).getByRole("article")).toHaveTextContent(/^Scaffold Tauri appagent-deck · 14:02$/);
+  });
+
+  it("shows the chip, then Status unavailable after 5 s untracked, cleared by a tracked status", async () => {
+    vi.useFakeTimers();
+    const sessions = fakeSessions();
+    const { stream } = await openWithFakeClock(sessions);
+    const pane = () => within(screen.getByTestId("pane-grid"));
+    expect(pane().getByText("Idle")).toBeInTheDocument();
+    await act(async () => vi.advanceTimersByTimeAsync(4_999));
+    expect(pane().queryByText("Status unavailable")).not.toBeInTheDocument();
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(pane().getByText("Status unavailable")).toBeInTheDocument();
+    act(() => stream.status({ state: "Running" }));
+    expect(pane().queryByText("Status unavailable")).not.toBeInTheDocument();
+    expect(pane().getByText("Running")).toBeInTheDocument();
+  });
+
+  it("shows the session title in the pane header and on the card", async () => {
+    const { stream } = await openPane(fakeSessions({ titles: ["Fix login"] }));
+    await screen.findByRole("region", { name: "agent-deck · Fix login" });
+    act(() => stream.status({ state: "Running" }));
+    expect(within(board()).getByText("Fix login")).toBeInTheDocument();
+  });
+
+  it("refreshes the title every 10 s and stops once the session has ended", async () => {
+    vi.useFakeTimers();
+    const sessions = fakeSessions({ titles: ["Fix login", "Fix login redirect"] });
+    const { stream } = await openWithFakeClock(sessions);
+    expect(sessions.title).toHaveBeenCalledTimes(1);
+    await act(async () => vi.advanceTimersByTimeAsync(9_999));
+    expect(sessions.title).toHaveBeenCalledTimes(1);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(sessions.title).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("region", { name: "agent-deck · Fix login redirect" })).toBeInTheDocument();
+    act(() => stream.exit(0));
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(sessions.title).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("region", { name: "agent-deck · Fix login redirect" })).toBeInTheDocument();
+  });
+
+  it("never asks for the title of a pane that did not start", async () => {
+    const sessions = fakeSessions({ started: false });
+    setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(userEvent.setup(), "agent-deck");
+    await screen.findByText("Claude Code could not be started");
+    expect(sessions.title).not.toHaveBeenCalled();
+  });
+
+  describe("confirm close", () => {
+    it("asks before closing a Running pane; Cancel keeps it", async () => {
+      const { user, sessions, stream } = await openPane();
+      act(() => stream.status({ state: "Running" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      const dialog = screen.getByRole("dialog");
+      expect(dialog).toHaveAttribute("aria-modal", "true");
+      expect(within(dialog).getByText("Session is still running. Close anyway?")).toBeInTheDocument();
+      expect(within(dialog).getByText(/agent-deck · .* will be ended\./)).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+      await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(sessions.close).not.toHaveBeenCalled();
+      expect(screen.getByTestId("pane-grid")).toBeInTheDocument();
+    });
+
+    it("closes the pane after Close", async () => {
+      const { user, sessions, stream } = await openPane();
+      act(() => stream.status({ state: "Needs Approval", reason: "Edit a" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+      expect(sessions.close).toHaveBeenCalledWith("p1");
+      await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("cancels on Escape", async () => {
+      const { user, sessions, stream } = await openPane();
+      act(() => stream.status({ state: "Running" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(sessions.close).not.toHaveBeenCalled();
+    });
+
+    it("closes an Idle pane at once", async () => {
+      const { user, sessions, stream } = await openPane();
+      act(() => stream.status({ state: "Idle" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(sessions.close).toHaveBeenCalledWith("p1");
+    });
+
+    it("closes an untracked pane at once", async () => {
+      const { user, sessions } = await openPane();
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(sessions.close).toHaveBeenCalledWith("p1");
+    });
   });
 });
