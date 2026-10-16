@@ -22,8 +22,10 @@ chosen at GATE 1.
 **D1 — The card is a button.**
 `CardView` renders a `<button type="button">` with the card's existing classes (plus `w-full text-left
 cursor-pointer` and a `focus-visible` ring), `aria-label` "<workspace> · <title>, <state>", content unchanged.
-A native button gives Enter / Space and Tab order for free. Rejected: `role="button"` on the article (own key
-handling).
+A native button gives Space and Tab order for free. Enter is handled on `keydown` with the default prevented:
+the jump moves focus into the terminal, and the rest of that Enter must not reach it as `\r` (it would answer the
+very prompt the user is jumping to). The card's two lines are `block` spans (a button holds phrasing content
+only). Rejected: `role="button"` on the article (own key handling for both keys).
 
 **D2 — Jump through the existing focus path.**
 `useSessionPanes` exposes `jumpTo(paneId)`: finds the entry and calls `focusHolder(entry)`; an unknown id (the
@@ -34,7 +36,7 @@ pane closed between render and click) does nothing. `StatusBoard` gets `onJump(p
 
 | Seam | Public interface | Requirements proven there | How |
 | --- | --- | --- | --- |
-| S1 UI (React) | `App` with fake clients | SRS-FR-037: with two panes, the first focused, a `Needs Approval` status on the second → click its card → second pane has the focus ring and its adapter got `focus()`; typing `1` goes to `client.write` for that pane; Enter on the focused card does the same; a card for a closed pane does nothing | Vitest + Testing Library |
+| S1 UI (React) | `App` with fake clients | SRS-FR-037: with two panes, the first focused, a `Needs Approval` status on the second → click its card → second pane has the focus ring and its adapter got `focus()`; typing `1` goes to `client.write` for that pane; Enter (default prevented) and Space on the focused card do the same; the card's accessible name is "<workspace> · <title>, <state>". A closed pane's card is gone from the board, so `jumpTo` on an unknown id is a guard only, not reachable from the UI | Vitest + Testing Library |
 | — real app | — | click a real `Needs Approval` card, press `1` | task 2.2 demo |
 
 ## Risks / Trade-offs
