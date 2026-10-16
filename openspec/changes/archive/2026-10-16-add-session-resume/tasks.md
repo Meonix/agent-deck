@@ -12,5 +12,7 @@
 ## 3. Verification
 
 - [x] 3.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app` and paste the output
-- [ ] 3.2 Demo in the `.app` with the real Claude Code: resume a session → earlier conversation shown, "tiếp tục" answered in context, row `Live`, no duplicate row; Resume again → same pane focused, pane count unchanged; rename a workspace folder with its list on screen → Resume shows "Folder not found"; count actions from app start to typing on 5 different sessions (A-09, BO-02 ≤ 3)
+- [x] 3.2 Demo in the `.app` with the real Claude Code: resume a session → earlier conversation shown, "tiếp tục" answered in context, row `Live`, no duplicate row; Resume again → same pane focused, pane count unchanged; rename a workspace folder with its list on screen → Resume shows "Folder not found"; count actions from app start to typing on 5 different sessions (A-09, BO-02 ≤ 3)
+  - 2026-10-16, Claude Code 2.1.301, 5 throwaway sessions: resume kept the id (same file grew, no new file), conversation and codeword recalled, row `Live`, no duplicate row; Resume on an open session went to its pane with 2 panes open; 3 actions on all 5 sessions.
+  - Rename case not reproduced in the app: the list switched to "This folder no longer exists on disk." before a row could be clicked, so no pane opened but the "Folder not found" toast is covered only by the UI test.
 - [ ] 3.3 Windows 11 — deferred by the PO; leave unchecked
