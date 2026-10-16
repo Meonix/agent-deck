@@ -8,11 +8,15 @@ use serde_json::Value;
 use crate::hooks::HookSink;
 use crate::status::{StatusChange, StatusMachine, signal_of};
 
+/// The pane's message stream: status changes and, last, `{"exited": code}`.
 pub trait StatusOut: Send + Sync {
-    fn send_status(&self, json: String);
+    fn send_json(&self, json: String);
 }
 
 /// One pane's state machine, fed by its hook events and its process exit.
+///
+/// It is the pane's single ordered writer: every message is sent while its own
+/// (leaf) lock is held, so a status can never overtake or follow the exit.
 pub struct StatusTracker {
     inner: Mutex<Tracked>,
     workspace: PathBuf,
@@ -23,6 +27,8 @@ struct Tracked {
     machine: StatusMachine,
     /// A hook request has reached this pane (D5).
     tracked: bool,
+    /// `{"exited"}` has been sent; later hooks are dropped.
+    finished: bool,
 }
 
 impl StatusTracker {
@@ -31,44 +37,43 @@ impl StatusTracker {
             inner: Mutex::new(Tracked {
                 machine: StatusMachine::new(now),
                 tracked: false,
+                finished: false,
             }),
             workspace,
             out,
         }
     }
 
+    /// Sends the final status, if the exit changes it, then `{"exited": code}`.
     pub fn exited(&self, code: Option<i32>, now: u64) {
-        let message = {
-            let mut inner = self.inner.lock().unwrap();
-            let tracked = inner.tracked;
-            inner
-                .machine
-                .exit(code, now)
-                .map(|change| status_json(&change, tracked))
-        };
-        self.send(message);
-    }
-
-    fn send(&self, message: Option<String>) {
-        if let Some(json) = message {
-            self.out.send_status(json);
+        let mut inner = self.inner.lock().unwrap();
+        if inner.finished {
+            return;
         }
+        inner.finished = true;
+        if let Some(change) = inner.machine.exit(code, now) {
+            self.out.send_json(status_json(&change, inner.tracked));
+        }
+        self.out.send_json(exit_json(code));
     }
 }
 
 impl HookSink for StatusTracker {
     fn hook(&self, event: Value) {
         let signal = signal_of(&event, &self.workspace);
-        let message = {
-            let mut inner = self.inner.lock().unwrap();
-            let first = !inner.tracked;
-            inner.tracked = true;
-            let changed = signal
-                .and_then(|s| inner.machine.apply(s, now_ms()))
-                .is_some();
-            (changed || first).then(|| status_json(&inner.machine.current(), true))
-        };
-        self.send(message);
+        let mut inner = self.inner.lock().unwrap();
+        if inner.finished {
+            return;
+        }
+        let first = !inner.tracked;
+        inner.tracked = true;
+        let changed = signal
+            .and_then(|s| inner.machine.apply(s, now_ms()))
+            .is_some();
+        if changed || first {
+            self.out
+                .send_json(status_json(&inner.machine.current(), true));
+        }
     }
 }
 
@@ -91,6 +96,10 @@ fn status_json(change: &StatusChange, tracked: bool) -> String {
     serde_json::to_string(&message).expect("status serializes")
 }
 
+pub fn exit_json(code: Option<i32>) -> String {
+    serde_json::json!({ "exited": code }).to_string()
+}
+
 pub fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -107,7 +116,7 @@ mod tests {
     struct Outbox(Arc<Mutex<Vec<String>>>);
 
     impl StatusOut for Outbox {
-        fn send_status(&self, json: String) {
+        fn send_json(&self, json: String) {
             self.0.lock().unwrap().push(json);
         }
     }
@@ -201,7 +210,10 @@ mod tests {
         t.exited(Some(0), 2000);
         assert_eq!(
             out.take(),
-            [json!({"status": {"state": "Ended", "since": 2000, "reason": null, "tracked": true}})]
+            [
+                json!({"status": {"state": "Ended", "since": 2000, "reason": null, "tracked": true}}),
+                json!({"exited": 0})
+            ]
         );
     }
 
@@ -212,12 +224,40 @@ mod tests {
         assert_eq!(
             out.take(),
             [
-                json!({"status": {"state": "Error", "since": 2000, "reason": "killed", "tracked": false}})
+                json!({"status": {"state": "Error", "since": 2000, "reason": "killed", "tracked": false}}),
+                json!({"exited": null})
             ]
         );
-        // Ended and Error-to-Error are keep cells: nothing more is sent.
+    }
+
+    #[test]
+    fn exit_without_a_change_still_sends_exited() {
+        let (t, out) = tracker(1000);
+        t.hook(json!({"hook_event_name": "StopFailure", "error": "overloaded"}));
+        out.take();
+        // Error + killed is a keep cell: no status, only the exit.
+        t.exited(None, 2000);
+        assert_eq!(out.take(), [json!({"exited": null})]);
+    }
+
+    /// RULE-08 / R3: nothing may follow `{"exited"}`, or a finished pane would
+    /// come back on the board.
+    #[test]
+    fn nothing_is_sent_after_the_exit() {
+        let (t, out) = tracker(1000);
+        t.exited(Some(0), 2000);
+        out.take();
+
+        t.hook(json!({"hook_event_name": "SessionStart"}));
+        t.hook(json!({"hook_event_name": "UserPromptSubmit"}));
         t.exited(None, 3000);
         assert_eq!(out.take(), Vec::<Value>::new());
+    }
+
+    #[test]
+    fn exit_message_is_json_with_the_code() {
+        assert_eq!(exit_json(Some(7)), r#"{"exited":7}"#);
+        assert_eq!(exit_json(None), r#"{"exited":null}"#);
     }
 
     #[test]

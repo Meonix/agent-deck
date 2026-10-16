@@ -159,7 +159,7 @@ fn open_blocking(
         };
         let sink = ChannelSink {
             channel: output,
-            tracker: Some(tracker),
+            tracker,
         };
         let mut panes = state.panes.lock().unwrap();
         panes
@@ -341,11 +341,12 @@ impl Spawner for PtySpawner<'_> {
     }
 }
 
-/// Output as raw bytes, then the exit as the last message, `{"exited": code}`,
-/// on the same channel so it can neither be missed nor overtake output.
+/// Output as raw bytes; the exit goes through the tracker, which sends the final
+/// status and then `{"exited": code}` as the last message on the same channel,
+/// so it can neither be missed nor overtake output.
 struct ChannelSink {
     channel: Channel<InvokeResponseBody>,
-    tracker: Option<Arc<StatusTracker>>,
+    tracker: Arc<StatusTracker>,
 }
 
 impl OutputSink for ChannelSink {
@@ -354,18 +355,15 @@ impl OutputSink for ChannelSink {
     }
 
     fn exited(&self, code: Option<i32>) {
-        if let Some(tracker) = &self.tracker {
-            tracker.exited(code, now_ms());
-        }
-        let _ = self.channel.send(exit_message(code));
+        self.tracker.exited(code, now_ms());
     }
 }
 
-/// Status messages share the pane's channel with its output (D6).
+/// Status and exit messages share the pane's channel with its output (D6).
 struct ChannelStatus(Channel<InvokeResponseBody>);
 
 impl StatusOut for ChannelStatus {
-    fn send_status(&self, json: String) {
+    fn send_json(&self, json: String) {
         let _ = self.0.send(InvokeResponseBody::Json(json));
     }
 }
@@ -396,10 +394,6 @@ impl Drop for HookedProcess {
     fn drop(&mut self) {
         self.server.unregister(&self.token);
     }
-}
-
-fn exit_message(code: Option<i32>) -> InvokeResponseBody {
-    InvokeResponseBody::Json(serde_json::json!({ "exited": code }).to_string())
 }
 
 enum Op {
@@ -559,7 +553,7 @@ mod tests {
     struct Outbox(Arc<Mutex<Vec<String>>>);
 
     impl StatusOut for Outbox {
-        fn send_status(&self, json: String) {
+        fn send_json(&self, json: String) {
             self.0.lock().unwrap().push(json);
         }
     }
@@ -727,6 +721,8 @@ mod tests {
         assert!(response.starts_with("HTTP/1.1 404"), "{response}");
         assert_eq!(server.registered(), 0);
         assert_eq!(std::fs::read_dir(home.path()).unwrap().count(), 0);
+        // Nor in the workspace, e.g. `.claude/settings.local.json`.
+        assert_eq!(std::fs::read_dir(cwd.path()).unwrap().count(), 0);
     }
 
     #[test]
@@ -796,10 +792,7 @@ mod tests {
             Box::new(ChannelStatus(channel.clone())),
             1,
         ));
-        let sink = ChannelSink {
-            channel,
-            tracker: Some(tracker),
-        };
+        let sink = ChannelSink { channel, tracker };
 
         sink.exited(Some(0));
 
@@ -808,16 +801,6 @@ mod tests {
         let status: serde_json::Value = serde_json::from_str(&sent[0]).unwrap();
         assert_eq!(status["status"]["state"], "Ended");
         assert_eq!(sent[1], r#"{"exited":0}"#);
-    }
-
-    #[test]
-    fn exit_message_is_json_with_the_code() {
-        for (code, json) in [(Some(7), r#"{"exited":7}"#), (None, r#"{"exited":null}"#)] {
-            match exit_message(code) {
-                InvokeResponseBody::Json(s) => assert_eq!(s, json),
-                InvokeResponseBody::Raw(_) => panic!("exit must be JSON"),
-            }
-        }
     }
 
     /// FR-029: a child that stops reading input must not keep close from ending it.
