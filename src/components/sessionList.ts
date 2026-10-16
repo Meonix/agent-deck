@@ -16,7 +16,9 @@ export function formatWhen(ms: number, now: number): string {
   if (ago < 24 * HOUR) return `${Math.floor(ago / HOUR)} h ago`;
   const then = new Date(ms);
   const days = Math.round((startOfDay(new Date(now)) - startOfDay(then)) / (24 * HOUR));
-  if (days <= 1) return "Yesterday";
+  // A 25-hour day (DST) can put a same-day time over 24 h ago.
+  if (days <= 0) return `${Math.floor(ago / HOUR)} h ago`;
+  if (days === 1) return "Yesterday";
   if (days < 7) return `${days} days ago`;
   if (days < 14) return "Last week";
   const day = `${MONTHS[then.getMonth()]} ${then.getDate()}`;

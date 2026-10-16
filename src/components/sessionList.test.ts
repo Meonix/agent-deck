@@ -18,6 +18,11 @@ describe("formatWhen", () => {
     expect(formatWhen(at(2025, 11, 30, 9), now)).toBe("Dec 30, 2025");
   });
 
+  it("never says Yesterday for the same calendar day, even on a 25-hour day", () => {
+    const longDay = new Date(2026, 9, 25, 23, 50).getTime();
+    expect(formatWhen(new Date(2026, 9, 25, 0, 10).getTime(), longDay)).toMatch(/h ago$/);
+  });
+
   it("treats a time in the future as now", () => {
     expect(formatWhen(now + 5_000, now)).toBe("Just now");
   });

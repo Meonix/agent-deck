@@ -540,6 +540,7 @@ describe("Session list (2.1, 2.2)", () => {
   afterEach(() => vi.restoreAllMocks());
   const now = new Date(2026, 9, 16, 14, 0).getTime();
   const sessionsPanel = () => within(sidebar()).getByRole("list", { name: "Sessions" });
+  const rowTexts = () => within(sessionsPanel()).getAllByRole("listitem").map((r) => r.textContent);
 
   function listing(sessions: { id: string; title: string; lastActivity: number }[], unreadable = 0) {
     return vi.fn(async () => ({ sessions, unreadable }));
@@ -558,8 +559,8 @@ describe("Session list (2.1, 2.2)", () => {
     ]);
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
     await user.click(await within(sidebar()).findByText("agent-deck"));
-    const rows = await within(sidebar()).findAllByRole("listitem", { name: /session/ });
-    expect(rows.map((r) => r.textContent)).toEqual(["Scaffold Tauri app2 min ago", "Write BRD and SRSYesterday"]);
+    await within(sidebar()).findByRole("list", { name: "Sessions" });
+    expect(rowTexts()).toEqual(["Scaffold Tauri app2 min ago", "Write BRD and SRSYesterday"]);
     expect(list).toHaveBeenCalledWith("a");
     expect(sessionsPanel()).toBeInTheDocument();
   });
@@ -594,15 +595,36 @@ describe("Session list (2.1, 2.2)", () => {
     const sessions = fakeSessions({ list, titles: ["Fix login"] });
     const { user } = setup([ws("a", "agent-deck")], sessions);
     await selectAndStart(user, "agent-deck");
-    await vi.waitFor(() => {
-      const rows = within(sidebar()).getAllByRole("listitem", { name: /session/ });
-      expect(rows.map((r) => r.textContent)).toEqual(["Fix loginLive", "Init repo1 h ago"]);
-    });
+    await vi.waitFor(() => expect(rowTexts()).toEqual(["Fix loginLive", "Init repo1 h ago"]));
     list.mockResolvedValue({ sessions: [{ id: "s1", title: "Fix login", lastActivity: now }, { id: "old", title: "Init repo", lastActivity: now - 3_600_000 }], unreadable: 0 });
     await user.click(screen.getByRole("button", { name: "Close pane" }));
-    await vi.waitFor(() => {
-      const rows = within(sidebar()).getAllByRole("listitem", { name: /session/ });
-      expect(rows.map((r) => r.textContent)).toEqual(["Fix loginJust now", "Init repo1 h ago"]);
-    });
+    await vi.waitFor(() => expect(rowTexts()).toEqual(["Fix loginJust now", "Init repo1 h ago"]));
+  });
+
+  it("drops the Live label once the session in the pane has ended", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    const list = listing([{ id: "s1", title: "Fix login", lastActivity: now }]);
+    const sessions = fakeSessions({ list });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(user, "agent-deck");
+    await vi.waitFor(() => expect(rowTexts()).toEqual(["Fix loginLive"]));
+    act(() => sessions.opened[0].stream.exit(0));
+    await vi.waitFor(() => expect(rowTexts()).toEqual(["Fix loginJust now"]));
+  });
+
+  it("shows the folder selected last even when an earlier read answers later", async () => {
+    type Listing = { sessions: { id: string; title: string; lastActivity: number }[]; unreadable: number };
+    let answerFirst: (v: Listing) => void = () => {};
+    const list = vi.fn((id: string) =>
+      id === "a"
+        ? new Promise<Listing>((r) => (answerFirst = r))
+        : Promise.resolve({ sessions: [{ id: "b1", title: "Beta work", lastActivity: now }], unreadable: 0 }),
+    );
+    const { user } = setup([ws("a", "alpha"), ws("b", "beta")], fakeSessions({ list }));
+    await user.click(await within(sidebar()).findByText("alpha"));
+    await user.click(within(sidebar()).getByText("beta"));
+    await vi.waitFor(() => expect(rowTexts()).toEqual([expect.stringContaining("Beta work")]));
+    await act(async () => answerFirst({ sessions: [{ id: "a1", title: "Alpha work", lastActivity: now }], unreadable: 0 }));
+    expect(rowTexts()).toEqual([expect.stringContaining("Beta work")]);
   });
 });

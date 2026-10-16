@@ -91,7 +91,7 @@ function SessionList({ state, openSessions, now }: { state: SessionListState; op
           ) : (
             <ul aria-label="Sessions" className="px-2 space-y-0.5">
               {rows.map((row) => (
-                <li key={row.id} aria-label={`${row.title} session`} className="rounded-md px-2 py-1.5">
+                <li key={row.id} className="rounded-md px-2 py-1.5">
                   <div className="flex items-center justify-between gap-2 text-sm text-foreground">
                     <span className="truncate">{row.title}</span>
                     {row.live ? (
@@ -114,7 +114,7 @@ function SessionList({ state, openSessions, now }: { state: SessionListState; op
 
 function Notice({ text }: { text: string }) {
   return (
-    <div className="mx-2 mb-1 rounded-md border border-error-border bg-error-bg px-2 py-1.5 text-xs text-error-foreground">
+    <div role="status" className="mx-2 mb-1 rounded-md border border-error-border bg-error-bg px-2 py-1.5 text-xs text-error-foreground">
       {text}
     </div>
   );

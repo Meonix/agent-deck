@@ -41,15 +41,18 @@ The sidebar (`WorkspaceSidebar.tsx`) has a Sessions header with "New Session"; p
 **D1 — Head read decides membership, without trusting folder names.**
 `scan_sessions(projects_dir, workspace: &Path) -> SessionListing { sessions, unreadable }` walks
 `projects_dir/*/*.jsonl` (one level, files only). For each file it reads lines from the start until the
-first record with a string `cwd` (at most 1 MiB). The session belongs to the workspace when that `cwd` is
+first record with a string `cwd` (at most 200 lines, whatever their length — a first prompt with a pasted
+image can be megabytes). The session belongs to the workspace when that `cwd` is
 exactly the workspace path, or canonicalises (`dunce`) to it — memoised per distinct `cwd` — so a symlinked
 start path still matches while a subfolder never does. Reading every file's head is cheap (a few lines
 each) and keeps working if Claude Code changes how it names folders.
 
 **D2 — Unreadable is counted where it can be attributed.**
-A file that cannot be opened or read, or whose head has no parseable `cwd`, has no known folder. It is
+A file that cannot be opened, or whose head holds no JSON record at all, has no known folder. It is
 counted as unreadable for the workspace only when it sits in the folder whose name is the workspace path
-encoded the way Claude Code does today (non-alphanumerics → `-`). Elsewhere it is skipped silently.
+encoded the way Claude Code does today (non-alphanumerics → `-`); elsewhere it is skipped silently. A file
+with records but no `cwd` yet (a session that is just starting) is skipped, not counted. A file whose start
+folder matched but whose tail cannot be read is always counted.
 
 **D3 — Tail read for title and last activity.**
 `read_tail(file) -> TailFacts { last_activity_ms, ai_title, last_prompt }` reads the file backwards in
@@ -57,13 +60,15 @@ encoded the way Claude Code does today (non-alphanumerics → `-`). Elsewhere it
 `"ai-title"`, `"last-prompt"`). It stops once it has the newest `timestamp` and the newest `ai-title`, or at
 the start of the file. `timestamp` is parsed by a small pure parser for `YYYY-MM-DDTHH:MM:SS[.fff]Z`; no
 timestamp → file mtime. Title per RULE-01 with the existing cleaning (one line, ≤ 80 chars). The pane header
-lookup `session_title` switches to the same tail reader, so a 58 MB file no longer costs a full read every
-10 s.
+lookup `session_title` switches to the same reader and stops at the newest `ai-title`, so a titled 58 MB
+session costs one chunk every 10 s; an untitled one is still read to its start. The carried part of a line
+that spans chunks is kept in a deque, so a 30 MB line is read in linear time (~0.3 s release).
 
 **D4 — Command.**
 `list_sessions(workspace_id)` → `{ sessions: [{ id, title, lastActivity }], unreadable }`, newest first,
 run with `spawn_blocking`; `Missing` workspace → `Err("folder_missing")` without scanning; unknown id →
-`Err("not_found")`. Files are opened with `File::open` only (read-only, SRS-NFR-005); nothing touches the
+`Err("not_found")`; a projects folder that exists but cannot be listed is an error (the list says
+"Sessions could not be read"), while a missing one means no sessions. Files are opened with `File::open` only (read-only, SRS-NFR-005); nothing touches the
 network (SRS-NFR-007).
 
 **D5 — UI list merged with open panes.**
@@ -100,7 +105,11 @@ States per design: no selection → "Select a folder to see its sessions."; load
   exists; long untitled sessions are rare (6 418 `ai-title` records over 167 files).
 - [Unreadable file elsewhere] → not counted (D2); a broken file whose folder name no longer matches is
   invisible.
-- [Clock] → relative labels use the local clock; a wrong clock shows wrong labels, not a wrong order.
+- [Clock] → relative labels use the local clock; a wrong clock shows wrong labels, not a wrong order. On a
+  25-hour DST day a same-day time reads "N h ago", never "Yesterday".
+- [Closing a new session's pane] → its row (not yet in the scan) disappears until the reload that follows
+  the close returns; a flicker of a few milliseconds.
+- [Labels] → the minute clock is not reset when a list loads, so a label can be up to a minute late.
 
 ## Open Questions
 
