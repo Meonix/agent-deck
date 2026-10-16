@@ -94,14 +94,25 @@ If task 1 shows that `--settings` hooks replace the user's own hooks, stop and r
 - `Notification` with `notification_type` `permission_prompt` or `elicitation_dialog` →
   `ApprovalRequested(reason)`, reason from `message`
 - `PreToolUse` with `tool_name` `AskUserQuestion` → `ApprovalRequested("Question")` (A-06)
-- `PostToolUse`, `PostToolUseFailure`, `PermissionDenied`, other `PreToolUse` → `ApprovalAnswered`
-  (a denied dialog has no documented hook; the turn's `Stop` or the next tool call moves the session on)
-- `Stop` → `TurnFinished`
+- `PostToolUse`, `PostToolUseFailure` → `ToolDone(key)`; `PermissionDenied` (auto mode only) →
+  `ApprovalAnswered`; other `PreToolUse` → no signal
+- `Stop` → `TurnFinished`; `Notification` with `notification_type` `idle_prompt` → `TurnFinished`
+  (the docs: it fires about 60 s after Claude finishes and only when nothing runs; it is the only signal
+  after a denied dialog or an Esc interrupt, where neither `Stop` nor `PostToolUse` fires)
 - `StopFailure` → `ErrorOccurred(reason = error)`, e.g. `overloaded`
 - `SessionStart`, `SessionEnd`, anything else → no signal (`SessionStart` still marks the pane tracked, D5)
 
 `PostToolUseFailure` is never an error: a failing command inside a continuing turn is not `Error`
-(RULE-06). Task 1 may adjust which events count as `ApprovalAnswered`; the table in D4 does not change.
+(RULE-06). The table in D4 does not change.
+
+"Approval answered" is decided by the tracker, not by `signal_of`, because no hook fires when the user
+answers a dialog (docs) and subagents running in parallel keep firing tool events with their own
+`agent_id`. An approval request records a pending key `(agent_id or main, tool_name, tool_input)`. The
+tracker applies `ApprovalAnswered` only for (a) a `ToolDone` whose key matches the pending one, (b) a
+`PermissionDenied`, or (c) user input written to the pane while it is `Needs Approval` that is an answer
+key: it contains CR or LF, is a lone ESC, or is a single digit — terminal reports (focus, cursor position,
+device attributes, mouse) and arrow keys are not answers. Other agents' tool events leave a pending
+approval alone. (c) is measured in the demo (task 5.2).
 
 **D4 — Per-pane state machine that is the SRS section 5 table.**
 `StatusMachine { state, since, reason }` starts `Idle` at pane open. `apply(signal, now) ->
@@ -109,8 +120,10 @@ Option<StatusChange>` looks up the 5 × 7 table of SRS section 5 cell by cell; a
 (SRS-FR-035). Re-entering the same state (`Running` + `PromptSent`, `Needs Approval` + `ApprovalRequested`,
 `Error` + `ErrorOccurred`) keeps `since` and `reason` — the card shows when the wait began. The PTY exit
 feeds `ExitedNormally` (code 0) or `ExitedAbnormally` (non-zero or killed by a signal; reason
-`exit code N` / `killed`). A pane closed by the user is removed, so its card disappears (RULE-08); its
-exit is not applied.
+`exit code N` / `killed`). The exit also marks the pane tracked: the app saw it, so an abnormal exit
+shows as `Error` even without hooks. A pane closed by the user is removed, so its card disappears
+(RULE-08); the process wrapper marks the tracker closed before killing, so its exit is not applied and no
+`Error · killed` card flashes.
 
 **D5 — Tracked or unavailable.**
 A pane is `tracked` from the first hook request that reaches its token. The UI shows `Status unavailable`
@@ -167,7 +180,19 @@ at once. Escape cancels.
 - [Loopback port reachable by other local processes] → per-pane random token; unknown tokens dropped; the
   worst a local process can do is fake a state on a pane whose token it read from `ps`.
 - [Long inline JSON on Windows command lines] → unverified; Windows deferred.
+- [Hooks may decide] → `PreToolUse`/`PermissionRequest` http hooks accept a JSON body that can allow a
+  tool. Our listener always answers with an empty body. If the listener were gone while a `claude` child
+  lived, another local process could take the port and answer "allow"; the listener lives exactly as long
+  as the app, and app exit closes every pane.
+- [Answer-key heuristic] (D3 c) → a key that is not really an answer moves the card to `Running` early;
+  the next tool event or `Stop`/`idle_prompt` corrects it. Measured in 5.2.
+- [Interrupted turn] → after a denied dialog or Esc, the pane shows its last state until `idle_prompt`
+  (~60 s).
+- [SRS section 5 keep cells] → `Idle + Approval requested` and `Needs Approval + Prompt sent` are keep
+  cells. A turn continued by the user's own blocking `Stop` hook, or by a background task, can ask for
+  approval while the pane is `Idle`, and that request is ignored — a BO-01 miss. This is a business
+  table, so it is raised to the PO through `/ba-change`, not changed here.
 
 ## Open Questions
 
-None blocking. The three undocumented hook behaviours are task 1.
+None blocking. Two SRS section 5 cells are raised to the PO (Risks, last item).
