@@ -68,7 +68,7 @@ struct Pane {
     ended: Arc<AtomicBool>,
 }
 
-/// Marks its pane ended, then passes the exit on.
+/// The flag is set before forwarding so a pane the UI has already seen end no longer blocks a resume (`AlreadyOpen`).
 struct EndSink {
     ended: Arc<AtomicBool>,
     inner: Box<dyn OutputSink>,
@@ -541,6 +541,27 @@ mod tests {
         assert_ne!(second.pane_id, first.pane_id);
         assert_eq!(second.session_id, first.session_id);
         assert_eq!(spawner.spawns.borrow().len(), 2);
+    }
+
+    #[test]
+    fn the_pane_is_marked_ended_before_the_exit_is_forwarded() {
+        struct Probe(Arc<AtomicBool>, Arc<AtomicBool>);
+        impl OutputSink for Probe {
+            fn output(&self, _chunk: Vec<u8>) {}
+            fn exited(&self, _code: Option<i32>) {
+                self.1.store(self.0.load(Ordering::SeqCst), Ordering::SeqCst);
+            }
+        }
+        let ended = Arc::new(AtomicBool::new(false));
+        let seen = Arc::new(AtomicBool::new(false));
+        let sink = EndSink {
+            ended: ended.clone(),
+            inner: Box::new(Probe(ended, seen.clone())),
+        };
+
+        sink.exited(Some(0));
+
+        assert!(seen.load(Ordering::SeqCst));
     }
 
     #[test]

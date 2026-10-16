@@ -50,8 +50,9 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
     if (workspaces.selected) void panes.newSession(workspaces.selected);
   };
 
-  const resume = (row: { id: string; title: string }) => {
-    if (workspaces.selected) void panes.resume(workspaces.selected, row);
+  const resume = (workspaceId: string, row: { id: string; title: string }) => {
+    const workspace = workspaces.items?.find((w) => w.id === workspaceId);
+    if (workspace) void panes.resume(workspace, row);
   };
 
   const openSessions: OpenSession[] = panes.entries

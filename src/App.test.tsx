@@ -679,6 +679,8 @@ describe("Resume (2.1, 2.2)", () => {
     expect(sessions.open).toHaveBeenCalledWith("a", 80, 24, SCAFFOLD);
     expect(adapters[0].focus).toHaveBeenCalled();
     expect(panes()).toHaveLength(1);
+    expect(row("Scaffold")).toHaveTextContent("Live");
+    expect(within(sidebar()).getByRole("list", { name: "Sessions" }).querySelectorAll("li")).toHaveLength(2);
   });
 
   it("focuses the pane that already holds the session instead of opening another", async () => {
@@ -724,7 +726,23 @@ describe("Resume (2.1, 2.2)", () => {
     const { user } = setup([ws("a", "agent-deck")], sessions);
     await selectRow(user, "agent-deck", "Scaffold");
     await user.click(resumeButton());
-    expect(await screen.findByText(/Could not open session/)).toBeInTheDocument();
+    expect(await screen.findByText("Could not open session")).toBeInTheDocument();
     expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument();
+  });
+
+  it("shows the generic message when the backend rejects the session id", async () => {
+    const sessions = fakeSessions({ list: list(), open: vi.fn(async () => Promise.reject("invalid_session")) });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await selectRow(user, "agent-deck", "Scaffold");
+    await user.click(resumeButton());
+    expect(await screen.findByText("Could not open session")).toBeInTheDocument();
+    expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument();
+  });
+
+  it("resumes in the workspace the row belongs to", async () => {
+    const { user, sessions } = setup([ws("a", "alpha"), ws("b", "beta")], fakeSessions({ list: list() }));
+    await selectRow(user, "beta", "Scaffold");
+    await user.click(resumeButton());
+    await vi.waitFor(() => expect(sessions.open).toHaveBeenCalledWith("b", 80, 24, SCAFFOLD));
   });
 });

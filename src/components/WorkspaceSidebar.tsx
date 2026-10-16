@@ -6,7 +6,7 @@ import type { WorkspacesState } from "./useWorkspaces";
 type Props = {
   workspaces: WorkspacesState;
   onNewSession(): void;
-  onResume(row: { id: string; title: string }): void;
+  onResume(workspaceId: string, row: { id: string; title: string }): void;
   sessions: SessionListState;
   openSessions: OpenSession[];
   now: number;
@@ -65,7 +65,7 @@ type ListProps = {
   state: SessionListState;
   openSessions: OpenSession[];
   now: number;
-  onResume(row: { id: string; title: string }): void;
+  onResume(workspaceId: string, row: { id: string; title: string }): void;
 };
 
 function SessionList({ state, openSessions, now, onResume }: ListProps) {
@@ -98,7 +98,13 @@ function SessionList({ state, openSessions, now, onResume }: ListProps) {
           {rows.length === 0 ? (
             <div className="px-4 py-2 text-sm text-muted-foreground">No sessions yet</div>
           ) : (
-            <SessionRows key={state.workspaceId} rows={rows} now={now} onResume={onResume} />
+            <SessionRows
+              key={state.workspaceId}
+              workspaceId={state.workspaceId}
+              rows={rows}
+              now={now}
+              onResume={onResume}
+            />
           )}
         </>
       );
@@ -106,7 +112,17 @@ function SessionList({ state, openSessions, now, onResume }: ListProps) {
   }
 }
 
-function SessionRows({ rows, now, onResume }: { rows: ListedSession[]; now: number; onResume: ListProps["onResume"] }) {
+function SessionRows({
+  workspaceId,
+  rows,
+  now,
+  onResume,
+}: {
+  workspaceId: string;
+  rows: ListedSession[];
+  now: number;
+  onResume: ListProps["onResume"];
+}) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const picked = rows.find((r) => r.id === pickedId) ?? null;
   return (
@@ -130,7 +146,7 @@ function SessionRows({ rows, now, onResume }: { rows: ListedSession[]; now: numb
           {row === picked && (
             <div className="mt-1 flex justify-end">
               <button
-                onClick={() => onResume({ id: row.id, title: row.title })}
+                onClick={() => onResume(workspaceId, { id: row.id, title: row.title })}
                 className="text-xs text-foreground border border-border rounded px-1.5"
               >
                 Resume

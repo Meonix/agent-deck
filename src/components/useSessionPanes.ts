@@ -180,7 +180,7 @@ export function useSessionPanes(
         } else if (holder) {
           focusHolder(holder);
         } else {
-          const detail = errorDetail(e);
+          const detail = e === "already_open" || e === "invalid_session" ? "" : errorDetail(e);
           showToast(detail ? `Could not open session: ${detail}` : "Could not open session");
         }
       } finally {
