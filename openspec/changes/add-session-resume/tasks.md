@@ -11,6 +11,6 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app` and paste the output
+- [x] 3.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app` and paste the output
 - [ ] 3.2 Demo in the `.app` with the real Claude Code: resume a session → earlier conversation shown, "tiếp tục" answered in context, row `Live`, no duplicate row; Resume again → same pane focused, pane count unchanged; rename a workspace folder with its list on screen → Resume shows "Folder not found"; count actions from app start to typing on 5 different sessions (A-09, BO-02 ≤ 3)
 - [ ] 3.3 Windows 11 — deferred by the PO; leave unchecked
