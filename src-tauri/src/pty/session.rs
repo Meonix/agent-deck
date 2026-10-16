@@ -91,6 +91,8 @@ impl PtySession {
         let mut cmd = CommandBuilder::new(&spec.program);
         cmd.args(&spec.args);
         cmd.cwd(&spec.cwd);
+        // `CommandBuilder::new` starts from the app's own environment; the spec is the whole of it.
+        cmd.env_clear();
         for (key, value) in &spec.env {
             cmd.env(key, value);
         }
@@ -446,7 +448,10 @@ mod tests {
             program: program.into(),
             args: args.iter().map(|a| a.to_string()).collect(),
             cwd,
-            env: vec![("TERM".into(), "xterm-256color".into())],
+            env: vec![
+                ("TERM".into(), "xterm-256color".into()),
+                ("PATH".into(), std::env::var("PATH").unwrap_or_default()),
+            ],
             cols: 80,
             rows: 24,
         }
@@ -487,6 +492,20 @@ mod tests {
             Some(0)
         );
         assert!(probe.text().contains("<pane-42>"), "{:?}", probe.text());
+    }
+
+    #[test]
+    fn spawn_passes_only_the_spec_env() {
+        let dir = tempfile::tempdir().unwrap();
+        let (sink, probe) = sink();
+        let s = sh("printf '<%s>' \"${HOME-unset}\"", dir.path().into());
+        let _session = PtySession::spawn(s, sink).unwrap();
+
+        assert_eq!(
+            probe.exit.recv_timeout(Duration::from_secs(3)).unwrap(),
+            Some(0)
+        );
+        assert!(probe.text().contains("<unset>"), "{:?}", probe.text());
     }
 
     #[test]
