@@ -320,15 +320,11 @@ impl Spawner for PtySpawner<'_> {
         match PtySession::spawn(spec, sink) {
             Ok(session) => {
                 let killer = session.killer();
-                let inner = QueuedProcess::new(Box::new(session), Some(killer));
-                Some(match hook {
-                    Some((server, token)) => Box::new(HookedProcess {
-                        inner,
-                        server,
-                        token,
-                    }),
-                    None => Box::new(inner),
-                })
+                Some(Box::new(TrackedProcess {
+                    inner: QueuedProcess::new(Box::new(session), Some(killer)),
+                    tracker: self.tracker.clone(),
+                    hook,
+                }))
             }
             Err(e) => {
                 eprintln!("claude could not be started: {e}");
@@ -368,15 +364,26 @@ impl StatusOut for ChannelStatus {
     }
 }
 
-/// A pane process whose hook token is dropped when it closes.
-struct HookedProcess {
+/// A pane process that tells its tracker about input and a close by the user, and
+/// drops its hook token when it closes.
+struct TrackedProcess {
     inner: QueuedProcess,
-    server: Arc<HookServer>,
-    token: String,
+    tracker: Arc<StatusTracker>,
+    /// None when the pane was spawned without a listener.
+    hook: Option<(Arc<HookServer>, String)>,
 }
 
-impl PaneProcess for HookedProcess {
+impl TrackedProcess {
+    fn unregister(&self) {
+        if let Some((server, token)) = &self.hook {
+            server.unregister(token);
+        }
+    }
+}
+
+impl PaneProcess for TrackedProcess {
     fn write(&mut self, data: &[u8]) -> io::Result<()> {
+        self.tracker.user_input(data, now_ms());
         self.inner.write(data)
     }
 
@@ -385,14 +392,15 @@ impl PaneProcess for HookedProcess {
     }
 
     fn close(&mut self) {
-        self.server.unregister(&self.token);
+        self.tracker.close_by_user();
+        self.unregister();
         self.inner.close();
     }
 }
 
-impl Drop for HookedProcess {
+impl Drop for TrackedProcess {
     fn drop(&mut self) {
-        self.server.unregister(&self.token);
+        self.unregister();
     }
 }
 
@@ -775,6 +783,87 @@ mod tests {
                 .is_none()
         );
         assert_eq!(server.registered(), 0);
+    }
+
+    fn wait_for(calls: &Mutex<Vec<Call>>, n: usize) {
+        let end = Instant::now() + Duration::from_secs(3);
+        while calls.lock().unwrap().len() < n && Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    /// F-I3: input goes through the tracker before it reaches the session.
+    #[test]
+    fn tracked_process_answers_a_wait_with_an_answer_key_and_still_writes_it() {
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let out = Outbox::default();
+        let tracker = tracker(&out);
+        tracker.hook(serde_json::json!({"hook_event_name": "UserPromptSubmit"}));
+        tracker
+            .hook(serde_json::json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash"}));
+        out.0.lock().unwrap().clear();
+        let mut process = TrackedProcess {
+            inner: QueuedProcess::new(Box::new(Recorder(calls.clone())), None),
+            tracker,
+            hook: None,
+        };
+
+        process.write(b"\x1b[I").unwrap();
+        assert!(out.0.lock().unwrap().is_empty());
+        process.write(b"1").unwrap();
+        wait_for(&calls, 2);
+
+        let sent = out.0.lock().unwrap().clone();
+        assert_eq!(sent.len(), 1, "{sent:?}");
+        assert!(sent[0].contains(r#""state":"Running""#), "{sent:?}");
+        assert_eq!(
+            *calls.lock().unwrap(),
+            [Call::Write(b"\x1b[I".to_vec()), Call::Write(b"1".to_vec())]
+        );
+        process.close();
+    }
+
+    struct TrackerSink(Arc<StatusTracker>, Mutex<Sender<()>>);
+
+    impl OutputSink for TrackerSink {
+        fn output(&self, _chunk: Vec<u8>) {}
+        fn exited(&self, code: Option<i32>) {
+            self.0.exited(code, now_ms());
+            let _ = self.1.lock().unwrap().send(());
+        }
+    }
+
+    /// F-M3: closing a busy pane sends `{"exited"}` without an `Error · killed` status,
+    /// with and without a listener.
+    #[cfg(unix)]
+    #[test]
+    fn closing_a_pane_sends_no_status_for_its_exit() {
+        for listener in [false, true] {
+            let bin = tempfile::tempdir().unwrap();
+            let cwd = tempfile::tempdir().unwrap();
+            let launch = fake_claude(bin.path(), "printf ready", 0);
+            let out = Outbox::default();
+            let tracker = tracker(&out);
+            let hooks = listener.then(|| Arc::new(HookServer::start().unwrap()));
+            let spawner = spawner(&launch, inherited_env(), tracker.clone(), hooks);
+            let (tx, rx) = mpsc::channel();
+
+            let mut process = spawner
+                .spawn(
+                    cwd.path(),
+                    &SessionId("s".into()),
+                    Box::new(TrackerSink(tracker.clone(), Mutex::new(tx))),
+                )
+                .expect("spawned");
+            tracker.hook(serde_json::json!({"hook_event_name": "UserPromptSubmit"}));
+            out.0.lock().unwrap().clear();
+            process.close();
+
+            rx.recv_timeout(Duration::from_secs(3)).expect("exited");
+            let sent = out.0.lock().unwrap().clone();
+            assert_eq!(sent.len(), 1, "listener {listener}: {sent:?}");
+            assert!(sent[0].starts_with(r#"{"exited":"#), "{sent:?}");
+        }
     }
 
     #[test]

@@ -47,6 +47,10 @@ impl StatusMachine {
         }
     }
 
+    pub fn state(&self) -> State {
+        self.state
+    }
+
     pub fn current(&self) -> StatusChange {
         StatusChange {
             state: self.state,

@@ -12,32 +12,76 @@ const TARGET_KEYS: [&str; 6] = [
     "query",
 ];
 
-pub fn signal_of(event: &serde_json::Value, workspace: &Path) -> Option<Signal> {
+/// One tool call: the agent that made it (`main` for the main agent), the tool and
+/// its input as JSON. Without serde_json's `preserve_order` feature object keys are
+/// sorted, so the same input gives the same text whatever order the hook sent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApprovalKey {
+    pub agent: String,
+    pub tool: String,
+    pub input: String,
+}
+
+/// What a hook means for the pane. Only `Apply` goes to the state machine as is;
+/// the tracker decides whether a `ToolDone` answers the pending approval (D3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HookSignal {
+    Apply(Signal),
+    ApprovalRequested {
+        reason: String,
+        key: Option<ApprovalKey>,
+    },
+    ToolDone(ApprovalKey),
+}
+
+pub fn signal_of(event: &serde_json::Value, workspace: &Path) -> Option<HookSignal> {
     let str_field = |key: &str| event.get(key).and_then(|v| v.as_str());
+    let apply = |signal| Some(HookSignal::Apply(signal));
     match str_field("hook_event_name")? {
-        "UserPromptSubmit" => Some(Signal::PromptSent),
-        "PermissionRequest" => Some(Signal::ApprovalRequested(permission_reason(
-            event, workspace,
-        ))),
+        "UserPromptSubmit" => apply(Signal::PromptSent),
+        "PermissionRequest" => Some(HookSignal::ApprovalRequested {
+            reason: permission_reason(event, workspace),
+            key: Some(approval_key(event)),
+        }),
         "Notification" => match str_field("notification_type")? {
-            "permission_prompt" | "elicitation_dialog" => {
-                Some(Signal::ApprovalRequested(cap(str_field("message")
+            "permission_prompt" | "elicitation_dialog" => Some(HookSignal::ApprovalRequested {
+                reason: cap(str_field("message")
                     .filter(|m| !m.trim().is_empty())
-                    .unwrap_or("Waiting for you"))))
-            }
+                    .unwrap_or("Waiting for you")),
+                key: None,
+            }),
+            "idle_prompt" => apply(Signal::TurnFinished),
             _ => None,
         },
         "PreToolUse" if str_field("tool_name") == Some("AskUserQuestion") => {
-            Some(Signal::ApprovalRequested("Question".into()))
+            Some(HookSignal::ApprovalRequested {
+                reason: "Question".into(),
+                key: Some(approval_key(event)),
+            })
         }
-        "PreToolUse" | "PostToolUse" | "PostToolUseFailure" | "PermissionDenied" => {
-            Some(Signal::ApprovalAnswered)
-        }
-        "Stop" => Some(Signal::TurnFinished),
-        "StopFailure" => Some(Signal::ErrorOccurred(
+        "PostToolUse" | "PostToolUseFailure" => Some(HookSignal::ToolDone(approval_key(event))),
+        "PermissionDenied" => apply(Signal::ApprovalAnswered),
+        "Stop" => apply(Signal::TurnFinished),
+        "StopFailure" => apply(Signal::ErrorOccurred(
             str_field("error").unwrap_or("unknown").into(),
         )),
         _ => None,
+    }
+}
+
+fn approval_key(event: &serde_json::Value) -> ApprovalKey {
+    let str_field = |key: &str| event.get(key).and_then(|v| v.as_str()).unwrap_or("");
+    ApprovalKey {
+        agent: event
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("main")
+            .to_string(),
+        tool: str_field("tool_name").to_string(),
+        input: event
+            .get("tool_input")
+            .unwrap_or(&serde_json::Value::Null)
+            .to_string(),
     }
 }
 
@@ -87,42 +131,108 @@ mod tests {
         Path::new("/work/proj")
     }
 
-    fn sig(v: serde_json::Value) -> Option<Signal> {
+    fn sig(v: serde_json::Value) -> Option<HookSignal> {
         signal_of(&v, ws())
     }
 
-    fn approval(s: &str) -> Option<Signal> {
-        Some(Signal::ApprovalRequested(s.into()))
+    fn apply(s: Signal) -> Option<HookSignal> {
+        Some(HookSignal::Apply(s))
+    }
+
+    /// The reason of an approval request, whatever its key.
+    fn approval_reason(v: serde_json::Value) -> Option<String> {
+        match sig(v) {
+            Some(HookSignal::ApprovalRequested { reason, .. }) => Some(reason),
+            other => panic!("expected an approval request, got {other:?}"),
+        }
+    }
+
+    fn keyless(s: &str) -> Option<HookSignal> {
+        Some(HookSignal::ApprovalRequested {
+            reason: s.into(),
+            key: None,
+        })
+    }
+
+    fn key(agent: &str, tool: &str, input: &str) -> ApprovalKey {
+        ApprovalKey {
+            agent: agent.into(),
+            tool: tool.into(),
+            input: input.into(),
+        }
     }
 
     #[test]
     fn simple_events() {
         assert_eq!(
             sig(json!({"hook_event_name": "UserPromptSubmit"})),
-            Some(Signal::PromptSent)
+            apply(Signal::PromptSent)
         );
         assert_eq!(
             sig(json!({"hook_event_name": "Stop"})),
-            Some(Signal::TurnFinished)
+            apply(Signal::TurnFinished)
         );
-        for name in ["PostToolUse", "PostToolUseFailure", "PermissionDenied"] {
+        assert_eq!(
+            sig(json!({"hook_event_name": "PermissionDenied"})),
+            apply(Signal::ApprovalAnswered)
+        );
+    }
+
+    #[test]
+    fn finished_tool_calls_carry_their_key() {
+        for name in ["PostToolUse", "PostToolUseFailure"] {
+            assert_eq!(
+                sig(
+                    json!({"hook_event_name": name, "agent_id": "a1", "tool_name": "Edit", "tool_input": {"file_path": "x"}})
+                ),
+                Some(HookSignal::ToolDone(key(
+                    "a1",
+                    "Edit",
+                    r#"{"file_path":"x"}"#
+                ))),
+                "{name}"
+            );
             assert_eq!(
                 sig(json!({"hook_event_name": name})),
-                Some(Signal::ApprovalAnswered),
+                Some(HookSignal::ToolDone(key("main", "", "null"))),
                 "{name}"
             );
         }
     }
 
     #[test]
+    fn approval_keys_match_whatever_the_field_order() {
+        let request = sig(json!({
+            "hook_event_name": "PermissionRequest",
+            "tool_name": "Edit",
+            "tool_input": {"file_path": "/work/proj/a.rs", "old_string": "x", "new_string": {"b": 1, "a": [2, 3]}}
+        }));
+        let done = sig(json!({
+            "hook_event_name": "PostToolUse",
+            "tool_input": {"new_string": {"a": [2, 3], "b": 1}, "old_string": "x", "file_path": "/work/proj/a.rs"},
+            "tool_name": "Edit"
+        }));
+        let Some(HookSignal::ApprovalRequested { key: Some(k), .. }) = request else {
+            panic!("expected a keyed request, got {request:?}");
+        };
+        assert_eq!(k.agent, "main");
+        assert_eq!(done, Some(HookSignal::ToolDone(k)));
+    }
+
+    #[test]
     fn pre_tool_use() {
         assert_eq!(
-            sig(json!({"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"})),
-            approval("Question")
+            sig(
+                json!({"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "agent_id": "a1", "tool_input": {"questions": []}})
+            ),
+            Some(HookSignal::ApprovalRequested {
+                reason: "Question".into(),
+                key: Some(key("a1", "AskUserQuestion", r#"{"questions":[]}"#)),
+            })
         );
         assert_eq!(
             sig(json!({"hook_event_name": "PreToolUse", "tool_name": "Bash"})),
-            Some(Signal::ApprovalAnswered)
+            None
         );
     }
 
@@ -130,54 +240,60 @@ mod tests {
     fn stop_failure() {
         assert_eq!(
             sig(json!({"hook_event_name": "StopFailure", "error": "overloaded"})),
-            Some(Signal::ErrorOccurred("overloaded".into()))
+            apply(Signal::ErrorOccurred("overloaded".into()))
         );
         assert_eq!(
             sig(json!({"hook_event_name": "StopFailure"})),
-            Some(Signal::ErrorOccurred("unknown".into()))
+            apply(Signal::ErrorOccurred("unknown".into()))
         );
     }
 
     #[test]
     fn permission_request_reasons() {
         let req = |tool: &str, input: serde_json::Value| {
-            sig(
+            approval_reason(
                 json!({"hook_event_name": "PermissionRequest", "tool_name": tool, "tool_input": input}),
             )
         };
+        let r = |s: &str| Some(s.to_string());
         assert_eq!(
             req("Edit", json!({"file_path": "/work/proj/src/main.rs"})),
-            approval("Edit src/main.rs")
+            r("Edit src/main.rs")
         );
         assert_eq!(
             req("Read", json!({"file_path": "/etc/hosts"})),
-            approval("Read /etc/hosts")
+            r("Read /etc/hosts")
         );
         assert_eq!(
             req("NotebookEdit", json!({"notebook_path": "a.ipynb"})),
-            approval("NotebookEdit a.ipynb")
+            r("NotebookEdit a.ipynb")
         );
         assert_eq!(
             req("Bash", json!({"command": "npm test\nnpm run lint"})),
-            approval("Bash npm test")
+            r("Bash npm test")
         );
         assert_eq!(
             req("WebFetch", json!({"url": "https://x.dev"})),
-            approval("WebFetch https://x.dev")
+            r("WebFetch https://x.dev")
         );
-        assert_eq!(req("Grep", json!({"pattern": "foo"})), approval("Grep foo"));
+        assert_eq!(req("Grep", json!({"pattern": "foo"})), r("Grep foo"));
         assert_eq!(
             req("WebSearch", json!({"query": "rust"})),
-            approval("WebSearch rust")
+            r("WebSearch rust")
         );
         assert_eq!(
             req("Edit", json!({"command": "c", "file_path": "/work/proj/a"})),
-            approval("Edit a")
+            r("Edit a")
         );
-        assert_eq!(req("Task", json!({})), approval("Task"));
+        assert_eq!(req("Task", json!({})), r("Task"));
         assert_eq!(
-            sig(json!({"hook_event_name": "PermissionRequest", "tool_name": "Task"})),
-            approval("Task")
+            sig(
+                json!({"hook_event_name": "PermissionRequest", "tool_name": "Task", "agent_id": "a2"})
+            ),
+            Some(HookSignal::ApprovalRequested {
+                reason: "Task".into(),
+                key: Some(key("a2", "Task", "null")),
+            })
         );
     }
 
@@ -185,11 +301,10 @@ mod tests {
     fn long_reasons_are_capped_by_chars() {
         let command = "chạy kiểm thử toàn bộ dự án và báo cáo kết quả chi tiết ".repeat(4);
         assert!(command.chars().count() >= 200);
-        let Some(Signal::ApprovalRequested(r)) = sig(
+        let r = approval_reason(
             json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash", "tool_input": {"command": command}}),
-        ) else {
-            panic!("expected approval");
-        };
+        )
+        .unwrap();
         assert_eq!(r.chars().count(), 60);
         assert!(r.ends_with('…'));
         assert!(r.starts_with("Bash chạy kiểm thử"));
@@ -202,7 +317,7 @@ mod tests {
             sig(
                 json!({"hook_event_name": "Notification", "notification_type": "permission_prompt", "message": message.clone()})
             ),
-            approval(&message)
+            keyless(&message)
         );
     }
 
@@ -215,25 +330,26 @@ mod tests {
         };
         assert_eq!(
             n("permission_prompt"),
-            approval("Claude needs your permission")
+            keyless("Claude needs your permission")
         );
         assert_eq!(
             n("elicitation_dialog"),
-            approval("Claude needs your permission")
+            keyless("Claude needs your permission")
         );
-        assert_eq!(n("idle_prompt"), None);
+        assert_eq!(n("idle_prompt"), apply(Signal::TurnFinished));
+        assert_eq!(n("auth_success"), None);
         assert_eq!(
             sig(
                 json!({"hook_event_name": "Notification", "notification_type": "permission_prompt"})
             ),
-            approval("Waiting for you")
+            keyless("Waiting for you")
         );
         for blank in ["", "   \n"] {
             assert_eq!(
                 sig(
                     json!({"hook_event_name": "Notification", "notification_type": "permission_prompt", "message": blank})
                 ),
-                approval("Waiting for you")
+                keyless("Waiting for you")
             );
         }
         assert_eq!(sig(json!({"hook_event_name": "Notification"})), None);

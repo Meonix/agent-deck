@@ -4,4 +4,4 @@ pub mod machine;
 pub mod signal;
 
 pub use machine::{Signal, State, StatusChange, StatusMachine};
-pub use signal::signal_of;
+pub use signal::{ApprovalKey, HookSignal, signal_of};
