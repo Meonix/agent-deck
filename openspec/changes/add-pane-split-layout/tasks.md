@@ -10,7 +10,7 @@
 
 ## 3. Concurrency (seam S3)
 
-- [ ] 3.1 Rust test: 4 busy PTY sessions, echo p95 < 100 ms on one of them (SRS-NFR-001)
+- [x] 3.1 Rust test: 4 busy PTY sessions, echo p95 < 100 ms on one of them (SRS-NFR-001)
 
 ## 4. Verification
 
