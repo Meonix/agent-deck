@@ -15,5 +15,6 @@
 ## 4. Verification
 
 - [x] 4.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app` and paste the output
-- [ ] 4.2 Demo in the `.app`: ⇣ on a pane → new pane below in the same folder, focused; ⇥ → right; drag a vertical and a horizontal divider → both panes follow and sessions reflow; close a pane → its sibling fills the space; 4 real Claude Code sessions busy at once with `localStorage.adLatency = "1"` → logged p95 ≤ 100 ms (SRS-NFR-001)
+- [x] 4.2 Demo in the `.app`: ⇣ on a pane → new pane below in the same folder, focused; ⇥ → right; drag a vertical and a horizontal divider → both panes follow and sessions reflow; close a pane → its sibling fills the space; 4 real Claude Code sessions busy at once with `localStorage.adLatency = "1"` → logged p95 ≤ 100 ms (SRS-NFR-001)
+  - 2026-10-17, dev build (`tauri dev`), Claude Code 2.1.301: the PO ran parts A (⇣ / ⇥ placement, dragging both dividers with reflow and the minimum, closing gives space to the sibling) and B (4 busy sessions, typing in the 4th with `adLatency` on) and reported both OK; the logged p95 figure was not passed on.
 - [ ] 4.3 Windows 11 — deferred by the PO; leave unchecked
