@@ -6,6 +6,12 @@ import type { TerminalAdapter } from "./TerminalPane";
 
 const SCROLLBACK = 10_000;
 
+// Named keys ("Backspace", "ArrowLeft", "F12") are ASCII words starting with a capital.
+function isTextKey(ev: KeyboardEvent): boolean {
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return false;
+  return [...ev.key].length > 1 && !/^[A-Z][A-Za-z0-9]*$/.test(ev.key);
+}
+
 // Kept apart from TerminalPane so tests, which use a fake adapter, never load xterm.
 export function createXtermAdapter(): TerminalAdapter {
   // xterm draws on a canvas, which cannot resolve CSS variables, so read their values now.
@@ -25,6 +31,16 @@ export function createXtermAdapter(): TerminalAdapter {
   });
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
+  // XKey replaces a word's tail with one key event whose key is the new text ("ửa");
+  // xterm alone would type only its first character.
+  terminal.attachCustomKeyEventHandler((ev) => {
+    if (!isTextKey(ev)) return true;
+    if (ev.type === "keydown") {
+      ev.preventDefault();
+      terminal.input(ev.key);
+    }
+    return false;
+  });
 
   return {
     open(container) {
