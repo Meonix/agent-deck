@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::io::{Read, Write};
-use std::net::{Shutdown, TcpListener, TcpStream};
+use std::io::{ErrorKind, Read, Write};
+use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -12,8 +12,10 @@ const HOOK_PATH: &str = "/hook/";
 const MAX_BODY: usize = 256 * 1024;
 const MAX_HEAD: usize = 16 * 1024;
 const MAX_CONNECTIONS: usize = 64;
-/// A client that stops sending or reading for this long is dropped.
-const IO_TIMEOUT: Duration = Duration::from_secs(2);
+/// Total time a client gets to send its request, so a slow or byte-dribbling
+/// client cannot hold a connection slot; also bounds each write.
+const REQUEST_DEADLINE: Duration = Duration::from_secs(2);
+const WAKE_TIMEOUT: Duration = Duration::from_millis(200);
 const ACCEPT_RETRY: Duration = Duration::from_millis(50);
 /// Closing with unread input makes the kernel reset the connection, which can
 /// destroy the response before the client reads it, so leftovers are drained.
@@ -100,7 +102,8 @@ impl Drop for HookServer {
     fn drop(&mut self) {
         self.stopping.store(true, Ordering::SeqCst);
         // Wakes the blocking `accept`; without it the join would never return.
-        if TcpStream::connect(("127.0.0.1", self.port)).is_ok()
+        let listener = SocketAddr::from(([127, 0, 0, 1], self.port));
+        if TcpStream::connect_timeout(&listener, WAKE_TIMEOUT).is_ok()
             && let Some(accept) = self.accept.take()
         {
             let _ = accept.join();
@@ -149,27 +152,45 @@ fn serve_on_thread(stream: TcpStream, sinks: &Sinks, open: &Arc<AtomicUsize>) {
 }
 
 fn serve(mut stream: TcpStream, sinks: &Sinks) {
-    let _ = stream.set_read_timeout(Some(IO_TIMEOUT));
-    let _ = stream.set_write_timeout(Some(IO_TIMEOUT));
-    let accepted = read_hook(&mut stream, sinks);
-    let status = match &accepted {
-        Ok(_) => 200,
-        Err(code) => *code,
+    let _ = stream.set_write_timeout(Some(REQUEST_DEADLINE));
+    let deadline = Instant::now() + REQUEST_DEADLINE;
+    let status = match read_hook(&mut stream, sinks, deadline) {
+        // Claude Code sends a pane's next hook only after this answer, so
+        // handing the event over first keeps each pane's hooks in order.
+        Ok((sink, event)) => {
+            sink.hook(event);
+            200
+        }
+        Err(code) => code,
     };
     // Always an empty body: a `SessionStart` command hook's stdout would be
     // added to Claude's context.
     let _ = stream.write_all(response(status).as_bytes());
-    // Before the close, so a client that has read to the end has been delivered.
-    if let Ok((sink, event)) = accepted {
-        sink.hook(event);
-    }
     let _ = stream.shutdown(Shutdown::Write);
     drain(&mut stream);
 }
 
+/// One read that gives up, with `408`, once the request deadline has passed.
+fn read_before(stream: &mut TcpStream, buf: &mut [u8], deadline: Instant) -> Result<usize, u16> {
+    let left = deadline.saturating_duration_since(Instant::now());
+    if left.is_zero() {
+        return Err(408);
+    }
+    stream.set_read_timeout(Some(left)).map_err(|_| 400u16)?;
+    match stream.read(buf) {
+        Ok(n) => Ok(n),
+        Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => Err(408),
+        Err(_) => Err(400),
+    }
+}
+
 /// The sink and parsed event of a valid hook POST, or the status to answer with.
-fn read_hook(stream: &mut TcpStream, sinks: &Sinks) -> Result<(Arc<dyn HookSink>, Value), u16> {
-    let (head, mut body) = read_head(stream)?;
+fn read_hook(
+    stream: &mut TcpStream,
+    sinks: &Sinks,
+    deadline: Instant,
+) -> Result<(Arc<dyn HookSink>, Value), u16> {
+    let (head, mut body) = read_head(stream, deadline)?;
     let head = String::from_utf8(head).map_err(|_| 400u16)?;
     let request = Head::parse(&head).ok_or(400u16)?;
     if request.method != "POST" {
@@ -190,9 +211,14 @@ fn read_hook(stream: &mut TcpStream, sinks: &Sinks) -> Result<(Arc<dyn HookSink>
                 .write_all(b"HTTP/1.1 100 Continue\r\n\r\n")
                 .map_err(|_| 400u16)?;
         }
-        let start = body.len();
+        let mut filled = body.len();
         body.resize(length, 0);
-        stream.read_exact(&mut body[start..]).map_err(|_| 400u16)?;
+        while filled < length {
+            match read_before(stream, &mut body[filled..], deadline)? {
+                0 => return Err(400),
+                n => filled += n,
+            }
+        }
     }
     body.truncate(length);
     let event = serde_json::from_slice(&body).map_err(|_| 400u16)?;
@@ -200,7 +226,7 @@ fn read_hook(stream: &mut TcpStream, sinks: &Sinks) -> Result<(Arc<dyn HookSink>
 }
 
 /// The header block without its blank line, and any body bytes read with it.
-fn read_head(stream: &mut TcpStream) -> Result<(Vec<u8>, Vec<u8>), u16> {
+fn read_head(stream: &mut TcpStream, deadline: Instant) -> Result<(Vec<u8>, Vec<u8>), u16> {
     let mut buf = Vec::with_capacity(4096);
     let mut chunk = [0u8; 4096];
     loop {
@@ -215,9 +241,9 @@ fn read_head(stream: &mut TcpStream) -> Result<(Vec<u8>, Vec<u8>), u16> {
         if buf.len() > MAX_HEAD {
             return Err(431);
         }
-        match stream.read(&mut chunk) {
-            Ok(0) | Err(_) => return Err(400),
-            Ok(n) => buf.extend_from_slice(&chunk[..n]),
+        match read_before(stream, &mut chunk, deadline)? {
+            0 => return Err(400),
+            n => buf.extend_from_slice(&chunk[..n]),
         }
     }
 }
@@ -271,6 +297,7 @@ fn response(status: u16) -> String {
         400 => "Bad Request",
         404 => "Not Found",
         405 => "Method Not Allowed",
+        408 => "Request Timeout",
         411 => "Length Required",
         413 => "Content Too Large",
         431 => "Request Header Fields Too Large",
@@ -280,11 +307,11 @@ fn response(status: u16) -> String {
 }
 
 fn drain(stream: &mut TcpStream) {
-    let deadline = Instant::now() + IO_TIMEOUT;
+    let deadline = Instant::now() + REQUEST_DEADLINE;
     let mut chunk = [0u8; 8192];
     let mut drained = 0;
-    while drained < MAX_DRAIN && Instant::now() < deadline {
-        match stream.read(&mut chunk) {
+    while drained < MAX_DRAIN {
+        match read_before(stream, &mut chunk, deadline) {
             Ok(0) | Err(_) => return,
             Ok(n) => drained += n,
         }
@@ -386,8 +413,8 @@ mod tests {
         assert_eq!(got, expected);
     }
 
-    /// The server calls the sink before it closes the connection, so once a
-    /// response has ended any call it caused is already visible.
+    /// The server calls the sink before it answers, so once a response has
+    /// arrived any call it caused is already visible.
     fn assert_no_call(rx: &Receiver<(Value, Instant)>, what: &str) {
         assert!(rx.try_recv().is_err(), "{what} reached the sink");
     }
@@ -614,6 +641,82 @@ mod tests {
             received - sent
         );
         drop(stalled);
+    }
+
+    /// Claude Code sends a pane's next hook only after this one is answered, so
+    /// answering after the sink keeps a pane's hooks in order (PreToolUse must
+    /// never land after the PermissionRequest that follows it).
+    #[test]
+    fn response_is_sent_after_the_sink_returns() {
+        struct Slow(Mutex<Sender<Instant>>);
+        impl HookSink for Slow {
+            fn hook(&self, _event: Value) {
+                std::thread::sleep(Duration::from_millis(200));
+                let _ = self.0.lock().unwrap().send(Instant::now());
+            }
+        }
+        let server = HookServer::start().unwrap();
+        let (tx, rx) = mpsc::channel();
+        server.register("t", Arc::new(Slow(Mutex::new(tx))));
+        let body = r#"{"n":1}"#;
+        let mut stream = TcpStream::connect(("127.0.0.1", server.port())).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+
+        let sent = Instant::now();
+        stream
+            .write_all(
+                format!(
+                    "POST /hook/t HTTP/1.1\r\nContent-Length: {}\r\n\r\n{body}",
+                    body.len()
+                )
+                .as_bytes(),
+            )
+            .unwrap();
+        let mut first = [0u8; 1];
+        stream.read_exact(&mut first).unwrap();
+        let answered = Instant::now();
+
+        let returned = rx.recv_timeout(Duration::from_secs(3)).expect("no call");
+        assert!(
+            answered - sent >= Duration::from_millis(200),
+            "{:?}",
+            answered - sent
+        );
+        assert!(returned <= answered, "answered before the sink returned");
+    }
+
+    #[test]
+    fn dribbling_client_is_cut_off_by_the_request_deadline() {
+        let server = HookServer::start().unwrap();
+        let (sink, rx) = recorder();
+        server.register("t", sink);
+        let mut stream = TcpStream::connect(("127.0.0.1", server.port())).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(4)))
+            .unwrap();
+        let mut writer = stream.try_clone().unwrap();
+        // One byte every 100 ms never trips a per-read timeout.
+        std::thread::spawn(move || {
+            let head = format!("POST /hook/t HTTP/1.1\r\nX-Pad: {}", "x".repeat(100));
+            for byte in head.bytes() {
+                if writer.write_all(&[byte]).is_err() {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        });
+
+        let start = Instant::now();
+        let mut response = Vec::new();
+        let _ = stream.read_to_end(&mut response);
+        let elapsed = start.elapsed();
+
+        let response = String::from_utf8_lossy(&response);
+        assert!(response.starts_with("HTTP/1.1 408"), "{response:?}");
+        assert!(elapsed < Duration::from_secs(3), "{elapsed:?}");
+        assert_no_call(&rx, "dribbled request");
     }
 
     /// SRS-FR-034: the listener adds well under 100 ms to the 3 s budget.
