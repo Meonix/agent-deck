@@ -59,13 +59,15 @@ UI source of truth: `design/agent-deck/` proposal 4 "Dark attention" — `render
 
 **D1 — One local HTTP listener, one secret token per pane.**
 At startup Rust binds a `std::net::TcpListener` on `127.0.0.1:0` (random port, loopback only); one accept
-thread hands each connection to its own short-lived thread (at most 64 at once) with 2 s read and write
-timeouts, so a stalled client never holds up another pane. Each pane gets a random token (UUID v4, not the
+thread hands each connection to its own short-lived thread (at most 64 at once); a request must arrive
+within 2 s in total (else `408`), so a stalled or byte-dribbling client never holds up another pane. Each pane gets a random token (UUID v4, not the
 pane id); hook URLs are `http://127.0.0.1:<port>/hook/<token>`. The listener reads a header block of at most
 16 KiB (else `431`), requires `Content-Length` (absent or chunked → `411`), refuses more than 256 KiB with `413`
 before reading any body, answers `Expect: 100-continue` with `100 Continue`, and drops requests whose
 token is unknown (`404`). Every answer is an empty body with `Content-Length: 0` and `Connection: close`;
-a valid hook gets `200` and reaches its sink before the connection closes. `tiny_http` 0.12 was dropped: a
+a valid hook is answered `200` only after it has been handed to the pane's tracker (a short in-memory
+step), because Claude Code sends a pane's next hook only after that answer, so a pane's hooks are applied in
+order. `tiny_http` 0.12 was dropped: a
 huge `Content-Length` made it allocate that size and abort the app, and it read bodies on one thread.
 Alternatives: command hooks writing to a socket (one process per event, `.exe` path issues on Windows —
 option B at GATE 1); a Tauri-managed server plugin (more surface than needed).
