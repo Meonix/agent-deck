@@ -188,6 +188,8 @@ describe("robustness (fix round 1)", () => {
     const user = userEvent.setup();
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
     await screen.findByText("beta");
+    // Title bar "Status Latency", then "+ Add Folder", then the first row.
+    await user.tab();
     await user.tab();
     await user.tab();
     await user.keyboard("{Enter}");

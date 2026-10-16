@@ -13,7 +13,7 @@ function e(id: string, status: Partial<PaneStatus>): PaneEntry {
     ended: false,
     title: `title-${id}`,
     graceOver: false,
-    status: { state: "Idle", since: 1, reason: null, tracked: true, ...status },
+    status: { state: "Idle", since: 1, reason: null, tracked: true, reportedAt: null, ...status },
   };
 }
 

@@ -69,7 +69,7 @@ describe("tauriSessionsClient (5.1)", () => {
   });
 
   it("queues a status sent before onStatus and delivers it, then later ones live", async () => {
-    const status = { state: "Needs Approval", since: 1760000000000, reason: "Edit src/main.rs", tracked: true };
+    const status = { state: "Needs Approval", since: 1760000000000, reason: "Edit src/main.rs", tracked: true, reportedAt: 1760000000000 };
     tauri.invoke.mockImplementation(async () => {
       send({ status });
       return opened;

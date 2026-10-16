@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
-import type { PaneStatus, SessionsClient } from "../api/sessions";
+import type { OpenedPane, PaneStatus, SessionState, SessionsClient } from "../api/sessions";
 import type { Workspace } from "../api/workspaces";
 import { latencyLogEnabled, withLatencyLog } from "./latencyLog";
 import { insertRight, paneBodySize } from "./paneLayout";
@@ -47,6 +47,23 @@ export function useSessionPanes(
   // One interval per live pane, started once and stopped when the pane ends or closes,
   // so other panes opening never restart it. A failed lookup keeps the last title.
   const titleTimers = useRef(new Map<string, () => void>());
+
+  // SRS-FR-038: a change counts as shown once the frame after its commit is painted.
+  const unrecorded = useRef<{ pane: OpenedPane; state: SessionState; reportedAt: number }[]>([]);
+  useEffect(() => {
+    if (unrecorded.current.length === 0) return;
+    const changes = unrecorded.current;
+    unrecorded.current = [];
+    requestAnimationFrame(() => {
+      const shownAt = Date.now();
+      const open = new Set(entries.current.map((e) => e.pane.paneId));
+      for (const { pane, state, reportedAt } of changes) {
+        if (!open.has(pane.paneId)) continue;
+        // A lost record must never disturb the panes.
+        client.recordStatusShown(pane.sessionId, state, reportedAt, Math.max(shownAt, reportedAt)).catch(() => {});
+      }
+    });
+  }, [client, layout]);
   const graceTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const polled = layout.entries
     .filter((e) => e.pane.started && !e.ended)
@@ -102,7 +119,7 @@ export function useSessionPanes(
         const { pane, stream } = await client.open(workspace.id, openedSize.cols, openedSize.rows);
         kept = pane.started;
         const adapter = pane.started ? measuring : null;
-        const status: PaneStatus = { state: "Idle", since: Date.now(), reason: null, tracked: false };
+        const status: PaneStatus = { state: "Idle", since: Date.now(), reason: null, tracked: false, reportedAt: null };
         const entry: PaneEntry = {
           pane,
           workspaceName: workspace.name,
@@ -121,7 +138,12 @@ export function useSessionPanes(
         });
         // Registered after the insert so an exit already queued finds the entry.
         if (adapter) stream.onOutput((bytes) => adapter.write(bytes));
-        stream.onStatus((next) => update(pane.paneId, () => ({ status: next })));
+        stream.onStatus((next) => {
+          if (next.tracked && next.reportedAt !== null) {
+            unrecorded.current.push({ pane, state: next.state, reportedAt: next.reportedAt });
+          }
+          update(pane.paneId, () => ({ status: next }));
+        });
         stream.onExit(() => update(pane.paneId, () => ({ ended: true })));
         graceTimers.current.set(
           pane.paneId,

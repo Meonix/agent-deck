@@ -452,3 +452,85 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
     });
   });
 });
+
+describe("Status latency (2.1, 2.2)", () => {
+  let frames: FrameRequestCallback[] = [];
+  const runFrame = () =>
+    act(() => {
+      const queued = frames;
+      frames = [];
+      queued.forEach((cb) => cb(0));
+    });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    frames = [];
+  });
+
+  async function openPane() {
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => frames.push(cb));
+    const sessions = fakeSessions();
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await screen.findByTestId("pane-grid");
+    return { ...ctx, stream: sessions.opened[0].stream };
+  }
+
+  it("records a state change with the time the board painted it", async () => {
+    const { sessions, stream } = await openPane();
+    act(() => stream.status({ state: "Needs Approval", reason: "Edit src/main.rs", reportedAt: 1_000_200 }));
+    expect(sessions.recordStatusShown).not.toHaveBeenCalled();
+    vi.spyOn(Date, "now").mockReturnValue(1_000_450);
+    runFrame();
+    expect(sessions.recordStatusShown).toHaveBeenCalledTimes(1);
+    expect(sessions.recordStatusShown).toHaveBeenCalledWith("s1", "Needs Approval", 1_000_200, 1_000_450);
+  });
+
+  it("does not record a message that only marks the pane tracked", async () => {
+    const { sessions, stream } = await openPane();
+    act(() => stream.status({ state: "Idle", reportedAt: null }));
+    runFrame();
+    expect(sessions.recordStatusShown).not.toHaveBeenCalled();
+  });
+
+  it("never records a shown time earlier than the report time", async () => {
+    const { sessions, stream } = await openPane();
+    act(() => stream.status({ state: "Running", reportedAt: 2_000_000 }));
+    vi.spyOn(Date, "now").mockReturnValue(1_999_000);
+    runFrame();
+    expect(sessions.recordStatusShown).toHaveBeenCalledWith("s1", "Running", 2_000_000, 2_000_000);
+  });
+
+  it("drops a change whose pane closed before the frame", async () => {
+    const { user, sessions, stream } = await openPane();
+    act(() => stream.status({ state: "Idle", reportedAt: 3_000_000 }));
+    await user.click(screen.getByRole("button", { name: "Close pane" }));
+    await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
+    runFrame();
+    expect(sessions.recordStatusShown).not.toHaveBeenCalled();
+  });
+
+  it("opens the report from the title bar with the share within 3 s", async () => {
+    const sessions = fakeSessions({ latencyReport: vi.fn(async () => ({ within: 398, total: 400 })) });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await user.click(screen.getByRole("button", { name: "Status Latency" }));
+    const report = await screen.findByRole("dialog", { name: "Status Latency" });
+    expect(await within(report).findByText("99.5%")).toBeInTheDocument();
+    expect(within(report).getByText("398 of 400 state changes appeared within 3 s")).toBeInTheDocument();
+    expect(within(report).getByText("Last 14 days")).toBeInTheDocument();
+    await user.click(within(report).getByRole("button", { name: "Close report" }));
+    expect(screen.queryByRole("dialog", { name: "Status Latency" })).not.toBeInTheDocument();
+  });
+
+  it("shows No data yet and no percentage without records, and Escape closes it", async () => {
+    const { user, sessions } = setup([ws("a", "agent-deck")]);
+    await user.click(screen.getByRole("button", { name: "Status Latency" }));
+    const report = await screen.findByRole("dialog", { name: "Status Latency" });
+    expect(await within(report).findByText("No data yet")).toBeInTheDocument();
+    expect(within(report).queryByText(/%/)).not.toBeInTheDocument();
+    expect(sessions.latencyReport).toHaveBeenCalledTimes(1);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Status Latency" })).not.toBeInTheDocument();
+  });
+});

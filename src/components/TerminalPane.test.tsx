@@ -14,7 +14,7 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
     ended: false,
     title: UNTITLED,
     graceOver: false,
-    status: { state: "Idle", since: 1, reason: null, tracked: false },
+    status: { state: "Idle", since: 1, reason: null, tracked: false, reportedAt: null },
     ...over,
   };
 }
@@ -150,7 +150,7 @@ describe("TerminalPane (5.3)", () => {
   });
 
   it("shows the state chip with the state name", () => {
-    renderPane(entry(fakeAdapter(), { status: { state: "Running", since: 1, reason: null, tracked: true } }));
+    renderPane(entry(fakeAdapter(), { status: { state: "Running", since: 1, reason: null, tracked: true, reportedAt: null } }));
     expect(screen.getByText("Running")).toBeInTheDocument();
   });
 
@@ -177,7 +177,7 @@ describe("TerminalPane (5.3)", () => {
 
   it("keeps the Error chip and border after an abnormal exit (M1)", () => {
     renderPane(
-      entry(fakeAdapter(), { ended: true, status: { state: "Error", since: 1, reason: "exit code 1", tracked: true } }),
+      entry(fakeAdapter(), { ended: true, status: { state: "Error", since: 1, reason: "exit code 1", tracked: true, reportedAt: null } }),
     );
     expect(screen.getByText("Error", { selector: "span.border" })).toBeInTheDocument();
     expect(screen.queryByText("Ended", { selector: "span.border" })).not.toBeInTheDocument();
@@ -186,7 +186,7 @@ describe("TerminalPane (5.3)", () => {
   });
 
   it("shows the Ended badge after a normal exit", () => {
-    renderPane(entry(fakeAdapter(), { ended: true, status: { state: "Ended", since: 1, reason: null, tracked: true } }));
+    renderPane(entry(fakeAdapter(), { ended: true, status: { state: "Ended", since: 1, reason: null, tracked: true, reportedAt: null } }));
     expect(screen.getByText("Ended", { selector: "span.border" })).toBeInTheDocument();
     expect(screen.getByRole("region").className).not.toContain("border-error");
   });
@@ -198,7 +198,7 @@ describe("TerminalPane (5.3)", () => {
       view.unmount();
       return cls;
     };
-    const s = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked });
+    const s = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked, reportedAt: null });
     expect(at(s("Needs Approval"))).toContain("border-approval");
     expect(at(s("Needs Approval"))).toContain("border-2");
     expect(at(s("Running"))).toContain("border-running");

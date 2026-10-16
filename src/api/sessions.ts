@@ -4,7 +4,16 @@ export type OpenedPane = { paneId: string; sessionId: string; started: boolean }
 
 export type SessionState = "Running" | "Needs Approval" | "Idle" | "Error" | "Ended";
 
-export type PaneStatus = { state: SessionState; since: number; reason: string | null; tracked: boolean };
+export type PaneStatus = {
+  state: SessionState;
+  since: number;
+  reason: string | null;
+  tracked: boolean;
+  /** When the change reached the app; null when the message only marks the pane tracked. */
+  reportedAt: number | null;
+};
+
+export type LatencyReport = { within: number; total: number };
 
 export interface PaneStream {
   onOutput(cb: (bytes: Uint8Array) => void): void;
@@ -19,6 +28,8 @@ export interface SessionsClient {
   resize(paneId: string, cols: number, rows: number): Promise<void>;
   close(paneId: string): Promise<void>;
   title(paneId: string): Promise<string>;
+  recordStatusShown(sessionId: string, state: SessionState, reportedAt: number, shownAt: number): Promise<void>;
+  latencyReport(): Promise<LatencyReport>;
 }
 
 type ExitMessage = { exited: number | null };
@@ -46,14 +57,15 @@ function asStatus(message: unknown): PaneStatus | null {
   if (value === null || typeof value !== "object" || !("status" in value)) return null;
   const status = (value as { status: unknown }).status;
   if (status === null || typeof status !== "object") return null;
-  const { state, since, reason, tracked } = status as Record<string, unknown>;
+  const { state, since, reason, tracked, reportedAt = null } = status as Record<string, unknown>;
   const valid =
     typeof state === "string" &&
     (STATES as readonly string[]).includes(state) &&
     typeof since === "number" &&
     (reason === null || typeof reason === "string") &&
-    typeof tracked === "boolean";
-  return valid ? (status as PaneStatus) : null;
+    typeof tracked === "boolean" &&
+    (reportedAt === null || typeof reportedAt === "number");
+  return valid ? ({ ...(status as PaneStatus), reportedAt } as PaneStatus) : null;
 }
 
 function safeParse(text: string): unknown {
@@ -150,4 +162,7 @@ export const tauriSessionsClient: SessionsClient = {
   resize: (paneId, cols, rows) => invoke<void>("pane_resize", { paneId, cols, rows }),
   close: (paneId) => invoke<void>("close_pane", { paneId }),
   title: (paneId) => invoke<string>("pane_title", { paneId }),
+  recordStatusShown: (sessionId, state, reportedAt, shownAt) =>
+    invoke<void>("record_status_shown", { sessionId, state, reportedAt, shownAt }),
+  latencyReport: () => invoke<LatencyReport>("status_latency_report"),
 };

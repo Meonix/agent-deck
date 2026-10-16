@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { SessionsClient } from "./api/sessions";
 import type { WorkspacesClient } from "./api/workspaces";
 import { ConfirmClose } from "./components/ConfirmClose";
+import { StatusLatencyReport } from "./components/StatusLatencyReport";
 import { PaneGrid } from "./components/PaneGrid";
 import { TerminalPane, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
 import { StatusBoard } from "./components/BoardColumn";
@@ -17,13 +18,22 @@ type Deps = {
 };
 
 function App(deps: Deps) {
+  const [reportOpen, setReportOpen] = useState(false);
+  const closeReport = useCallback(() => setReportOpen(false), []);
   return (
     <div className="h-screen relative flex flex-col bg-background text-foreground font-sans">
       <ToastProvider>
-        <div className="h-9 flex items-center px-4 border-b border-border bg-card">
+        <div className="h-9 flex items-center justify-between px-4 border-b border-border bg-card">
           <span className="text-sm font-medium text-foreground">agent-deck</span>
+          <button
+            onClick={() => setReportOpen(true)}
+            className="text-xs text-muted-foreground border border-border rounded-md px-2 py-0.5"
+          >
+            Status Latency
+          </button>
         </div>
         <Workbench {...deps} />
+        {reportOpen && <StatusLatencyReport client={deps.sessions} onClose={closeReport} />}
       </ToastProvider>
     </div>
   );
