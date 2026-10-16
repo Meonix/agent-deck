@@ -113,11 +113,12 @@ impl StatusTracker {
     }
 }
 
-/// D3 (c): Enter, a lone Esc or a menu digit. Focus, cursor and device reports,
-/// mouse reports and arrows all start with ESC and are longer than one byte.
+/// D3 (c): Enter, a lone Esc, Shift+Tab ("allow all edits") or a menu digit. Focus,
+/// cursor and device reports, mouse reports and arrows are other ESC sequences.
 fn is_answer_key(data: &[u8]) -> bool {
     data.iter().any(|b| matches!(b, b'\r' | b'\n'))
         || data == b"\x1b"
+        || data == b"\x1b[Z"
         || matches!(data, [d] if d.is_ascii_digit())
 }
 
@@ -461,9 +462,18 @@ mod tests {
     }
 
     #[test]
-    fn permission_denied_answers_a_pending_approval() {
+    fn permission_denied_answers_only_its_own_pending_approval() {
+        let input =
+            json!({"file_path": "/work/proj/src/main.rs", "old_string": "a", "new_string": "b"});
         let (t, out) = waiting_for_agent_a();
-        t.hook(json!({"hook_event_name": "PermissionDenied", "agent_id": "B"}));
+        t.hook(tool_event(
+            "PermissionDenied",
+            Some("B"),
+            "Edit",
+            input.clone(),
+        ));
+        assert_eq!(states(&out), Vec::<&str>::new());
+        t.hook(tool_event("PermissionDenied", Some("A"), "Edit", input));
         assert_eq!(states(&out), ["Running"]);
     }
 
@@ -484,7 +494,7 @@ mod tests {
     /// F-I3: no hook fires when the user answers a dialog; the key they press does.
     #[test]
     fn an_answer_key_typed_while_waiting_answers_the_approval() {
-        for key in [&b"1"[..], b"\r", b"\x1b", b"y\r", b"\n"] {
+        for key in [&b"1"[..], b"\r", b"\x1b", b"y\r", b"\n", b"\x1b[Z"] {
             let (t, out) = waiting_for_agent_a();
             t.user_input(key, 5000);
             assert_eq!(

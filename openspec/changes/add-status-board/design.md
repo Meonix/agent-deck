@@ -94,8 +94,8 @@ If task 1 shows that `--settings` hooks replace the user's own hooks, stop and r
 - `Notification` with `notification_type` `permission_prompt` or `elicitation_dialog` →
   `ApprovalRequested(reason)`, reason from `message`
 - `PreToolUse` with `tool_name` `AskUserQuestion` → `ApprovalRequested("Question")` (A-06)
-- `PostToolUse`, `PostToolUseFailure` → `ToolDone(key)`; `PermissionDenied` (auto mode only) →
-  `ApprovalAnswered`; other `PreToolUse` → no signal
+- `PostToolUse`, `PostToolUseFailure`, `PermissionDenied` (auto mode only) → `ToolDone(key)`; other
+  `PreToolUse` → no signal
 - `Stop` → `TurnFinished`; `Notification` with `notification_type` `idle_prompt` → `TurnFinished`
   (the docs: it fires about 60 s after Claude finishes and only when nothing runs; it is the only signal
   after a denied dialog or an Esc interrupt, where neither `Stop` nor `PostToolUse` fires)
@@ -108,9 +108,8 @@ If task 1 shows that `--settings` hooks replace the user's own hooks, stop and r
 "Approval answered" is decided by the tracker, not by `signal_of`, because no hook fires when the user
 answers a dialog (docs) and subagents running in parallel keep firing tool events with their own
 `agent_id`. An approval request records a pending key `(agent_id or main, tool_name, tool_input)`. The
-tracker applies `ApprovalAnswered` only for (a) a `ToolDone` whose key matches the pending one, (b) a
-`PermissionDenied`, or (c) user input written to the pane while it is `Needs Approval` that is an answer
-key: it contains CR or LF, is a lone ESC, or is a single digit — terminal reports (focus, cursor position,
+tracker applies `ApprovalAnswered` only for (a) a `ToolDone` whose key matches the pending one, (b) a `PermissionDenied` with the same key, or (c) user input written to the pane while it is `Needs Approval` that is an answer
+key: it contains CR or LF, is a lone ESC, is Shift+Tab (`ESC [ Z`, "allow all edits"), or is a single digit — terminal reports (focus, cursor position,
 device attributes, mouse) and arrow keys are not answers. Other agents' tool events leave a pending
 approval alone. (c) is measured in the demo (task 5.2).
 

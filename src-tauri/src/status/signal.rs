@@ -60,7 +60,7 @@ pub fn signal_of(event: &serde_json::Value, workspace: &Path) -> Option<HookSign
             })
         }
         "PostToolUse" | "PostToolUseFailure" => Some(HookSignal::ToolDone(approval_key(event))),
-        "PermissionDenied" => apply(Signal::ApprovalAnswered),
+        "PermissionDenied" => Some(HookSignal::ToolDone(approval_key(event))),
         "Stop" => apply(Signal::TurnFinished),
         "StopFailure" => apply(Signal::ErrorOccurred(
             str_field("error").unwrap_or("unknown").into(),
@@ -173,8 +173,12 @@ mod tests {
             apply(Signal::TurnFinished)
         );
         assert_eq!(
-            sig(json!({"hook_event_name": "PermissionDenied"})),
-            apply(Signal::ApprovalAnswered)
+            sig(
+                json!({"hook_event_name": "PermissionDenied", "tool_name": "Bash", "tool_input": {"command": "rm x"}})
+            ),
+            sig(
+                json!({"hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_input": {"command": "rm x"}})
+            )
         );
     }
 
