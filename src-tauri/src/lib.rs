@@ -1,4 +1,5 @@
 mod commands;
+pub mod hooks;
 pub mod launcher;
 mod pane_commands;
 pub mod panes;
