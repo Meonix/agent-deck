@@ -45,7 +45,13 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
   const workspaces = useWorkspaces(workspacesClient);
   const { refresh } = workspaces;
   const paneArea = useRef<HTMLElement>(null);
-  const panes = useSessionPanes(sessions, createTerminal, () => void refresh().catch(() => {}), paneArea);
+  const panes = useSessionPanes(
+    sessions,
+    createTerminal,
+    () => void refresh().catch(() => {}),
+    paneArea,
+    workspaces.items,
+  );
   const newSession = () => {
     if (workspaces.selected) void panes.newSession(workspaces.selected);
   };
@@ -91,19 +97,24 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
         now={now}
       />
       <main ref={paneArea} className="min-h-0 min-w-0">
-        {panes.entries.length > 0 ? (
-          <PaneGrid>
-            {panes.entries.map((entry) => (
-              <TerminalPane
-                key={entry.pane.paneId}
-                entry={entry}
-                client={sessions}
-                focused={entry.pane.paneId === panes.focusedId}
-                onFocus={panes.focusPane}
-                onClose={requestClose}
-              />
-            ))}
-          </PaneGrid>
+        {panes.layout ? (
+          <PaneGrid
+            layout={panes.layout}
+            onResize={panes.resizeSplit}
+            panes={panes.entries.map((entry) => ({
+              id: entry.pane.paneId,
+              node: (
+                <TerminalPane
+                  entry={entry}
+                  client={sessions}
+                  focused={entry.pane.paneId === panes.focusedId}
+                  onFocus={panes.focusPane}
+                  onSplit={(paneId, dir) => void panes.splitFrom(paneId, dir)}
+                  onClose={requestClose}
+                />
+              ),
+            }))}
+          />
         ) : workspaces.items === null ? null : workspaces.items.length === 0 ? (
           <CenteredState
             title="No folders yet"

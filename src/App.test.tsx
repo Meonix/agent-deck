@@ -96,18 +96,17 @@ describe("New Session (5.4)", () => {
     const sessions = fakeSessions();
     sessions.title = vi.fn(async (id: string) => id);
     const { user } = setup([ws("a", "agent-deck")], sessions);
-    const labels = () => panes().map((p) => p.getAttribute("aria-label"));
+    const lefts = () => panes().map((p) => [p.getAttribute("aria-label"), parseFloat(p.parentElement!.style.left)]);
     await selectAndStart(user, "agent-deck");
     await screen.findByRole("region", { name: "agent-deck · p1" });
     await user.click(newSessionButton());
     await screen.findByRole("region", { name: "agent-deck · p2" });
-    expect(labels()).toEqual(["agent-deck · p1", "agent-deck · p2"]);
-    expect(screen.getByTestId("pane-grid").style.gridTemplateColumns).toBe("repeat(2, minmax(0,1fr))");
+    expect(lefts()).toEqual([["agent-deck · p1", 0], ["agent-deck · p2", 50]]);
 
     act(() => panes()[0].dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
     await user.click(newSessionButton());
     await screen.findByRole("region", { name: "agent-deck · p3" });
-    expect(labels()).toEqual(["agent-deck · p1", "agent-deck · p3", "agent-deck · p2"]);
+    expect(lefts()).toEqual([["agent-deck · p1", 0], ["agent-deck · p2", 50], ["agent-deck · p3", 25]]);
   });
 
   it("writes session output into the terminal", async () => {
@@ -144,6 +143,9 @@ describe("New Session (5.4)", () => {
     expect(first.container).not.toBe(probe);
     expect(sessions.resize).not.toHaveBeenCalled();
 
+    vi.spyOn(document.querySelector('[data-pane-body="p1"]')!, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 974, 545),
+    );
     await user.click(newSessionButton());
     await vi.waitFor(() => expect(adapters).toHaveLength(2));
     expect(vi.mocked(adapters[1].open).mock.calls[0][0].style.width).toBe("478px");
@@ -744,5 +746,173 @@ describe("Resume (2.1, 2.2)", () => {
     await selectRow(user, "beta", "Scaffold");
     await user.click(resumeButton());
     await vi.waitFor(() => expect(sessions.open).toHaveBeenCalledWith("b", 80, 24, SCAFFOLD));
+  });
+});
+
+describe("Split layout (2.1 to 2.3)", () => {
+  const rectOf = (pane: HTMLElement) => {
+    const { left, top, width, height } = pane.parentElement!.style;
+    return [left, top, width, height].map(parseFloat);
+  };
+  const paneNamed = (title: string) => screen.getByRole("region", { name: `agent-deck · ${title}` });
+  const splitDown = (pane: HTMLElement) => within(pane).getByRole("button", { name: "Split down" });
+  const splitRight = (pane: HTMLElement) => within(pane).getByRole("button", { name: "Split right" });
+
+  async function startOne() {
+    const sessions = fakeSessions();
+    sessions.title = vi.fn(async (id: string) => id);
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await screen.findByRole("region", { name: "agent-deck · p1" });
+    return ctx;
+  }
+
+  it("puts the new session below the pane and focuses it", async () => {
+    const { user, sessions, adapters } = await startOne();
+    await user.click(splitDown(paneNamed("p1")));
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    expect(sessions.open).toHaveBeenLastCalledWith("a", 80, 24, undefined);
+    expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 100, 50]);
+    expect(rectOf(paneNamed("p2"))).toEqual([0, 50, 100, 50]);
+    expect(adapters[1].focus).toHaveBeenCalled();
+    expect(paneNamed("p2")).toHaveClass("border-ring");
+  });
+
+  it("puts the new session to the right of the pane", async () => {
+    const { user } = await startOne();
+    await user.click(splitRight(paneNamed("p1")));
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 50, 100]);
+    expect(rectOf(paneNamed("p2"))).toEqual([50, 0, 50, 100]);
+  });
+
+  it("splits only the right half when the second pane is split down", async () => {
+    const { user } = await startOne();
+    await user.click(splitRight(paneNamed("p1")));
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    await user.click(splitDown(paneNamed("p2")));
+    await screen.findByRole("region", { name: "agent-deck · p3" });
+    expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 50, 100]);
+    expect(rectOf(paneNamed("p2"))).toEqual([50, 0, 50, 50]);
+    expect(rectOf(paneNamed("p3"))).toEqual([50, 50, 50, 50]);
+  });
+
+  it("splits the focused pane to the right from the sidebar", async () => {
+    const { user } = await startOne();
+    await user.click(splitDown(paneNamed("p1")));
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    act(() => paneNamed("p1").dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+    await user.click(newSessionButton());
+    await screen.findByRole("region", { name: "agent-deck · p3" });
+    expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 50, 50]);
+    expect(rectOf(paneNamed("p3"))).toEqual([50, 0, 50, 50]);
+    expect(rectOf(paneNamed("p2"))).toEqual([0, 50, 100, 50]);
+  });
+
+  it("keeps the terminals mounted when the layout changes shape", async () => {
+    const { user, adapters } = await startOne();
+    const before = vi.mocked(adapters[0].open).mock.calls.length;
+    await user.click(splitRight(paneNamed("p1")));
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    await user.click(splitDown(paneNamed("p2")));
+    await screen.findByRole("region", { name: "agent-deck · p3" });
+    expect(vi.mocked(adapters[0].open).mock.calls.length).toBe(before);
+    expect(adapters[0].container!.isConnected).toBe(true);
+  });
+
+  describe("divider", () => {
+    async function twoPanes() {
+      const ctx = await startOne();
+      await ctx.user.click(splitRight(paneNamed("p1")));
+      await screen.findByRole("region", { name: "agent-deck · p2" });
+      vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 1200, 800));
+      return screen.getByRole("separator");
+    }
+    const widths = () => [rectOf(paneNamed("p1"))[2], rectOf(paneNamed("p2"))[2]];
+
+    it("is a vertical separator for a right split", async () => {
+      const divider = await twoPanes();
+      expect(divider).toHaveAttribute("aria-orientation", "vertical");
+    });
+
+    it("moves with the pointer", async () => {
+      const divider = await twoPanes();
+      fireEvent.pointerDown(divider, { clientX: 600, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(divider, { clientX: 800, clientY: 100, pointerId: 1 });
+      fireEvent.pointerUp(divider, { clientX: 800, clientY: 100, pointerId: 1 });
+      expect(widths()[0]).toBeCloseTo(66.67, 1);
+      expect(widths()[1]).toBeCloseTo(33.33, 1);
+    });
+
+    it("stops following the pointer after release", async () => {
+      const divider = await twoPanes();
+      fireEvent.pointerDown(divider, { clientX: 600, pointerId: 1 });
+      fireEvent.pointerUp(divider, { clientX: 600, pointerId: 1 });
+      fireEvent.pointerMove(divider, { clientX: 800, pointerId: 1 });
+      expect(widths()).toEqual([50, 50]);
+    });
+
+    it("leaves each side at least 200 px wide", async () => {
+      const divider = await twoPanes();
+      fireEvent.pointerDown(divider, { clientX: 600, pointerId: 1 });
+      fireEvent.pointerMove(divider, { clientX: 1150, pointerId: 1 });
+      expect(widths()[1]).toBeCloseTo((200 / 1200) * 100, 5);
+      fireEvent.pointerMove(divider, { clientX: 10, pointerId: 1 });
+      expect(widths()[0]).toBeCloseTo((200 / 1200) * 100, 5);
+    });
+
+    it("leaves each side at least 120 px tall for a down split", async () => {
+      const { user } = await startOne();
+      await user.click(splitDown(paneNamed("p1")));
+      await screen.findByRole("region", { name: "agent-deck · p2" });
+      vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 1200, 800));
+      const divider = screen.getByRole("separator");
+      expect(divider).toHaveAttribute("aria-orientation", "horizontal");
+      fireEvent.pointerDown(divider, { clientY: 400, pointerId: 1 });
+      fireEvent.pointerMove(divider, { clientY: 790, pointerId: 1 });
+      expect(rectOf(paneNamed("p2"))[3]).toBeCloseTo((120 / 800) * 100, 5);
+    });
+  });
+
+  it("sizes the new session from half of the pane it splits", async () => {
+    const { user, sessions, adapters } = await startOne();
+    const body = document.querySelector('[data-pane-body="p1"]')!;
+    vi.spyOn(body, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 974, 545));
+    await user.click(splitRight(paneNamed("p1")));
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    expect(vi.mocked(adapters[1].open).mock.calls[0][0].style.width).toBe("478px");
+    expect(vi.mocked(adapters[1].open).mock.calls[0][0].style.height).toBe("545px");
+    expect(sessions.open).toHaveBeenCalledTimes(2);
+
+    vi.spyOn(paneNamed("p2").querySelector('[data-pane-body="p2"]')!, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 478, 545),
+    );
+    await user.click(splitDown(paneNamed("p2")));
+    await vi.waitFor(() => expect(adapters).toHaveLength(3));
+    expect(vi.mocked(adapters[2].open).mock.calls[0][0].style.height).toBe("249px");
+  });
+
+  it("refuses to split a pane whose folder went missing", async () => {
+    const items = [ws("a", "agent-deck")];
+    const sessions = fakeSessions();
+    const { user } = setup(items, sessions);
+    await selectAndStart(user, "agent-deck");
+    await screen.findByTestId("pane-grid");
+    items[0] = ws("a", "agent-deck", true);
+    sessions.open = vi.fn(async () => Promise.reject("folder_missing"));
+    const pane = () => panes()[0];
+    await user.click(splitDown(pane()));
+    await user.click(splitDown(pane()));
+    expect(await screen.findByText("Folder not found")).toBeInTheDocument();
+    expect(sessions.open).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the remaining pane fill the area when its neighbour closes", async () => {
+    const { user } = await startOne();
+    await user.click(splitRight(paneNamed("p1")));
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    await user.click(within(paneNamed("p2")).getByRole("button", { name: "Close pane" }));
+    await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · p2" })).not.toBeInTheDocument());
+    expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 100, 100]);
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient } from "../api/sessions";
+import type { SplitDir } from "./paneTree";
 import { StateMarker, tone } from "./statusTone";
 
 export type TerminalSize = { cols: number; rows: number };
@@ -42,10 +43,11 @@ type Props = {
   client: SessionsClient;
   focused: boolean;
   onFocus(paneId: string): void;
+  onSplit(paneId: string, dir: SplitDir): void;
   onClose(paneId: string): void;
 };
 
-export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props) {
+export function TerminalPane({ entry, client, focused, onFocus, onSplit, onClose }: Props) {
   const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver } = entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
@@ -113,6 +115,12 @@ export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props
               {status.state}
             </span>
           )}
+          <button aria-label="Split right" onClick={() => onSplit(paneId, "right")} className="text-muted-foreground">
+            ⇥
+          </button>
+          <button aria-label="Split down" onClick={() => onSplit(paneId, "down")} className="text-muted-foreground">
+            ⇣
+          </button>
           <button aria-label="Close pane" onClick={() => onClose(paneId)} className="text-muted-foreground">
             ✕
           </button>
@@ -122,7 +130,7 @@ export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props
         // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
         // so the padding sits on a wrapper and xterm gets an unpadded container.
         <div className="flex-1 min-h-0 min-w-0 flex p-1">
-          <div ref={body} className="flex-1 min-h-0 min-w-0" />
+          <div ref={body} data-pane-body={paneId} className="flex-1 min-h-0 min-w-0" />
         </div>
       ) : (
         <div className="flex-1 p-3 font-mono text-xs leading-5 text-foreground">
