@@ -14,7 +14,7 @@ use crate::commands::AppState;
 use crate::hooks::{HookServer, HookSink, hook_settings};
 use crate::launcher::{find_claude, login_shell_path_with, session_env};
 use crate::pane_status::{StatusOut, StatusTracker, now_ms};
-use crate::panes::{OpenError, PaneId, SessionId, Spawner, close_in_parallel};
+use crate::panes::{OpenError, PaneId, SessionId, Spawner, Start, close_in_parallel, resume_id};
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
 use crate::session_title::{UNTITLED, session_title};
 use crate::workspace::{DiskProbe, WorkspaceId};
@@ -35,13 +35,18 @@ pub async fn open_pane(
     workspace_id: String,
     cols: u16,
     rows: u16,
+    resume_session_id: Option<String>,
     output: Channel<InvokeResponseBody>,
     app: AppHandle,
 ) -> Result<OpenedPane, String> {
+    let start = match resume_session_id {
+        Some(raw) => Start::Resume(resume_id(&raw).map_err(|_| "invalid_session".to_string())?),
+        None => Start::New,
+    };
     // Blocking work (waiting for the login-shell lookup, spawning) stays off
     // the main thread and the async workers.
     tauri::async_runtime::spawn_blocking(move || {
-        open_blocking(&app, WorkspaceId(workspace_id), cols, rows, output)
+        open_blocking(&app, WorkspaceId(workspace_id), start, cols, rows, output)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -128,6 +133,7 @@ pub fn close_all_on_exit(app: &AppHandle) {
 fn open_blocking(
     app: &AppHandle,
     id: WorkspaceId,
+    start: Start,
     cols: u16,
     rows: u16,
     output: Channel<InvokeResponseBody>,
@@ -163,7 +169,7 @@ fn open_blocking(
         };
         let mut panes = state.panes.lock().unwrap();
         panes
-            .open(&workspace, &spawner, Box::new(sink))
+            .open(&workspace, start, &spawner, Box::new(sink))
             .map_err(open_error)?
     };
     Ok(OpenedPane {
@@ -177,6 +183,7 @@ fn open_error(e: OpenError) -> String {
     match e {
         OpenError::WorkspaceMissing => "folder_missing",
         OpenError::WorkspaceNotFound => "not_found",
+        OpenError::AlreadyOpen(_) => "already_open",
     }
     .to_string()
 }
@@ -295,6 +302,7 @@ impl Spawner for PtySpawner<'_> {
         &self,
         cwd: &Path,
         session_id: &SessionId,
+        resume: bool,
         sink: Box<dyn OutputSink>,
     ) -> Option<Box<dyn PaneProcess>> {
         let program = self.launch.claude.clone()?;
@@ -307,7 +315,7 @@ impl Spawner for PtySpawner<'_> {
             args.push(hook_settings(&server.url_for(&token)));
             (server.clone(), token)
         });
-        args.push("--session-id".into());
+        args.push(if resume { "--resume" } else { "--session-id" }.into());
         args.push(session_id.0.clone());
         let spec = SpawnSpec {
             program,
@@ -638,6 +646,7 @@ mod tests {
             .spawn(
                 cwd.path(),
                 &SessionId("sid-1".into()),
+                false,
                 Box::new(ExitSink(out.clone(), Mutex::new(tx))),
             )
             .expect("spawned");
@@ -656,6 +665,32 @@ mod tests {
                 launch.path.clone()
             ]
         );
+        process.close();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pty_spawner_resume_runs_claude_with_resume_and_no_session_id() {
+        let bin = tempfile::tempdir().unwrap();
+        let cwd = tempfile::tempdir().unwrap();
+        let launch = fake_claude(bin.path(), r#"printf '<%s|%s|%s>' "$#" "$1" "$2""#, 0);
+        let out = Arc::new(Mutex::new(Vec::new()));
+        let (tx, rx) = mpsc::channel();
+        let spawner = spawner(&launch, inherited_env(), tracker(&Outbox::default()), None);
+
+        let mut process = spawner
+            .spawn(
+                cwd.path(),
+                &SessionId("sid-1".into()),
+                true,
+                Box::new(ExitSink(out.clone(), Mutex::new(tx))),
+            )
+            .expect("spawned");
+        let fields = printed_fields(&out);
+        process.write(b"\n").unwrap();
+
+        assert_eq!(rx.recv_timeout(Duration::from_secs(3)).unwrap(), Some(0));
+        assert_eq!(fields, ["2", "--resume", "sid-1"]);
         process.close();
     }
 
@@ -684,6 +719,7 @@ mod tests {
             .spawn(
                 cwd.path(),
                 &SessionId("sid-1".into()),
+                false,
                 Box::new(ExitSink(out.clone(), Mutex::new(tx))),
             )
             .expect("spawned");
@@ -754,7 +790,7 @@ mod tests {
 
         assert!(
             spawner
-                .spawn(dir.path(), &SessionId("s".into()), Box::new(sink))
+                .spawn(dir.path(), &SessionId("s".into()), false, Box::new(sink))
                 .is_none()
         );
         assert_eq!(server.registered(), 0);
@@ -780,6 +816,7 @@ mod tests {
                 .spawn(
                     dir.path(),
                     &SessionId("s".into()),
+                    false,
                     Box::new(ExitSink(Arc::default(), Mutex::new(tx)))
                 )
                 .is_none()
@@ -854,6 +891,7 @@ mod tests {
                 .spawn(
                     cwd.path(),
                     &SessionId("s".into()),
+                    false,
                     Box::new(TrackerSink(tracker.clone(), Mutex::new(tx))),
                 )
                 .expect("spawned");

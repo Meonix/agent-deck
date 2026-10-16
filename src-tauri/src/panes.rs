@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::io;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Serialize;
 
@@ -15,10 +17,28 @@ pub struct PaneId(pub String);
 #[serde(transparent)]
 pub struct SessionId(pub String);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OpenError {
     WorkspaceMissing,
     WorkspaceNotFound,
+    /// A pane is already running the session asked to resume.
+    AlreadyOpen(PaneId),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Start {
+    New,
+    Resume(SessionId),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvalidSessionId;
+
+/// Only a UUID may reach the command line, so an id can never be read as a flag.
+pub fn resume_id(raw: &str) -> Result<SessionId, InvalidSessionId> {
+    uuid::Uuid::parse_str(raw)
+        .map(|id| SessionId(id.to_string()))
+        .map_err(|_| InvalidSessionId)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +54,7 @@ pub trait Spawner {
         &self,
         cwd: &Path,
         session_id: &SessionId,
+        resume: bool,
         sink: Box<dyn OutputSink>,
     ) -> Option<Box<dyn PaneProcess>>;
 }
@@ -43,6 +64,31 @@ struct Pane {
     session: SessionId,
     /// None when claude could not be started; the pane stays until the UI closes it.
     process: Option<Box<dyn PaneProcess>>,
+    /// Set when the process exits; the pane stays until the UI closes it.
+    ended: Arc<AtomicBool>,
+}
+
+/// Marks its pane ended, then passes the exit on.
+struct EndSink {
+    ended: Arc<AtomicBool>,
+    inner: Box<dyn OutputSink>,
+}
+
+impl OutputSink for EndSink {
+    fn output(&self, chunk: Vec<u8>) {
+        self.inner.output(chunk);
+    }
+
+    fn exited(&self, code: Option<i32>) {
+        self.ended.store(true, Ordering::SeqCst);
+        self.inner.exited(code);
+    }
+}
+
+impl Pane {
+    fn is_running(&self) -> bool {
+        self.process.is_some() && !self.ended.load(Ordering::SeqCst)
+    }
 }
 
 #[derive(Default)]
@@ -58,6 +104,7 @@ impl PaneRegistry {
     pub fn open(
         &mut self,
         workspace: &WorkspaceView,
+        start: Start,
         spawner: &dyn Spawner,
         sink: Box<dyn OutputSink>,
     ) -> Result<Opened, OpenError> {
@@ -65,8 +112,25 @@ impl PaneRegistry {
             return Err(OpenError::WorkspaceMissing);
         }
         let pane_id = PaneId(new_id());
-        let session_id = SessionId(new_id());
-        let process = spawner.spawn(&workspace.path, &session_id, sink);
+        let (session_id, resume) = match start {
+            Start::New => (SessionId(new_id()), false),
+            Start::Resume(id) => {
+                if let Some((pane_id, _)) = self
+                    .panes
+                    .iter()
+                    .find(|(_, p)| p.session == id && p.is_running())
+                {
+                    return Err(OpenError::AlreadyOpen(pane_id.clone()));
+                }
+                (id, true)
+            }
+        };
+        let ended = Arc::new(AtomicBool::new(false));
+        let sink = Box::new(EndSink {
+            ended: ended.clone(),
+            inner: sink,
+        });
+        let process = spawner.spawn(&workspace.path, &session_id, resume, sink);
         let started = process.is_some();
         self.panes.insert(
             pane_id.clone(),
@@ -74,6 +138,7 @@ impl PaneRegistry {
                 workspace: workspace.id.clone(),
                 session: session_id.clone(),
                 process,
+                ended,
             },
         );
         Ok(Opened {
@@ -190,6 +255,8 @@ mod tests {
     struct FakeSpawner {
         starts: bool,
         spawns: RefCell<Vec<(PathBuf, SessionId)>>,
+        resumes: RefCell<Vec<bool>>,
+        sinks: RefCell<Vec<Box<dyn OutputSink>>>,
         logs: RefCell<Vec<Log>>,
     }
 
@@ -198,12 +265,18 @@ mod tests {
             FakeSpawner {
                 starts,
                 spawns: RefCell::default(),
+                resumes: RefCell::default(),
+                sinks: RefCell::default(),
                 logs: RefCell::default(),
             }
         }
 
         fn log(&self, index: usize) -> Vec<Call> {
             self.logs.borrow()[index].lock().unwrap().clone()
+        }
+
+        fn exit(&self, index: usize) {
+            self.sinks.borrow()[index].exited(Some(0));
         }
     }
 
@@ -212,11 +285,14 @@ mod tests {
             &self,
             cwd: &Path,
             session_id: &SessionId,
-            _sink: Box<dyn OutputSink>,
+            resume: bool,
+            sink: Box<dyn OutputSink>,
         ) -> Option<Box<dyn PaneProcess>> {
             self.spawns
                 .borrow_mut()
                 .push((cwd.to_path_buf(), session_id.clone()));
+            self.resumes.borrow_mut().push(resume);
+            self.sinks.borrow_mut().push(sink);
             if !self.starts {
                 return None;
             }
@@ -236,7 +312,8 @@ mod tests {
     }
 
     fn open(reg: &mut PaneRegistry, ws: &WorkspaceView, spawner: &FakeSpawner) -> Opened {
-        reg.open(ws, spawner, Box::new(NullSink)).unwrap()
+        reg.open(ws, Start::New, spawner, Box::new(NullSink))
+            .unwrap()
     }
 
     #[test]
@@ -245,7 +322,7 @@ mod tests {
         let spawner = FakeSpawner::new(true);
         let ws = workspace("/w/gone", true);
 
-        let result = reg.open(&ws, &spawner, Box::new(NullSink));
+        let result = reg.open(&ws, Start::New, &spawner, Box::new(NullSink));
 
         assert_eq!(result, Err(OpenError::WorkspaceMissing));
         assert!(spawner.spawns.borrow().is_empty());
@@ -382,6 +459,156 @@ mod tests {
         for id in [&first.pane_id.0, &first.session_id.0] {
             let parsed = uuid::Uuid::parse_str(id).unwrap();
             assert_eq!(parsed.get_version_num(), 4);
+        }
+    }
+
+    const SID: &str = "0b6f9a52-6c4e-4a39-9d6e-3f1f4f2a7c10";
+
+    fn resume(
+        reg: &mut PaneRegistry,
+        ws: &WorkspaceView,
+        spawner: &FakeSpawner,
+    ) -> Result<Opened, OpenError> {
+        reg.open(
+            ws,
+            Start::Resume(SessionId(SID.into())),
+            spawner,
+            Box::new(NullSink),
+        )
+    }
+
+    #[test]
+    fn resume_keeps_the_session_id_and_spawns_a_resume_in_the_workspace() {
+        let mut reg = PaneRegistry::new();
+        let spawner = FakeSpawner::new(true);
+
+        let opened = resume(&mut reg, &workspace("/w/a", false), &spawner).unwrap();
+
+        assert_eq!(opened.session_id, SessionId(SID.into()));
+        assert!(opened.started);
+        assert_eq!(
+            spawner.spawns.borrow().as_slice(),
+            [(PathBuf::from("/w/a"), SessionId(SID.into()))]
+        );
+        assert_eq!(*spawner.resumes.borrow(), [true]);
+        assert_eq!(reg.session_of(&opened.pane_id), Some(SessionId(SID.into())));
+    }
+
+    #[test]
+    fn a_new_open_is_not_a_resume() {
+        let mut reg = PaneRegistry::new();
+        let spawner = FakeSpawner::new(true);
+
+        open(&mut reg, &workspace("/w/a", false), &spawner);
+
+        assert_eq!(*spawner.resumes.borrow(), [false]);
+    }
+
+    #[test]
+    fn resume_in_a_missing_workspace_fails_without_spawning() {
+        let mut reg = PaneRegistry::new();
+        let spawner = FakeSpawner::new(true);
+
+        let result = resume(&mut reg, &workspace("/w/gone", true), &spawner);
+
+        assert_eq!(result, Err(OpenError::WorkspaceMissing));
+        assert!(spawner.spawns.borrow().is_empty());
+    }
+
+    #[test]
+    fn resume_of_a_running_session_is_refused_without_spawning() {
+        let mut reg = PaneRegistry::new();
+        let spawner = FakeSpawner::new(true);
+        let ws = workspace("/w/a", false);
+        let first = resume(&mut reg, &ws, &spawner).unwrap();
+
+        let second = resume(&mut reg, &ws, &spawner);
+
+        assert_eq!(second, Err(OpenError::AlreadyOpen(first.pane_id)));
+        assert_eq!(spawner.spawns.borrow().len(), 1);
+    }
+
+    #[test]
+    fn resume_is_allowed_again_after_the_pane_exited() {
+        let mut reg = PaneRegistry::new();
+        let spawner = FakeSpawner::new(true);
+        let ws = workspace("/w/a", false);
+        let first = resume(&mut reg, &ws, &spawner).unwrap();
+
+        spawner.exit(0);
+        let second = resume(&mut reg, &ws, &spawner).unwrap();
+
+        assert_ne!(second.pane_id, first.pane_id);
+        assert_eq!(second.session_id, first.session_id);
+        assert_eq!(spawner.spawns.borrow().len(), 2);
+    }
+
+    #[test]
+    fn resume_is_allowed_again_after_the_pane_was_closed() {
+        let mut reg = PaneRegistry::new();
+        let spawner = FakeSpawner::new(true);
+        let ws = workspace("/w/a", false);
+        let first = resume(&mut reg, &ws, &spawner).unwrap();
+
+        reg.close(&first.pane_id);
+
+        assert!(resume(&mut reg, &ws, &spawner).is_ok());
+    }
+
+    #[test]
+    fn a_pane_that_never_started_does_not_block_a_resume() {
+        let mut reg = PaneRegistry::new();
+        let ws = workspace("/w/a", false);
+        let broken = FakeSpawner::new(false);
+        assert!(!resume(&mut reg, &ws, &broken).unwrap().started);
+
+        let working = FakeSpawner::new(true);
+
+        assert!(resume(&mut reg, &ws, &working).unwrap().started);
+    }
+
+    #[test]
+    fn exit_reaches_the_inner_sink_unchanged() {
+        struct Recording(Arc<Mutex<Vec<Option<i32>>>>);
+        impl OutputSink for Recording {
+            fn output(&self, _chunk: Vec<u8>) {}
+            fn exited(&self, code: Option<i32>) {
+                self.0.lock().unwrap().push(code);
+            }
+        }
+        let mut reg = PaneRegistry::new();
+        let spawner = FakeSpawner::new(true);
+        let codes = Arc::new(Mutex::new(Vec::new()));
+        reg.open(
+            &workspace("/w/a", false),
+            Start::New,
+            &spawner,
+            Box::new(Recording(codes.clone())),
+        )
+        .unwrap();
+
+        spawner.sinks.borrow()[0].exited(Some(7));
+
+        assert_eq!(*codes.lock().unwrap(), [Some(7)]);
+    }
+
+    #[test]
+    fn resume_id_accepts_a_uuid_in_canonical_lower_case() {
+        assert_eq!(resume_id(SID), Ok(SessionId(SID.into())));
+        assert_eq!(resume_id(&SID.to_uppercase()), Ok(SessionId(SID.into())));
+    }
+
+    #[test]
+    fn resume_id_rejects_anything_that_is_not_a_uuid() {
+        for raw in [
+            "",
+            "--help",
+            "../x",
+            "/tmp/a.jsonl",
+            &format!("{SID}x"),
+            &format!("{SID} --fork-session"),
+        ] {
+            assert_eq!(resume_id(raw), Err(InvalidSessionId), "{raw:?}");
         }
     }
 
