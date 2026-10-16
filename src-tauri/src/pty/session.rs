@@ -596,6 +596,72 @@ mod tests {
     }
 
     #[test]
+    fn echo_round_trip_p95_is_under_100ms_with_four_busy_sessions() {
+        const NOISE: &str = r#"while :; do printf "%s\n" "0123456789.0123456789.0123456789.0123456789.0123456789.0123456789.0123456789.01234567"; sleep 0.01; done"#;
+        let dir = tempfile::tempdir().unwrap();
+        let mut busy = Vec::new();
+        for _ in 0..3 {
+            let (sink, probe) = sink();
+            let session = PtySession::spawn(sh(NOISE, dir.path().into()), sink).unwrap();
+            busy.push((session, probe));
+        }
+        let (sink, probe) = sink();
+        let script = format!("({NOISE}) & exec cat");
+        let mut session = PtySession::spawn(sh(&script, dir.path().into()), sink).unwrap();
+        for (_, p) in &busy {
+            assert!(
+                p.wait_for_len(1000, Duration::from_secs(3)),
+                "noise never started"
+            );
+        }
+        let echoer_members = wait_for_members(session.killer.0.pgid, 3);
+        assert!(
+            probe.wait_for_len(200, Duration::from_secs(3)),
+            "noise never started"
+        );
+
+        // The background noise grows the buffer too, so wait for the specific
+        // letter (the noise has none) rather than for more bytes.
+        let count = |b: u8| {
+            probe
+                .out
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|&&c| c == b)
+                .count()
+        };
+        let mut samples = Vec::with_capacity(200);
+        for i in 0..200u8 {
+            let letter = b'a' + i % 26;
+            let seen = count(letter);
+            let start = Instant::now();
+            session.write(&[letter]).unwrap();
+            let end = start + Duration::from_secs(1);
+            while count(letter) <= seen {
+                assert!(Instant::now() < end, "byte {i} never echoed");
+                std::thread::sleep(Duration::from_micros(200));
+            }
+            samples.push(start.elapsed());
+        }
+        samples.sort();
+        let p50 = samples[samples.len() / 2];
+        let p95 = samples[samples.len() * 95 / 100];
+        println!("pty echo with 4 busy sessions over 200 bytes: p50 = {p50:?}, p95 = {p95:?}");
+        assert!(p95 < Duration::from_millis(100), "p95 {p95:?}");
+
+        let mut members = echoer_members;
+        for (s, _) in &busy {
+            members.extend(group_members(s.killer.0.pgid));
+        }
+        for (s, _) in &mut busy {
+            s.close();
+        }
+        session.close();
+        assert_all_gone(&members, Duration::from_secs(3));
+    }
+
+    #[test]
     fn close_ends_the_whole_process_group() {
         let dir = tempfile::tempdir().unwrap();
         let (sink, probe) = sink();
