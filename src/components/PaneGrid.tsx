@@ -7,7 +7,7 @@ const DIVIDER_SIZE = 8;
 
 type Props = {
   layout: Layout;
-  /** Kept in a stable order so a pane keeps its place in the tree when the layout changes shape. */
+  /** Rendered in a fixed order so React never moves a pane's DOM node, which would re-attach its terminal. */
   panes: { id: string; node: ReactNode }[];
   onResize(path: SplitPath, ratio: number): void;
 };
@@ -76,7 +76,7 @@ function Divider({ divider, ratioAt, onResize }: DividerProps) {
     <div
       role="separator"
       aria-orientation={right ? "vertical" : "horizontal"}
-      className={right ? "absolute cursor-col-resize" : "absolute cursor-row-resize"}
+      className={right ? "absolute touch-none cursor-col-resize" : "absolute touch-none cursor-row-resize"}
       style={
         right
           ? { left: `calc(${at * 100}% - ${DIVIDER_SIZE / 2}px)`, top: `${box.y * 100}%`, width: DIVIDER_SIZE, height: `${box.height * 100}%` }
@@ -91,6 +91,8 @@ function Divider({ divider, ratioAt, onResize }: DividerProps) {
         dragging.current = false;
         e.currentTarget.releasePointerCapture?.(e.pointerId);
       }}
+      onPointerCancel={() => (dragging.current = false)}
+      onLostPointerCapture={() => (dragging.current = false)}
     />
   );
 }

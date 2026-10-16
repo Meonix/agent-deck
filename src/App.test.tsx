@@ -861,6 +861,14 @@ describe("Split layout (2.1 to 2.3)", () => {
       expect(widths()[0]).toBeCloseTo((200 / 1200) * 100, 5);
     });
 
+    it("stops following the pointer when it is cancelled", async () => {
+      const divider = await twoPanes();
+      fireEvent.pointerDown(divider, { clientX: 600, pointerId: 1 });
+      fireEvent.pointerCancel(divider, { pointerId: 1 });
+      fireEvent.pointerMove(divider, { clientX: 800, pointerId: 1 });
+      expect(widths()).toEqual([50, 50]);
+    });
+
     it("leaves each side at least 120 px tall for a down split", async () => {
       const { user } = await startOne();
       await user.click(splitDown(paneNamed("p1")));
@@ -892,19 +900,25 @@ describe("Split layout (2.1 to 2.3)", () => {
     expect(vi.mocked(adapters[2].open).mock.calls[0][0].style.height).toBe("249px");
   });
 
-  it("refuses to split a pane whose folder went missing", async () => {
-    const items = [ws("a", "agent-deck")];
+  it("refuses to split a pane whose folder is already missing", async () => {
+    let items = [ws("a", "agent-deck")];
+    const client = workspacesClient([]);
+    client.list = vi.fn(async () => [...items]);
+    client.pickFolder = vi.fn(async () => "/p/agent-deck");
     const sessions = fakeSessions();
-    const { user } = setup(items, sessions);
+    const user = userEvent.setup();
+    render(<App workspaces={client} sessions={sessions} createTerminal={() => fakeAdapter()} />);
     await selectAndStart(user, "agent-deck");
     await screen.findByTestId("pane-grid");
-    items[0] = ws("a", "agent-deck", true);
-    sessions.open = vi.fn(async () => Promise.reject("folder_missing"));
-    const pane = () => panes()[0];
-    await user.click(splitDown(pane()));
-    await user.click(splitDown(pane()));
+
+    items = [ws("a", "agent-deck", true)];
+    await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
+    await vi.waitFor(() => expect(client.list).toHaveBeenCalledTimes(2));
+    await user.click(splitDown(panes()[0]));
+
     expect(await screen.findByText("Folder not found")).toBeInTheDocument();
     expect(sessions.open).toHaveBeenCalledTimes(1);
+    expect(panes()).toHaveLength(1);
   });
 
   it("lets the remaining pane fill the area when its neighbour closes", async () => {
