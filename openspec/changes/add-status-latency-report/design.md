@@ -73,7 +73,7 @@ design shows the card only. `total = 0` → "No data yet". Otherwise the share
 | --- | --- | --- | --- |
 | S1 `StatusLatencyLog` (Rust) | `append`, `report(now)`, `prune(now)` | SRS-FR-038 (record kept), SRS-FR-039 (14-day window, `<= 3000` ms inclusive, counts) | `cargo test`, temp dir, injected `now` |
 | S2 tracker `reportedAt` (Rust) | status JSON from `StatusTracker` | SRS-FR-038 (report time = change time; none for tracked-only and keep) | `cargo test`, fake `StatusOut` |
-| S3 UI recording (React) | `createStream` status with `reportedAt`; `useSessionPanes` → `recordStatusShown` after a frame | SRS-FR-038 (one record per change, shown ≥ reported, none for `null`) | Vitest, fake client, mocked `requestAnimationFrame` and `Date.now` |
+| S3 UI recording (React) | `createStream` status with `reportedAt`; `useSessionPanes` → `recordStatusShown` after the commit | SRS-FR-038 (one record per change, same-batch changes, shown ≥ reported, none for `null`) | Vitest, fake client, mocked `Date.now` |
 | S4 UI report (React) | `formatShare(within, total)`, report overlay | SRS-FR-039 ("99.5%", "No data yet", "100%" only when all) | Vitest + Testing Library, fake client |
 | — commands, startup prune | — | none alone | demo |
 | — real `claude` end to end | — | records appear for real changes | demo (task 3.2) |

@@ -6,7 +6,7 @@
 
 ## 2. UI (seams S3, S4)
 
-- [x] 2.1 `PaneStatus.reportedAt`; `useSessionPanes` records each change after a frame via `recordStatusShown`, `shownAt >= reportedAt`, skips `null` and closed panes (SRS-FR-038)
+- [x] 2.1 `PaneStatus.reportedAt`; `useSessionPanes` records each change after its commit via `recordStatusShown`, `shownAt >= reportedAt`, skips `null` (SRS-FR-038)
 - [x] 2.2 Title bar "Status Latency" button and report overlay: `formatShare`, "No data yet", close ✕ / Escape (SRS-FR-039)
 
 ## 3. Verification
