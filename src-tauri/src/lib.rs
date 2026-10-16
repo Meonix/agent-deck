@@ -6,6 +6,7 @@ mod pane_commands;
 pub mod pane_status;
 pub mod panes;
 pub mod pty;
+mod session_commands;
 pub mod session_list;
 pub mod session_title;
 pub mod status;
@@ -64,7 +65,8 @@ pub fn run() {
             pane_commands::pane_title,
             pane_commands::close_pane,
             latency_commands::record_status_shown,
-            latency_commands::status_latency_report
+            latency_commands::status_latency_report,
+            session_commands::list_sessions
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

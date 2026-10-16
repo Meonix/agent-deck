@@ -1,8 +1,8 @@
 ## 1. Rust (seams S1, S2)
 
-- [ ] 1.1 `parse_timestamp` and `read_tail` (backward 64 KiB chunks, newest timestamp/ai-title/last-prompt, mtime fallback); `session_title` uses it (SRS-FR-008)
-- [ ] 1.2 `scan_sessions`: head read for the first `cwd`, exact or canonical match, unreadable only in the workspace's encoded folder, newest first; files unchanged; 200 sessions with a 50 MB file < 3 s (SRS-FR-007, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-NFR-003, SRS-NFR-005)
-- [ ] 1.3 Command `list_sessions(workspace_id)`: `folder_missing` / `not_found`, `spawn_blocking`
+- [x] 1.1 `parse_timestamp` and `read_tail` (backward 64 KiB chunks, newest timestamp/ai-title/last-prompt, mtime fallback); `session_title` uses it (SRS-FR-008)
+- [x] 1.2 `scan_sessions`: head read for the first `cwd`, exact or canonical match, unreadable only in the workspace's encoded folder, newest first; files unchanged; 200 sessions with a 50 MB file < 3 s (SRS-FR-007, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-NFR-003, SRS-NFR-005)
+- [x] 1.3 Command `list_sessions(workspace_id)`: `folder_missing` / `not_found`, `spawn_blocking`
 
 ## 2. UI (seam S3)
 
