@@ -1,8 +1,8 @@
 ## 1. Rust (seams S1, S2, S3)
 
-- [ ] 1.1 `resume_id`: UUID only, canonical form, `invalid_session` otherwise (D2)
-- [ ] 1.2 `PaneRegistry::open` with `Start::{New, Resume}`: resume keeps the id; sink wrapper marks a pane ended; `AlreadyOpen` while a pane holds the session and has not ended; `Missing` still rejected before spawning (SRS-FR-013, SRS-FR-015, SRS-FR-016)
-- [ ] 1.3 `PtySpawner`: `--resume <id>` for a resume, `--session-id <id>` for a new session, hooks unchanged; `open_pane(…, resume_session_id)` maps `already_open` / `invalid_session` (SRS-FR-013)
+- [x] 1.1 `resume_id`: UUID only, canonical form, `invalid_session` otherwise (D2)
+- [x] 1.2 `PaneRegistry::open` with `Start::{New, Resume}`: resume keeps the id; sink wrapper marks a pane ended; `AlreadyOpen` while a pane holds the session and has not ended; `Missing` still rejected before spawning (SRS-FR-013, SRS-FR-015, SRS-FR-016)
+- [x] 1.3 `PtySpawner`: `--resume <id>` for a resume, `--session-id <id>` for a new session, hooks unchanged; `open_pane(…, resume_session_id)` maps `already_open` / `invalid_session` (SRS-FR-013)
 
 ## 2. UI (seam S4)
 
