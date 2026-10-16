@@ -2,18 +2,20 @@ mod commands;
 pub mod hooks;
 pub mod launcher;
 mod pane_commands;
+pub mod pane_status;
 pub mod panes;
 pub mod pty;
 pub mod session_title;
 pub mod status;
 pub mod workspace;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use tauri::webview::PageLoadEvent;
 use tauri::{Manager, RunEvent};
 
 use commands::AppState;
+use hooks::HookServer;
 use pane_commands::LaunchLookup;
 use panes::PaneRegistry;
 use workspace::WorkspaceStore;
@@ -30,6 +32,10 @@ pub fn run() {
                 store,
                 panes: Mutex::new(PaneRegistry::new()),
                 launch: LaunchLookup::start(),
+                hooks: HookServer::start()
+                    .map_err(|e| eprintln!("hook listener could not start: {e}"))
+                    .ok()
+                    .map(Arc::new),
             });
             Ok(())
         })

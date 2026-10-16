@@ -11,7 +11,9 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Manager, State};
 
 use crate::commands::AppState;
+use crate::hooks::{HookServer, HookSink, hook_settings};
 use crate::launcher::{find_claude, login_shell_path_with, session_env};
+use crate::pane_status::{StatusOut, StatusTracker, now_ms};
 use crate::panes::{OpenError, PaneId, SessionId, Spawner, close_in_parallel};
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
 use crate::session_title::{UNTITLED, session_title};
@@ -131,12 +133,8 @@ fn open_blocking(
     output: Channel<InvokeResponseBody>,
 ) -> Result<OpenedPane, String> {
     let state = app.state::<AppState>();
-    let spawner = PtySpawner {
-        launch: state.launch.get(),
-        cols,
-        rows,
-    };
-    let sink = ChannelSink(output);
+    let launch = state.launch.get();
+    let env = inherited_env();
     let opened = {
         // Holding `list` keeps the workspace from being removed until the pane is registered.
         let list = state.list.lock().unwrap();
@@ -146,6 +144,23 @@ fn open_blocking(
             .find(|w| w.id == id)
             .ok_or(OpenError::WorkspaceNotFound)
             .map_err(open_error)?;
+        let tracker = Arc::new(StatusTracker::new(
+            workspace.path.clone(),
+            Box::new(ChannelStatus(output.clone())),
+            now_ms(),
+        ));
+        let spawner = PtySpawner {
+            launch,
+            env,
+            cols,
+            rows,
+            tracker: tracker.clone(),
+            hooks: state.hooks.clone(),
+        };
+        let sink = ChannelSink {
+            channel: output,
+            tracker: Some(tracker),
+        };
         let mut panes = state.panes.lock().unwrap();
         panes
             .open(&workspace, &spawner, Box::new(sink))
@@ -258,10 +273,21 @@ fn passwd_shell() -> Option<String> {
     None
 }
 
+/// The app's own environment as UTF-8 pairs; `session_env` filters it per session.
+fn inherited_env() -> Vec<(String, String)> {
+    std::env::vars_os()
+        .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
+        .collect()
+}
+
 struct PtySpawner<'a> {
     launch: &'a Launch,
+    env: Vec<(String, String)>,
     cols: u16,
     rows: u16,
+    tracker: Arc<StatusTracker>,
+    /// None when the listener could not start: spawn without hooks (D2, D5).
+    hooks: Option<Arc<HookServer>>,
 }
 
 impl Spawner for PtySpawner<'_> {
@@ -271,27 +297,44 @@ impl Spawner for PtySpawner<'_> {
         session_id: &SessionId,
         sink: Box<dyn OutputSink>,
     ) -> Option<Box<dyn PaneProcess>> {
-        let base: Vec<(String, String)> = std::env::vars_os()
-            .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
-            .collect();
+        let program = self.launch.claude.clone()?;
+        let mut args = Vec::new();
+        // Registered before the spawn so the first hook cannot miss its sink.
+        let hook = self.hooks.as_ref().map(|server| {
+            let token = uuid::Uuid::new_v4().to_string();
+            server.register(&token, self.tracker.clone() as Arc<dyn HookSink>);
+            args.push("--settings".into());
+            args.push(hook_settings(&server.url_for(&token)));
+            (server.clone(), token)
+        });
+        args.push("--session-id".into());
+        args.push(session_id.0.clone());
         let spec = SpawnSpec {
-            program: self.launch.claude.clone()?,
-            args: vec!["--session-id".into(), session_id.0.clone()],
+            program,
+            args,
             cwd: cwd.to_path_buf(),
-            env: session_env(&base, &self.launch.path),
+            env: session_env(&self.env, &self.launch.path),
             cols: self.cols,
             rows: self.rows,
         };
         match PtySession::spawn(spec, sink) {
             Ok(session) => {
                 let killer = session.killer();
-                Some(Box::new(QueuedProcess::new(
-                    Box::new(session),
-                    Some(killer),
-                )))
+                let inner = QueuedProcess::new(Box::new(session), Some(killer));
+                Some(match hook {
+                    Some((server, token)) => Box::new(HookedProcess {
+                        inner,
+                        server,
+                        token,
+                    }),
+                    None => Box::new(inner),
+                })
             }
             Err(e) => {
                 eprintln!("claude could not be started: {e}");
+                if let Some((server, token)) = hook {
+                    server.unregister(&token);
+                }
                 None
             }
         }
@@ -300,15 +343,58 @@ impl Spawner for PtySpawner<'_> {
 
 /// Output as raw bytes, then the exit as the last message, `{"exited": code}`,
 /// on the same channel so it can neither be missed nor overtake output.
-struct ChannelSink(Channel<InvokeResponseBody>);
+struct ChannelSink {
+    channel: Channel<InvokeResponseBody>,
+    tracker: Option<Arc<StatusTracker>>,
+}
 
 impl OutputSink for ChannelSink {
     fn output(&self, chunk: Vec<u8>) {
-        let _ = self.0.send(InvokeResponseBody::Raw(chunk));
+        let _ = self.channel.send(InvokeResponseBody::Raw(chunk));
     }
 
     fn exited(&self, code: Option<i32>) {
-        let _ = self.0.send(exit_message(code));
+        if let Some(tracker) = &self.tracker {
+            tracker.exited(code, now_ms());
+        }
+        let _ = self.channel.send(exit_message(code));
+    }
+}
+
+/// Status messages share the pane's channel with its output (D6).
+struct ChannelStatus(Channel<InvokeResponseBody>);
+
+impl StatusOut for ChannelStatus {
+    fn send_status(&self, json: String) {
+        let _ = self.0.send(InvokeResponseBody::Json(json));
+    }
+}
+
+/// A pane process whose hook token is dropped when it closes.
+struct HookedProcess {
+    inner: QueuedProcess,
+    server: Arc<HookServer>,
+    token: String,
+}
+
+impl PaneProcess for HookedProcess {
+    fn write(&mut self, data: &[u8]) -> io::Result<()> {
+        self.inner.write(data)
+    }
+
+    fn resize(&mut self, cols: u16, rows: u16) -> io::Result<()> {
+        self.inner.resize(cols, rows)
+    }
+
+    fn close(&mut self) {
+        self.server.unregister(&self.token);
+        self.inner.close();
+    }
+}
+
+impl Drop for HookedProcess {
+    fn drop(&mut self) {
+        self.server.unregister(&self.token);
     }
 }
 
@@ -458,57 +544,214 @@ mod tests {
         assert_eq!(calls.lock().unwrap().len(), 4);
     }
 
-    #[cfg(unix)]
-    #[test]
-    fn pty_spawner_runs_claude_with_the_session_id_in_the_workspace() {
-        use std::os::unix::fs::PermissionsExt;
-        use std::sync::mpsc::Receiver;
+    struct ExitSink(Arc<Mutex<Vec<u8>>>, Mutex<Sender<Option<i32>>>);
 
-        struct Sink(Arc<Mutex<Vec<u8>>>, Mutex<Sender<Option<i32>>>);
-        impl OutputSink for Sink {
-            fn output(&self, chunk: Vec<u8>) {
-                self.0.lock().unwrap().extend(chunk);
-            }
-            fn exited(&self, code: Option<i32>) {
-                let _ = self.1.lock().unwrap().send(code);
-            }
+    impl OutputSink for ExitSink {
+        fn output(&self, chunk: Vec<u8>) {
+            self.0.lock().unwrap().extend(chunk);
         }
+        fn exited(&self, code: Option<i32>) {
+            let _ = self.1.lock().unwrap().send(code);
+        }
+    }
 
-        let bin = tempfile::tempdir().unwrap();
-        let cwd = tempfile::tempdir().unwrap();
-        let claude = bin.path().join("claude");
+    #[derive(Clone, Default)]
+    struct Outbox(Arc<Mutex<Vec<String>>>);
+
+    impl StatusOut for Outbox {
+        fn send_status(&self, json: String) {
+            self.0.lock().unwrap().push(json);
+        }
+    }
+
+    fn tracker(out: &Outbox) -> Arc<StatusTracker> {
+        Arc::new(StatusTracker::new("/w".into(), Box::new(out.clone()), 1))
+    }
+
+    fn spawner<'a>(
+        launch: &'a Launch,
+        env: Vec<(String, String)>,
+        tracker: Arc<StatusTracker>,
+        hooks: Option<Arc<HookServer>>,
+    ) -> PtySpawner<'a> {
+        PtySpawner {
+            launch,
+            env,
+            cols: 200,
+            rows: 24,
+            tracker,
+            hooks,
+        }
+    }
+
+    /// A `claude` that runs `print`, reads one line, then exits with `code`.
+    #[cfg(unix)]
+    fn fake_claude(bin: &Path, print: &str, code: i32) -> Launch {
+        use std::os::unix::fs::PermissionsExt;
+        let claude = bin.join("claude");
         std::fs::write(
             &claude,
-            "#!/bin/sh\nprintf '<%s|%s|%s|%s>' \"$1\" \"$2\" \"$PWD\" \"$PATH\"\nread line\nexit 7\n",
+            format!("#!/bin/sh\n{print}\nread line\nexit {code}\n"),
         )
         .unwrap();
         std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let launch = launch_for(format!("{}:/usr/bin:/bin", bin.path().display()));
+        let launch = launch_for(format!("{}:/usr/bin:/bin", bin.display()));
         assert_eq!(launch.claude.as_deref(), Some(claude.as_path()));
+        launch
+    }
 
+    /// Waits until the process has printed a full `<...>` record and returns its fields.
+    #[cfg(unix)]
+    fn printed_fields(out: &Mutex<Vec<u8>>) -> Vec<String> {
+        let end = Instant::now() + Duration::from_secs(3);
+        loop {
+            let text = String::from_utf8_lossy(&out.lock().unwrap()).into_owned();
+            if let Some(record) = text
+                .split_once('<')
+                .and_then(|(_, rest)| rest.split_once('>'))
+                .map(|(record, _)| record.to_string())
+            {
+                return record.split('|').map(String::from).collect();
+            }
+            assert!(Instant::now() < end, "no record in {text:?}");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pty_spawner_without_a_listener_runs_claude_with_only_the_session_id() {
+        let bin = tempfile::tempdir().unwrap();
+        let cwd = tempfile::tempdir().unwrap();
+        let launch = fake_claude(
+            bin.path(),
+            r#"printf '<%s|%s|%s|%s|%s>' "$#" "$1" "$2" "$PWD" "$PATH""#,
+            7,
+        );
         let out = Arc::new(Mutex::new(Vec::new()));
-        let (tx, rx): (_, Receiver<Option<i32>>) = mpsc::channel();
-        let spawner = PtySpawner {
-            launch: &launch,
-            cols: 80,
-            rows: 24,
-        };
-        let session = SessionId("sid-1".into());
+        let (tx, rx) = mpsc::channel();
+        let spawner = spawner(&launch, inherited_env(), tracker(&Outbox::default()), None);
+
         let mut process = spawner
             .spawn(
                 cwd.path(),
-                &session,
-                Box::new(Sink(out.clone(), Mutex::new(tx))),
+                &SessionId("sid-1".into()),
+                Box::new(ExitSink(out.clone(), Mutex::new(tx))),
             )
             .expect("spawned");
+        let fields = printed_fields(&out);
         process.write(b"\n").unwrap();
 
         assert_eq!(rx.recv_timeout(Duration::from_secs(3)).unwrap(), Some(7));
-        let text = String::from_utf8_lossy(&out.lock().unwrap()).into_owned();
         let pwd = dunce::canonicalize(cwd.path()).unwrap();
-        let expected = format!("<--session-id|sid-1|{}|{}>", pwd.display(), launch.path);
-        assert!(text.contains(&expected), "{text:?} lacks {expected:?}");
+        assert_eq!(
+            fields,
+            [
+                "2".to_string(),
+                "--session-id".into(),
+                "sid-1".into(),
+                pwd.display().to_string(),
+                launch.path.clone()
+            ]
+        );
         process.close();
+    }
+
+    /// SRS-NFR-006: hooks travel inline on the command line; nothing lands in HOME.
+    #[cfg(unix)]
+    #[test]
+    fn pty_spawner_passes_inline_hook_settings_and_writes_nothing_under_home() {
+        use crate::hooks::test_client::post_url;
+
+        let bin = tempfile::tempdir().unwrap();
+        let cwd = tempfile::tempdir().unwrap();
+        let home = tempfile::tempdir().unwrap();
+        let launch = fake_claude(
+            bin.path(),
+            r#"printf '<%s|%s|%s|%s|%s|%s>' "$#" "$1" "$2" "$3" "$4" "$HOME""#,
+            0,
+        );
+        let server = Arc::new(HookServer::start().unwrap());
+        let statuses = Outbox::default();
+        let env = vec![("HOME".to_string(), home.path().display().to_string())];
+        let spawner = spawner(&launch, env, tracker(&statuses), Some(server.clone()));
+        let out = Arc::new(Mutex::new(Vec::new()));
+        let (tx, rx) = mpsc::channel();
+
+        let mut process = spawner
+            .spawn(
+                cwd.path(),
+                &SessionId("sid-1".into()),
+                Box::new(ExitSink(out.clone(), Mutex::new(tx))),
+            )
+            .expect("spawned");
+        let fields = printed_fields(&out);
+
+        assert_eq!(fields.len(), 6, "{fields:?}");
+        assert_eq!(
+            [&fields[0], &fields[1], &fields[3], &fields[4], &fields[5]],
+            [
+                "4",
+                "--settings",
+                "--session-id",
+                "sid-1",
+                &home.path().display().to_string()
+            ]
+        );
+        let settings: serde_json::Value = serde_json::from_str(&fields[2]).unwrap();
+        let url = settings["hooks"]["Stop"][0]["hooks"][0]["url"]
+            .as_str()
+            .expect("http hook url")
+            .to_string();
+        assert!(url.starts_with(&server.url_for("")), "{url}");
+        assert!(!url.ends_with("sid-1"), "token must not be the session id");
+        assert!(fields[2].contains(&format!("'@-' {url}")), "{}", fields[2]);
+
+        // The token in the settings reaches this pane's tracker.
+        let response = post_url(&url, r#"{"hook_event_name":"SessionStart"}"#);
+        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+        let end = Instant::now() + Duration::from_secs(3);
+        while statuses.0.lock().unwrap().is_empty() && Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(
+            *statuses.0.lock().unwrap(),
+            [r#"{"status":{"state":"Idle","since":1,"reason":null,"tracked":true}}"#]
+        );
+
+        process.write(b"\n").unwrap();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(3)).unwrap(), Some(0));
+        process.close();
+
+        let response = post_url(&url, r#"{"hook_event_name":"Stop"}"#);
+        assert!(response.starts_with("HTTP/1.1 404"), "{response}");
+        assert_eq!(server.registered(), 0);
+        assert_eq!(std::fs::read_dir(home.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn pty_spawner_drops_the_token_when_claude_fails_to_start() {
+        let dir = tempfile::tempdir().unwrap();
+        let launch = Launch {
+            claude: Some(dir.path().join("missing-claude")),
+            path: String::new(),
+        };
+        let server = Arc::new(HookServer::start().unwrap());
+        let spawner = spawner(
+            &launch,
+            vec![],
+            tracker(&Outbox::default()),
+            Some(server.clone()),
+        );
+        let (tx, _rx) = mpsc::channel();
+        let sink = ExitSink(Arc::default(), Mutex::new(tx));
+
+        assert!(
+            spawner
+                .spawn(dir.path(), &SessionId("s".into()), Box::new(sink))
+                .is_none()
+        );
+        assert_eq!(server.registered(), 0);
     }
 
     #[test]
@@ -517,22 +760,54 @@ mod tests {
             claude: None,
             path: String::new(),
         };
-        let spawner = PtySpawner {
-            launch: &launch,
-            cols: 80,
-            rows: 24,
-        };
-        struct Null;
-        impl OutputSink for Null {
-            fn output(&self, _chunk: Vec<u8>) {}
-            fn exited(&self, _code: Option<i32>) {}
-        }
+        let server = Arc::new(HookServer::start().unwrap());
+        let spawner = spawner(
+            &launch,
+            vec![],
+            tracker(&Outbox::default()),
+            Some(server.clone()),
+        );
+        let (tx, _rx) = mpsc::channel();
         let dir = tempfile::tempdir().unwrap();
         assert!(
             spawner
-                .spawn(dir.path(), &SessionId("s".into()), Box::new(Null))
+                .spawn(
+                    dir.path(),
+                    &SessionId("s".into()),
+                    Box::new(ExitSink(Arc::default(), Mutex::new(tx)))
+                )
                 .is_none()
         );
+        assert_eq!(server.registered(), 0);
+    }
+
+    #[test]
+    fn channel_sink_sends_the_final_status_before_exited() {
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        let log = sent.clone();
+        let channel = Channel::new(move |body| {
+            if let InvokeResponseBody::Json(json) = body {
+                log.lock().unwrap().push(json);
+            }
+            Ok(())
+        });
+        let tracker = Arc::new(StatusTracker::new(
+            "/w".into(),
+            Box::new(ChannelStatus(channel.clone())),
+            1,
+        ));
+        let sink = ChannelSink {
+            channel,
+            tracker: Some(tracker),
+        };
+
+        sink.exited(Some(0));
+
+        let sent = sent.lock().unwrap();
+        assert_eq!(sent.len(), 2, "{sent:?}");
+        let status: serde_json::Value = serde_json::from_str(&sent[0]).unwrap();
+        assert_eq!(status["status"]["state"], "Ended");
+        assert_eq!(sent[1], r#"{"exited":0}"#);
     }
 
     #[test]

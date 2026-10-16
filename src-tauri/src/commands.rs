@@ -1,8 +1,9 @@
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use tauri::State;
 
+use crate::hooks::HookServer;
 use crate::pane_commands::LaunchLookup;
 use crate::panes::PaneRegistry;
 use crate::workspace::{
@@ -16,6 +17,8 @@ pub struct AppState {
     pub store: WorkspaceStore,
     pub panes: Mutex<PaneRegistry>,
     pub launch: LaunchLookup,
+    /// None when the hook listener could not start; panes then run untracked.
+    pub hooks: Option<Arc<HookServer>>,
 }
 
 #[tauri::command]

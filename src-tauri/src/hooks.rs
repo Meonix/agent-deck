@@ -86,6 +86,11 @@ impl HookServer {
     pub fn unregister(&self, token: &str) {
         self.sinks.lock().unwrap().remove(token);
     }
+
+    #[cfg(test)]
+    pub(crate) fn registered(&self) -> usize {
+        self.sinks.lock().unwrap().len()
+    }
 }
 
 impl Drop for HookServer {
@@ -163,7 +168,40 @@ pub fn hook_settings(url: &str) -> String {
 }
 
 #[cfg(test)]
+pub(crate) mod test_client {
+    use std::io::{Read, Write};
+    use std::net::TcpStream;
+    use std::time::Duration;
+
+    /// Sends one raw HTTP/1.1 request and returns the whole response.
+    pub fn send(port: u16, method: &str, path: &str, body: &[u8]) -> String {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let head = format!(
+            "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n\
+             Content-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        );
+        stream.write_all(head.as_bytes()).unwrap();
+        stream.write_all(body).unwrap();
+        let mut response = Vec::new();
+        stream.read_to_end(&mut response).unwrap();
+        String::from_utf8_lossy(&response).into_owned()
+    }
+
+    /// POSTs `body` to a `http://127.0.0.1:<port>/<path>` URL.
+    pub fn post_url(url: &str, body: &str) -> String {
+        let rest = url.strip_prefix("http://127.0.0.1:").expect("loopback url");
+        let (port, path) = rest.split_at(rest.find('/').expect("path"));
+        send(port.parse().unwrap(), "POST", path, body.as_bytes())
+    }
+}
+
+#[cfg(test)]
 mod tests {
+    use super::test_client::send;
     use super::*;
     use serde_json::{Value, json};
     use std::io::{Read, Write};
@@ -182,24 +220,6 @@ mod tests {
     fn recorder() -> (Arc<dyn HookSink>, Receiver<(Value, Instant)>) {
         let (tx, rx) = mpsc::channel();
         (Arc::new(Recorder(Mutex::new(tx))), rx)
-    }
-
-    /// Sends one raw HTTP/1.1 request and returns the whole response.
-    fn send(port: u16, method: &str, path: &str, body: &[u8]) -> String {
-        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
-        stream
-            .set_read_timeout(Some(Duration::from_secs(3)))
-            .unwrap();
-        let head = format!(
-            "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n\
-             Content-Length: {}\r\nConnection: close\r\n\r\n",
-            body.len()
-        );
-        stream.write_all(head.as_bytes()).unwrap();
-        stream.write_all(body).unwrap();
-        let mut response = Vec::new();
-        stream.read_to_end(&mut response).unwrap();
-        String::from_utf8_lossy(&response).into_owned()
     }
 
     fn post(port: u16, path: &str, body: &str) -> String {
