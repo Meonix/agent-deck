@@ -14,5 +14,5 @@ Nguồn: `SRS.md` Baselined v1.0 (2026-10-15). Thứ tự: phụ thuộc → MoS
 | 4 | Ghi độ trễ trạng thái và báo cáo Status Latency | add-status-latency-report | SRS-FR-038, SRS-FR-039 | 3 | Must; có báo cáo trước 2 tuần dùng thử thì mới đo được BO-01 | archived |
 | 5 | Lịch sử phiên theo folder | add-session-history | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-019, SRS-NFR-003, SRS-NFR-005, SRS-NFR-007 | 1, 2 | Must; nền cho BO-02; SRS-FR-012 và SRS-FR-019 cần ô có phiên nên sau mục 2 | archived |
 | 6 | Mở lại phiên cũ | add-session-resume | SRS-FR-013, SRS-FR-015, SRS-FR-016 | 2, 5 | Must; hoàn tất BO-02 (≤ 3 thao tác) | archived |
-| 7 | Chia ô xuống dưới, kéo đổi kích thước, chạy 4 ô cùng lúc | add-pane-split-layout | SRS-FR-022, SRS-FR-023, SRS-NFR-001 | 2 | Must; mục 2 đã dùng được với ô chia sang phải, phần này làm bố cục linh hoạt và kiểm tải 4 ô | todo |
+| 7 | Chia ô xuống dưới, kéo đổi kích thước, chạy 4 ô cùng lúc | add-pane-split-layout | SRS-FR-022, SRS-FR-023, SRS-NFR-001 | 2 | Must; mục 2 đã dùng được với ô chia sang phải, phần này làm bố cục linh hoạt và kiểm tải 4 ô | proposed |
 | 8 | Bấm thẻ trên bảng trạng thái để tới ô | add-status-card-jump | SRS-FR-037 | 3 | Should; tiện hơn nhưng không chặn BO-01 vì thẻ đã cho biết phiên nào cần mình | todo |
