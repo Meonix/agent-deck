@@ -9,9 +9,9 @@
 
 ## 3. Hook listener and wiring (seams S3, S4)
 
-- [ ] 3.1 `HookServer` on `127.0.0.1:0` with per-pane tokens, immediate empty `200`, body cap, unknown token dropped, `tracked` on first request; POST → sink p95 < 100 ms over 50 requests (SRS-FR-034)
-- [ ] 3.2 `hook_settings(url)` (command `curl` hook for `SessionStart`, `http` for the rest) and the real `Spawner` passing `--settings <inline JSON>`; no file written under `HOME` (SRS-NFR-006); listener down → spawn without hooks
-- [ ] 3.3 Registry keeps token → pane and machine; listener applies signals and sends `{"status": …}` on the pane channel before `{"exited": …}`; PTY exit applies `ExitedNormally`/`ExitedAbnormally`
+- [x] 3.1 `HookServer` on `127.0.0.1:0` with per-pane tokens, immediate empty `200`, body cap, unknown token dropped, `tracked` on first request; POST → sink p95 < 100 ms over 50 requests (SRS-FR-034)
+- [x] 3.2 `hook_settings(url)` (command `curl` hook for `SessionStart`, `http` for the rest) and the real `Spawner` passing `--settings <inline JSON>`; no file written under `HOME` (SRS-NFR-006); listener down → spawn without hooks
+- [x] 3.3 Registry keeps token → pane and machine; listener applies signals and sends `{"status": …}` on the pane channel before `{"exited": …}`; PTY exit applies `ExitedNormally`/`ExitedAbnormally`
 
 ## 4. UI (seam S5)
 

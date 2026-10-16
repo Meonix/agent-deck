@@ -114,8 +114,12 @@ still waiting at the trust prompt; once hooks arrive the badge goes away. The 5 
 Each change is sent on the pane's channel as JSON `{"status": {"state", "since", "reason", "tracked"}}`
 (`since` = Unix ms), in order with output and before `{"exited": …}`. No new event type, no listener
 permission, and messages that arrive before the UI subscribes are buffered by `createStream` as today.
-`PaneRegistry` keeps token → pane; the listener thread looks the token up, applies the signal under the
-`panes` lock (cheap, no I/O), and sends outside the lock. Lock order stays `list` before `panes`.
+The `HookServer` owns its own token → sink map; the listener thread never locks `AppState.panes` or `list`.
+Each pane gets a `StatusTracker` (its machine, the `tracked` flag and a clone of the pane's channel). The
+spawner registers the tracker under a fresh token before `claude` starts and unregisters it if the spawn
+fails; the pane's process wrapper unregisters it on `close()`. The tracker applies a signal under its own
+small lock and sends after releasing it; the PTY exit goes through the same tracker first, so the final
+`{"status": …}` precedes `{"exited": …}`. Lock order stays `list` before `panes`.
 
 **D7 — UI: board derived from pane entries.**
 Pane entries gain `status` and `title` (the title poll moves from `TerminalPane` into the entry so cards can
