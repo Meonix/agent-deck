@@ -6,6 +6,8 @@ import type { PaneEntry } from "./TerminalPane";
 function e(id: string, status: Partial<PaneStatus>): PaneEntry {
   return {
     pane: { paneId: id, sessionId: `s${id}`, started: true },
+    workspaceId: "w",
+    openedAt: 1,
     workspaceName: `ws-${id}`,
     adapter: null,
     stream: {} as PaneEntry["stream"],

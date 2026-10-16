@@ -15,6 +15,9 @@ export type PaneStatus = {
 
 export type LatencyReport = { within: number; total: number };
 
+export type SessionRow = { id: string; title: string; lastActivity: number };
+export type SessionListing = { sessions: SessionRow[]; unreadable: number };
+
 export interface PaneStream {
   onOutput(cb: (bytes: Uint8Array) => void): void;
   onExit(cb: (code: number | null) => void): void;
@@ -30,6 +33,8 @@ export interface SessionsClient {
   title(paneId: string): Promise<string>;
   recordStatusShown(sessionId: string, state: SessionState, reportedAt: number, shownAt: number): Promise<void>;
   latencyReport(): Promise<LatencyReport>;
+  /** The workspace's Claude Code sessions, newest first; rejects with "folder_missing". */
+  list(workspaceId: string): Promise<SessionListing>;
 }
 
 type ExitMessage = { exited: number | null };
@@ -165,4 +170,5 @@ export const tauriSessionsClient: SessionsClient = {
   recordStatusShown: (sessionId, state, reportedAt, shownAt) =>
     invoke<void>("record_status_shown", { sessionId, state, reportedAt, shownAt }),
   latencyReport: () => invoke<LatencyReport>("status_latency_report"),
+  list: (workspaceId) => invoke<SessionListing>("list_sessions", { workspaceId }),
 };

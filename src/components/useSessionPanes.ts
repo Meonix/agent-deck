@@ -121,7 +121,9 @@ export function useSessionPanes(
         const status: PaneStatus = { state: "Idle", since: Date.now(), reason: null, tracked: false, reportedAt: null };
         const entry: PaneEntry = {
           pane,
+          workspaceId: workspace.id,
           workspaceName: workspace.name,
+          openedAt: Date.now(),
           adapter,
           stream,
           openedSize,

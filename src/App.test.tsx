@@ -319,7 +319,8 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
     await act(async () => vi.advanceTimersByTimeAsync(0));
     expect(sessions.close).toHaveBeenCalled();
     expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument();
-    expect(vi.getTimerCount()).toBe(0);
+    // Only the session list's minute clock, which lives as long as the app.
+    expect(vi.getTimerCount()).toBe(1);
   });
 
   it("does not refetch the first pane's title when a second pane opens", async () => {
@@ -532,5 +533,76 @@ describe("Status latency (2.1, 2.2)", () => {
     expect(report).toContainElement(document.activeElement as HTMLElement);
     await user.tab({ shift: true });
     expect(report).toContainElement(document.activeElement as HTMLElement);
+  });
+});
+
+describe("Session list (2.1, 2.2)", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const now = new Date(2026, 9, 16, 14, 0).getTime();
+  const sessionsPanel = () => within(sidebar()).getByRole("list", { name: "Sessions" });
+
+  function listing(sessions: { id: string; title: string; lastActivity: number }[], unreadable = 0) {
+    return vi.fn(async () => ({ sessions, unreadable }));
+  }
+
+  it("asks to select a folder first", async () => {
+    setup([ws("a", "agent-deck")]);
+    expect(await within(sidebar()).findByText("Select a folder to see its sessions.")).toBeInTheDocument();
+  });
+
+  it("lists the folder's sessions newest first with their titles and times", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    const list = listing([
+      { id: "b", title: "Scaffold Tauri app", lastActivity: now - 2 * 60_000 },
+      { id: "a", title: "Write BRD and SRS", lastActivity: new Date(2026, 9, 15, 9).getTime() },
+    ]);
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
+    await user.click(await within(sidebar()).findByText("agent-deck"));
+    const rows = await within(sidebar()).findAllByRole("listitem", { name: /session/ });
+    expect(rows.map((r) => r.textContent)).toEqual(["Scaffold Tauri app2 min ago", "Write BRD and SRSYesterday"]);
+    expect(list).toHaveBeenCalledWith("a");
+    expect(sessionsPanel()).toBeInTheDocument();
+  });
+
+  it("reads the list again every time the folder is selected", async () => {
+    const list = listing([]);
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
+    await user.click(await within(sidebar()).findByText("agent-deck"));
+    await within(sidebar()).findByText("No sessions yet");
+    await user.click(within(sidebar()).getByText("agent-deck"));
+    await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  });
+
+  it("shows how many sessions could not be read", async () => {
+    const list = listing([{ id: "a", title: "Init repo", lastActivity: now }], 2);
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
+    await user.click(await within(sidebar()).findByText("agent-deck"));
+    expect(await within(sidebar()).findByText("2 sessions could not be read")).toBeInTheDocument();
+  });
+
+  it("says a missing folder no longer exists and does not read it", async () => {
+    const list = listing([]);
+    const { user } = setup([ws("m", "gone", true)], fakeSessions({ list }));
+    await user.click(await within(sidebar()).findByText("gone"));
+    expect(await within(sidebar()).findByText("This folder no longer exists on disk.")).toBeInTheDocument();
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("puts a new session on top as Live and drops the label when its pane closes", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    const list = listing([{ id: "old", title: "Init repo", lastActivity: now - 3_600_000 }]);
+    const sessions = fakeSessions({ list, titles: ["Fix login"] });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(user, "agent-deck");
+    await vi.waitFor(() => {
+      const rows = within(sidebar()).getAllByRole("listitem", { name: /session/ });
+      expect(rows.map((r) => r.textContent)).toEqual(["Fix loginLive", "Init repo1 h ago"]);
+    });
+    list.mockResolvedValue({ sessions: [{ id: "s1", title: "Fix login", lastActivity: now }, { id: "old", title: "Init repo", lastActivity: now - 3_600_000 }], unreadable: 0 });
+    await user.click(screen.getByRole("button", { name: "Close pane" }));
+    await vi.waitFor(() => {
+      const rows = within(sidebar()).getAllByRole("listitem", { name: /session/ });
+      expect(rows.map((r) => r.textContent)).toEqual(["Fix loginJust now", "Init repo1 h ago"]);
+    });
   });
 });

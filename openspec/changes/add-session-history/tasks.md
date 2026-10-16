@@ -6,8 +6,8 @@
 
 ## 2. UI (seam S3)
 
-- [ ] 2.1 `SessionsClient.list`, `formatWhen`, `mergeSessions`, `useSessionList` reloading on every selection (SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-012, SRS-FR-019)
-- [ ] 2.2 Sidebar session rows (title, label, `Live`) and states: no selection, loading, missing, "No sessions yet", "<N> sessions could not be read" (SRS-FR-010, SRS-FR-011)
+- [x] 2.1 `SessionsClient.list`, `formatWhen`, `mergeSessions`, `useSessionList` reloading on every selection (SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-012, SRS-FR-019)
+- [x] 2.2 Sidebar session rows (title, label, `Live`) and states: no selection, loading, missing, "No sessions yet", "<N> sessions could not be read" (SRS-FR-010, SRS-FR-011)
 
 ## 3. Verification
 

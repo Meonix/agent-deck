@@ -7,6 +7,8 @@ import { TerminalPane, UNTITLED, type PaneEntry } from "./TerminalPane";
 function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): PaneEntry {
   return {
     pane: { paneId: "p1", sessionId: "s1", started: adapter !== null },
+    workspaceId: "w",
+    openedAt: 1,
     workspaceName: "agent-deck",
     adapter,
     stream: fakeStream(),

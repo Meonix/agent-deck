@@ -67,11 +67,13 @@ run with `spawn_blocking`; `Missing` workspace → `Err("folder_missing")` witho
 network (SRS-NFR-007).
 
 **D5 — UI list merged with open panes.**
-`useSessionList(client, selected, selectionCount, panes)` loads on every selection (also re-selecting the
-same folder). `mergeSessions(scanned, panes, workspaceId)`:
+`useSessionList(client, selected, selections, openSessions)` loads on every selection (also re-selecting
+the same folder) and again when a pane of that folder opens or closes, keeping the rows on screen while it
+reloads. `mergeSessions(scanned, panes, workspaceId)`:
 rows of the scan; a pane session of that workspace missing from the scan gets a row with the pane's title
 and its open time as last activity (SRS-FR-019 — Claude Code may not have written the file yet); every row
-whose id is open in a pane gets `Live` (SRS-FR-012); order by last activity, newest first. A live row uses
+whose id is open in a pane gets `Live` (SRS-FR-012) — a pane whose session ended or never started
+does not count; order by last activity, newest first. A live row uses
 the pane's title when the pane has one other than "(untitled)".
 `formatWhen(ms, now)`: < 1 min "Just now"; < 60 min "N min ago"; < 24 h "N h ago"; previous calendar day
 "Yesterday"; < 7 days "N days ago"; < 14 days "Last week"; otherwise "Oct 2" (with the year when not the

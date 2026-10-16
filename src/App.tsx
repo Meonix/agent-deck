@@ -9,6 +9,8 @@ import { StatusBoard } from "./components/BoardColumn";
 import { ToastProvider } from "./components/Toast";
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useWorkspaces } from "./components/useWorkspaces";
+import type { OpenSession } from "./components/sessionList";
+import { useMinuteClock, useSessionList } from "./components/useSessionList";
 import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
 
 type Deps = {
@@ -48,6 +50,18 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
     if (workspaces.selected) void panes.newSession(workspaces.selected);
   };
 
+  const openSessions: OpenSession[] = panes.entries
+    .filter((e) => e.pane.started && !e.ended)
+    .map((e) => ({ sessionId: e.pane.sessionId, workspaceId: e.workspaceId, title: e.title, openedAt: e.openedAt }));
+  const selectedId = workspaces.selected?.id ?? null;
+  const openHere = openSessions
+    .filter((o) => o.workspaceId === selectedId)
+    .map((o) => o.sessionId)
+    .sort()
+    .join(",");
+  const sessionList = useSessionList(sessions, workspaces.selected, workspaces.selections, openHere);
+  const now = useMinuteClock();
+
   const [confirming, setConfirming] = useState<string | null>(null);
   const confirmed = panes.entries.find((e) => e.pane.paneId === confirming);
   const stillBusy = confirmed !== undefined && !confirmed.ended && isBusy(confirmed);
@@ -63,7 +77,13 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
 
   return (
     <div className="flex-1 min-h-0 grid grid-cols-[240px_1fr_280px]">
-      <WorkspaceSidebar workspaces={workspaces} onNewSession={newSession} />
+      <WorkspaceSidebar
+        workspaces={workspaces}
+        onNewSession={newSession}
+        sessions={sessionList}
+        openSessions={openSessions}
+        now={now}
+      />
       <main ref={paneArea} className="min-h-0 min-w-0">
         {panes.entries.length > 0 ? (
           <PaneGrid>

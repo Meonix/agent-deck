@@ -7,6 +7,7 @@ const BLOCKED_REMOVE_MESSAGE = "Close the open sessions of this folder first";
 export type WorkspacesState = {
   items: Workspace[] | null;
   selected: Workspace | null;
+  selections: number;
   select(id: string): void;
   addFolder(): Promise<void>;
   removeFolder(id: string): Promise<void>;
@@ -20,6 +21,12 @@ export function errorDetail(e: unknown): string {
 export function useWorkspaces(client: WorkspacesClient): WorkspacesState {
   const [items, setItems] = useState<Workspace[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Bumped on every selection, also of the folder already selected, so its sessions are read again.
+  const [selections, setSelections] = useState(0);
+  const select = useCallback((id: string) => {
+    setSelectedId(id);
+    setSelections((n) => n + 1);
+  }, []);
   const showToast = useToast();
 
   const busy = useRef(false);
@@ -95,5 +102,5 @@ export function useWorkspaces(client: WorkspacesClient): WorkspacesState {
   );
 
   const selected = items?.find((w) => w.id === selectedId) ?? null;
-  return { items, selected, select: setSelectedId, addFolder, removeFolder, refresh };
+  return { items, selected, selections, select, addFolder, removeFolder, refresh };
 }

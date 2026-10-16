@@ -22,7 +22,9 @@ export type TerminalAdapterFactory = () => TerminalAdapter;
 // flowing into the terminal even while React remounts the pane.
 export type PaneEntry = {
   pane: OpenedPane;
+  workspaceId: string;
   workspaceName: string;
+  openedAt: number;
   adapter: TerminalAdapter | null;
   stream: PaneStream;
   openedSize: TerminalSize;
