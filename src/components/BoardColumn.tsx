@@ -33,11 +33,18 @@ function CardView({ card, state, onJump }: { card: Card; state: BoardState; onJu
   return (
     <button
       type="button"
+      aria-label={`${card.workspaceName} · ${card.title}, ${state}`}
       onClick={() => onJump(card.paneId)}
+      onKeyDown={(e) => {
+        // Activating on Enter's keydown, with the default stopped, keeps the rest of that Enter out of the terminal it focuses.
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        onJump(card.paneId);
+      }}
       className={`block w-full text-left cursor-pointer rounded-md border border-border border-l-4 ${tone[state].edge} bg-card px-2.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
     >
-      <div className="text-sm text-foreground truncate">{card.title}</div>
-      <div className="text-xs text-muted-foreground truncate">
+      <span className="block text-sm text-foreground truncate">{card.title}</span>
+      <span className="block text-xs text-muted-foreground truncate">
         {card.workspaceName} · {clock(card.since)}
         {card.reason !== null && (
           <>
@@ -45,7 +52,7 @@ function CardView({ card, state, onJump }: { card: Card; state: BoardState; onJu
             <span className={tone[state].text}>{card.reason}</span>
           </>
         )}
-      </div>
+      </span>
     </button>
   );
 }

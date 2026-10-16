@@ -948,8 +948,7 @@ describe("Split layout (2.1 to 2.3)", () => {
 
 describe("Jump from a Status Board card (1.1)", () => {
   const since = new Date(2026, 9, 16, 14, 2).getTime();
-  const needsApproval = () =>
-    within(board()).getByText("Needs Approval").closest("div")!.parentElement!;
+  const askingCard = () => within(board()).getByRole("button", { name: /^agent-deck · .+, Needs Approval$/ });
 
   async function twoPanesSecondAsking() {
     const ctx = setup([ws("a", "agent-deck")]);
@@ -959,31 +958,40 @@ describe("Jump from a Status Board card (1.1)", () => {
     act(() => ctx.sessions.opened[1].stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
     fireEvent.focus(panes()[0]);
     expect(panes()[0]).toHaveClass("border-ring");
-    return ctx;
+    return { ...ctx, focusCalls: vi.mocked(ctx.adapters[1].focus).mock.calls.length };
+  }
+
+  // A pane asking for approval shows its status ring instead of the focus ring.
+  function expectJumpedToSecond(adapters: FakeAdapter[], focusCalls: number) {
+    expect(panes()[0]).not.toHaveClass("border-ring");
+    expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(focusCalls + 1);
   }
 
   it("focuses the pane of the clicked card and sends the next key to it (SRS-FR-037)", async () => {
-    const { user, sessions, adapters } = await twoPanesSecondAsking();
-    const focusCalls = vi.mocked(adapters[1].focus).mock.calls.length;
+    const { user, sessions, adapters, focusCalls } = await twoPanesSecondAsking();
 
-    await user.click(within(needsApproval()).getByRole("button"));
+    await user.click(askingCard());
 
-    // A pane asking for approval shows its status ring instead of the focus ring.
-    expect(panes()[0]).not.toHaveClass("border-ring");
-    expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(focusCalls + 1);
+    expectJumpedToSecond(adapters, focusCalls);
     adapters[1].type("1");
     expect(sessions.write).toHaveBeenLastCalledWith("p2", "1");
   });
 
-  it("jumps with Enter on a focused card", async () => {
-    const { user, adapters } = await twoPanesSecondAsking();
-    const focusCalls = vi.mocked(adapters[1].focus).mock.calls.length;
+  it("jumps with Enter and keeps that Enter from reaching the terminal", async () => {
+    const { adapters, focusCalls } = await twoPanesSecondAsking();
 
-    within(needsApproval()).getByRole("button").focus();
-    await user.keyboard("{Enter}");
+    const notPrevented = fireEvent.keyDown(askingCard(), { key: "Enter" });
 
-    // A pane asking for approval shows its status ring instead of the focus ring.
-    expect(panes()[0]).not.toHaveClass("border-ring");
-    expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(focusCalls + 1);
+    expect(notPrevented).toBe(false);
+    expectJumpedToSecond(adapters, focusCalls);
+  });
+
+  it("jumps with Space", async () => {
+    const { user, adapters, focusCalls } = await twoPanesSecondAsking();
+
+    askingCard().focus();
+    await user.keyboard(" ");
+
+    expectJumpedToSecond(adapters, focusCalls);
   });
 });
