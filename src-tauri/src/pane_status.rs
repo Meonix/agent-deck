@@ -88,7 +88,7 @@ impl StatusTracker {
         if !inner.closed {
             inner.tracked = true;
             if let Some(change) = inner.machine.exit(code, now) {
-                self.out.send_json(status_json(&change, true));
+                self.out.send_json(status_json(&change, true, Some(now)));
             }
         }
         self.out.send_json(exit_json(code));
@@ -104,7 +104,7 @@ impl StatusTracker {
         if inner.apply(HookSignal::Apply(Signal::ApprovalAnswered), now) {
             let tracked = inner.tracked;
             self.out
-                .send_json(status_json(&inner.machine.current(), tracked));
+                .send_json(status_json(&inner.machine.current(), tracked, Some(now)));
         }
     }
 
@@ -131,10 +131,12 @@ impl HookSink for StatusTracker {
         }
         let first = !inner.tracked;
         inner.tracked = true;
-        let changed = signal.is_some_and(|s| inner.apply(s, now_ms()));
+        let now = now_ms();
+        let changed = signal.is_some_and(|s| inner.apply(s, now));
         if changed || first {
+            let reported_at = changed.then_some(now);
             self.out
-                .send_json(status_json(&inner.machine.current(), true));
+                .send_json(status_json(&inner.machine.current(), true, reported_at));
         }
     }
 }
@@ -149,11 +151,18 @@ struct StatusBody<'a> {
     #[serde(flatten)]
     change: &'a StatusChange,
     tracked: bool,
+    /// When the change reached the app (SRS-FR-038); none for a tracked-only message.
+    #[serde(rename = "reportedAt")]
+    reported_at: Option<u64>,
 }
 
-fn status_json(change: &StatusChange, tracked: bool) -> String {
+fn status_json(change: &StatusChange, tracked: bool, reported_at: Option<u64>) -> String {
     let message = StatusMessage {
-        status: StatusBody { change, tracked },
+        status: StatusBody {
+            change,
+            tracked,
+            reported_at,
+        },
     };
     serde_json::to_string(&message).expect("status serializes")
 }
@@ -210,8 +219,8 @@ mod tests {
             reason: Some("Edit src/main.rs".into()),
         };
         assert_eq!(
-            status_json(&change, true),
-            r#"{"status":{"state":"Needs Approval","since":1760000000000,"reason":"Edit src/main.rs","tracked":true}}"#
+            status_json(&change, true, Some(1760000000000)),
+            r#"{"status":{"state":"Needs Approval","since":1760000000000,"reason":"Edit src/main.rs","tracked":true,"reportedAt":1760000000000}}"#
         );
         let change = StatusChange {
             state: crate::status::State::Idle,
@@ -219,9 +228,25 @@ mod tests {
             reason: None,
         };
         assert_eq!(
-            status_json(&change, false),
-            r#"{"status":{"state":"Idle","since":5,"reason":null,"tracked":false}}"#
+            status_json(&change, false, None),
+            r#"{"status":{"state":"Idle","since":5,"reason":null,"tracked":false,"reportedAt":null}}"#
         );
+    }
+
+    /// SRS-FR-038: a change reports when it reached the app; a tracked-only message does not.
+    #[test]
+    fn a_hook_change_reports_its_arrival_time() {
+        let (t, out) = tracker(1000);
+        let before = now_ms();
+        t.hook(json!({"hook_event_name": "UserPromptSubmit"}));
+        let after = now_ms();
+        let message = out.take().pop().unwrap();
+        let reported = message["status"]["reportedAt"].as_u64().unwrap();
+        assert!(before <= reported && reported <= after);
+        assert_eq!(message["status"]["since"].as_u64(), Some(reported));
+
+        t.hook(json!({"hook_event_name": "UserPromptSubmit"}));
+        assert_eq!(out.take(), Vec::<Value>::new());
     }
 
     #[test]
@@ -230,7 +255,9 @@ mod tests {
         t.hook(json!({"hook_event_name": "SessionStart", "session_id": "s"}));
         assert_eq!(
             out.take(),
-            [json!({"status": {"state": "Idle", "since": 1000, "reason": null, "tracked": true}})]
+            [
+                json!({"status": {"state": "Idle", "since": 1000, "reason": null, "tracked": true, "reportedAt": null}})
+            ]
         );
 
         t.hook(json!({"hook_event_name": "SessionStart"}));
@@ -273,7 +300,7 @@ mod tests {
         assert_eq!(
             out.take(),
             [
-                json!({"status": {"state": "Ended", "since": 2000, "reason": null, "tracked": true}}),
+                json!({"status": {"state": "Ended", "since": 2000, "reason": null, "tracked": true, "reportedAt": 2000}}),
                 json!({"exited": 0})
             ]
         );
@@ -286,7 +313,7 @@ mod tests {
         assert_eq!(
             out.take(),
             [
-                json!({"status": {"state": "Error", "since": 2000, "reason": "killed", "tracked": true}}),
+                json!({"status": {"state": "Error", "since": 2000, "reason": "killed", "tracked": true, "reportedAt": 2000}}),
                 json!({"exited": null})
             ]
         );
@@ -500,7 +527,7 @@ mod tests {
             assert_eq!(
                 out.take(),
                 [
-                    json!({"status": {"state": "Running", "since": 5000, "reason": null, "tracked": true}})
+                    json!({"status": {"state": "Running", "since": 5000, "reason": null, "tracked": true, "reportedAt": 5000}})
                 ],
                 "{key:?}"
             );
@@ -577,7 +604,7 @@ mod tests {
         assert_eq!(
             out.take(),
             [
-                json!({"status": {"state": "Error", "since": 2000, "reason": "exit code 3", "tracked": true}}),
+                json!({"status": {"state": "Error", "since": 2000, "reason": "exit code 3", "tracked": true, "reportedAt": 2000}}),
                 json!({"exited": 3})
             ]
         );
