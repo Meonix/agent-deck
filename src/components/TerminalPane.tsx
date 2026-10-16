@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import type { OpenedPane, PaneStream, SessionsClient } from "../api/sessions";
+import { useEffect, useRef } from "react";
+import type { OpenedPane, PaneStatus, PaneStream, SessionsClient } from "../api/sessions";
+import { StateMarker, tone } from "./statusTone";
 
 export type TerminalSize = { cols: number; rows: number };
 
@@ -26,10 +27,13 @@ export type PaneEntry = {
   stream: PaneStream;
   openedSize: TerminalSize;
   ended: boolean;
+  status: PaneStatus;
+  title: string;
+  /** The wait for a first status is over; set once, never cleared. */
+  graceOver: boolean;
 };
 
 export const UNTITLED = "(untitled)";
-const TITLE_REFRESH_MS = 10_000;
 
 type Props = {
   entry: PaneEntry;
@@ -40,13 +44,12 @@ type Props = {
 };
 
 export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props) {
-  const { pane, workspaceName, adapter, openedSize, ended } = entry;
+  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver } = entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
   const endedRef = useRef(ended);
   endedRef.current = ended;
   const lastSize = useRef(openedSize);
-  const title = useTitle(client, paneId, pane.started && !ended);
 
   useEffect(() => {
     const container = body.current;
@@ -76,20 +79,35 @@ export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props
     };
   }, [adapter, client, paneId]);
 
-  const badge = !pane.started ? "Not started" : ended ? "Ended" : null;
+  const badge = !pane.started
+    ? "Not started"
+    : ended
+      ? "Ended"
+      : !status.tracked && graceOver
+        ? "Status unavailable"
+        : null;
+  const quiet = !pane.started || ended || !status.tracked || status.state === "Idle" || status.state === "Ended";
+  const border = quiet ? (focused ? "border-ring" : "border-border") : tone[status.state].ring;
 
   return (
     <section
       aria-label={`${workspaceName} · ${title}`}
       onFocus={() => onFocus(paneId)}
-      className={`flex flex-col min-h-0 min-w-0 rounded-lg border ${focused ? "border-ring" : "border-border"} bg-background overflow-hidden`}
+      className={`flex flex-col min-h-0 min-w-0 rounded-lg border ${border} ${!quiet && status.state === "Needs Approval" ? "border-2" : ""} bg-background overflow-hidden`}
     >
       <header className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-card">
         <span className="min-w-0 text-xs text-foreground truncate">
           <span className="text-muted-foreground">{workspaceName} ·</span> {title}
         </span>
         <span className="flex shrink-0 items-center gap-2 text-xs whitespace-nowrap">
-          {badge && <span className="border border-border rounded-md px-1.5 text-muted-foreground">{badge}</span>}
+          {badge ? (
+            <span className="border border-border rounded-md px-1.5 text-muted-foreground">{badge}</span>
+          ) : (
+            <span className={`flex items-center gap-1 border rounded-md px-1.5 ${tone[status.state].chip}`}>
+              <StateMarker state={status.state} />
+              {status.state}
+            </span>
+          )}
           <button aria-label="Close pane" onClick={() => onClose(paneId)} className="text-muted-foreground">
             ✕
           </button>
@@ -112,26 +130,4 @@ export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props
       )}
     </section>
   );
-}
-
-/** Polls only while `polling`: a session that never started or has ended gets no new title. */
-function useTitle(client: SessionsClient, paneId: string, polling: boolean): string {
-  const [title, setTitle] = useState(UNTITLED);
-  useEffect(() => {
-    if (!polling) return;
-    let live = true;
-    // A failed lookup keeps the last title; the next tick tries again.
-    const load = () =>
-      client.title(paneId).then(
-        (t) => live && setTitle(t),
-        () => {},
-      );
-    void load();
-    const timer = setInterval(load, TITLE_REFRESH_MS);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [client, paneId, polling]);
-  return title;
 }

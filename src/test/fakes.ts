@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { OpenedPane, PaneStream, SessionsClient } from "../api/sessions";
+import type { OpenedPane, PaneStatus, PaneStream, SessionsClient } from "../api/sessions";
 import type { TerminalAdapter, TerminalSize } from "../components/TerminalPane";
 
 export type FakeAdapter = TerminalAdapter & {
@@ -49,20 +49,25 @@ export function fakeAdapter(size: TerminalSize = { cols: 80, rows: 24 }): FakeAd
 export type FakeStream = PaneStream & {
   emit(text: string): void;
   exit(code: number | null): void;
+  status(status: Partial<PaneStatus> & { state: PaneStatus["state"] }): void;
 };
 
 export function fakeStream(): FakeStream {
   let outputCb: ((bytes: Uint8Array) => void) | null = null;
   let exitCb: ((code: number | null) => void) | null = null;
+  let statusCb: ((status: PaneStatus) => void) | null = null;
   return {
     onOutput: (cb) => void (outputCb = cb),
     onExit: (cb) => void (exitCb = cb),
+    onStatus: (cb) => void (statusCb = cb),
     dispose: vi.fn(() => {
       outputCb = null;
       exitCb = null;
+      statusCb = null;
     }),
     emit: (text) => outputCb?.(new TextEncoder().encode(text)),
     exit: (code) => exitCb?.(code),
+    status: (status) => statusCb?.({ since: Date.now(), reason: null, tracked: true, ...status }),
   };
 }
 

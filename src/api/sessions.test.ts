@@ -68,6 +68,34 @@ describe("tauriSessionsClient (5.1)", () => {
     expect(events).toEqual(["bye", "exit 3"]);
   });
 
+  it("queues a status sent before onStatus and delivers it, then later ones live", async () => {
+    const status = { state: "Needs Approval", since: 1760000000000, reason: "Edit src/main.rs", tracked: true };
+    tauri.invoke.mockImplementation(async () => {
+      send({ status });
+      return opened;
+    });
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen: unknown[] = [];
+    stream.onStatus((s) => seen.push(s));
+    expect(seen).toEqual([status]);
+    send(JSON.stringify({ status: { ...status, state: "Running", reason: null } }));
+    expect(seen).toHaveLength(2);
+    expect(seen[1]).toMatchObject({ state: "Running", reason: null });
+  });
+
+  it("delivers a status queued before the exit ahead of the exit", async () => {
+    tauri.invoke.mockImplementation(async () => {
+      send({ status: { state: "Ended", since: 1, reason: null, tracked: true } });
+      send({ exited: 0 });
+      return opened;
+    });
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const events: string[] = [];
+    stream.onExit((code) => events.push(`exit ${code}`));
+    stream.onStatus((s) => events.push(`status ${s.state}`));
+    expect(events).toEqual(["status Ended", "exit 0"]);
+  });
+
   it("passes a null exit code through", async () => {
     tauri.invoke.mockResolvedValue(opened);
     const { stream } = await tauriSessionsClient.open("w1", 80, 24);

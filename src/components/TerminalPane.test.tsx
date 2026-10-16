@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeAdapter, fakeSessions, fakeStream, type FakeAdapter } from "../test/fakes";
-import { TerminalPane, type PaneEntry } from "./TerminalPane";
+import { TerminalPane, UNTITLED, type PaneEntry } from "./TerminalPane";
 
 function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): PaneEntry {
   return {
@@ -12,6 +12,9 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
     stream: fakeStream(),
     openedSize: { cols: 80, rows: 24 },
     ended: false,
+    title: UNTITLED,
+    graceOver: false,
+    status: { state: "Idle", since: 1, reason: null, tracked: false },
     ...over,
   };
 }
@@ -53,28 +56,6 @@ describe("TerminalPane (5.3)", () => {
     await flush();
     expect(adapter.open).toHaveBeenCalledWith(expect.any(HTMLElement));
     expect(adapter.focus).toHaveBeenCalled();
-  });
-
-  it("shows the workspace and (untitled), then the session title, refreshed every 10 s", async () => {
-    vi.useFakeTimers();
-    const client = fakeSessions({ titles: ["Fix login", "Fix login redirect"] });
-    let resolveFirst: (t: string) => void = () => {};
-    client.title = vi
-      .fn()
-      .mockImplementationOnce(() => new Promise<string>((r) => (resolveFirst = r)))
-      .mockResolvedValue("Fix login redirect");
-    renderPane(entry(fakeAdapter()), client);
-    expect(screen.getByRole("region", { name: "agent-deck · (untitled)" })).toBeInTheDocument();
-    expect(client.title).toHaveBeenCalledWith("p1");
-
-    await act(async () => resolveFirst("Fix login"));
-    expect(screen.getByRole("region", { name: "agent-deck · Fix login" })).toBeInTheDocument();
-
-    await act(async () => vi.advanceTimersByTimeAsync(9_999));
-    expect(client.title).toHaveBeenCalledTimes(1);
-    await act(async () => vi.advanceTimersByTimeAsync(1));
-    expect(client.title).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole("region", { name: "agent-deck · Fix login redirect" })).toBeInTheDocument();
   });
 
   it("sends typed input to the session", async () => {
@@ -161,34 +142,54 @@ describe("TerminalPane (5.3)", () => {
     expect(client.write).toHaveBeenCalledTimes(1);
   });
 
-  it("never asks for the title of a pane that did not start", async () => {
-    vi.useFakeTimers();
-    const client = fakeSessions();
-    renderPane(entry(null), client);
-    await act(async () => vi.advanceTimersByTimeAsync(30_000));
-    expect(client.title).not.toHaveBeenCalled();
-    expect(screen.getByRole("region", { name: "agent-deck · (untitled)" })).toBeInTheDocument();
-  });
-
-  it("stops polling the title once the session has ended and keeps the last one", async () => {
-    vi.useFakeTimers();
-    const adapter = fakeAdapter();
-    const client = fakeSessions({ titles: ["Fix login"] });
-    const { view } = renderPane(entry(adapter), client);
-    await act(async () => {});
-    expect(client.title).toHaveBeenCalledTimes(1);
-    view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused onFocus={vi.fn()} onClose={vi.fn()} />,
-    );
-    await act(async () => vi.advanceTimersByTimeAsync(30_000));
-    expect(client.title).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("region", { name: "agent-deck · Fix login" })).toBeInTheDocument();
-  });
-
   it("asks the parent to close it from the close button", async () => {
     const user = userEvent.setup();
     const { on } = renderPane(entry(fakeAdapter()));
     await user.click(screen.getByRole("button", { name: "Close pane" }));
     expect(on.close).toHaveBeenCalledWith("p1");
+  });
+
+  it("shows the state chip with the state name", () => {
+    renderPane(entry(fakeAdapter(), { status: { state: "Running", since: 1, reason: null, tracked: true } }));
+    expect(screen.getByText("Running")).toBeInTheDocument();
+  });
+
+  it("shows the pane title from the entry", () => {
+    renderPane(entry(fakeAdapter(), { title: "Fix login" }));
+    expect(screen.getByRole("region", { name: "agent-deck · Fix login" })).toBeInTheDocument();
+  });
+
+  it("shows Status unavailable once the grace period is over for an untracked pane", () => {
+    renderPane(entry(fakeAdapter(), { graceOver: true }));
+    expect(screen.getByText("Status unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("Idle")).not.toBeInTheDocument();
+  });
+
+  it("prefers Not started, then Ended, over Status unavailable", () => {
+    const first = renderPane(entry(null, { graceOver: true }));
+    expect(screen.getByText("Not started")).toBeInTheDocument();
+    expect(screen.queryByText("Status unavailable")).not.toBeInTheDocument();
+    first.view.unmount();
+    renderPane(entry(fakeAdapter(), { graceOver: true, ended: true }));
+    expect(screen.getByText("Ended", { selector: "span.border" })).toBeInTheDocument();
+    expect(screen.queryByText("Status unavailable")).not.toBeInTheDocument();
+  });
+
+  it("colours the border by state and doubles it for Needs Approval", () => {
+    const at = (status: PaneEntry["status"]) => {
+      const { view } = renderPane(entry(fakeAdapter(), { status }));
+      const cls = screen.getByRole("region").className;
+      view.unmount();
+      return cls;
+    };
+    const s = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked });
+    expect(at(s("Needs Approval"))).toContain("border-approval");
+    expect(at(s("Needs Approval"))).toContain("border-2");
+    expect(at(s("Running"))).toContain("border-running");
+    expect(at(s("Error"))).toContain("border-error");
+    expect(at(s("Running"))).not.toContain("border-2");
+    // Idle and untracked panes keep the focus ring, which is visible when focused.
+    expect(at(s("Idle"))).toContain("border-ring");
+    expect(at(s("Running", false))).toContain("border-ring");
   });
 });

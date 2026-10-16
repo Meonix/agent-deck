@@ -1,12 +1,15 @@
-import { type RefObject, useCallback, useRef, useState } from "react";
-import type { SessionsClient } from "../api/sessions";
+import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import type { PaneStatus, SessionsClient } from "../api/sessions";
 import type { Workspace } from "../api/workspaces";
 import { latencyLogEnabled, withLatencyLog } from "./latencyLog";
 import { insertRight, paneBodySize } from "./paneLayout";
-import type { PaneEntry, TerminalAdapter, TerminalAdapterFactory, TerminalSize } from "./TerminalPane";
+import { type PaneEntry, type TerminalAdapter, type TerminalAdapterFactory, type TerminalSize, UNTITLED } from "./TerminalPane";
 import { useToast } from "./Toast";
 import { errorDetail } from "./useWorkspaces";
 
+const TITLE_REFRESH_MS = 10_000;
+// How long a pane may stay untracked before the UI says its status is unavailable.
+const STATUS_GRACE_MS = 5_000;
 const FOLDER_NOT_FOUND = "Folder not found";
 // Used when the pane area cannot be measured; the pane fits itself right after
 // mounting and resizes the session to match.
@@ -32,6 +35,39 @@ export function useSessionPanes(
   const entries = useRef(layout.entries);
   entries.current = layout.entries;
 
+  const update = useCallback(
+    (paneId: string, change: (e: PaneEntry) => Partial<PaneEntry>) =>
+      setLayout((l) => ({
+        ...l,
+        entries: l.entries.map((e) => (e.pane.paneId === paneId ? { ...e, ...change(e) } : e)),
+      })),
+    [],
+  );
+
+  // One interval per live pane. A failed lookup keeps the last title; the next tick retries.
+  const polled = layout.entries
+    .filter((e) => e.pane.started && !e.ended)
+    .map((e) => e.pane.paneId)
+    .join(",");
+  useEffect(() => {
+    if (!polled) return;
+    let live = true;
+    const stops = polled.split(",").map((paneId) => {
+      const load = () =>
+        client.title(paneId).then(
+          (title) => live && update(paneId, () => ({ title })),
+          () => {},
+        );
+      void load();
+      const timer = setInterval(load, TITLE_REFRESH_MS);
+      return () => clearInterval(timer);
+    });
+    return () => {
+      live = false;
+      stops.forEach((stop) => stop());
+    };
+  }, [client, polled, update]);
+
   const newSession = useCallback(
     async (workspace: Workspace) => {
       if (workspace.missing) {
@@ -48,7 +84,18 @@ export function useSessionPanes(
         const { pane, stream } = await client.open(workspace.id, openedSize.cols, openedSize.rows);
         kept = pane.started;
         const adapter = pane.started ? measuring : null;
-        const entry: PaneEntry = { pane, workspaceName: workspace.name, adapter, stream, openedSize, ended: false };
+        const status: PaneStatus = { state: "Idle", since: Date.now(), reason: null, tracked: false };
+        const entry: PaneEntry = {
+          pane,
+          workspaceName: workspace.name,
+          adapter,
+          stream,
+          openedSize,
+          ended: false,
+          status,
+          title: UNTITLED,
+          graceOver: false,
+        };
         setLayout((l) => {
           const order = insertRight(l.entries.map((e) => e.pane.paneId), l.focusedId, pane.paneId);
           const byId = new Map([...l.entries, entry].map((e) => [e.pane.paneId, e]));
@@ -56,12 +103,9 @@ export function useSessionPanes(
         });
         // Registered after the insert so an exit already queued finds the entry.
         if (adapter) stream.onOutput((bytes) => adapter.write(bytes));
-        stream.onExit(() =>
-          setLayout((l) => ({
-            ...l,
-            entries: l.entries.map((e) => (e.pane.paneId === pane.paneId ? { ...e, ended: true } : e)),
-          })),
-        );
+        stream.onStatus((next) => update(pane.paneId, () => ({ status: next })));
+        stream.onExit(() => update(pane.paneId, () => ({ ended: true })));
+        setTimeout(() => update(pane.paneId, () => ({ graceOver: true })), STATUS_GRACE_MS);
       } catch (e) {
         if (e === "folder_missing") {
           showToast(FOLDER_NOT_FOUND);
@@ -75,7 +119,7 @@ export function useSessionPanes(
         opening.current = false;
       }
     },
-    [client, createTerminal, onFolderMissing, paneArea, showToast],
+    [client, createTerminal, onFolderMissing, paneArea, showToast, update],
   );
 
   const closePane = useCallback(
