@@ -4,9 +4,9 @@
 
 ## 2. UI (seam S2)
 
-- [ ] 2.1 `useSessionPanes` keeps the layout: sidebar New Session / Resume split the focused pane right, `splitFrom(paneId, dir)` opens a session in that pane's folder, close gives space to the sibling; new session sized to half the split pane (SRS-FR-021, SRS-FR-022)
-- [ ] 2.2 `PaneGrid` positions panes and dividers from `layoutRects`; dragging a divider sets the ratio with the 200 × 120 px minimum (SRS-FR-023)
-- [ ] 2.3 ⇥ / ⇣ buttons in the pane header wired through `App` (SRS-FR-022)
+- [x] 2.1 `useSessionPanes` keeps the layout: sidebar New Session / Resume split the focused pane right, `splitFrom(paneId, dir)` opens a session in that pane's folder, close gives space to the sibling; new session sized to half the split pane (SRS-FR-021, SRS-FR-022)
+- [x] 2.2 `PaneGrid` positions panes and dividers from `layoutRects`; dragging a divider sets the ratio with the 200 × 120 px minimum (SRS-FR-023)
+- [x] 2.3 ⇥ / ⇣ buttons in the pane header wired through `App` (SRS-FR-022)
 
 ## 3. Concurrency (seam S3)
 
