@@ -79,14 +79,17 @@ export function TerminalPane({ entry, client, focused, onFocus, onClose }: Props
     };
   }, [adapter, client, paneId]);
 
+  // After an abnormal exit the header keeps the Error chip, matching the board card.
+  const endedBadge = ended && !(status.tracked && status.state === "Error");
   const badge = !pane.started
     ? "Not started"
-    : ended
+    : endedBadge
       ? "Ended"
       : !status.tracked && graceOver
         ? "Status unavailable"
         : null;
-  const quiet = !pane.started || ended || !status.tracked || status.state === "Idle" || status.state === "Ended";
+  const quiet =
+    !pane.started || endedBadge || !status.tracked || status.state === "Idle" || status.state === "Ended";
   const border = quiet ? (focused ? "border-ring" : "border-border") : tone[status.state].ring;
 
   return (

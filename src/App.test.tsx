@@ -225,6 +225,39 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
     expect(within(board()).getByRole("article")).toHaveTextContent("agent-deck · 14:02 · overloaded");
   });
 
+  it("removes the card of an Error pane the user closes (M7)", async () => {
+    const { user, sessions, stream } = await openPane();
+    act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
+    expect(within(section("Error")).getByRole("article")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close pane" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(sessions.close).toHaveBeenCalledWith("p1");
+    await vi.waitFor(() => expect(within(board()).queryByRole("article")).not.toBeInTheDocument());
+    expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
+  });
+
+  it("keeps the Error card and header chip after an abnormal exit (M7, M1)", async () => {
+    const { stream } = await openPane();
+    act(() => stream.status({ state: "Running", since }));
+    act(() => stream.status({ state: "Error", since, reason: "exit code 1" }));
+    act(() => stream.exit(1));
+    expect(within(section("Error")).getByRole("article")).toHaveTextContent("exit code 1");
+    const pane = within(screen.getByTestId("pane-grid"));
+    expect(pane.getByText("Error", { selector: "span.border" })).toBeInTheDocument();
+    expect(pane.queryByText("Ended", { selector: "span.border" })).not.toBeInTheDocument();
+    expect(pane.getByText("Session ended")).toBeInTheDocument();
+  });
+
+  it("shows no card for a pane whose session ended normally (M7)", async () => {
+    const { stream } = await openPane();
+    act(() => stream.status({ state: "Running", since }));
+    act(() => stream.status({ state: "Ended", since }));
+    act(() => stream.exit(0));
+    expect(within(board()).queryByRole("article")).not.toBeInTheDocument();
+    expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
+    expect(within(screen.getByTestId("pane-grid")).getByText("Ended", { selector: "span.border" })).toBeInTheDocument();
+  });
+
   it("omits the reason part when there is none", async () => {
     const { stream } = await openPane();
     act(() => stream.status({ state: "Running", since, reason: null }));
@@ -362,6 +395,45 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
       await user.keyboard("{Escape}");
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(sessions.close).not.toHaveBeenCalled();
+    });
+
+    it("keeps Tab and Shift+Tab inside the dialog (M4)", async () => {
+      const { user, stream } = await openPane();
+      act(() => stream.status({ state: "Running" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      const dialog = within(screen.getByRole("dialog"));
+      const cancel = dialog.getByRole("button", { name: "Cancel" });
+      const close = dialog.getByRole("button", { name: "Close" });
+      expect(cancel).toHaveFocus();
+      await user.tab();
+      expect(close).toHaveFocus();
+      await user.tab();
+      expect(cancel).toHaveFocus();
+      await user.tab({ shift: true });
+      expect(close).toHaveFocus();
+      await user.tab({ shift: true });
+      expect(cancel).toHaveFocus();
+    });
+
+    it("brings focus back to Cancel when it escapes the dialog (M4)", async () => {
+      const { user, stream } = await openPane();
+      act(() => stream.status({ state: "Running" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      act(() => screen.getByRole("button", { name: "Close pane" }).focus());
+      expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    });
+
+    it("does not let Escape reach the terminal behind the dialog (M4)", async () => {
+      const { user, stream } = await openPane();
+      act(() => stream.status({ state: "Running" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      const terminal = panes()[0];
+      const reached = vi.fn();
+      terminal.addEventListener("keydown", reached);
+      const notCancelled = fireEvent.keyDown(terminal, { key: "Escape" });
+      expect(notCancelled).toBe(false);
+      expect(reached).not.toHaveBeenCalled();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("closes an Idle pane at once", async () => {

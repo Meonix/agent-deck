@@ -175,6 +175,22 @@ describe("TerminalPane (5.3)", () => {
     expect(screen.queryByText("Status unavailable")).not.toBeInTheDocument();
   });
 
+  it("keeps the Error chip and border after an abnormal exit (M1)", () => {
+    renderPane(
+      entry(fakeAdapter(), { ended: true, status: { state: "Error", since: 1, reason: "exit code 1", tracked: true } }),
+    );
+    expect(screen.getByText("Error", { selector: "span.border" })).toBeInTheDocument();
+    expect(screen.queryByText("Ended", { selector: "span.border" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region").className).toContain("border-error");
+    expect(screen.getByText("Session ended")).toBeInTheDocument();
+  });
+
+  it("shows the Ended badge after a normal exit", () => {
+    renderPane(entry(fakeAdapter(), { ended: true, status: { state: "Ended", since: 1, reason: null, tracked: true } }));
+    expect(screen.getByText("Ended", { selector: "span.border" })).toBeInTheDocument();
+    expect(screen.getByRole("region").className).not.toContain("border-error");
+  });
+
   it("colours the border by state and doubles it for Needs Approval", () => {
     const at = (status: PaneEntry["status"]) => {
       const { view } = renderPane(entry(fakeAdapter(), { status }));
