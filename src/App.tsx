@@ -132,7 +132,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
           />
         )}
       </main>
-      <StatusBoard entries={panes.entries} />
+      <StatusBoard entries={panes.entries} onJump={panes.jumpTo} />
       {confirmed && stillBusy && (
         <ConfirmClose
           workspaceName={confirmed.workspaceName}

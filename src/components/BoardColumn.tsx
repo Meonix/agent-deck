@@ -2,7 +2,7 @@ import { BOARD_STATES, type BoardState, type Card, boardCards } from "./statusBo
 import { StateMarker, tone } from "./statusTone";
 import type { PaneEntry } from "./TerminalPane";
 
-export function StatusBoard({ entries }: { entries: PaneEntry[] }) {
+export function StatusBoard({ entries, onJump }: { entries: PaneEntry[]; onJump(paneId: string): void }) {
   const cards = boardCards(entries);
   return (
     <aside aria-label="Status Board" className="bg-card overflow-auto p-3 space-y-4 border-l border-border">
@@ -17,7 +17,7 @@ export function StatusBoard({ entries }: { entries: PaneEntry[] }) {
             <span className="text-muted-foreground">{cards[state].length}</span>
           </div>
           {cards[state].length > 0 ? (
-            cards[state].map((card) => <CardView key={card.paneId} card={card} state={state} />)
+            cards[state].map((card) => <CardView key={card.paneId} card={card} state={state} onJump={onJump} />)
           ) : (
             <div className="rounded-md border border-dashed border-border px-2.5 py-2 text-xs text-muted-foreground">
               Nothing here
@@ -29,9 +29,13 @@ export function StatusBoard({ entries }: { entries: PaneEntry[] }) {
   );
 }
 
-function CardView({ card, state }: { card: Card; state: BoardState }) {
+function CardView({ card, state, onJump }: { card: Card; state: BoardState; onJump(paneId: string): void }) {
   return (
-    <article className={`rounded-md border border-border border-l-4 ${tone[state].edge} bg-card px-2.5 py-2`}>
+    <button
+      type="button"
+      onClick={() => onJump(card.paneId)}
+      className={`block w-full text-left cursor-pointer rounded-md border border-border border-l-4 ${tone[state].edge} bg-card px-2.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+    >
       <div className="text-sm text-foreground truncate">{card.title}</div>
       <div className="text-xs text-muted-foreground truncate">
         {card.workspaceName} · {clock(card.since)}
@@ -42,7 +46,7 @@ function CardView({ card, state }: { card: Card; state: BoardState }) {
           </>
         )}
       </div>
-    </article>
+    </button>
   );
 }
 

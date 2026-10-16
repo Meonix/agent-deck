@@ -33,6 +33,7 @@ export type SessionPanes = PanesState & {
   splitFrom(paneId: string, dir: SplitDir): Promise<void>;
   closePane(paneId: string): Promise<void>;
   focusPane(paneId: string): void;
+  jumpTo(paneId: string): void;
   resizeSplit(path: SplitPath, ratio: number): void;
 };
 
@@ -130,6 +131,14 @@ export function useSessionPanes(
       holder.adapter?.focus();
     },
     [focusPane],
+  );
+
+  const jumpTo = useCallback(
+    (paneId: string) => {
+      const entry = entries.current.find((e) => e.pane.paneId === paneId);
+      if (entry) focusHolder(entry);
+    },
+    [focusHolder],
   );
 
   const openPane = useCallback(
@@ -258,7 +267,7 @@ export function useSessionPanes(
     [client, showToast],
   );
 
-  return { ...layout, newSession, resume, splitFrom, closePane, focusPane, resizeSplit };
+  return { ...layout, newSession, resume, splitFrom, closePane, focusPane, jumpTo, resizeSplit };
 }
 
 function openHolder(entries: PaneEntry[], sessionId: string): PaneEntry | undefined {

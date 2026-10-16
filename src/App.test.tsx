@@ -219,22 +219,22 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
     expect(within(board()).getAllByText("Nothing here")).toHaveLength(2);
 
     act(() => stream.status({ state: "Idle", since }));
-    expect(within(board()).queryByRole("article")).not.toBeInTheDocument();
+    expect(within(board()).queryByRole("button")).not.toBeInTheDocument();
     expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
 
     act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
     expect(within(section("Error")).getByText("Scaffold Tauri app")).toBeInTheDocument();
-    expect(within(board()).getByRole("article")).toHaveTextContent("agent-deck · 14:02 · overloaded");
+    expect(within(board()).getByRole("button")).toHaveTextContent("agent-deck · 14:02 · overloaded");
   });
 
   it("removes the card of an Error pane the user closes (M7)", async () => {
     const { user, sessions, stream } = await openPane();
     act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
-    expect(within(section("Error")).getByRole("article")).toBeInTheDocument();
+    expect(within(section("Error")).getByRole("button")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Close pane" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(sessions.close).toHaveBeenCalledWith("p1");
-    await vi.waitFor(() => expect(within(board()).queryByRole("article")).not.toBeInTheDocument());
+    await vi.waitFor(() => expect(within(board()).queryByRole("button")).not.toBeInTheDocument());
     expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
   });
 
@@ -243,7 +243,7 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
     act(() => stream.status({ state: "Running", since }));
     act(() => stream.status({ state: "Error", since, reason: "exit code 1" }));
     act(() => stream.exit(1));
-    expect(within(section("Error")).getByRole("article")).toHaveTextContent("exit code 1");
+    expect(within(section("Error")).getByRole("button")).toHaveTextContent("exit code 1");
     const pane = within(screen.getByTestId("pane-grid"));
     expect(pane.getByText("Error", { selector: "span.border" })).toBeInTheDocument();
     expect(pane.queryByText("Ended", { selector: "span.border" })).not.toBeInTheDocument();
@@ -255,7 +255,7 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
     act(() => stream.status({ state: "Running", since }));
     act(() => stream.status({ state: "Ended", since }));
     act(() => stream.exit(0));
-    expect(within(board()).queryByRole("article")).not.toBeInTheDocument();
+    expect(within(board()).queryByRole("button")).not.toBeInTheDocument();
     expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
     expect(within(screen.getByTestId("pane-grid")).getByText("Ended", { selector: "span.border" })).toBeInTheDocument();
   });
@@ -263,7 +263,7 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
   it("omits the reason part when there is none", async () => {
     const { stream } = await openPane();
     act(() => stream.status({ state: "Running", since, reason: null }));
-    expect(within(board()).getByRole("article")).toHaveTextContent(/^Scaffold Tauri appagent-deck · 14:02$/);
+    expect(within(board()).getByRole("button")).toHaveTextContent(/^Scaffold Tauri appagent-deck · 14:02$/);
   });
 
   it("shows the chip, then Status unavailable after 5 s untracked, cleared by a tracked status", async () => {
@@ -943,5 +943,47 @@ describe("Split layout (2.1 to 2.3)", () => {
     await user.click(within(paneNamed("p2")).getByRole("button", { name: "Close pane" }));
     await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · p2" })).not.toBeInTheDocument());
     expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 100, 100]);
+  });
+});
+
+describe("Jump from a Status Board card (1.1)", () => {
+  const since = new Date(2026, 9, 16, 14, 2).getTime();
+  const needsApproval = () =>
+    within(board()).getByText("Needs Approval").closest("div")!.parentElement!;
+
+  async function twoPanesSecondAsking() {
+    const ctx = setup([ws("a", "agent-deck")]);
+    await selectAndStart(ctx.user, "agent-deck");
+    await ctx.user.click(newSessionButton());
+    await vi.waitFor(() => expect(panes()).toHaveLength(2));
+    act(() => ctx.sessions.opened[1].stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
+    fireEvent.focus(panes()[0]);
+    expect(panes()[0]).toHaveClass("border-ring");
+    return ctx;
+  }
+
+  it("focuses the pane of the clicked card and sends the next key to it (SRS-FR-037)", async () => {
+    const { user, sessions, adapters } = await twoPanesSecondAsking();
+    const focusCalls = vi.mocked(adapters[1].focus).mock.calls.length;
+
+    await user.click(within(needsApproval()).getByRole("button"));
+
+    // A pane asking for approval shows its status ring instead of the focus ring.
+    expect(panes()[0]).not.toHaveClass("border-ring");
+    expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(focusCalls + 1);
+    adapters[1].type("1");
+    expect(sessions.write).toHaveBeenLastCalledWith("p2", "1");
+  });
+
+  it("jumps with Enter on a focused card", async () => {
+    const { user, adapters } = await twoPanesSecondAsking();
+    const focusCalls = vi.mocked(adapters[1].focus).mock.calls.length;
+
+    within(needsApproval()).getByRole("button").focus();
+    await user.keyboard("{Enter}");
+
+    // A pane asking for approval shows its status ring instead of the focus ring.
+    expect(panes()[0]).not.toHaveClass("border-ring");
+    expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(focusCalls + 1);
   });
 });
