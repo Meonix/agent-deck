@@ -16,6 +16,8 @@ function e(id: string, workspaceId: string, status: Partial<PaneStatus>, session
     title: `title-${id}`,
     graceOver: false,
     status: { state: "Idle", since: 1, reason: null, tracked: true, reportedAt: null, ...status },
+    shell: null,
+    shellFailed: false,
   };
 }
 

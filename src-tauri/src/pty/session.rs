@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
 
-use super::OutputBatcher;
+use super::{ForegroundProbe, OutputBatcher};
 
 const FLUSH_DELAY: Duration = Duration::from_millis(16);
 const FLUSH_BYTES: usize = 64 * 1024;
@@ -25,6 +25,15 @@ pub struct SpawnSpec {
     pub rows: u16,
 }
 
+/// What `ProcessKiller::end` ends on Unix; on Windows the job object always ends every process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EndScope {
+    /// The child's process group.
+    Group,
+    /// Every process group in the child's session: a job-control shell gives each job its own.
+    Session,
+}
+
 pub trait OutputSink: Send + 'static {
     fn output(&self, chunk: Vec<u8>);
     fn exited(&self, code: Option<i32>);
@@ -33,7 +42,8 @@ pub trait OutputSink: Send + 'static {
 pub trait PaneProcess: Send {
     fn write(&mut self, data: &[u8]) -> io::Result<()>;
     fn resize(&mut self, cols: u16, rows: u16) -> io::Result<()>;
-    /// Idempotent; ends the whole process group and reaps the child.
+    /// Idempotent; ends the child's process group, or every group in its session for a
+    /// Pane Shell, and reaps the child.
     fn close(&mut self);
     /// The child's process id, where the platform gives one.
     fn pid(&self) -> Option<u32> {
@@ -47,6 +57,7 @@ pub struct PtySession {
     /// Finishes once the child is reaped.
     waiter: Option<JoinHandle<()>>,
     killer: ProcessKiller,
+    child_pid: Option<u32>,
 }
 
 /// Ends a session's processes from any thread, without the session itself,
@@ -60,20 +71,22 @@ struct Killer {
     #[cfg(unix)]
     pgid: libc::pid_t,
     #[cfg(unix)]
+    scope: EndScope,
+    #[cfg(unix)]
     reaped: Arc<AtomicBool>,
     #[cfg(windows)]
     job: Mutex<Option<job::Job>>,
 }
 
 impl ProcessKiller {
-    /// Idempotent; ends the whole process group (SIGHUP, SIGTERM, SIGKILL).
+    /// Idempotent; ends what `EndScope` names (SIGHUP, SIGTERM, SIGKILL).
     pub fn end(&self) {
         let mut ended = self.0.ended.lock().unwrap();
         if *ended {
             return;
         }
         #[cfg(unix)]
-        end_process_group(self.0.pgid, &self.0.reaped);
+        end_processes(self.0.pgid, self.0.scope, &self.0.reaped);
         #[cfg(windows)]
         drop(self.0.job.lock().unwrap().take());
         *ended = true;
@@ -96,6 +109,16 @@ enum Event {
 
 impl PtySession {
     pub fn spawn(spec: SpawnSpec, sink: Box<dyn OutputSink>) -> io::Result<PtySession> {
+        Self::spawn_with_scope(spec, sink, EndScope::Group)
+    }
+
+    pub fn spawn_with_scope(
+        spec: SpawnSpec,
+        sink: Box<dyn OutputSink>,
+        scope: EndScope,
+    ) -> io::Result<PtySession> {
+        #[cfg(windows)]
+        let _ = scope;
         let pair = native_pty_system()
             .openpty(size(spec.cols, spec.rows))
             .map_err(io::Error::other)?;
@@ -117,6 +140,7 @@ impl PtySession {
             .map_err(|e| e.downcast::<io::Error>().unwrap_or_else(io::Error::other))?;
         // The master must be the only open end left, or reads never reach EOF.
         drop(pair.slave);
+        let child_pid = child.process_id();
 
         #[cfg(windows)]
         let job = {
@@ -148,6 +172,8 @@ impl PtySession {
             #[cfg(unix)]
             pgid,
             #[cfg(unix)]
+            scope,
+            #[cfg(unix)]
             reaped: reaped.clone(),
             #[cfg(windows)]
             job: Mutex::new(job),
@@ -174,11 +200,33 @@ impl PtySession {
             writer: Some(writer),
             waiter: Some(waiter),
             killer,
+            child_pid,
         })
     }
 
     pub fn killer(&self) -> ProcessKiller {
         self.killer.clone()
+    }
+
+    /// Usable after the session has moved to another thread.
+    pub fn foreground_probe(&self) -> io::Result<ForegroundProbe> {
+        let pid = self
+            .child_pid
+            .ok_or_else(|| io::Error::other("child has no pid"))?;
+        #[cfg(unix)]
+        {
+            use std::os::fd::BorrowedFd;
+            let fd = self
+                .master
+                .as_ref()
+                .and_then(|master| master.as_raw_fd())
+                .ok_or_else(closed)?;
+            // Valid for the dup: `self` owns the master.
+            let master = unsafe { BorrowedFd::borrow_raw(fd) }.try_clone_to_owned()?;
+            Ok(ForegroundProbe::new(master, pid))
+        }
+        #[cfg(windows)]
+        Ok(ForegroundProbe::new(pid))
     }
 }
 
@@ -223,13 +271,22 @@ impl Drop for PtySession {
 /// SIGHUP, then SIGTERM after `TERM_AFTER` so a hangup handler can finish,
 /// then SIGKILL if the child is not reaped or any member is still alive
 /// `KILL_AFTER` after the start. The child is a session leader (portable-pty
-/// calls `setsid`), so its pid is the group id.
+/// calls `setsid`), so its pid is the group id and the session id.
 #[cfg(unix)]
-fn end_process_group(pgid: libc::pid_t, reaped: &AtomicBool) {
+fn end_processes(pgid: libc::pid_t, scope: EndScope, reaped: &AtomicBool) {
     const TERM_AFTER: Duration = Duration::from_millis(150);
     const KILL_AFTER: Duration = Duration::from_secs(2);
     let start = Instant::now();
-    let done = || reaped.load(Ordering::SeqCst) && group_is_empty(pgid);
+    // Read again at each step: only groups that still have members, as an empty
+    // group's id may be reused and must not be signalled.
+    let groups = || match scope {
+        EndScope::Group => (!group_is_empty(pgid))
+            .then_some(pgid)
+            .into_iter()
+            .collect(),
+        EndScope::Session => session_groups(pgid),
+    };
+    let done = || reaped.load(Ordering::SeqCst) && groups().is_empty();
     let done_by = |deadline: Instant| {
         while Instant::now() < deadline {
             if done() {
@@ -239,11 +296,14 @@ fn end_process_group(pgid: libc::pid_t, reaped: &AtomicBool) {
         }
         done()
     };
-    // Once the group is empty its id may be reused, so it must not be signalled.
     if done() {
         return;
     }
-    let signal = |sig| unsafe { libc::killpg(pgid, sig) };
+    let signal = |sig| {
+        for group in groups() {
+            unsafe { libc::killpg(group, sig) };
+        }
+    };
     signal(libc::SIGHUP);
     if done_by(start + TERM_AFTER) {
         return;
@@ -259,6 +319,67 @@ fn end_process_group(pgid: libc::pid_t, reaped: &AtomicBool) {
 fn group_is_empty(pgid: libc::pid_t) -> bool {
     let rc = unsafe { libc::kill(-pgid, 0) };
     rc == -1 && io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+}
+
+/// The process groups with a member in session `sid`, the leader's own group included
+/// while it has members. Members keep the session id after the leader has exited.
+#[cfg(unix)]
+fn session_groups(sid: libc::pid_t) -> Vec<libc::pid_t> {
+    let mut groups: Vec<libc::pid_t> = all_pids()
+        .into_iter()
+        // `getsid(0)` would read the caller's own session.
+        .filter(|&pid| pid > 0 && unsafe { libc::getsid(pid) } == sid)
+        .map(|pid| unsafe { libc::getpgid(pid) })
+        .filter(|&group| group > 0)
+        .collect();
+    if !group_is_empty(sid) {
+        groups.push(sid);
+    }
+    groups.sort_unstable();
+    groups.dedup();
+    groups
+}
+
+#[cfg(target_os = "macos")]
+fn all_pids() -> Vec<libc::pid_t> {
+    let estimate = unsafe { libc::proc_listallpids(std::ptr::null_mut(), 0) };
+    if estimate <= 0 {
+        return unlisted(io::Error::last_os_error());
+    }
+    // Room for processes started between the two calls.
+    let mut pids: Vec<libc::pid_t> = vec![0; estimate as usize + 64];
+    let bytes = (pids.len() * std::mem::size_of::<libc::pid_t>()) as libc::c_int;
+    let count = unsafe { libc::proc_listallpids(pids.as_mut_ptr().cast(), bytes) };
+    if count <= 0 {
+        return unlisted(io::Error::last_os_error());
+    }
+    pids.truncate(count as usize);
+    pids
+}
+
+/// Linux lists processes under `/proc`; elsewhere nothing is found and only the
+/// leader's own group is ended.
+#[cfg(all(unix, not(target_os = "macos")))]
+fn all_pids() -> Vec<libc::pid_t> {
+    match std::fs::read_dir("/proc") {
+        Ok(entries) => entries
+            .filter_map(|e| e.ok()?.file_name().to_str()?.parse().ok())
+            .collect(),
+        Err(e) => unlisted(e),
+    }
+}
+
+/// Logged once per run, as `end_processes` lists again every few milliseconds.
+#[cfg(unix)]
+fn unlisted(e: io::Error) -> Vec<libc::pid_t> {
+    static LOGGED: AtomicBool = AtomicBool::new(false);
+    if !LOGGED.swap(true, Ordering::SeqCst) {
+        crate::diag::error(
+            "shell",
+            &format!("processes could not be listed, so only the shell's own group is ended: {e}"),
+        );
+    }
+    Vec::new()
 }
 
 fn closed() -> io::Error {

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import type { OpenedPane, PaneStatus, PaneStream, SessionsClient } from "../api/sessions";
+import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
+import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
 import type { SplitDir } from "./paneTree";
 import type { MaximizedBadge } from "./statusHighlight";
 import { StateMarker, tone } from "./statusTone";
@@ -35,6 +36,20 @@ export type PaneEntry = {
   title: string;
   /** The wait for a first status is over; set once, never cleared. */
   graceOver: boolean;
+  shell: ShellEntry | null;
+  /** The last attempt to open the shell failed; cleared when the user dismisses it or a shell opens. */
+  shellFailed: boolean;
+};
+
+// Like the session's, the shell's adapter outlives a hide: output keeps flowing into it (SRS-FR-057).
+export type ShellEntry = {
+  adapter: TerminalAdapter;
+  stream: ShellStream;
+  visible: boolean;
+  /** Share of the pane body the shell takes. */
+  ratio: number;
+  /** Last answer of the activity poll; null until the first one. */
+  activity: ShellActivity | null;
 };
 
 export const UNTITLED = "(untitled)";
@@ -52,6 +67,9 @@ type Props = {
   onRestore(): void;
   onSplit(paneId: string, dir: SplitDir): void;
   onClose(paneId: string): void;
+  onToggleShell(paneId: string): void;
+  onResizeShell(paneId: string, ratio: number): void;
+  onDismissShellFailure(paneId: string): void;
 };
 
 export function TerminalPane({
@@ -66,8 +84,11 @@ export function TerminalPane({
   onRestore,
   onSplit,
   onClose,
+  onToggleShell,
+  onResizeShell,
+  onDismissShellFailure,
 }: Props) {
-  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver } = entry;
+  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed } = entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
   const endedRef = useRef(ended);
@@ -112,6 +133,15 @@ export function TerminalPane({
     wasMaximized.current = maximized;
     refit.current?.();
   }, [maximized]);
+
+  // The session body changes size with the shell area; fit on the commit rather than waiting for the observer.
+  const shellLayout = shell === null ? "none" : shell.visible ? `shown ${shell.ratio}` : "hidden";
+  const lastShellLayout = useRef(shellLayout);
+  useEffect(() => {
+    if (lastShellLayout.current === shellLayout) return;
+    lastShellLayout.current = shellLayout;
+    refit.current?.();
+  }, [shellLayout]);
 
   // After an abnormal exit the header keeps the Error chip, matching the session row.
   const endedBadge = ended && !(status.tracked && status.state === "Error");
@@ -175,6 +205,7 @@ export function TerminalPane({
           >
             ⇣
           </button>
+          <ShellChip shell={shell} onToggle={() => onToggleShell(paneId)} />
           <button
             aria-label={maximized ? "Restore pane" : "Maximize pane"}
             title={maximized ? "Restore pane" : "Maximize pane"}
@@ -193,21 +224,33 @@ export function TerminalPane({
           </button>
         </span>
       </header>
-      {pane.started ? (
-        // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
-        // so the padding sits on a wrapper and xterm gets an unpadded container.
-        <div className="flex-1 min-h-0 min-w-0 flex p-1">
-          <div ref={body} data-pane-body={paneId} className="flex-1 min-h-0 min-w-0" />
-        </div>
-      ) : (
-        <div className="flex-1 p-3 font-mono text-xs leading-5 text-foreground">
-          <div>Claude Code could not be started</div>
-          <div className="mt-5">Check that Claude Code is installed and on your PATH.</div>
-        </div>
-      )}
-      {ended && (
-        <div className="border-t border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">Session ended</div>
-      )}
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col">
+        {pane.started ? (
+          // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
+          // so the padding sits on a wrapper and xterm gets an unpadded container.
+          <div className="flex-1 min-h-0 min-w-0 flex p-1">
+            <div ref={body} data-pane-body={paneId} className="flex-1 min-h-0 min-w-0" />
+          </div>
+        ) : (
+          <div className="flex-1 p-3 font-mono text-xs leading-5 text-foreground">
+            <div>Claude Code could not be started</div>
+            <div className="mt-5">Check that Claude Code is installed and on your PATH.</div>
+          </div>
+        )}
+        {ended && (
+          <div className="border-t border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">Session ended</div>
+        )}
+        {shell && (
+          <ShellArea
+            paneId={paneId}
+            shell={shell}
+            client={client}
+            maximized={maximized}
+            onResize={(ratio) => onResizeShell(paneId, ratio)}
+          />
+        )}
+      </div>
+      {shellFailed && <ShellFailure onDismiss={() => onDismissShellFailure(paneId)} />}
     </section>
   );
 }

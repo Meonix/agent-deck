@@ -6,17 +6,19 @@ use tauri::State;
 use crate::hooks::HookServer;
 use crate::pane_commands::LaunchLookup;
 use crate::panes::PaneRegistry;
+use crate::shell::ShellRegistry;
 use crate::status_latency::StatusLatencyLog;
 use crate::workspace::{
     AddOutcome, DiskProbe, OpenPanes, RemoveError, WorkspaceId, WorkspaceList, WorkspaceStore,
     WorkspaceView,
 };
 
-/// Lock order: `list` before `panes` whenever both are held.
+/// Lock order: `list` before `panes` before `shells` whenever more than one is held.
 pub struct AppState {
     pub list: Mutex<WorkspaceList>,
     pub store: WorkspaceStore,
     pub panes: Mutex<PaneRegistry>,
+    pub shells: Mutex<ShellRegistry>,
     pub launch: LaunchLookup,
     /// None when the hook listener could not start; panes then run untracked.
     pub hooks: Option<Arc<HookServer>>,

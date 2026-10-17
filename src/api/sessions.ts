@@ -25,6 +25,12 @@ export interface PaneStream {
   dispose(): void;
 }
 
+/** A shell sends output and its exit, never a status. */
+export type ShellStream = Omit<PaneStream, "onStatus">;
+
+/** `command`: what the shell runs in its foreground; null while busy means the name could not be read. */
+export type ShellActivity = { busy: boolean; command: string | null };
+
 export interface SessionsClient {
   /** Passing `resumeSessionId` continues that session; rejects with "already_open" while a pane runs it. */
   open(
@@ -46,6 +52,15 @@ export interface SessionsClient {
    * Rejects with "not_found" when nothing of it is on disk.
    */
   deleteSession(workspaceId: string, sessionId: string, paneId?: string): Promise<void>;
+  /**
+   * Starts the pane's shell in its workspace folder; the pane's `close` ends it.
+   * Rejects with "not_found", "already_open", "shell_failed" or "folder_missing".
+   */
+  openShell(paneId: string, cols: number, rows: number): Promise<{ stream: ShellStream }>;
+  shellWrite(paneId: string, data: string): Promise<void>;
+  shellResize(paneId: string, cols: number, rows: number): Promise<void>;
+  /** Rejects with "not_found" when the pane has no shell. */
+  shellActivity(paneId: string): Promise<ShellActivity>;
 }
 
 type ExitMessage = { exited: number | null };
@@ -184,4 +199,19 @@ export const tauriSessionsClient: SessionsClient = {
   list: (workspaceId) => invoke<SessionListing>("list_sessions", { workspaceId }),
   deleteSession: (workspaceId, sessionId, paneId) =>
     invoke<void>("delete_session", { workspaceId, sessionId, paneId: paneId ?? null }),
+  async openShell(paneId, cols, rows) {
+    const output = new Channel<unknown>();
+    const stream = createStream(output);
+    try {
+      await invoke<void>("open_shell", { paneId, cols, rows, output });
+      return { stream };
+    } catch (e) {
+      // The backend may still send `{"exited": null}` on this channel after a failed start.
+      stream.dispose();
+      throw e;
+    }
+  },
+  shellWrite: (paneId, data) => invoke<void>("shell_write", { paneId, data }),
+  shellResize: (paneId, cols, rows) => invoke<void>("shell_resize", { paneId, cols, rows }),
+  shellActivity: (paneId) => invoke<ShellActivity>("shell_activity", { paneId }),
 };

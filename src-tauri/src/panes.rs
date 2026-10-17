@@ -73,9 +73,9 @@ struct Pane {
 }
 
 /// The flag is set before forwarding so a pane the UI has already seen end no longer blocks a resume (`AlreadyOpen`).
-struct EndSink {
-    ended: Arc<AtomicBool>,
-    inner: Box<dyn OutputSink>,
+pub(crate) struct EndSink {
+    pub(crate) ended: Arc<AtomicBool>,
+    pub(crate) inner: Box<dyn OutputSink>,
 }
 
 impl OutputSink for EndSink {
@@ -206,6 +206,10 @@ impl PaneRegistry {
 
     pub fn session_of(&self, pane: &PaneId) -> Option<SessionId> {
         self.panes.get(pane).map(|p| p.session.clone())
+    }
+
+    pub fn workspace_of(&self, pane: &PaneId) -> Option<WorkspaceId> {
+        self.panes.get(pane).map(|p| p.workspace.clone())
     }
 
     fn process(&mut self, pane: &PaneId) -> io::Result<&mut Box<dyn PaneProcess>> {
@@ -415,6 +419,19 @@ mod tests {
         assert_eq!(reg.session_of(&opened.pane_id), None);
         reg.close(&opened.pane_id);
         assert_eq!(spawner.log(0), [Call::Close]);
+    }
+
+    #[test]
+    fn workspace_of_names_the_workspace_of_a_listed_pane_only() {
+        let mut reg = PaneRegistry::new();
+        let spawner = FakeSpawner::new(true);
+        let a = workspace("/w/a", false);
+        let opened = open(&mut reg, &a, &spawner);
+
+        assert_eq!(reg.workspace_of(&opened.pane_id), Some(a.id));
+        assert_eq!(reg.workspace_of(&PaneId("nope".into())), None);
+        reg.take(&opened.pane_id);
+        assert_eq!(reg.workspace_of(&opened.pane_id), None);
     }
 
     #[test]

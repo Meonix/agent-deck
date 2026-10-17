@@ -12,6 +12,7 @@ mod session_commands;
 pub mod session_list;
 pub mod session_title;
 pub mod session_trash;
+pub mod shell;
 pub mod status;
 pub mod status_latency;
 pub mod watchdog;
@@ -27,6 +28,7 @@ use commands::AppState;
 use hooks::HookServer;
 use pane_commands::LaunchLookup;
 use panes::PaneRegistry;
+use shell::ShellRegistry;
 use status_latency::StatusLatencyLog;
 use workspace::WorkspaceStore;
 
@@ -71,6 +73,7 @@ pub fn run() {
                 list: Mutex::new(list),
                 store,
                 panes: Mutex::new(PaneRegistry::new()),
+                shells: Mutex::new(ShellRegistry::new()),
                 launch: LaunchLookup::start(),
                 hooks: HookServer::start()
                     .map_err(|e| {
@@ -98,6 +101,10 @@ pub fn run() {
             pane_commands::pane_resize,
             pane_commands::pane_title,
             pane_commands::close_pane,
+            pane_commands::open_shell,
+            pane_commands::shell_write,
+            pane_commands::shell_resize,
+            pane_commands::shell_activity,
             latency_commands::record_status_shown,
             latency_commands::status_latency_report,
             session_commands::list_sessions,

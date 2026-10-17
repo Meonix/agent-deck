@@ -91,17 +91,32 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   const historyShown = workspaces.historyOpen && workspaces.selected !== null;
   const othersBadge = panes.maximizedId === null ? null : maximizedBadge(panes.entries, panes.maximizedId);
 
-  const [confirming, setConfirming] = useState<string | null>(null);
-  const confirmed = panes.entries.find((e) => e.pane.paneId === confirming);
+  // `shellBusy`: what the shell answered when Close was clicked.
+  const [confirming, setConfirming] = useState<{ paneId: string; shellBusy: boolean } | null>(null);
+  const confirmed = panes.entries.find((e) => e.pane.paneId === confirming?.paneId);
   const stillBusy = confirmed !== undefined && !confirmed.ended && isBusy(confirmed);
   useEffect(() => {
     if (confirming !== null && !stillBusy) setConfirming(null);
   }, [confirming, stillBusy]);
   const cancelConfirm = useCallback(() => setConfirming(null), []);
-  const requestClose = (paneId: string) => {
+  // Kept apart from `confirming`, which is dropped as soon as the session stops being busy.
+  const [confirmingShell, setConfirmingShell] = useState<{ paneId: string; command: string | null } | null>(null);
+  const cancelShellConfirm = useCallback(() => setConfirmingShell(null), []);
+  const requestClose = async (paneId: string) => {
     const entry = panes.entries.find((e) => e.pane.paneId === paneId);
-    if (entry && !entry.ended && isBusy(entry)) setConfirming(paneId);
-    else void panes.closePane(paneId);
+    // "not_found": the shell is already gone. Any other failure asks, the safer side.
+    const activity = entry?.shell
+      ? await sessions.shellActivity(paneId).catch((e) => (e === "not_found" ? null : { busy: true, command: null }))
+      : null;
+    if (entry && !entry.ended && isBusy(entry)) {
+      setConfirming({ paneId, shellBusy: activity?.busy ?? false });
+      return;
+    }
+    if (activity?.busy) {
+      setConfirmingShell({ paneId, command: activity.command });
+      return;
+    }
+    void panes.closePane(paneId);
   };
 
   const showToast = useToast();
@@ -175,7 +190,10 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
                   onMaximize={panes.maximize}
                   onRestore={panes.restore}
                   onSplit={(paneId, dir) => void panes.splitFrom(paneId, dir)}
-                  onClose={requestClose}
+                  onClose={(paneId) => void requestClose(paneId)}
+                  onToggleShell={(paneId) => void panes.toggleShell(paneId)}
+                  onResizeShell={panes.resizeShell}
+                  onDismissShellFailure={panes.dismissShellFailure}
                 />
               ),
             }))}
@@ -210,15 +228,39 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           onConfirm={() => void confirmDelete(deleting)}
         />
       )}
-      {confirmed && stillBusy && (
+      {confirming && confirmed && stillBusy && (
         <ConfirmDialog
           title="Session is still running. Close anyway?"
-          detail={`${confirmed.workspaceName} · ${confirmed.title} will be ended.`}
+          detail={
+            confirming.shellBusy
+              ? `${confirmed.workspaceName} · ${confirmed.title} will be ended and the shell command will be stopped.`
+              : `${confirmed.workspaceName} · ${confirmed.title} will be ended.`
+          }
           action="Close"
           onCancel={cancelConfirm}
           onConfirm={() => {
             setConfirming(null);
             void panes.closePane(confirmed.pane.paneId);
+          }}
+        />
+      )}
+      {confirmingShell && (
+        <ConfirmDialog
+          title="A command is still running in the shell. Close anyway?"
+          detail={
+            confirmingShell.command ? (
+              <>
+                <span className="font-mono">{confirmingShell.command}</span> will be stopped.
+              </>
+            ) : (
+              "The shell command will be stopped."
+            )
+          }
+          action="Close"
+          onCancel={cancelShellConfirm}
+          onConfirm={() => {
+            setConfirmingShell(null);
+            void panes.closePane(confirmingShell.paneId);
           }}
         />
       )}

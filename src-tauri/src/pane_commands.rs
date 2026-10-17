@@ -13,10 +13,11 @@ use tauri::{AppHandle, Manager, State};
 use crate::commands::AppState;
 use crate::hooks::{HookServer, HookSink, hook_settings};
 use crate::launcher::{find_claude, login_shell_path_with, session_env};
-use crate::pane_status::{StatusOut, StatusTracker, now_ms};
+use crate::pane_status::{StatusOut, StatusTracker, exit_json, now_ms};
 use crate::panes::{OpenError, PaneId, SessionId, Spawner, Start, close_in_parallel, resume_id};
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
 use crate::session_title::{UNTITLED, session_title};
+use crate::shell::{Activity, ShellError, ShellProcess, ShellSpawner, spawn_shell};
 use crate::workspace::{DiskProbe, WorkspaceId};
 
 /// Upper bound on waiting for panes to close when the app quits.
@@ -95,12 +96,23 @@ pub async fn pane_title(pane_id: String, app: AppHandle) -> String {
 
 #[tauri::command]
 pub fn close_pane(pane_id: String, state: State<'_, AppState>) {
-    let process = state.panes.lock().unwrap().take(&PaneId(pane_id.clone()));
-    if let Some(mut process) = process {
-        if let Some(pid) = process.pid() {
-            crate::diag_commands::check_survivor(pane_id, pid);
-        }
-        std::thread::spawn(move || process.close());
+    let pane = PaneId(pane_id.clone());
+    let (process, shell) = {
+        // Taken under `panes`, so an `open_shell` for this pane has either registered its
+        // shell already or will not find the pane.
+        let mut panes = state.panes.lock().unwrap();
+        let process = panes.take(&pane);
+        (process, state.shells.lock().unwrap().take(&pane))
+    };
+    let processes: Vec<Box<dyn PaneProcess>> = process
+        .into_iter()
+        .chain(shell.map(|s| s as Box<dyn PaneProcess>))
+        .collect();
+    for pid in processes.iter().filter_map(|p| p.pid()) {
+        crate::diag_commands::check_survivor(pane_id.clone(), pid);
+    }
+    if !processes.is_empty() {
+        std::thread::spawn(move || close_in_parallel(processes));
     }
 }
 
@@ -110,7 +122,7 @@ pub fn close_all_on_reload(app: &AppHandle) {
     let Some(state) = app.try_state::<AppState>() else {
         return;
     };
-    let processes = state.panes.lock().unwrap().take_all();
+    let processes = take_all_processes(&state);
     for pid in processes.iter().filter_map(|p| p.pid()) {
         crate::diag_commands::check_survivor("(reload)".into(), pid);
     }
@@ -123,7 +135,7 @@ pub fn close_all_on_exit(app: &AppHandle) {
     let Some(state) = app.try_state::<AppState>() else {
         return;
     };
-    let processes = state.panes.lock().unwrap().take_all();
+    let processes = take_all_processes(&state);
     if processes.is_empty() {
         return;
     }
@@ -134,6 +146,105 @@ pub fn close_all_on_exit(app: &AppHandle) {
         let _ = done_tx.send(());
     });
     let _ = done_rx.recv_timeout(EXIT_CLOSE_LIMIT);
+}
+
+/// Every session and shell process, taken out of the registries under `panes`, like `close_pane`.
+fn take_all_processes(state: &AppState) -> Vec<Box<dyn PaneProcess>> {
+    let mut panes = state.panes.lock().unwrap();
+    let mut processes = panes.take_all();
+    let shells = state.shells.lock().unwrap().take_all();
+    drop(panes);
+    processes.extend(shells.into_iter().map(|s| s as Box<dyn PaneProcess>));
+    processes
+}
+
+#[tauri::command]
+pub async fn open_shell(
+    pane_id: String,
+    cols: u16,
+    rows: u16,
+    output: Channel<InvokeResponseBody>,
+    app: AppHandle,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        open_shell_blocking(&app, PaneId(pane_id), cols, rows, output)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn shell_write(
+    pane_id: String,
+    data: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut shells = state.shells.lock().unwrap();
+    shells
+        .write(&PaneId(pane_id), data.as_bytes())
+        .map_err(io_error)
+}
+
+#[tauri::command]
+pub fn shell_resize(
+    pane_id: String,
+    cols: u16,
+    rows: u16,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut shells = state.shells.lock().unwrap();
+    shells
+        .resize(&PaneId(pane_id), cols, rows)
+        .map_err(io_error)
+}
+
+#[tauri::command]
+pub fn shell_activity(pane_id: String, state: State<'_, AppState>) -> Result<Activity, String> {
+    let shells = state.shells.lock().unwrap();
+    shells.activity(&PaneId(pane_id)).map_err(io_error)
+}
+
+fn open_shell_blocking(
+    app: &AppHandle,
+    pane: PaneId,
+    cols: u16,
+    rows: u16,
+    output: Channel<InvokeResponseBody>,
+) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    let spawner = PtyShellSpawner {
+        env: session_env(&inherited_env(), &state.launch.get().path),
+        cols,
+        rows,
+    };
+    let replaced = {
+        // Holding `panes` keeps the pane from closing until its shell is registered.
+        let list = state.list.lock().unwrap();
+        let panes = state.panes.lock().unwrap();
+        let workspace = panes.workspace_of(&pane).ok_or("not_found")?;
+        let folder = list
+            .entries(&DiskProbe)
+            .into_iter()
+            .find(|w| w.id == workspace && !w.missing)
+            .ok_or("folder_missing")?
+            .path;
+        let mut shells = state.shells.lock().unwrap();
+        shells
+            .open(pane, &folder, &spawner, Box::new(ShellChannelSink(output)))
+            .map_err(shell_error)?
+    };
+    if let Some(mut exited) = replaced {
+        exited.close();
+    }
+    Ok(())
+}
+
+fn shell_error(e: ShellError) -> String {
+    match e {
+        ShellError::AlreadyOpen => "already_open",
+        ShellError::ShellFailed => "shell_failed",
+    }
+    .to_string()
 }
 
 fn open_blocking(
@@ -348,6 +459,50 @@ impl Spawner for PtySpawner<'_> {
                 None
             }
         }
+    }
+}
+
+/// The user's login shell, so rc files and the prompt are their own; PowerShell on Windows.
+struct PtyShellSpawner {
+    env: Vec<(String, String)>,
+    cols: u16,
+    rows: u16,
+}
+
+impl ShellSpawner for PtyShellSpawner {
+    fn spawn(&self, cwd: &Path, sink: Box<dyn OutputSink>) -> Option<Box<dyn ShellProcess>> {
+        #[cfg(unix)]
+        let (program, flag) = (user_shell().unwrap_or_else(|| "/bin/sh".into()), "-l");
+        #[cfg(windows)]
+        let (program, flag) = ("powershell.exe".to_string(), "-NoLogo");
+        let spec = SpawnSpec {
+            program: program.into(),
+            args: vec![flag.into()],
+            cwd: cwd.to_path_buf(),
+            env: self.env.clone(),
+            cols: self.cols,
+            rows: self.rows,
+        };
+        match spawn_shell(spec, sink) {
+            Ok(shell) => Some(Box::new(shell)),
+            Err(e) => {
+                crate::diag::error("shell", &format!("shell could not be started: {e}"));
+                None
+            }
+        }
+    }
+}
+
+/// Output as raw bytes, then `{"exited": code}` as the last message; a shell has no status.
+struct ShellChannelSink(Channel<InvokeResponseBody>);
+
+impl OutputSink for ShellChannelSink {
+    fn output(&self, chunk: Vec<u8>) {
+        let _ = self.0.send(InvokeResponseBody::Raw(chunk));
+    }
+
+    fn exited(&self, code: Option<i32>) {
+        let _ = self.0.send(InvokeResponseBody::Json(exit_json(code)));
     }
 }
 

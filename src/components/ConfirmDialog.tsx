@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 
-type Props = { title: string; detail: string; action: string; onCancel(): void; onConfirm(): void };
+type Props = { title: string; detail: ReactNode; action: string; onCancel(): void; onConfirm(): void };
 
 export function ConfirmDialog({ title, detail, action, onCancel, onConfirm }: Props) {
   const dialog = useRef<HTMLDivElement>(null);

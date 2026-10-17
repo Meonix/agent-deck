@@ -73,6 +73,7 @@ export function fakeStream(): FakeStream {
 
 export type FakeSessions = SessionsClient & {
   opened: { pane: OpenedPane; stream: FakeStream }[];
+  shells: { paneId: string; stream: FakeStream }[];
 };
 
 export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean; titles?: string[] } = {}) {
@@ -81,6 +82,7 @@ export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean
   let titleCall = 0;
   const client: FakeSessions = {
     opened: [],
+    shells: [],
     open: vi.fn(async (_workspaceId: string, _cols: number, _rows: number, resumeSessionId?: string) => {
       next += 1;
       const pane = { paneId: `p${next}`, sessionId: resumeSessionId ?? `s${next}`, started };
@@ -96,6 +98,14 @@ export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean
     latencyReport: vi.fn(async () => ({ within: 0, total: 0 })),
     list: vi.fn(async () => ({ sessions: [], unreadable: 0 })),
     deleteSession: vi.fn(async () => {}),
+    openShell: vi.fn(async (paneId: string) => {
+      const stream = fakeStream();
+      client.shells.push({ paneId, stream });
+      return { stream };
+    }),
+    shellWrite: vi.fn(async () => {}),
+    shellResize: vi.fn(async () => {}),
+    shellActivity: vi.fn(async () => ({ busy: false, command: null })),
     ...methods,
   };
   return client;

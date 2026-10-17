@@ -2,12 +2,15 @@ import { type RefObject, useCallback, useEffect, useRef, useState } from "react"
 import type { OpenedPane, PaneStatus, SessionState, SessionsClient } from "../api/sessions";
 import type { Workspace } from "../api/workspaces";
 import { latencyLogEnabled, withLatencyLog } from "./latencyLog";
+import { SHELL_OPEN_SIZE } from "./PaneShell";
 import { type Layout, type SplitDir, type SplitPath, paneOrder, removePane, setRatio, splitPane } from "./paneTree";
-import { type PaneEntry, type TerminalAdapter, type TerminalAdapterFactory, type TerminalSize, UNTITLED } from "./TerminalPane";
+import { type PaneEntry, type ShellEntry, type TerminalAdapter, type TerminalAdapterFactory, type TerminalSize, UNTITLED } from "./TerminalPane";
 import { useToast } from "./Toast";
 import { errorDetail } from "./useWorkspaces";
 
 const TITLE_REFRESH_MS = 10_000;
+const SHELL_ACTIVITY_MS = 1_000;
+const SHELL_RATIO = 0.3;
 // How long a pane may stay untracked before the UI says its status is unavailable.
 const STATUS_GRACE_MS = 5_000;
 const FOLDER_NOT_FOUND = "Folder not found";
@@ -38,6 +41,10 @@ export type SessionPanes = PanesState & {
   /** Back to the layout; with a pane id, that pane gets the keyboard once it is no longer inert. */
   restore(jumpToPaneId?: string): void;
   resizeSplit(path: SplitPath, ratio: number): void;
+  /** Opens the pane's shell when it has none, else hides or shows it. */
+  toggleShell(paneId: string): Promise<void>;
+  resizeShell(paneId: string, ratio: number): void;
+  dismissShellFailure(paneId: string): void;
   /** Counts for the diagnostic report. */
   diagnostics(): { expectedTerminals: number; titleTimers: number; livePanes: number };
 };
@@ -182,6 +189,8 @@ export function useSessionPanes(
           status,
           title: resumed?.title ?? UNTITLED,
           graceOver: false,
+          shell: null,
+          shellFailed: false,
         };
         setLayout((l) => {
           return {
@@ -287,6 +296,8 @@ export function useSessionPanes(
       const closing = entries.current.find((e) => e.pane.paneId === paneId);
       closing?.stream.dispose();
       closing?.adapter?.dispose();
+      closing?.shell?.stream.dispose();
+      closing?.shell?.adapter.dispose();
       setLayout((l) => ({
         entries: l.entries.filter((e) => e.pane.paneId !== paneId),
         layout: l.layout && removePane(l.layout, paneId),
@@ -297,16 +308,103 @@ export function useSessionPanes(
     [client, showToast],
   );
 
+  const shellOpening = useRef(new Set<string>());
+  const toggleShell = useCallback(
+    async (paneId: string) => {
+      const entry = entries.current.find((e) => e.pane.paneId === paneId);
+      if (!entry) return;
+      if (entry.shell) {
+        update(paneId, (e) => (e.shell ? { shell: { ...e.shell, visible: !e.shell.visible } } : {}));
+        return;
+      }
+      if (shellOpening.current.has(paneId)) return;
+      shellOpening.current.add(paneId);
+      const adapter = createTerminal();
+      try {
+        const { stream } = await client.openShell(paneId, SHELL_OPEN_SIZE.cols, SHELL_OPEN_SIZE.rows);
+        // The pane closed while the shell was starting; closing it ended the shell too.
+        if (!entries.current.some((e) => e.pane.paneId === paneId)) {
+          stream.dispose();
+          adapter.dispose();
+          return;
+        }
+        const shell: ShellEntry = { adapter, stream, visible: true, ratio: SHELL_RATIO, activity: null };
+        update(paneId, () => ({ shell, shellFailed: false }));
+        // Registered after the insert so an exit already queued finds the shell.
+        stream.onOutput((bytes) => adapter.write(bytes));
+        stream.onExit(() => {
+          stream.dispose();
+          adapter.dispose();
+          update(paneId, (e) => (e.shell?.stream === stream ? { shell: null } : {}));
+        });
+      } catch (e) {
+        adapter.dispose();
+        // "already_open": a second click got in before the first shell was rendered; that shell stays.
+        if (e !== "already_open") update(paneId, () => ({ shellFailed: true }));
+      } finally {
+        shellOpening.current.delete(paneId);
+      }
+    },
+    [client, createTerminal, update],
+  );
+
+  const resizeShell = useCallback(
+    (paneId: string, ratio: number) => update(paneId, (e) => (e.shell ? { shell: { ...e.shell, ratio } } : {})),
+    [update],
+  );
+
+  const dismissShellFailure = useCallback((paneId: string) => update(paneId, () => ({ shellFailed: false })), [update]);
+
+  // SRS-FR-058: one interval asks for every hidden shell; a failed call keeps the last answer.
+  const hiddenShells = layout.entries
+    .filter((e) => e.shell && !e.shell.visible)
+    .map((e) => e.pane.paneId)
+    .join(",");
+  useEffect(() => {
+    if (!hiddenShells) return;
+    let live = true;
+    const ask = () => {
+      for (const paneId of hiddenShells.split(",")) {
+        client.shellActivity(paneId).then(
+          (activity) => live && update(paneId, (e) => (e.shell ? { shell: { ...e.shell, activity } } : {})),
+          () => {},
+        );
+      }
+    };
+    ask();
+    const timer = setInterval(ask, SHELL_ACTIVITY_MS);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [client, hiddenShells, update]);
+
   const diagnostics = useCallback(
     () => ({
-      expectedTerminals: entries.current.filter((e) => e.adapter !== null).length,
+      expectedTerminals:
+        entries.current.filter((e) => e.adapter !== null).length + entries.current.filter((e) => e.shell !== null).length,
       titleTimers: titleTimers.current.size,
       livePanes: entries.current.filter((e) => e.pane.started && !e.ended).length,
     }),
     [],
   );
 
-  return { ...layout, newSession, resume, splitFrom, closePane, focusPane, jumpTo, maximize, restore, resizeSplit, diagnostics };
+  return {
+    ...layout,
+    newSession,
+    resume,
+    splitFrom,
+    closePane,
+    focusPane,
+    jumpTo,
+    maximize,
+    restore,
+    resizeSplit,
+    toggleShell,
+    resizeShell,
+    dismissShellFailure,
+    diagnostics,
+  };
 }
 
 function openHolder(entries: PaneEntry[], sessionId: string): PaneEntry | undefined {
