@@ -16,3 +16,15 @@ Chụp bằng Playwright ngày 2026-10-16, viewport 1440×900. Ảnh trong `refs
 
 Ảnh phụ: `refs/superset-home.png`, `refs/cmux-home.png` (phần hero, không dùng làm reference riêng).
 Đã thử nhưng bỏ: https://linear.app/docs/board-layout — trang chỉ có chữ, không thấy giao diện board.
+
+## CR-001 (2026-10-17) — cột trái báo trạng thái, phóng to ô, xoá phiên
+
+Chụp bằng Playwright ngày 2026-10-17, viewport 1440×900. Dùng lại #3, #4, #5, #7 ở trên; thêm ba mục dưới.
+
+| # | Nguồn | Link | Ảnh | Lấy gì |
+| --- | --- | --- | --- | --- |
+| 10 | Linear Inbox | https://linear.app/docs/inbox | `refs/linear-inbox.png` | Tab "Priority 4 / Other 12" có badge đếm cạnh nhãn; dòng hai tầng (tiêu đề + lý do mờ), biểu tượng trạng thái và giờ canh phải — mẫu cho dòng phiên có dòng phụ "giờ · lý do" |
+| 11 | Zed | https://zed.dev | `refs/zed-home.png` | Danh sách thread agent bên trái: dòng chọn tô nền xám, chấm màu trước tiêu đề, dòng phụ "branch · 4m"; header panel có nút ⤢ phóng to cạnh + và ⋯ |
+| 12 | iTerm2 Split Panes | https://iterm2.com/features.html | `refs/iterm2-features.png` | Header ô split mỏng một dòng, nút ✕ trái và ≡ phải — giữ header ô gọn khi thêm nút phóng to |
+
+Đã thử nhưng bỏ: https://ghostty.org (chỉ có ảnh ASCII, không thấy giao diện ô), https://slack.com/features (sidebar chỉ có mục chọn tô nền, không có badge đếm).
