@@ -5,6 +5,9 @@ import type { Workspace, WorkspacesClient } from "../api/workspaces";
 import App from "../App";
 import { fakeAdapter, fakeSessions } from "../test/fakes";
 
+// Folder names also head the Session History Panel once a folder is selected.
+const folders = () => within(screen.getByRole("list", { name: "Folders" }));
+
 const renderSidebar = (client: WorkspacesClient) =>
   render(<App workspaces={client} sessions={fakeSessions()} createTerminal={() => fakeAdapter()} />);
 
@@ -39,14 +42,14 @@ function fakeClient(initial: Workspace[], over: Partial<WorkspacesClient> = {}) 
 describe("listing (5.1)", () => {
   it("renders each folder name", async () => {
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
-    expect(await screen.findByText("alpha")).toBeInTheDocument();
-    expect(screen.getByText("beta")).toBeInTheDocument();
+    expect(await folders().findByText("alpha")).toBeInTheDocument();
+    expect(folders().getByText("beta")).toBeInTheDocument();
     expect(screen.getByText("Folders")).toBeInTheDocument();
   });
 
   it("shows Missing only on a missing entry", async () => {
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta", true)]));
-    const row = (await screen.findByText("beta")).closest("li") as HTMLElement;
+    const row = (await folders().findByText("beta")).closest("li") as HTMLElement;
     expect(within(row).getByText("Missing")).toBeInTheDocument();
     expect(screen.getAllByText("Missing")).toHaveLength(1);
   });
@@ -54,9 +57,9 @@ describe("listing (5.1)", () => {
   it("highlights the clicked entry", async () => {
     const user = userEvent.setup();
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
-    await user.click(await screen.findByText("beta"));
-    expect(screen.getByText("beta").closest("li")).toHaveAttribute("aria-current", "true");
-    expect(screen.getByText("alpha").closest("li")).not.toHaveAttribute("aria-current");
+    await user.click(await folders().findByText("beta"));
+    expect(folders().getByText("beta").closest("li")).toHaveAttribute("aria-current", "true");
+    expect(folders().getByText("alpha").closest("li")).not.toHaveAttribute("aria-current");
   });
 });
 
@@ -65,20 +68,20 @@ describe("adding (5.2)", () => {
     const user = userEvent.setup();
     const client = fakeClient([ws("a", "alpha")]);
     renderSidebar(client);
-    await screen.findByText("alpha");
+    await folders().findByText("alpha");
     await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
     expect(client.pickFolder).toHaveBeenCalled();
     expect(client.add).not.toHaveBeenCalled();
-    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(folders().getAllByRole("listitem")).toHaveLength(1);
   });
 
   it("adds a picked folder and selects it", async () => {
     const user = userEvent.setup();
     const client = fakeClient([ws("a", "alpha")], { pickFolder: vi.fn(async () => "/p/gamma") });
     renderSidebar(client);
-    await screen.findByText("alpha");
+    await folders().findByText("alpha");
     await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
-    const added = await screen.findByText("gamma");
+    const added = await folders().findByText("gamma");
     expect(added.closest("li")).toHaveAttribute("aria-current", "true");
     expect(client.add).toHaveBeenCalledWith("/p/gamma");
   });
@@ -89,12 +92,12 @@ describe("adding (5.2)", () => {
       pickFolder: vi.fn(async () => "/p/beta"),
     });
     renderSidebar(client);
-    await screen.findByText("beta");
+    await folders().findByText("beta");
     await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
     await vi.waitFor(() =>
-      expect(screen.getByText("beta").closest("li")).toHaveAttribute("aria-current", "true"),
+      expect(folders().getByText("beta").closest("li")).toHaveAttribute("aria-current", "true"),
     );
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(folders().getAllByRole("listitem")).toHaveLength(2);
   });
 });
 
@@ -102,10 +105,10 @@ describe("removing (5.3)", () => {
   it("removes the entry on success", async () => {
     const user = userEvent.setup();
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
-    const row = (await screen.findByText("alpha")).closest("li") as HTMLElement;
+    const row = (await folders().findByText("alpha")).closest("li") as HTMLElement;
     await user.click(within(row).getByRole("button", { name: /^Remove / }));
     await vi.waitFor(() => expect(screen.queryByText("alpha")).not.toBeInTheDocument());
-    expect(screen.getByText("beta")).toBeInTheDocument();
+    expect(folders().getByText("beta")).toBeInTheDocument();
   });
 
   it("keeps the entry and explains when sessions are open", async () => {
@@ -114,12 +117,12 @@ describe("removing (5.3)", () => {
       remove: vi.fn(async () => ({ ok: false as const, reason: "has_open_panes" as const })),
     });
     renderSidebar(client);
-    const row = (await screen.findByText("alpha")).closest("li") as HTMLElement;
+    const row = (await folders().findByText("alpha")).closest("li") as HTMLElement;
     await user.click(within(row).getByRole("button", { name: /^Remove / }));
     expect(
       await screen.findByText("Close the open sessions of this folder first"),
     ).toBeInTheDocument();
-    expect(screen.getByText("alpha")).toBeInTheDocument();
+    expect(folders().getByText("alpha")).toBeInTheDocument();
   });
 });
 
@@ -132,7 +135,7 @@ describe("empty state (5.4)", () => {
     expect(screen.getByText("Add a folder you work in with Claude Code.")).toBeInTheDocument();
     const main = screen.getByRole("main");
     await user.click(within(main).getByRole("button", { name: "+ Add Folder" }));
-    expect(await screen.findByText("gamma")).toBeInTheDocument();
+    expect(await folders().findByText("gamma")).toBeInTheDocument();
     expect(screen.queryByText("No folders yet")).not.toBeInTheDocument();
   });
 });
@@ -154,7 +157,7 @@ describe("robustness (fix round 1)", () => {
       add: reject("boom"),
     });
     renderSidebar(client);
-    await screen.findByText("alpha");
+    await folders().findByText("alpha");
     await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
     expect(await screen.findByText("Could not add folder: boom")).toBeInTheDocument();
   });
@@ -163,7 +166,7 @@ describe("robustness (fix round 1)", () => {
     const user = userEvent.setup();
     const client = fakeClient([ws("a", "alpha")], { remove: reject("nope") });
     renderSidebar(client);
-    await screen.findByText("alpha");
+    await folders().findByText("alpha");
     await user.click(screen.getByRole("button", { name: "Remove alpha" }));
     expect(await screen.findByText("Could not remove folder: nope")).toBeInTheDocument();
   });
@@ -175,7 +178,7 @@ describe("robustness (fix round 1)", () => {
       pickFolder: vi.fn(() => new Promise<string | null>((r) => (release = r))),
     });
     renderSidebar(client);
-    await screen.findByText("alpha");
+    await folders().findByText("alpha");
     await user.dblClick(screen.getByRole("button", { name: "+ Add Folder" }));
     expect(client.pickFolder).toHaveBeenCalledTimes(1);
     release(null);
@@ -187,18 +190,18 @@ describe("robustness (fix round 1)", () => {
   it("selects a row from the keyboard", async () => {
     const user = userEvent.setup();
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
-    await screen.findByText("beta");
+    await folders().findByText("beta");
     // Title bar "Status Latency", then "+ Add Folder", then the first row.
     await user.tab();
     await user.tab();
     await user.tab();
     await user.keyboard("{Enter}");
-    expect(screen.getByText("alpha").closest("li")).toHaveAttribute("aria-current", "true");
+    expect(folders().getByText("alpha").closest("li")).toHaveAttribute("aria-current", "true");
   });
 
   it("gives each Remove button a distinct name and exposes Missing", async () => {
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta", true)]));
-    await screen.findByText("beta");
+    await folders().findByText("beta");
     expect(screen.getByRole("button", { name: "Remove alpha" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove beta" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /beta.*Missing/ })).toBeInTheDocument();

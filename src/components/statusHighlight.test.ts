@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PaneStatus } from "../api/sessions";
-import { folderHighlights, maximizedBadge, sessionHighlights } from "./statusHighlight";
+import { activeSessions, folderHighlights, maximizedBadge } from "./statusHighlight";
 import type { PaneEntry } from "./TerminalPane";
 
 function e(id: string, workspaceId: string, status: Partial<PaneStatus>, sessionId = `s${id}`, ended = false): PaneEntry {
@@ -19,23 +19,6 @@ function e(id: string, workspaceId: string, status: Partial<PaneStatus>, session
   };
 }
 
-describe("sessionHighlights (1.1)", () => {
-  it("highlights tracked Running, Needs Approval and Error sessions only", () => {
-    const highlights = sessionHighlights([
-      e("1", "w", { state: "Running", since: 10, reason: "Bash npm test" }),
-      e("2", "w", { state: "Needs Approval", reason: "Edit a" }),
-      e("3", "w", { state: "Idle" }),
-      e("4", "w", { state: "Running", tracked: false }),
-      e("5", "w", { state: "Error", reason: "overloaded" }),
-      e("7", "w", { state: "Ended" }),
-    ]);
-    expect([...highlights.keys()]).toEqual(["s1", "s2", "s5"]);
-    expect(highlights.get("s1")).toEqual({ paneId: "1", state: "Running", since: 10, reason: "Bash npm test" });
-    expect(highlights.get("s2")?.state).toBe("Needs Approval");
-    expect(highlights.get("s5")?.state).toBe("Error");
-  });
-});
-
 describe("a session resumed after its pane ended", () => {
   // Pane 1 crashed (Error, ended) and its session was resumed in pane 2, which is Idle.
   const entries = () => [
@@ -43,19 +26,8 @@ describe("a session resumed after its pane ended", () => {
     e("2", "w", { state: "Idle" }, "s-crashed"),
   ];
 
-  it("follows the live pane, not the ended one", () => {
-    expect(sessionHighlights(entries()).has("s-crashed")).toBe(false);
-  });
-
   it("does not count the ended pane in its folder", () => {
     expect(folderHighlights(entries()).has("w")).toBe(false);
-  });
-
-  it("jumps to the live pane once it is highlighted", () => {
-    const [ended, live] = entries();
-    live.status = { ...live.status, state: "Needs Approval" };
-    expect(sessionHighlights([ended, live]).get("s-crashed")?.paneId).toBe("2");
-    expect(sessionHighlights([live, ended]).get("s-crashed")?.paneId).toBe("2");
   });
 });
 
@@ -124,5 +96,80 @@ describe("maximizedBadge (1.1)", () => {
       e("2", "w", { state: "Idle" }, "s-crashed"),
     ];
     expect(maximizedBadge(entries, "2")).toBeNull();
+  });
+});
+
+describe("activeSessions (1.1)", () => {
+  const titles = (rows: { title: string }[]) => rows.map((r) => r.title);
+
+  it("lists the session of every started pane across folders, with its folder name (SRS-FR-051)", () => {
+    const unstarted = e("3", "w", {});
+    unstarted.pane.started = false;
+    const rows = activeSessions([e("1", "a", {}), e("2", "b", {}), unstarted]);
+    expect(rows.map((r) => [r.title, r.workspaceName, r.paneId])).toEqual([
+      ["title-1", "ws-a", "1"],
+      ["title-2", "ws-b", "2"],
+    ]);
+  });
+
+  it("keeps a pane whose session ended, as Ended (SRS-FR-051)", () => {
+    const rows = activeSessions([e("1", "w", { state: "Ended" }, "s1", true)]);
+    expect(rows.map((r) => r.state)).toEqual(["Ended"]);
+  });
+
+  it("puts Error, Needs Approval, Running, Idle, Ended in that order (SRS-FR-052)", () => {
+    const rows = activeSessions([
+      e("1", "w", { state: "Running", since: 1400 }),
+      e("2", "w", { state: "Idle", since: 1 }),
+      e("3", "w", { state: "Ended" }, "s3", true),
+      e("4", "w", { state: "Error", since: 1405 }),
+      e("5", "w", { state: "Needs Approval", since: 1403 }),
+    ]);
+    expect(titles(rows)).toEqual(["title-4", "title-5", "title-1", "title-2", "title-3"]);
+  });
+
+  it("puts the session that entered the state first on top within one state (SRS-FR-052)", () => {
+    const rows = activeSessions([
+      e("1", "w", { state: "Needs Approval", since: 1403 }),
+      e("2", "w", { state: "Needs Approval", since: 1401 }),
+    ]);
+    expect(titles(rows)).toEqual(["title-2", "title-1"]);
+  });
+
+  it("counts an untracked pane as Idle, without highlight (SRS-FR-036)", () => {
+    const rows = activeSessions([
+      e("1", "w", { state: "Running", tracked: false }),
+      e("2", "w", { state: "Running", since: 5 }),
+    ]);
+    expect(rows.map((r) => [r.title, r.state, r.highlighted])).toEqual([
+      ["title-2", "Running", true],
+      ["title-1", "Idle", false],
+    ]);
+  });
+
+  it("highlights Running, Needs Approval and Error rows only and keeps their reason (SRS-FR-032)", () => {
+    const rows = activeSessions([
+      e("1", "w", { state: "Error", since: 9, reason: "overloaded" }),
+      e("2", "w", { state: "Idle" }),
+    ]);
+    expect(rows[0]).toMatchObject({ state: "Error", since: 9, reason: "overloaded", highlighted: true });
+    expect(rows[1].highlighted).toBe(false);
+  });
+
+  it("shows a resumed session once, through its live pane", () => {
+    const rows = activeSessions([
+      e("1", "w", { state: "Error" }, "s-crashed", true),
+      e("2", "w", { state: "Idle" }, "s-crashed"),
+    ]);
+    expect(rows.map((r) => [r.paneId, r.state])).toEqual([["2", "Idle"]]);
+    const reversed = activeSessions([e("2", "w", { state: "Idle" }, "s-crashed"), e("1", "w", { state: "Error" }, "s-crashed", true)]);
+    expect(reversed.map((r) => r.paneId)).toEqual(["2"]);
+  });
+
+  it("keeps the ended pane when resuming its session failed to start", () => {
+    const failed = e("2", "w", {}, "s-crashed");
+    failed.pane.started = false;
+    const rows = activeSessions([e("1", "w", { state: "Ended" }, "s-crashed", true), failed]);
+    expect(rows.map((r) => [r.paneId, r.state])).toEqual([["1", "Ended"]]);
   });
 });

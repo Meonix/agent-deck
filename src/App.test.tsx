@@ -29,28 +29,37 @@ function setup(items: Workspace[], sessions: FakeSessions = fakeSessions(), size
 }
 
 const sidebar = () => screen.getByRole("complementary", { name: "Workspaces" });
-const newSessionButton = () => within(sidebar()).getByRole("button", { name: "New Session" });
+const folderList = () => within(screen.getByRole("list", { name: "Folders" }));
+const historyPanel = () => screen.getByRole("region", { name: "Session history" });
+const newSessionButton = () => within(historyPanel()).getByRole("button", { name: "New Session" });
 const panes = () => within(screen.getByTestId("pane-grid")).getAllByRole("region");
 
 async function selectAndStart(user: ReturnType<typeof userEvent.setup>, name: string) {
-  await user.click(await within(sidebar()).findByText(name));
+  await user.click(await folderList().findByText(name));
   await user.click(newSessionButton());
 }
 
 describe("New Session (5.4)", () => {
-  it("is disabled until a folder is selected", async () => {
+  it("is disabled until a folder is selected, then offered in the Session History Panel", async () => {
     const { user } = setup([ws("a", "agent-deck")]);
-    await within(sidebar()).findByText("agent-deck");
-    expect(newSessionButton()).toBeDisabled();
-    await user.click(within(sidebar()).getByText("agent-deck"));
+    await folderList().findByText("agent-deck");
+    expect(within(screen.getByRole("main")).getByRole("button", { name: "New Session" })).toBeDisabled();
+    await user.click(folderList().getByText("agent-deck"));
     expect(newSessionButton()).toBeEnabled();
   });
 
-  it("shows No open sessions while a folder exists but no pane is open", async () => {
+  it("asks to select a folder while none is selected and no pane is open", async () => {
     setup([ws("a", "agent-deck")]);
     expect(await screen.findByText("No open sessions")).toBeInTheDocument();
-    expect(screen.getByText("Resume a session from the list, or start a new one.")).toBeInTheDocument();
-    expect(within(screen.getByRole("main")).getByRole("button", { name: "New Session" })).toBeInTheDocument();
+    expect(screen.getByText("Select a folder to see its sessions.")).toBeInTheDocument();
+    expect(within(screen.getByRole("main")).getByRole("button", { name: "New Session" })).toBeDisabled();
+  });
+
+  it("points to the history once a folder is selected", async () => {
+    const { user } = setup([ws("a", "agent-deck")]);
+    await user.click(await folderList().findByText("agent-deck"));
+    expect(screen.getByText("Resume a session from its history, or start a new one.")).toBeInTheDocument();
+    expect(within(screen.getByRole("main")).getByRole("button", { name: "New Session" })).toBeEnabled();
   });
 
   it("refuses a missing folder with Folder not found and does not open", async () => {
@@ -85,7 +94,7 @@ describe("New Session (5.4)", () => {
 
   it("starts from the empty state button too", async () => {
     const { user, sessions } = setup([ws("a", "agent-deck")]);
-    await user.click(await within(sidebar()).findByText("agent-deck"));
+    await user.click(await folderList().findByText("agent-deck"));
     await user.click(within(screen.getByRole("main")).getByRole("button", { name: "New Session" }));
     await screen.findByTestId("pane-grid");
     expect(sessions.open).toHaveBeenCalledTimes(1);
@@ -191,7 +200,7 @@ describe("Pane state (4.2 to 4.4)", () => {
     setup([ws("a", "agent-deck")], sessions);
     const settle = () => act(async () => vi.advanceTimersByTimeAsync(0));
     await settle();
-    fireEvent.click(within(sidebar()).getByText("agent-deck"));
+    fireEvent.click(folderList().getByText("agent-deck"));
     fireEvent.click(newSessionButton());
     await settle();
     return { stream: sessions.opened[0].stream };
@@ -380,22 +389,24 @@ describe("Pane state (4.2 to 4.4)", () => {
   });
 });
 
-describe("Status Highlight on session rows (2.1)", () => {
+describe("Active Sessions (2.3)", () => {
   const since = new Date(2026, 9, 16, 14, 2).getTime();
-  const sessionRow = (title: string) =>
-    within(within(sidebar()).getByRole("list", { name: "Sessions" })).getByText(title).closest("li")!;
+  const activeList = () => within(sidebar()).getByRole("list", { name: "Active sessions" });
+  const sessionRow = (title: string) => within(activeList()).getByText(title).closest("li")!;
+  const historyRow = (title: string) =>
+    within(within(historyPanel()).getByRole("list", { name: "Session history" })).getByText(title).closest("li")!;
 
   async function openPane(sessions = fakeSessions({ titles: ["Scaffold Tauri app"] })) {
     const ctx = setup([ws("a", "agent-deck")], sessions);
     await selectAndStart(ctx.user, "agent-deck");
     await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" });
-    await within(sidebar()).findByText("Scaffold Tauri app");
+    await within(activeList()).findByText("Scaffold Tauri app");
     return { ...ctx, stream: sessions.opened[0].stream };
   }
 
   it("has no Status Board column (SRS-FR-031 removed)", async () => {
     setup([ws("a", "agent-deck")]);
-    await within(sidebar()).findByText("agent-deck");
+    await folderList().findByText("agent-deck");
     expect(screen.queryByRole("complementary", { name: "Status Board" })).not.toBeInTheDocument();
     expect(screen.queryByText("Status Board")).not.toBeInTheDocument();
   });
@@ -405,31 +416,25 @@ describe("Status Highlight on session rows (2.1)", () => {
 
     act(() => stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
     expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-approval-bg");
-    expect(within(sessionRow("Scaffold Tauri app")).getByText("Needs Approval")).toBeInTheDocument();
+    expect(within(sessionRow("Scaffold Tauri app")).getByRole("img", { name: "Needs Approval" })).toBeInTheDocument();
     expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02 · Edit src/main.rs")).toBeInTheDocument();
 
     act(() => stream.status({ state: "Idle", since }));
     expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-approval-bg");
-    expect(within(sessionRow("Scaffold Tauri app")).queryByText("Needs Approval")).not.toBeInTheDocument();
-    expect(within(sessionRow("Scaffold Tauri app")).getByText("Live")).toBeInTheDocument();
+    expect(within(sessionRow("Scaffold Tauri app")).getByRole("img", { name: "Idle" })).toBeInTheDocument();
+    expect(within(sessionRow("Scaffold Tauri app")).queryByText(/14:02/)).not.toBeInTheDocument();
 
     act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
     expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-error-bg");
     expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02 · overloaded")).toBeInTheDocument();
   });
 
-  it("keeps the Live mark on a highlighted row (SRS-FR-012)", async () => {
-    const { stream } = await openPane();
-    act(() => stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
-    expect(within(sessionRow("Scaffold Tauri app")).getByText(/^Live · /)).toBeInTheDocument();
-  });
-
-  it("shows the Running chip without a detail line", async () => {
+  it("shows the Running marker without a detail line", async () => {
     const { stream } = await openPane();
     act(() => stream.status({ state: "Running", since, reason: "Bash npm test" }));
     const row = within(sessionRow("Scaffold Tauri app"));
     expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-running-bg");
-    expect(row.getByText("Running")).toBeInTheDocument();
+    expect(row.getByRole("img", { name: "Running" })).toBeInTheDocument();
     expect(row.queryByText(/14:02/)).not.toBeInTheDocument();
   });
 
@@ -439,7 +444,7 @@ describe("Status Highlight on session rows (2.1)", () => {
     expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02")).toBeInTheDocument();
   });
 
-  it("clears the highlight of an Error pane the user closes (RULE-08)", async () => {
+  it("drops the row of an Error pane the user closes (RULE-08)", async () => {
     const listed = { sessions: [{ id: "s1", title: "Scaffold Tauri app", lastActivity: since }], unreadable: 0 };
     const { user, sessions, stream } = await openPane(
       fakeSessions({ titles: ["Scaffold Tauri app"], list: vi.fn(async () => listed) }),
@@ -448,7 +453,8 @@ describe("Status Highlight on session rows (2.1)", () => {
     expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-error-bg");
     await user.click(screen.getByRole("button", { name: "Close pane" }));
     expect(sessions.close).toHaveBeenCalledWith("p1");
-    await vi.waitFor(() => expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-error-bg"));
+    await vi.waitFor(() => expect(within(activeList()).queryByText("Scaffold Tauri app")).not.toBeInTheDocument());
+    expect(within(activeList()).getByText("No active sessions")).toBeInTheDocument();
   });
 
   it("keeps the Error highlight after an abnormal exit", async () => {
@@ -468,12 +474,50 @@ describe("Status Highlight on session rows (2.1)", () => {
     act(() => stream.status({ state: "Running", since }));
     act(() => stream.status({ state: "Ended", since }));
     expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-running-bg");
-    expect(within(sessionRow("Scaffold Tauri app")).queryByText("Running")).not.toBeInTheDocument();
+    expect(within(sessionRow("Scaffold Tauri app")).getByRole("img", { name: "Ended" })).toBeInTheDocument();
+  });
+
+  it("puts Folders and Active Sessions on two different tints (SRS-NFR-009)", async () => {
+    setup([ws("a", "agent-deck")]);
+    await folderList().findByText("agent-deck");
+    expect(screen.getByRole("list", { name: "Folders" }).closest("section")).toHaveClass("bg-section-folders");
+    expect(activeList().closest("section")).toHaveClass("bg-section-active");
+  });
+
+  it("shows No active sessions while no pane is open (SRS-FR-053)", async () => {
+    setup([ws("a", "agent-deck")]);
+    expect(await within(activeList()).findByText("No active sessions")).toBeInTheDocument();
+  });
+
+  it("keeps the Status Highlight off the history row, which stays Live (SRS-FR-012)", async () => {
+    const listed = { sessions: [{ id: "s1", title: "Scaffold Tauri app", lastActivity: since }], unreadable: 0 };
+    const { stream } = await openPane(fakeSessions({ titles: ["Scaffold Tauri app"], list: vi.fn(async () => listed) }));
+    act(() => stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
+    await vi.waitFor(() => expect(within(historyRow("Scaffold Tauri app")).getByText("Live")).toBeInTheDocument());
+    expect(historyRow("Scaffold Tauri app")).not.toHaveClass("bg-approval-bg");
+    expect(within(historyPanel()).queryByText("14:02 · Edit src/main.rs")).not.toBeInTheDocument();
+  });
+
+  it("lists the open sessions of every folder with their folder, most urgent first (SRS-FR-051, SRS-FR-052)", async () => {
+    const sessions = fakeSessions({ titles: ["Fix login bug", "Scaffold Tauri app"] });
+    const { user } = setup([ws("a", "agent-deck"), ws("m", "mokairo")], sessions);
+    await selectAndStart(user, "mokairo");
+    await user.click(folderList().getByText("agent-deck"));
+    await user.click(newSessionButton());
+    await within(activeList()).findByText("Scaffold Tauri app");
+    await within(activeList()).findByText("Fix login bug");
+    const [login, scaffold] = sessions.opened.map((o) => o.stream);
+    act(() => login.status({ state: "Running", since }));
+    act(() => scaffold.status({ state: "Error", since: since + 60_000, reason: "overloaded" }));
+    const texts = () => within(activeList()).getAllByRole("listitem").map((r) => r.textContent);
+    expect(texts()).toEqual([expect.stringContaining("Scaffold Tauri app"), expect.stringContaining("Fix login bug")]);
+    expect(within(sessionRow("Scaffold Tauri app")).getByText("agent-deck")).toBeInTheDocument();
+    expect(within(sessionRow("Fix login bug")).getByText("mokairo")).toBeInTheDocument();
   });
 });
 
 describe("Status Highlight on folder rows (2.2)", () => {
-  const folderRow = (name: string) => within(sidebar()).getByText(name).closest("li")!;
+  const folderRow = (name: string) => folderList().getByText(name).closest("li")!;
 
   async function twoFolders() {
     const ctx = setup([ws("a", "agent-deck"), ws("m", "mokairo")]);
@@ -481,7 +525,7 @@ describe("Status Highlight on folder rows (2.2)", () => {
     await ctx.user.click(newSessionButton());
     await ctx.user.click(newSessionButton());
     await vi.waitFor(() => expect(ctx.sessions.opened).toHaveLength(3));
-    await ctx.user.click(within(sidebar()).getByText("agent-deck"));
+    await ctx.user.click(folderList().getByText("agent-deck"));
     return ctx;
   }
 
@@ -506,7 +550,7 @@ describe("Status Highlight on folder rows (2.2)", () => {
 
   it("highlights the selected folder too and drops the highlight when every session is Idle", async () => {
     const { user, sessions } = await twoFolders();
-    await user.click(within(sidebar()).getByText("mokairo"));
+    await user.click(folderList().getByText("mokairo"));
     const [first] = sessions.opened.map((o) => o.stream);
 
     act(() => first.status({ state: "Needs Approval" }));
@@ -604,16 +648,28 @@ describe("Status latency (2.1, 2.2)", () => {
 describe("Session list (2.1, 2.2)", () => {
   afterEach(() => vi.restoreAllMocks());
   const now = new Date(2026, 9, 16, 14, 0).getTime();
-  const sessionsPanel = () => within(sidebar()).getByRole("list", { name: "Sessions" });
+  const sessionsPanel = () => within(historyPanel()).getByRole("list", { name: "Session history" });
   const rowTexts = () => within(sessionsPanel()).getAllByRole("listitem").map((r) => r.textContent);
 
   function listing(sessions: { id: string; title: string; lastActivity: number }[], unreadable = 0) {
     return vi.fn(async () => ({ sessions, unreadable }));
   }
 
-  it("asks to select a folder first", async () => {
+  it("shows no Session History Panel before a folder is selected (SRS-FR-007)", async () => {
     setup([ws("a", "agent-deck")]);
-    expect(await within(sidebar()).findByText("Select a folder to see its sessions.")).toBeInTheDocument();
+    await folderList().findByText("agent-deck");
+    expect(screen.queryByRole("region", { name: "Session history" })).not.toBeInTheDocument();
+  });
+
+  it("opens the Session History Panel with the folder name, New Session and Close (SRS-FR-007)", async () => {
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list: listing([]) }));
+    await user.click(await folderList().findByText("agent-deck"));
+    const panel = historyPanel();
+    expect(within(panel).getByRole("heading", { name: "agent-deck" })).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "New Session" })).toBeEnabled();
+    expect(within(panel).getByRole("button", { name: "Close session history" })).toBeInTheDocument();
+    expect(await within(panel).findByText("No sessions yet")).toBeInTheDocument();
+    expect(sidebar()).not.toContainElement(panel);
   });
 
   it("lists the folder's sessions newest first with their titles and times", async () => {
@@ -623,34 +679,69 @@ describe("Session list (2.1, 2.2)", () => {
       { id: "a", title: "Write BRD and SRS", lastActivity: new Date(2026, 9, 15, 9).getTime() },
     ]);
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
-    await user.click(await within(sidebar()).findByText("agent-deck"));
-    await within(sidebar()).findByRole("list", { name: "Sessions" });
+    await user.click(await folderList().findByText("agent-deck"));
+    await within(historyPanel()).findByRole("list", { name: "Session history" });
     expect(rowTexts()).toEqual(["Scaffold Tauri app2 min ago", "Write BRD and SRSYesterday"]);
     expect(list).toHaveBeenCalledWith("a");
     expect(sessionsPanel()).toBeInTheDocument();
   });
 
-  it("reads the list again every time the folder is selected", async () => {
+  it("closes the panel on Close and the panes take its width (SRS-FR-054)", async () => {
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list: listing([]) }));
+    await user.click(await folderList().findByText("agent-deck"));
+    const grid = historyPanel().closest(".grid")!;
+    expect(grid).toHaveClass("grid-cols-[260px_280px_1fr]");
+    await user.click(within(historyPanel()).getByRole("button", { name: "Close session history" }));
+    expect(screen.queryByRole("region", { name: "Session history" })).not.toBeInTheDocument();
+    expect(grid).toHaveClass("grid-cols-[260px_1fr]");
+  });
+
+  it("closes on a click on the selected folder and opens and reads again on the next (SRS-FR-054)", async () => {
     const list = listing([]);
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
-    await user.click(await within(sidebar()).findByText("agent-deck"));
-    await within(sidebar()).findByText("No sessions yet");
-    await user.click(within(sidebar()).getByText("agent-deck"));
+    await user.click(await folderList().findByText("agent-deck"));
+    await within(historyPanel()).findByText("No sessions yet");
+    await user.click(folderList().getByText("agent-deck"));
+    expect(screen.queryByRole("region", { name: "Session history" })).not.toBeInTheDocument();
+    await user.click(folderList().getByText("agent-deck"));
+    expect(historyPanel()).toBeInTheDocument();
     await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  });
+
+  it("opens the panel and reads again when the selected folder is added again (SRS-FR-007)", async () => {
+    const list = listing([]);
+    const client = workspacesClient([ws("a", "agent-deck")]);
+    client.pickFolder = vi.fn(async () => "/p/agent-deck");
+    client.add = vi.fn(async () => ({ outcome: "alreadyPresent" as const, id: "a" }));
+    const user = userEvent.setup();
+    render(<App workspaces={client} sessions={fakeSessions({ list })} createTerminal={() => fakeAdapter()} />);
+    await user.click(await folderList().findByText("agent-deck"));
+    await within(historyPanel()).findByText("No sessions yet");
+    await user.click(within(historyPanel()).getByRole("button", { name: "Close session history" }));
+    await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
+    await within(historyPanel()).findByText("No sessions yet");
+    await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  });
+
+  it("keeps the panel open on another folder and shows that folder (SRS-FR-054)", async () => {
+    const { user } = setup([ws("a", "alpha"), ws("b", "beta")], fakeSessions({ list: listing([]) }));
+    await user.click(await folderList().findByText("alpha"));
+    await user.click(folderList().getByText("beta"));
+    expect(within(historyPanel()).getByRole("heading", { name: "beta" })).toBeInTheDocument();
   });
 
   it("shows how many sessions could not be read", async () => {
     const list = listing([{ id: "a", title: "Init repo", lastActivity: now }], 2);
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
-    await user.click(await within(sidebar()).findByText("agent-deck"));
-    expect(await within(sidebar()).findByText("2 sessions could not be read")).toBeInTheDocument();
+    await user.click(await folderList().findByText("agent-deck"));
+    expect(await within(historyPanel()).findByText("2 sessions could not be read")).toBeInTheDocument();
   });
 
   it("says a missing folder no longer exists and does not read it", async () => {
     const list = listing([]);
     const { user } = setup([ws("m", "gone", true)], fakeSessions({ list }));
-    await user.click(await within(sidebar()).findByText("gone"));
-    expect(await within(sidebar()).findByText("This folder no longer exists on disk.")).toBeInTheDocument();
+    await user.click(await folderList().findByText("gone"));
+    expect(await within(historyPanel()).findByText("This folder no longer exists on disk.")).toBeInTheDocument();
     expect(list).not.toHaveBeenCalled();
   });
 
@@ -686,8 +777,8 @@ describe("Session list (2.1, 2.2)", () => {
         : Promise.resolve({ sessions: [{ id: "b1", title: "Beta work", lastActivity: now }], unreadable: 0 }),
     );
     const { user } = setup([ws("a", "alpha"), ws("b", "beta")], fakeSessions({ list }));
-    await user.click(await within(sidebar()).findByText("alpha"));
-    await user.click(within(sidebar()).getByText("beta"));
+    await user.click(await folderList().findByText("alpha"));
+    await user.click(folderList().getByText("beta"));
     await vi.waitFor(() => expect(rowTexts()).toEqual([expect.stringContaining("Beta work")]));
     await act(async () => answerFirst({ sessions: [{ id: "a1", title: "Alpha work", lastActivity: now }], unreadable: 0 }));
     expect(rowTexts()).toEqual([expect.stringContaining("Beta work")]);
@@ -705,34 +796,34 @@ describe("Resume (2.1, 2.2)", () => {
       ],
       unreadable: 0,
     }));
-  const row = (title: string) => within(sidebar()).getByRole("button", { name: new RegExp(title) });
-  const resumeButton = () => within(sidebar()).getByRole("button", { name: "Resume" });
+  const row = (title: string) => within(historyPanel()).getByRole("button", { name: new RegExp(title) });
+  const resumeButton = () => within(historyPanel()).getByRole("button", { name: "Resume" });
 
   async function selectRow(user: ReturnType<typeof userEvent.setup>, folder: string, title: string) {
-    await user.click(await within(sidebar()).findByText(folder));
-    await user.click(await within(sidebar()).findByRole("button", { name: new RegExp(title) }));
+    await user.click(await folderList().findByText(folder));
+    await user.click(await within(historyPanel()).findByRole("button", { name: new RegExp(title) }));
   }
 
   it("offers Resume only on the selected row", async () => {
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list: list() }));
-    await user.click(await within(sidebar()).findByText("agent-deck"));
-    await within(sidebar()).findByRole("button", { name: /Scaffold/ });
-    expect(within(sidebar()).queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
+    await user.click(await folderList().findByText("agent-deck"));
+    await within(historyPanel()).findByRole("button", { name: /Scaffold/ });
+    expect(within(historyPanel()).queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
     expect(row("Scaffold")).toHaveAttribute("aria-pressed", "false");
     await user.click(row("Scaffold"));
     expect(row("Scaffold")).toHaveAttribute("aria-pressed", "true");
     expect(resumeButton()).toBeInTheDocument();
     await user.click(row("Write BRD"));
-    expect(within(sidebar()).getAllByRole("button", { name: "Resume" })).toHaveLength(1);
+    expect(within(historyPanel()).getAllByRole("button", { name: "Resume" })).toHaveLength(1);
   });
 
   it("clears the selection when another folder is selected", async () => {
     const { user } = setup([ws("a", "alpha"), ws("b", "beta")], fakeSessions({ list: list() }));
     await selectRow(user, "alpha", "Scaffold");
     expect(resumeButton()).toBeInTheDocument();
-    await user.click(within(sidebar()).getByText("beta"));
-    await within(sidebar()).findByRole("button", { name: /Scaffold/ });
-    expect(within(sidebar()).queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
+    await user.click(folderList().getByText("beta"));
+    await within(historyPanel()).findByRole("button", { name: /Scaffold/ });
+    expect(within(historyPanel()).queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
   });
 
   it("opens the session with its id in a focused pane titled after the row", async () => {
@@ -745,7 +836,7 @@ describe("Resume (2.1, 2.2)", () => {
     expect(adapters[0].focus).toHaveBeenCalled();
     expect(panes()).toHaveLength(1);
     expect(row("Scaffold")).toHaveTextContent("Live");
-    expect(within(sidebar()).getByRole("list", { name: "Sessions" }).querySelectorAll("li")).toHaveLength(2);
+    expect(within(historyPanel()).getByRole("list", { name: "Session history" }).querySelectorAll("li")).toHaveLength(2);
   });
 
   it("focuses the pane that already holds the session instead of opening another", async () => {
@@ -1041,6 +1132,7 @@ describe("Maximize pane (2.1 to 2.4)", () => {
       expect(styleOf(title)).toBe(before[title]);
     }
     expect(sidebar()).toHaveAttribute("inert");
+    expect(historyPanel()).toHaveAttribute("inert");
     expect(screen.queryAllByRole("separator")).toHaveLength(0);
     expect(button("p2", "Restore pane")).toBeInTheDocument();
   });
@@ -1169,12 +1261,14 @@ describe("Maximize pane (2.1 to 2.4)", () => {
   });
 });
 
-describe("Jump from a highlighted session row (2.3)", () => {
+describe("Jump from Active Sessions (2.4)", () => {
   const since = new Date(2026, 9, 16, 14, 2).getTime();
   const rowButton = (title: string) =>
-    within(within(within(sidebar()).getByRole("list", { name: "Sessions" })).getByText(title).closest("li")!).getAllByRole(
+    within(within(within(sidebar()).getByRole("list", { name: "Active sessions" })).getByText(title).closest("li")!).getByRole(
       "button",
-    )[0];
+    );
+  const historyRowButton = (title: string) =>
+    within(within(historyPanel()).getByRole("list", { name: "Session history" })).getByRole("button", { name: new RegExp(title) });
 
   async function twoPanesSecondAsking() {
     const listed = { sessions: [{ id: "old", title: "Old work", lastActivity: 1 }], unreadable: 0 };
@@ -1184,6 +1278,7 @@ describe("Jump from a highlighted session row (2.3)", () => {
     await ctx.user.click(newSessionButton());
     await vi.waitFor(() => expect(panes()).toHaveLength(2));
     await within(sidebar()).findByText("Second");
+    await within(historyPanel()).findByText("Old work");
     act(() => ctx.sessions.opened[1].stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
     fireEvent.focus(panes()[0]);
     expect(panes()[0]).toHaveClass("border-ring");
@@ -1215,26 +1310,33 @@ describe("Jump from a highlighted session row (2.3)", () => {
     expectJumpedToSecond(adapters, focusCalls);
   });
 
-  it("leaves Enter alone on a row without a highlight", async () => {
-    await twoPanesSecondAsking();
-    expect(fireEvent.keyDown(rowButton("Old work"), { key: "Enter" })).toBe(true);
-  });
-
   it("shows a focus ring on a session row reached with the keyboard", async () => {
     await twoPanesSecondAsking();
     expect(rowButton("Second")).toHaveClass("focus-visible:ring-2");
   });
 
-  it("does not jump from a row without a highlight", async () => {
+  it("jumps from an Idle row too (SRS-FR-037)", async () => {
+    const { user, adapters } = await twoPanesSecondAsking();
+    fireEvent.focus(panes()[1]);
+    const calls = vi.mocked(adapters[0].focus).mock.calls.length;
+
+    await user.click(rowButton("First"));
+
+    expect(vi.mocked(adapters[0].focus).mock.calls.length).toBe(calls + 1);
+    expect(panes()[0]).toHaveClass("border-ring");
+  });
+
+  it("does not jump from a history row, which offers Resume instead", async () => {
     const { user, adapters } = await twoPanesSecondAsking();
     const calls = adapters.map((a) => vi.mocked(a.focus).mock.calls.length);
 
-    await user.click(rowButton("Old work"));
+    await user.click(historyRowButton("Second"));
 
     expect(adapters.map((a) => vi.mocked(a.focus).mock.calls.length)).toEqual(calls);
     expect(panes()[0]).toHaveClass("border-ring");
-    expect(within(sidebar()).getByRole("button", { name: "Resume" })).toBeInTheDocument();
+    expect(within(historyPanel()).getByRole("button", { name: "Resume" })).toBeInTheDocument();
   });
+
 });
 
 describe("Delete a session (2.2 to 2.4)", () => {
@@ -1254,14 +1356,14 @@ describe("Delete a session (2.2 to 2.4)", () => {
       ...over,
     });
     const ctx = setup([ws("a", "agent-deck")], sessions);
-    await ctx.user.click(await within(sidebar()).findByText("agent-deck"));
-    await within(sidebar()).findByText("Old work");
+    await ctx.user.click(await folderList().findByText("agent-deck"));
+    await within(historyPanel()).findByText("Old work");
     return { ...ctx, drop: (id: string) => (rows = rows.filter((r) => r.id !== id)) };
   }
 
   const pick = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
-    await user.click(within(sidebar()).getByText(title));
-    await user.click(within(sidebar()).getByRole("button", { name: "Delete" }));
+    await user.click(within(historyPanel()).getByText(title));
+    await user.click(within(historyPanel()).getByRole("button", { name: "Delete" }));
   };
 
   it("asks before deleting and Cancel keeps the session (SRS-FR-048)", async () => {
@@ -1274,7 +1376,7 @@ describe("Delete a session (2.2 to 2.4)", () => {
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(sessions.deleteSession).not.toHaveBeenCalled();
-    expect(within(sidebar()).getByText("Old work")).toBeInTheDocument();
+    expect(within(historyPanel()).getByText("Old work")).toBeInTheDocument();
   });
 
   it("moves the session to the Trash and reads the list again (SRS-FR-047)", async () => {
@@ -1284,8 +1386,8 @@ describe("Delete a session (2.2 to 2.4)", () => {
     await user.click(screen.getByRole("button", { name: "Move to Trash" }));
 
     expect(sessions.deleteSession).toHaveBeenCalledWith("a", "old", undefined);
-    await vi.waitFor(() => expect(within(sidebar()).queryByText("Old work")).not.toBeInTheDocument());
-    expect(within(sidebar()).getByText("Init repo")).toBeInTheDocument();
+    await vi.waitFor(() => expect(within(historyPanel()).queryByText("Old work")).not.toBeInTheDocument());
+    expect(within(historyPanel()).getByText("Init repo")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -1293,7 +1395,7 @@ describe("Delete a session (2.2 to 2.4)", () => {
     const { user, sessions } = await folderWithSessions();
     await user.click(newSessionButton());
     await screen.findByRole("region", { name: "agent-deck · Live work" });
-    await within(sidebar()).findByText("Live work");
+    await within(historyPanel()).findByText("Live work");
 
     await pick(user, "Live work");
 
@@ -1312,7 +1414,7 @@ describe("Delete a session (2.2 to 2.4)", () => {
     await user.click(screen.getByRole("button", { name: "Move to Trash" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Session could not be deleted");
-    expect(within(sidebar()).getByText("Old work")).toBeInTheDocument();
+    expect(within(historyPanel()).getByText("Old work")).toBeInTheDocument();
   });
 
   it("ignores a second Delete while the first one is still running", async () => {
@@ -1323,7 +1425,7 @@ describe("Delete a session (2.2 to 2.4)", () => {
 
     await pick(user, "Old work");
     await user.click(screen.getByRole("button", { name: "Move to Trash" }));
-    await user.click(within(sidebar()).getByRole("button", { name: "Delete" }));
+    await user.click(within(historyPanel()).getByRole("button", { name: "Delete" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(sessions.deleteSession).toHaveBeenCalledTimes(1);
@@ -1333,7 +1435,7 @@ describe("Delete a session (2.2 to 2.4)", () => {
   it("leaves a pane that runs another session alone", async () => {
     const { user } = await folderWithSessions({ deleteSession: vi.fn(async () => Promise.reject("wrong_pane")) });
     await user.click(newSessionButton());
-    await within(sidebar()).findByText("Live work");
+    await within(historyPanel()).findByText("Live work");
 
     await pick(user, "Live work");
     await user.click(screen.getByRole("button", { name: "Close and move" }));
@@ -1373,7 +1475,7 @@ describe("Delete a session (2.2 to 2.4)", () => {
     await pick(ctx.user, "Old work");
     await ctx.user.click(screen.getByRole("button", { name: "Move to Trash" }));
 
-    await vi.waitFor(() => expect(within(sidebar()).queryByText("Old work")).not.toBeInTheDocument());
+    await vi.waitFor(() => expect(within(historyPanel()).queryByText("Old work")).not.toBeInTheDocument());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
@@ -1388,7 +1490,7 @@ describe("Diagnostics report (2.1)", () => {
     render(<App workspaces={workspacesClient([ws("a", "agent-deck")])} sessions={sessions} createTerminal={() => fakeAdapter()} diag={diag} />);
     const settle = () => act(async () => vi.advanceTimersByTimeAsync(0));
     await settle();
-    fireEvent.click(within(sidebar()).getByText("agent-deck"));
+    fireEvent.click(folderList().getByText("agent-deck"));
     fireEvent.click(newSessionButton());
     await settle();
 

@@ -6,7 +6,8 @@ import { StatusLatencyReport } from "./components/StatusLatencyReport";
 import { PaneGrid } from "./components/PaneGrid";
 import { TerminalPane, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
 import { ToastProvider, useToast } from "./components/Toast";
-import { folderHighlights, maximizedBadge, sessionHighlights } from "./components/statusHighlight";
+import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
+import { activeSessions, folderHighlights, maximizedBadge } from "./components/statusHighlight";
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useWorkspaces } from "./components/useWorkspaces";
 import type { OpenSession } from "./components/sessionList";
@@ -87,7 +88,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   const [reloads, setReloads] = useState(0);
   const sessionList = useSessionList(sessions, workspaces.selected, workspaces.selections, openHere, reloads);
   const now = useMinuteClock();
-  const highlights = { sessions: sessionHighlights(panes.entries), folders: folderHighlights(panes.entries) };
+  const historyShown = workspaces.historyOpen && workspaces.selected !== null;
   const othersBadge = panes.maximizedId === null ? null : maximizedBadge(panes.entries, panes.maximizedId);
 
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -133,19 +134,27 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   };
 
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-[260px_1fr]">
+    <div className={`flex-1 min-h-0 grid ${historyShown ? "grid-cols-[260px_280px_1fr]" : "grid-cols-[260px_1fr]"}`}>
       <WorkspaceSidebar
         workspaces={workspaces}
-        onNewSession={newSession}
-        onResume={resume}
-        onDelete={requestDelete}
+        folderHighlights={folderHighlights(panes.entries)}
+        active={activeSessions(panes.entries)}
         onJump={panes.jumpTo}
-        sessions={sessionList}
-        openSessions={openSessions}
-        highlights={highlights}
         covered={panes.maximizedId !== null}
-        now={now}
       />
+      {historyShown && workspaces.selected && (
+        <SessionHistoryPanel
+          workspaceName={workspaces.selected.name}
+          sessions={sessionList}
+          openSessions={openSessions}
+          covered={panes.maximizedId !== null}
+          now={now}
+          onNewSession={newSession}
+          onClose={workspaces.closeHistory}
+          onResume={resume}
+          onDelete={requestDelete}
+        />
+      )}
       <main ref={paneArea} className="min-h-0 min-w-0">
         {panes.layout ? (
           <PaneGrid
@@ -181,7 +190,11 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
         ) : (
           <CenteredState
             title="No open sessions"
-            hint="Resume a session from the list, or start a new one."
+            hint={
+              workspaces.selected === null
+                ? "Select a folder to see its sessions."
+                : "Resume a session from its history, or start a new one."
+            }
             action="New Session"
             disabled={workspaces.selected === null}
             onAction={newSession}
