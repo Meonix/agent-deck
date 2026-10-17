@@ -69,3 +69,56 @@ Backlog — thêm (áp sau GATE CR):
 Thiết kế: design/agent-deck/ (brief.md, Wireframe.stories.js, render.js) còn vẽ Status Board 3 cột → /ux-design-ui cập nhật wireframe trước khi code mục 9 và 10. Không sửa ở CR này.
 
 Việc tiếp theo: /ux-design-ui (cột trái có Status Highlight, ô phóng to) → /dev-update add-status-board (mục 9) → /dev-feature add-pane-maximize (mục 10) → /dev-feature add-session-delete (mục 11).
+
+## CR-002 — Tách "Active Sessions" ở cột trái, lịch sử phiên sang khung phải
+Ngày: 2026-10-17
+Yêu cầu: "1. update tính năng hiển thị "Sessions" sang tên là "Active Sessions" nghĩa là các Session đang chạy còn history thì sẽ hiển thị bên phải khi mà user chọn/click vào folder. 2. màu của section tôi nghĩ nên thêm màu hoặc border color để phân biệt 2 section khác nhau. 2 màu này tuyệt đối không dùng màu hight contrast"
+Status: Approved (2026-10-17)
+Ảnh hưởng:
+- Lịch sử phiên: SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-NFR-003 (archived: add-session-history → /dev-update); "session list" đổi chỗ hiện.
+- Dùng "session list": SRS-FR-013 (archived: add-session-resume), SRS-FR-019 (archived: add-session-pane), SRS-FR-032, SRS-FR-033, SRS-FR-037 (archived: update-status-highlight), SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050 (archived: add-session-delete).
+- Phóng to: SRS-FR-041 "covering the Workspace List, the session list and the other panes" (archived: add-pane-maximize). Ghi chú: lần trước nói nhầm SRS-FR-043; SRS-FR-043 là reflow, không đổi.
+- SRS mục 1 Thuật ngữ (Session History), mục 2.1 luồng chính bước 3, mục 2.2, mục 7 Màn hình. BRD: BR-06 ("danh sách phiên") → sửa chữ; BR-02 không nói vị trí → không đổi.
+- Spec/code: openspec/specs/session-history, session-resume, pane-layout, status-board; src/App.tsx, src/components/WorkspaceSidebar.tsx, useSessionList.ts, sessionList.ts.
+- Thiết kế: design/agent-deck/brief.md mục Cửa sổ chính, stories/WireframeCr001 → /ux-design-ui (màu hai section).
+Trả lời của PO (2026-10-17):
+- Active Sessions liệt kê phiên đang mở trong ô của mọi folder, mỗi dòng ghi tên folder.
+- Lịch sử phiên hiện ở một cột riêng giữa cột trái và các ô (các ô hẹp lại, terminal fit lại); đóng bằng nút × hoặc bấm lại folder đang chọn.
+- Active Sessions giữ trạng thái: Status Highlight, dòng phụ "giờ · lý do", bấm dòng bất kỳ để tới ô. Khung lịch sử giữ quản lý: New Session, Resume, Delete, nhãn `Live`, không tô trạng thái.
+- Active Sessions xếp gấp trước (`Error` > `Needs Approval` > `Running` > `Idle` > `Ended`), cùng trạng thái thì phiên vào trạng thái sớm nhất ở trên; rỗng → "No active sessions".
+- Hai section có màu là Folders và Active Sessions ở cột trái. Ngưỡng: nền mỗi section so với nền cột trái ≤ 1.25:1, chữ trên nền đó ≥ 4.5:1, cả light và dark.
+
+Diff đề xuất:
+
+Phiên bản: BRD v2.0 → v2.1 (sửa BR-06; không đụng BO). SRS v1.1 → v1.2.
+
+BRD:
+- BR-06. Trước: "Người dùng thấy ngay trên danh sách folder và danh sách phiên phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi". Sau: "Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi".
+
+SRS — đổi:
+- Thuật ngữ: thêm "Active Sessions — section ở cột trái, liệt kê mọi phiên đang mở trong ô của mọi workspace"; thêm "Session History Panel — cột nằm giữa cột trái và các ô, hiện Session History của workspace đang chọn"; Status Highlight "trên dòng phiên…" → "trên dòng của Active Sessions…".
+- Mục 2.1 luồng chính bước 3. Trước: "lịch sử phiên của nó hiện ra (2.2)". Sau: "Session History Panel mở ra với lịch sử phiên của nó (2.2)".
+- Mục 2.2 luồng: bước 2 "liệt kê trong Session History Panel"; thêm A3 người dùng đóng khung → SRS-FR-054.
+- SRS-FR-007. Trước: "When the user selects a workspace, the system shall list every Claude Code session that belongs to that workspace per RULE-02." Sau: "When the user selects a workspace, the system shall open the Session History Panel listing every Claude Code session that belongs to that workspace per RULE-02." Ví dụ: chọn `agent-deck` có 3 phiên → khung bên phải cột trái mở, 3 dòng; các ô hẹp lại, terminal fit theo SRS-FR-024.
+- SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-019, SRS-FR-047, SRS-FR-050, SRS-NFR-003: "the session list" → "the Session History Panel"; nghĩa khác giữ nguyên.
+- SRS-FR-012 thêm Ví dụ âm: dòng `Live` trong Session History Panel không có Status Highlight.
+- SRS-FR-048. Trước: "When the user chooses Delete on a session row, …". Sau: "When the user chooses Delete on a row of the Session History Panel, …".
+- SRS-FR-032. Trước: "…on the row of that session in the session list." Sau: "…on the row of that session in Active Sessions." Ví dụ: `agent-deck` ô 1 `Running`, `mokairo` ô 2 `Needs Approval`, ô 3 `Idle` → dòng ô 2 nền Needs Approval, dòng ô 1 nền Running, dòng ô 3 không tô, bất kể folder nào đang chọn.
+- SRS-FR-037. Trước: "When the user clicks a session row that shows a Status Highlight, …". Sau: "When the user clicks a row in Active Sessions, the system shall move keyboard focus to the pane of that session." Tên: "Jump to pane from Active Sessions". Ví dụ âm mới: bấm dòng `Idle` → vẫn tới ô đó.
+- SRS-FR-041. Trước: "…covering the Workspace List, the session list and the other panes." Sau: "…covering the Workspace List, Active Sessions, the Session History Panel and the other panes."
+- Mục 2.6 bước 3, mục 2.7 bước 1, mục 2.9 bước 1: theo tên mới. Mục 7: "Session List" tách thành "Active Sessions" (SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-037, SRS-FR-038, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-NFR-009) và "Session History Panel" (SRS-FR-007 … SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047 … SRS-FR-050, SRS-FR-054, SRS-NFR-003); Workspace List thêm SRS-NFR-009. Mục 11: SRS-FR-001 đến SRS-FR-054, SRS-NFR-001 đến SRS-NFR-009. Mục 12 dựng lại bằng grep.
+- SRS-FR-033, SRS-FR-040, SRS-FR-043, SRS-FR-044: không đổi.
+
+SRS — mới:
+- SRS-FR-051 — List active sessions (BR-06, Test): "The system shall list in Active Sessions every session open in a pane across all workspaces, with its title and its workspace name." Ví dụ: `agent-deck` có 1 ô, `mokairo` có 1 ô → Active Sessions 2 dòng "Scaffold Tauri app · agent-deck", "Fix login bug · mokairo". Ví dụ âm: phiên cũ không mở trong ô → không có trong Active Sessions.
+- SRS-FR-052 — Order active sessions (BR-06, Test): "The system shall order Active Sessions by state urgency, `Error`, `Needs Approval`, `Running`, `Idle`, `Ended`, and within one state by the time the session entered that state, earliest first." Ví dụ: ô 1 `Running` từ 14:00, ô 2 `Error` từ 14:05, ô 3 `Needs Approval` từ 14:03 → thứ tự ô 2, ô 3, ô 1.
+- SRS-FR-053 — Empty active sessions (BR-06, Test): "While no session is open in a pane, the system shall show the message "No active sessions" in Active Sessions." Ví dụ âm: mở app, chưa mở ô nào → hiện "No active sessions".
+- SRS-FR-054 — Close the Session History Panel (BR-02, Test): "When the user chooses Close on the Session History Panel or clicks the selected workspace again, the system shall hide the Session History Panel." Giải thích: các ô rộng ra, terminal fit lại (SRS-FR-024); bấm folder lần nữa thì mở lại (SRS-FR-007). Ví dụ: khung `agent-deck` đang mở, bấm lại `agent-deck` → khung đóng.
+- SRS-NFR-009 — Sidebar section tints (BR-06, Analysis): "The system shall give the Workspace List section and the Active Sessions section two different background tints, each with a contrast ratio of at most 1.25:1 against the sidebar background and a text contrast of at least 4.5:1, in both light and dark themes." Ví dụ âm: nền section 1.6:1 so với nền cột trái → không đạt.
+
+Backlog — thêm (áp sau GATE CR):
+- 12 · Tách Active Sessions ở cột trái, lịch sử phiên sang khung phải · update-active-sessions · SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-019, SRS-FR-032, SRS-FR-037, SRS-FR-041, SRS-FR-047, SRS-FR-048, SRS-FR-050, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-FR-054, SRS-NFR-003, SRS-NFR-009 · phụ thuộc 5, 6, 9, 10, 11 · Should; CR-002, đổi hành vi đã archived của mục 5, 6, 9, 10, 11 → /dev-update.
+
+Thiết kế: design/agent-deck/brief.md, stories (wireframe cột trái + Session History Panel, hai tint) → /ux-design-ui. Không sửa ở CR này.
+
+Việc tiếp theo: /ux-design-ui (Active Sessions, Session History Panel, hai tint) → /dev-update add-session-history (mục 12).

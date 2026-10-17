@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v2.0 (2026-10-17)
+status: Approved v2.1 (2026-10-17)
 ---
 # BRD — agent-deck
 
@@ -62,7 +62,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BR-03 | Người dùng mở lại một phiên cũ để làm tiếp | BO-02 | Must |
 | BR-04 | Người dùng bắt đầu một phiên Claude Code mới trong folder đang chọn | BO-02 | Must |
 | BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, chia ô ngang và dọc, phóng to một ô ra cả cửa sổ, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
-| BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
+| BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
 | BR-07 | Từ dấu báo trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
 | BR-08 | Người dùng xoá một phiên cũ của folder bằng cách chuyển nó vào Thùng rác | BO-02 | Should |
 
@@ -74,8 +74,8 @@ Quy trình chính:
 2. App hiện các phiên đã có của folder đó.
 3. Người dùng mở lại một phiên cũ, hoặc bắt đầu phiên mới; phiên mở ra trong một ô.
 4. Người dùng mở thêm ô, ở cùng folder hoặc folder khác.
-5. Khi một phiên cần duyệt hoặc gặp lỗi, dòng phiên và dòng folder của nó ở cột trái đổi màu và hiện badge.
-6. Người dùng bấm vào dòng phiên đó để tới đúng ô và xử lý.
+5. Khi một phiên cần duyệt hoặc gặp lỗi, dòng của nó trong danh sách phiên đang mở và dòng folder của nó ở cột trái đổi màu và hiện badge.
+6. Người dùng bấm vào dòng đó để tới đúng ô và xử lý.
 
 Luật nghiệp vụ:
 
@@ -134,3 +134,4 @@ Luật nghiệp vụ:
 | --- | --- | --- | --- |
 | v1.0 | 2026-10-15 | PO | Duyệt, chuyển sang viết SRS |
 | v2.0 | 2026-10-17 | PO | CR-001: chỉ số BO-01 đổi sang dấu báo trạng thái; BR-05, BR-06, BR-07 sửa; thêm BR-08; nới ràng buộc chỉ-đọc cho xoá vào Thùng rác |
+| v2.1 | 2026-10-17 | PO | CR-002: BR-06 "danh sách phiên" → "danh sách phiên đang mở" (Active Sessions); lịch sử phiên sang khung riêng |

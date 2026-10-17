@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.1 (2026-10-17)
+status: Baselined v1.2 (2026-10-17)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -50,9 +50,11 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | `Missing` | Workspace mà folder của nó không còn trên máy |
 | Session | Một phiên làm việc của Claude Code, gắn với folder nơi nó được bắt đầu |
 | Session History | Danh sách phiên đã có trên máy của một workspace |
+| Session History Panel | Cột nằm giữa cột trái và các ô, hiện Session History của workspace đang chọn |
+| Active Sessions | Section ở cột trái, liệt kê mọi phiên đang mở trong ô của mọi workspace |
 | `Live` | Phiên đang mở trong một ô của agent-deck |
 | Pane | Một ô trong cửa sổ, chạy đúng một phiên |
-| Status Highlight | Màu nền + badge trạng thái trên dòng phiên, dòng folder, và badge trên tiêu đề Maximized Pane |
+| Status Highlight | Màu nền + badge trạng thái trên dòng của Active Sessions, dòng folder, và badge trên tiêu đề Maximized Pane |
 | Maximized Pane | Ô đang phóng to ra cả cửa sổ |
 | `Running` | Đang chạy |
 | `Needs Approval` | Cần duyệt |
@@ -65,7 +67,7 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 
 ## 2.1 Quản lý folder làm việc
 
-- Luồng chính: 1. Người dùng chọn "Add Folder" và chọn một folder. 2. Folder hiện trong Workspace List. 3. Người dùng chọn folder đó; lịch sử phiên của nó hiện ra (2.2).
+- Luồng chính: 1. Người dùng chọn "Add Folder" và chọn một folder. 2. Folder hiện trong Workspace List. 3. Người dùng chọn folder đó; Session History Panel mở ra với lịch sử phiên của nó (2.2).
 - Luồng chính (bỏ folder): 1. Người dùng chọn "Remove" trên một workspace. 2. Workspace biến khỏi danh sách; lịch sử phiên trên máy giữ nguyên.
 - Luồng thay thế: A1 người dùng huỷ hộp chọn folder → danh sách giữ nguyên.
 - Luồng ngoại lệ: E1 folder đã có trong danh sách → chọn mục cũ, không thêm trùng → SRS-FR-003
@@ -123,44 +125,45 @@ If the user removes a workspace that has an open pane, then the system shall rej
 
 ## 2.2 Lịch sử phiên
 
-- Luồng chính: 1. Người dùng chọn một workspace. 2. Hệ thống liệt kê các phiên bắt đầu trong đúng folder đó theo RULE-02, mỗi phiên có tiêu đề (RULE-01) và thời điểm hoạt động gần nhất.
+- Luồng chính: 1. Người dùng chọn một workspace. 2. Hệ thống mở Session History Panel, liệt kê các phiên bắt đầu trong đúng folder đó theo RULE-02, mỗi phiên có tiêu đề (RULE-01) và thời điểm hoạt động gần nhất.
 - Luồng thay thế: A1 folder chưa có phiên nào → hiện "No sessions yet" → SRS-FR-010
 - Luồng thay thế: A2 phiên bắt đầu ở folder con → không thuộc workspace cha theo RULE-02 → SRS-FR-007
+- Luồng thay thế: A3 người dùng đóng khung hoặc bấm lại folder đang chọn → khung ẩn → SRS-FR-054
 - Luồng ngoại lệ: E1 có phiên không đọc được → báo số phiên không đọc được → SRS-FR-011
 
 ### SRS-FR-007 — List sessions of a workspace
-When the user selects a workspace, the system shall list every Claude Code session that belongs to that workspace per RULE-02.
+When the user selects a workspace, the system shall open the Session History Panel listing every Claude Code session that belongs to that workspace per RULE-02.
 - Giải thích: mỗi lần chọn folder thì danh sách được đọc lại, nên phiên mới tạo ngoài app cũng hiện ra.
-- Ví dụ: chọn `agent-deck` có 3 phiên → danh sách 3 dòng.
+- Ví dụ: chọn `agent-deck` có 3 phiên → khung bên phải cột trái mở, 3 dòng; các ô hẹp lại, terminal fit theo SRS-FR-024.
 - Ví dụ âm: phiên bắt đầu ở `/Users/mionix/Project/agent-deck/ui` → không có trong danh sách của `agent-deck`.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-02
 
 ### SRS-FR-008 — Show session title and last activity
-The system shall show the title per RULE-01 and the last activity time of each session in the session list.
+The system shall show the title per RULE-01 and the last activity time of each session in the Session History Panel.
 - Ví dụ: phiên có tiêu đề Claude Code đặt là "Scaffold Tauri app", hoạt động lần cuối 2 phút trước → dòng "Scaffold Tauri app · 2 min ago".
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-02
 
-### SRS-FR-009 — Order session list
-The system shall order the session list by last activity time, newest first.
+### SRS-FR-009 — Order session history
+The system shall order the Session History Panel by last activity time, newest first.
 - Giải thích: theo A-03, phiên vừa làm nằm trên cùng để mở lại ít thao tác nhất.
 - Ví dụ: phiên A hoạt động hôm qua, phiên B 2 phút trước → B nằm trên A.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-02
 
-### SRS-FR-010 — Empty session list
-If the selected workspace has no session, then the system shall show the message "No sessions yet" in the session list.
+### SRS-FR-010 — Empty session history
+If the selected workspace has no session, then the system shall show the message "No sessions yet" in the Session History Panel.
 - Ví dụ âm: folder mới tinh chưa chạy Claude Code lần nào → hiện "No sessions yet".
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-02
 
 ### SRS-FR-011 — Report unreadable sessions
-If one or more sessions of the selected workspace cannot be read, then the system shall show the notice "<N> sessions could not be read" in the session list.
+If one or more sessions of the selected workspace cannot be read, then the system shall show the notice "<N> sessions could not be read" in the Session History Panel.
 - Giải thích: theo rủi ro trong BRD, Claude Code đổi cách lưu phiên thì phải báo rõ, không im lặng hiện thiếu.
 - Ví dụ âm: 10 phiên, 2 phiên hỏng → hiện 8 phiên và dòng "2 sessions could not be read".
 - Kiểm chứng: Test
@@ -168,9 +171,19 @@ If one or more sessions of the selected workspace cannot be read, then the syste
 - Nguồn: BR-02
 
 ### SRS-FR-012 — Mark live sessions
-While a session is open in a pane, the system shall mark that session as `Live` in the session list.
+While a session is open in a pane, the system shall mark that session as `Live` in the Session History Panel.
 - Ví dụ: phiên "Scaffold Tauri app" đang mở trong một ô → dòng của nó có nhãn `Live`.
+- Ví dụ âm: phiên đó đang `Needs Approval` → dòng `Live` trong Session History Panel không có Status Highlight (trạng thái hiện ở Active Sessions, SRS-FR-032).
 - Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-02
+
+### SRS-FR-054 — Close the Session History Panel
+When the user chooses Close on the Session History Panel or clicks the selected workspace again, the system shall hide the Session History Panel.
+- Giải thích: các ô rộng ra, terminal fit lại (SRS-FR-024); bấm folder lần nữa thì khung mở lại (SRS-FR-007).
+- Ví dụ: khung `agent-deck` đang mở, bấm lại `agent-deck` → khung đóng, các ô rộng ra.
+- Ví dụ: khung đang mở, bấm × trên khung → khung đóng.
+- Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-02
 
@@ -182,7 +195,7 @@ While a session is open in a pane, the system shall mark that session as `Live` 
 - Luồng ngoại lệ: E2 không khởi động được Claude Code → báo trong ô → SRS-FR-017
 
 ### SRS-FR-013 — Resume a session
-When the user resumes a session from the session list, the system shall open a new pane that continues that session in its workspace folder.
+When the user resumes a session from the Session History Panel, the system shall open a new pane that continues that session in its workspace folder.
 - Giải thích: hội thoại cũ còn nguyên, người dùng gõ tiếp được ngay.
 - Ví dụ: resume "Scaffold Tauri app" → ô mới hiện lại hội thoại trước, gõ "tiếp tục" được Claude Code trả lời trong ngữ cảnh cũ.
 - Kiểm chứng: Demo
@@ -223,7 +236,7 @@ If Claude Code cannot be started for a pane, then the system shall show the mess
 ## 2.4 Bắt đầu phiên mới
 
 - Luồng chính: 1. Người dùng chọn một workspace. 2. Người dùng chọn "New Session". 3. Một ô mới mở, chạy phiên Claude Code mới trong folder đó, con trỏ ở ô đó (SRS-FR-014).
-- Luồng thay thế: A1 phiên mới xuất hiện ngay trong danh sách phiên của workspace → SRS-FR-019
+- Luồng thay thế: A1 phiên mới xuất hiện ngay trong Session History Panel của workspace và trong Active Sessions → SRS-FR-019, SRS-FR-051
 - Luồng ngoại lệ: E1 workspace `Missing` → từ chối → SRS-FR-020
 - Luồng ngoại lệ: E2 không khởi động được Claude Code → báo trong ô (như SRS-FR-017)
 
@@ -234,8 +247,8 @@ When the user starts a new session in the selected workspace, the system shall o
 - Ưu tiên: Must
 - Nguồn: BR-04
 
-### SRS-FR-019 — Add the new session to the session list
-When a new session starts in a pane, the system shall add that session to the session list of its workspace.
+### SRS-FR-019 — Add the new session to the session history
+When a new session starts in a pane, the system shall add that session to the Session History Panel of its workspace.
 - Ví dụ: bắt đầu phiên mới trong `agent-deck` → danh sách phiên của `agent-deck` có thêm một dòng `Live` ở trên cùng.
 - Kiểm chứng: Test
 - Ưu tiên: Must
@@ -334,7 +347,7 @@ The system shall show the workspace name and the session title in the header of 
 - Nguồn: BR-05
 
 ### SRS-FR-041 — Maximize pane
-When the user chooses Maximize on a pane, the system shall show that pane over the whole application window below the title bar, covering the Workspace List, the session list and the other panes.
+When the user chooses Maximize on a pane, the system shall show that pane over the whole application window below the title bar, covering the Workspace List, Active Sessions, the Session History Panel and the other panes.
 - Giải thích: các ô khác vẫn chạy, không kết thúc phiên nào.
 - Ví dụ: 3 ô, phóng to ô 2 → chỉ thấy ô 2; ô 1 và ô 3 vẫn `Running`.
 - Kiểm chứng: Demo
@@ -365,7 +378,7 @@ If a new pane opens while a pane is maximized, then the system shall restore the
 
 ## 2.6 Trạng thái phiên
 
-- Luồng chính: 1. Một phiên trong ô đổi trạng thái theo RULE-03 đến RULE-07. 2. Status Highlight cập nhật trong ≤ 3 giây. 3. Phiên `Running`, `Needs Approval`, `Error` tô dòng phiên và dòng folder theo trạng thái; `Idle` và `Ended` không tô.
+- Luồng chính: 1. Một phiên trong ô đổi trạng thái theo RULE-03 đến RULE-07. 2. Status Highlight cập nhật trong ≤ 3 giây. 3. Phiên `Running`, `Needs Approval`, `Error` tô dòng của phiên trong Active Sessions và dòng folder theo trạng thái; `Idle` và `Ended` không tô.
 - Luồng thay thế: A1 phiên mở ngoài agent-deck → không có trạng thái, không có Status Highlight (BRD mục 5).
 - Luồng thay thế: A2 một lệnh hay công cụ Claude Code chạy bị lỗi nhưng lượt vẫn tiếp → không tính `Error` theo RULE-06 → SRS-FR-032
 - Luồng thay thế: A3 phiên `Error` nhận yêu cầu mới → `Running`; đóng ô → hết tô, theo RULE-08 → SRS-FR-032
@@ -378,9 +391,9 @@ If a new pane opens while a pane is maximized, then the system shall restore the
 Không còn bảng ba cột; trạng thái hiện bằng Status Highlight ở cột trái (SRS-FR-032, SRS-FR-040).
 
 ### SRS-FR-032 — Highlight session rows
-While a session open in a pane is in the state `Running`, `Needs Approval` or `Error`, the system shall show the Status Highlight of that state on the row of that session in the session list.
+While a session open in a pane is in the state `Running`, `Needs Approval` or `Error`, the system shall show the Status Highlight of that state on the row of that session in Active Sessions.
 - Giải thích: trạng thái xác định theo RULE-03, RULE-04, RULE-05, RULE-06, RULE-07, RULE-08 và bảng ở mục 5.
-- Ví dụ: ô 1 `Running`, ô 2 `Needs Approval`, ô 3 `Idle`, cùng folder đang chọn → dòng 1 nền Running + badge "Running", dòng 2 nền Needs Approval + badge "Needs Approval", dòng 3 không tô.
+- Ví dụ: `agent-deck` ô 1 `Running`, `mokairo` ô 2 `Needs Approval`, ô 3 `Idle` → dòng ô 2 nền Needs Approval + badge "Needs Approval", dòng ô 1 nền Running + badge "Running", dòng ô 3 không tô, bất kể folder nào đang chọn.
 - Ví dụ âm: phiên `Ended` → dòng không tô.
 - Ví dụ âm: Claude Code chạy `npm test` bị fail rồi tự sửa tiếp → dòng vẫn Running, không tô Error (RULE-06).
 - Kiểm chứng: Test
@@ -429,6 +442,29 @@ While at least one session of a workspace open in a pane is `Running`, `Needs Ap
 - Ưu tiên: Must
 - Nguồn: BR-06
 
+### SRS-FR-051 — List active sessions
+The system shall list in Active Sessions every session open in a pane across all workspaces, with its title and its workspace name.
+- Ví dụ: `agent-deck` có 1 ô, `mokairo` có 1 ô → Active Sessions có 2 dòng "Scaffold Tauri app · agent-deck" và "Fix login bug · mokairo".
+- Ví dụ âm: phiên cũ không mở trong ô → không có trong Active Sessions.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
+### SRS-FR-052 — Order active sessions
+The system shall order Active Sessions by state urgency, `Error`, `Needs Approval`, `Running`, `Idle`, `Ended`, and within one state by the time the session entered that state, earliest first.
+- Giải thích: phiên cần mình nằm trên cùng (BO-01); cùng luật gấp với SRS-FR-045.
+- Ví dụ: ô 1 `Running` từ 14:00, ô 2 `Error` từ 14:05, ô 3 `Needs Approval` từ 14:03 → thứ tự ô 2, ô 3, ô 1.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
+### SRS-FR-053 — Empty active sessions
+While no session is open in a pane, the system shall show the message "No active sessions" in Active Sessions.
+- Ví dụ âm: mở app, chưa mở ô nào → Active Sessions hiện "No active sessions".
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
 ### SRS-FR-044 — Maximized pane status badge
 While a pane is maximized and at least one other session open in a pane is `Needs Approval` or `Error`, the system shall show in the header of the Maximized Pane a badge with the number of those sessions.
 - Giải thích: cột trái bị che khi phóng to (SRS-FR-041), badge giữ BO-01. Badge màu Error nếu có ít nhất một phiên `Error`, còn lại màu Needs Approval.
@@ -440,12 +476,13 @@ While a pane is maximized and at least one other session open in a pane is `Need
 
 ## 2.7 Chuyển tới ô từ dấu báo trạng thái
 
-- Luồng chính: 1. Người dùng bấm một dòng phiên đang có Status Highlight. 2. Ô của phiên đó được focus, sẵn sàng nhận phím.
+- Luồng chính: 1. Người dùng bấm một dòng trong Active Sessions. 2. Ô của phiên đó được focus, sẵn sàng nhận phím.
 - Luồng thay thế: A1 đang có Maximized Pane, người dùng bấm badge trên tiêu đề → thu về, focus ô gấp nhất → SRS-FR-045
 
-### SRS-FR-037 — Jump to pane from a highlighted row
-When the user clicks a session row that shows a Status Highlight, the system shall move keyboard focus to the pane of that session.
+### SRS-FR-037 — Jump to pane from Active Sessions
+When the user clicks a row in Active Sessions, the system shall move keyboard focus to the pane of that session.
 - Ví dụ: bấm dòng "Scaffold Tauri app" đang tô Needs Approval → ô đó được focus, bấm phím `1` là chọn "Yes" trong hộp xin phép.
+- Ví dụ: bấm dòng `Idle` không tô màu → vẫn tới ô đó.
 - Kiểm chứng: Demo
 - Ưu tiên: Should
 - Nguồn: BR-07
@@ -481,13 +518,13 @@ When the user opens the Status Latency report, the system shall show the percent
 
 ## 2.9 Xoá phiên
 
-- Luồng chính: 1. Người dùng chọn Delete trên một dòng phiên. 2. Hệ thống hỏi xác nhận. 3. Người dùng đồng ý; phiên vào Thùng rác, biến khỏi danh sách.
+- Luồng chính: 1. Người dùng chọn Delete trên một dòng của Session History Panel. 2. Hệ thống hỏi xác nhận. 3. Người dùng đồng ý; phiên vào Thùng rác, biến khỏi danh sách.
 - Luồng thay thế: A1 người dùng chọn Cancel → không đổi gì → SRS-FR-048
 - Luồng thay thế: A2 phiên đang mở trong ô → kết thúc phiên, đóng ô rồi mới xoá → SRS-FR-049
 - Luồng ngoại lệ: E1 không chuyển được vào Thùng rác → giữ phiên, báo lỗi → SRS-FR-050
 
 ### SRS-FR-047 — Delete a session
-When the user confirms deleting a session, the system shall move that session's history to the operating system's trash and remove the session from the session list.
+When the user confirms deleting a session, the system shall move that session's history to the operating system's trash and remove the session from the Session History Panel.
 - Giải thích: khôi phục được bằng tay từ Thùng rác; ngoại lệ duy nhất của SRS-NFR-005.
 - Ví dụ: xoá "Scaffold Tauri app" → dòng biến mất; khôi phục từ Trash rồi chọn lại folder → thấy lại phiên.
 - Kiểm chứng: Test
@@ -495,7 +532,7 @@ When the user confirms deleting a session, the system shall move that session's 
 - Nguồn: BR-08
 
 ### SRS-FR-048 — Confirm deleting a session
-When the user chooses Delete on a session row, the system shall ask "Move "<title>" to Trash?" before deleting.
+When the user chooses Delete on a row of the Session History Panel, the system shall ask "Move "<title>" to Trash?" before deleting.
 - Ví dụ: Delete trên "Scaffold Tauri app" → hộp "Move "Scaffold Tauri app" to Trash?".
 - Ví dụ âm: chọn Cancel → phiên vẫn còn, không file nào bị chuyển.
 - Kiểm chứng: Test
@@ -511,7 +548,7 @@ If the user confirms deleting a session that is open in a pane, then the system 
 - Nguồn: BR-08
 
 ### SRS-FR-050 — Report delete failure
-If a session's history cannot be moved to the trash, then the system shall keep that session in the session list and show the message "Session could not be deleted".
+If a session's history cannot be moved to the trash, then the system shall keep that session in the Session History Panel and show the message "Session could not be deleted".
 - Ví dụ âm: file phiên bị khoá quyền ghi → phiên vẫn còn, hiện "Session could not be deleted".
 - Kiểm chứng: Test
 - Ưu tiên: Should
@@ -591,8 +628,9 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 
 | Màn hình | Làm gì | SRS-FR |
 | --- | --- | --- |
-| Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing`; Status Highlight của folder | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006, SRS-FR-034, SRS-FR-040 |
-| Cửa sổ chính · Session List | Xem phiên của folder, Resume, New Session, Status Highlight, bấm dòng để tới ô, xoá phiên | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050 |
+| Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing`; Status Highlight của folder; tint riêng của section | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006, SRS-FR-034, SRS-FR-040, SRS-FR-054, SRS-NFR-009 |
+| Cửa sổ chính · Active Sessions | Phiên đang mở trong ô của mọi folder, Status Highlight, dòng phụ "giờ · lý do", bấm dòng để tới ô; tint riêng của section | SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-NFR-009 |
+| Cửa sổ chính · Session History Panel | Lịch sử phiên của folder đang chọn, nhãn `Live`, Resume, New Session, xoá phiên, đóng khung | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-054, SRS-NFR-003 |
 | Cửa sổ chính · Pane Grid | Làm việc với các phiên, chia ô, đóng ô, phóng to/thu về, badge của ô phóng to | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-022, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046 |
 | Status Latency | Xem tỉ lệ đổi trạng thái hiện ≤ 3 giây | SRS-FR-039 |
 
@@ -621,7 +659,7 @@ The system shall echo a keystroke in the focused pane within 100 ms at the 95th 
 - Nguồn: BR-05
 
 ### SRS-NFR-003 — Session list load time
-When the user selects a workspace with up to 200 sessions, the system shall show its session list within 3 seconds.
+When the user selects a workspace with up to 200 sessions, the system shall show its Session History Panel within 3 seconds.
 - Ví dụ: folder có 200 phiên → danh sách hiện đủ trước 3 giây kể từ lúc bấm chọn.
 - Kiểm chứng: Test
 - Ưu tiên: Must
@@ -667,6 +705,15 @@ The system shall display its own labels and messages in English.
 - Ưu tiên: Must
 - Nguồn: BR-06
 
+### SRS-NFR-009 — Sidebar section tints
+The system shall give the Workspace List section and the Active Sessions section two different background tints, each with a contrast ratio of at most 1.25:1 against the sidebar background and a text contrast of at least 4.5:1, in both light and dark themes.
+- Giải thích: hai section cùng nằm trong cột trái, cần phân biệt được mà không chói.
+- Ví dụ: nền section Folders 1.08:1, nền Active Sessions 1.12:1 so với nền cột trái, chữ 12:1 → đạt.
+- Ví dụ âm: nền section 1.6:1 so với nền cột trái → không đạt.
+- Kiểm chứng: Analysis
+- Ưu tiên: Should
+- Nguồn: BR-06
+
 ## 10. Ràng buộc thiết kế
 
 - Ứng dụng desktop cài trên máy, không phải trang web (BRD mục 8).
@@ -677,9 +724,9 @@ The system shall display its own labels and messages in English.
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-050 (trừ SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-001 đến SRS-FR-054 (trừ SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
 | SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
-| SRS-NFR-001 đến SRS-NFR-008 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
+| SRS-NFR-001 đến SRS-NFR-009 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
 ## 12. Bảng truy vết
 
@@ -736,6 +783,10 @@ The system shall display its own labels and messages in English.
 | SRS-FR-048 | BR-08 | | Test | Baselined |
 | SRS-FR-049 | BR-08 | | Test | Baselined |
 | SRS-FR-050 | BR-08 | | Test | Baselined |
+| SRS-FR-051 | BR-06 | | Test | Baselined |
+| SRS-FR-052 | BR-06 | | Test | Baselined |
+| SRS-FR-053 | BR-06 | | Test | Baselined |
+| SRS-FR-054 | BR-02 | | Test | Baselined |
 | SRS-NFR-001 | BR-05 | | Test | Baselined |
 | SRS-NFR-002 | BR-05 | | Test | Baselined |
 | SRS-NFR-003 | BR-02 | | Test | Baselined |
@@ -744,6 +795,7 @@ The system shall display its own labels and messages in English.
 | SRS-NFR-006 | BRD mục 8 (ràng buộc) | | Inspection | Baselined |
 | SRS-NFR-007 | BRD mục 8 (ràng buộc) | | Inspection | Baselined |
 | SRS-NFR-008 | BR-06 | | Inspection | Baselined |
+| SRS-NFR-009 | BR-06 | | Analysis | Baselined |
 
 ## 13. Câu hỏi mở
 
@@ -761,3 +813,4 @@ The system shall display its own labels and messages in English.
 | --- | --- | --- | --- |
 | v1.0 | 2026-10-15 | PO | Baseline; theo BRD v1.0 |
 | v1.1 | 2026-10-17 | PO | CR-001: Status Highlight thay Status Board (SRS-FR-031 xoá); phóng to ô; xoá phiên vào Thùng rác; theo BRD v2.0 |
+| v1.2 | 2026-10-17 | PO | CR-002: Active Sessions ở cột trái, lịch sử phiên sang Session History Panel; thêm SRS-FR-051 đến SRS-FR-054, SRS-NFR-009; theo BRD v2.1 |
