@@ -25,7 +25,7 @@ const BODY_PADDING = 4;
 const CHROME_WIDTH = 2 * PANE_BORDER + 2 * BODY_PADDING;
 const CHROME_HEIGHT = CHROME_WIDTH + PANE_HEADER;
 
-type PanesState = { entries: PaneEntry[]; layout: Layout | null; focusedId: string | null };
+type PanesState = { entries: PaneEntry[]; layout: Layout | null; focusedId: string | null; maximizedId: string | null };
 
 export type SessionPanes = PanesState & {
   newSession(workspace: Workspace): Promise<void>;
@@ -34,6 +34,9 @@ export type SessionPanes = PanesState & {
   closePane(paneId: string): Promise<void>;
   focusPane(paneId: string): void;
   jumpTo(paneId: string): void;
+  maximize(paneId: string): void;
+  /** Back to the layout; with a pane id, that pane gets the keyboard once it is no longer inert. */
+  restore(jumpToPaneId?: string): void;
   resizeSplit(path: SplitPath, ratio: number): void;
   /** Counts for the diagnostic report. */
   diagnostics(): { expectedTerminals: number; titleTimers: number; livePanes: number };
@@ -46,7 +49,7 @@ export function useSessionPanes(
   paneArea: RefObject<HTMLElement | null>,
   workspaces: Workspace[] | null,
 ): SessionPanes {
-  const [layout, setLayout] = useState<PanesState>({ entries: [], layout: null, focusedId: null });
+  const [layout, setLayout] = useState<PanesState>({ entries: [], layout: null, focusedId: null, maximizedId: null });
   const showToast = useToast();
   const opening = useRef(false);
   const entries = useRef(layout.entries);
@@ -185,6 +188,8 @@ export function useSessionPanes(
             entries: [...l.entries, entry],
             layout: splitPane(l.layout, target, pane.paneId, dir),
             focusedId: pane.paneId,
+            // SRS-FR-046: the new pane takes its place in the restored layout.
+            maximizedId: null,
           };
         });
         // Registered after the insert so an exit already queued finds the entry.
@@ -241,6 +246,28 @@ export function useSessionPanes(
     },
     [openPane, showToast, workspaces],
   );
+  const maximize = useCallback(
+    (paneId: string) => {
+      const entry = entries.current.find((e) => e.pane.paneId === paneId);
+      if (!entry) return;
+      setLayout((l) => ({ ...l, maximizedId: paneId }));
+      // A click on a header button need not focus it, so the keyboard could stay in a pane that is now covered.
+      focusHolder(entry);
+    },
+    [focusHolder],
+  );
+  const pendingJump = useRef<string | null>(null);
+  const restore = useCallback((jumpToPaneId?: string) => {
+    pendingJump.current = jumpToPaneId ?? null;
+    setLayout((l) => (l.maximizedId === null ? l : { ...l, maximizedId: null }));
+  }, []);
+  // A covered pane is inert, and focusing inside an inert subtree does nothing, so the jump waits for the commit.
+  useEffect(() => {
+    if (layout.maximizedId !== null || pendingJump.current === null) return;
+    const paneId = pendingJump.current;
+    pendingJump.current = null;
+    jumpTo(paneId);
+  }, [layout.maximizedId, jumpTo]);
   const resizeSplit = useCallback(
     (path: SplitPath, ratio: number) =>
       setLayout((l) => (l.layout ? { ...l, layout: setRatio(l.layout, path, ratio) } : l)),
@@ -264,6 +291,7 @@ export function useSessionPanes(
         entries: l.entries.filter((e) => e.pane.paneId !== paneId),
         layout: l.layout && removePane(l.layout, paneId),
         focusedId: l.focusedId === paneId ? null : l.focusedId,
+        maximizedId: l.maximizedId === paneId ? null : l.maximizedId,
       }));
     },
     [client, showToast],
@@ -278,7 +306,7 @@ export function useSessionPanes(
     [],
   );
 
-  return { ...layout, newSession, resume, splitFrom, closePane, focusPane, jumpTo, resizeSplit, diagnostics };
+  return { ...layout, newSession, resume, splitFrom, closePane, focusPane, jumpTo, maximize, restore, resizeSplit, diagnostics };
 }
 
 function openHolder(entries: PaneEntry[], sessionId: string): PaneEntry | undefined {

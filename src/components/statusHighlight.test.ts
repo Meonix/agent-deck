@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PaneStatus } from "../api/sessions";
-import { folderHighlights, sessionHighlights } from "./statusHighlight";
+import { folderHighlights, maximizedBadge, sessionHighlights } from "./statusHighlight";
 import type { PaneEntry } from "./TerminalPane";
 
 function e(id: string, workspaceId: string, status: Partial<PaneStatus>, sessionId = `s${id}`, ended = false): PaneEntry {
@@ -83,5 +83,46 @@ describe("folderHighlights (1.1)", () => {
       e("3", "quiet", { state: "Error", tracked: false }),
     ]);
     expect(folders.has("quiet")).toBe(false);
+  });
+});
+
+describe("maximizedBadge (1.1)", () => {
+  it("counts the other sessions that need the user and takes the Error colour if any", () => {
+    const badge = maximizedBadge(
+      [
+        e("1", "w", { state: "Needs Approval" }),
+        e("2", "w", { state: "Needs Approval", since: 200 }),
+        e("3", "v", { state: "Error", since: 500 }),
+        e("4", "w", { state: "Running" }),
+        e("5", "w", { state: "Error", tracked: false }),
+        e("6", "w", { state: "Idle" }),
+      ],
+      "1",
+    );
+    expect(badge).toEqual({ count: 2, state: "Error", paneId: "3" });
+  });
+
+  it("uses the Needs Approval colour and the session waiting longest when nothing failed", () => {
+    const badge = maximizedBadge(
+      [
+        e("1", "w", { state: "Running" }),
+        e("2", "w", { state: "Needs Approval", since: 1405 }),
+        e("3", "w", { state: "Needs Approval", since: 1400 }),
+      ],
+      "1",
+    );
+    expect(badge).toEqual({ count: 2, state: "Needs Approval", paneId: "3" });
+  });
+
+  it("is null when only the maximized pane or running sessions need nothing", () => {
+    expect(maximizedBadge([e("1", "w", { state: "Needs Approval" }), e("2", "w", { state: "Running" })], "1")).toBeNull();
+  });
+
+  it("ignores an ended pane whose session was resumed in the maximized pane", () => {
+    const entries = [
+      e("1", "w", { state: "Error", reason: "exit code 1" }, "s-crashed", true),
+      e("2", "w", { state: "Idle" }, "s-crashed"),
+    ];
+    expect(maximizedBadge(entries, "2")).toBeNull();
   });
 });

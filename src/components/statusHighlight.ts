@@ -46,3 +46,19 @@ export function folderHighlights(entries: PaneEntry[]): Map<string, FolderHighli
   }
   return folders;
 }
+
+export type MaximizedBadge = { count: number; state: "Error" | "Needs Approval"; paneId: string };
+
+/** The other sessions that need the user while a pane is maximized, and which one to jump to (SRS-FR-044, SRS-FR-045). */
+export function maximizedBadge(entries: PaneEntry[], maximizedPaneId: string): MaximizedBadge | null {
+  const waiting: { paneId: string; state: MaximizedBadge["state"]; since: number }[] = [];
+  for (const { pane, status } of currentPanes(entries)) {
+    if (pane.paneId === maximizedPaneId || !status.tracked) continue;
+    if (status.state === "Error" || status.state === "Needs Approval") {
+      waiting.push({ paneId: pane.paneId, state: status.state, since: status.since });
+    }
+  }
+  if (waiting.length === 0) return null;
+  waiting.sort((a, b) => URGENCY.indexOf(a.state) - URGENCY.indexOf(b.state) || a.since - b.since);
+  return { count: waiting.length, state: waiting[0].state, paneId: waiting[0].paneId };
+}

@@ -6,7 +6,7 @@ import { StatusLatencyReport } from "./components/StatusLatencyReport";
 import { PaneGrid } from "./components/PaneGrid";
 import { TerminalPane, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
 import { ToastProvider } from "./components/Toast";
-import { folderHighlights, sessionHighlights } from "./components/statusHighlight";
+import { folderHighlights, maximizedBadge, sessionHighlights } from "./components/statusHighlight";
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useWorkspaces } from "./components/useWorkspaces";
 import type { OpenSession } from "./components/sessionList";
@@ -87,6 +87,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   const sessionList = useSessionList(sessions, workspaces.selected, workspaces.selections, openHere);
   const now = useMinuteClock();
   const highlights = { sessions: sessionHighlights(panes.entries), folders: folderHighlights(panes.entries) };
+  const othersBadge = panes.maximizedId === null ? null : maximizedBadge(panes.entries, panes.maximizedId);
 
   const [confirming, setConfirming] = useState<string | null>(null);
   const confirmed = panes.entries.find((e) => e.pane.paneId === confirming);
@@ -111,12 +112,14 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
         sessions={sessionList}
         openSessions={openSessions}
         highlights={highlights}
+        covered={panes.maximizedId !== null}
         now={now}
       />
       <main ref={paneArea} className="min-h-0 min-w-0">
         {panes.layout ? (
           <PaneGrid
             layout={panes.layout}
+            maximizedId={panes.maximizedId}
             onResize={panes.resizeSplit}
             panes={panes.entries.map((entry) => ({
               id: entry.pane.paneId,
@@ -125,7 +128,12 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
                   entry={entry}
                   client={sessions}
                   focused={entry.pane.paneId === panes.focusedId}
+                  maximized={entry.pane.paneId === panes.maximizedId}
+                  othersBadge={entry.pane.paneId === panes.maximizedId ? othersBadge : null}
+                  onBadge={panes.restore}
                   onFocus={panes.focusPane}
+                  onMaximize={panes.maximize}
+                  onRestore={panes.restore}
                   onSplit={(paneId, dir) => void panes.splitFrom(paneId, dir)}
                   onClose={requestClose}
                 />

@@ -13,10 +13,15 @@ type Props = {
   layout: Layout;
   /** Rendered in a fixed order so React never moves a pane's DOM node, which would re-attach its terminal. */
   panes: { id: string; node: ReactNode }[];
+  /** Shown over the whole window below the title bar; the others keep their size, hidden in place. */
+  maximizedId: string | null;
   onResize(path: SplitPath, ratio: number): void;
 };
 
-export function PaneGrid({ layout, panes, onResize }: Props) {
+// top-9 matches the h-9 title bar in App.
+const MAXIMIZED = "fixed inset-x-0 bottom-0 top-9 z-10 flex flex-col min-h-0 min-w-0 p-2 bg-background [&>*]:flex-1";
+
+export function PaneGrid({ layout, panes, maximizedId, onResize }: Props) {
   const grid = useRef<HTMLDivElement>(null);
   const rects = layoutRects(layout);
 
@@ -44,10 +49,19 @@ export function PaneGrid({ layout, panes, onResize }: Props) {
       <div ref={grid} data-testid="pane-grid" className="relative h-full min-h-0">
         {panes.map(({ id, node }) => {
           const r = rects.panes[id];
+          if (id === maximizedId) {
+            return (
+              <div key={id} className={MAXIMIZED}>
+                {node}
+              </div>
+            );
+          }
+          const covered = maximizedId !== null;
           return (
             <div
               key={id}
-              className="absolute flex flex-col min-h-0 min-w-0 p-1 [&>*]:flex-1"
+              inert={covered}
+              className={`absolute flex flex-col min-h-0 min-w-0 p-1 [&>*]:flex-1 ${covered ? "invisible" : ""}`}
               style={{
                 left: `${r.x * 100}%`,
                 top: `${r.y * 100}%`,
@@ -59,9 +73,10 @@ export function PaneGrid({ layout, panes, onResize }: Props) {
             </div>
           );
         })}
-        {rects.dividers.map((divider) => (
-          <Divider key={divider.path.join("/")} divider={divider} ratioAt={ratioAt} onResize={onResize} />
-        ))}
+        {maximizedId === null &&
+          rects.dividers.map((divider) => (
+            <Divider key={divider.path.join("/")} divider={divider} ratioAt={ratioAt} onResize={onResize} />
+          ))}
       </div>
     </div>
   );

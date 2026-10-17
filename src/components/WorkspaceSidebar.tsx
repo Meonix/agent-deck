@@ -13,15 +13,27 @@ type Props = {
   sessions: SessionListState;
   openSessions: OpenSession[];
   highlights: Highlights;
+  /** A maximized pane is drawn over the sidebar; keep keyboard focus out of it. */
+  covered: boolean;
   now: number;
 };
 
 export type Highlights = { sessions: Map<string, SessionHighlight>; folders: Map<string, FolderHighlight> };
 
-export function WorkspaceSidebar({ workspaces, onNewSession, onResume, onJump, sessions, openSessions, highlights, now }: Props) {
+export function WorkspaceSidebar({
+  workspaces,
+  onNewSession,
+  onResume,
+  onJump,
+  sessions,
+  openSessions,
+  highlights,
+  covered,
+  now,
+}: Props) {
   const { items, selected, select, addFolder, removeFolder } = workspaces;
   return (
-    <aside aria-label="Workspaces" className="bg-card overflow-auto border-r border-border">
+    <aside aria-label="Workspaces" inert={covered} className="bg-card overflow-auto border-r border-border">
       <div className="px-3 pt-3 pb-1 flex items-center justify-between">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Folders</span>
         <button onClick={() => void addFolder()} className="text-xs text-foreground border border-border rounded-md px-2 py-0.5">

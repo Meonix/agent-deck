@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient } from "../api/sessions";
 import type { SplitDir } from "./paneTree";
+import type { MaximizedBadge } from "./statusHighlight";
 import { StateMarker, tone } from "./statusTone";
 
 export type TerminalSize = { cols: number; rows: number };
@@ -42,18 +43,37 @@ type Props = {
   entry: PaneEntry;
   client: SessionsClient;
   focused: boolean;
+  maximized: boolean;
+  /** Other sessions that need the user, shown while this pane is maximized (SRS-FR-044). */
+  othersBadge: MaximizedBadge | null;
+  onBadge(target: string): void;
   onFocus(paneId: string): void;
+  onMaximize(paneId: string): void;
+  onRestore(): void;
   onSplit(paneId: string, dir: SplitDir): void;
   onClose(paneId: string): void;
 };
 
-export function TerminalPane({ entry, client, focused, onFocus, onSplit, onClose }: Props) {
+export function TerminalPane({
+  entry,
+  client,
+  focused,
+  maximized,
+  othersBadge,
+  onBadge,
+  onFocus,
+  onMaximize,
+  onRestore,
+  onSplit,
+  onClose,
+}: Props) {
   const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver } = entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
   const endedRef = useRef(ended);
   endedRef.current = ended;
   const lastSize = useRef(openedSize);
+  const refit = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const container = body.current;
@@ -69,6 +89,7 @@ export function TerminalPane({ entry, client, focused, onFocus, onSplit, onClose
       if (!endedRef.current) client.resize(paneId, size.cols, size.rows).catch(() => {});
     };
     fit();
+    refit.current = fit;
     const send = (data: string) => {
       if (!endedRef.current) client.write(paneId, data).catch(() => {});
     };
@@ -77,11 +98,20 @@ export function TerminalPane({ entry, client, focused, onFocus, onSplit, onClose
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
     observer?.observe(container);
     return () => {
+      refit.current = null;
       stopData();
       stopBinary();
       observer?.disconnect();
     };
   }, [adapter, client, paneId]);
+
+  // SRS-FR-043: fit as soon as the maximized class is committed rather than waiting for the observer.
+  const wasMaximized = useRef(maximized);
+  useEffect(() => {
+    if (wasMaximized.current === maximized) return;
+    wasMaximized.current = maximized;
+    refit.current?.();
+  }, [maximized]);
 
   // After an abnormal exit the header keeps the Error chip, matching the session row.
   const endedBadge = ended && !(status.tracked && status.state === "Error");
@@ -107,6 +137,16 @@ export function TerminalPane({ entry, client, focused, onFocus, onSplit, onClose
           <span className="text-muted-foreground">{workspaceName} ·</span> {title}
         </span>
         <span className="flex min-w-0 items-center gap-2 text-xs whitespace-nowrap">
+          {othersBadge && (
+            <button
+              aria-label={`${othersBadge.count} ${othersBadge.count === 1 ? "session needs" : "sessions need"} you`}
+              onClick={() => onBadge(othersBadge.paneId)}
+              className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 font-medium ${tone[othersBadge.state].chip}`}
+            >
+              <StateMarker state={othersBadge.state} />
+              {othersBadge.count} need you
+            </button>
+          )}
           {badge ? (
             <span className="min-w-0 shrink-[10] truncate border border-border rounded-md px-1.5 text-muted-foreground">
               {badge}
@@ -134,6 +174,14 @@ export function TerminalPane({ entry, client, focused, onFocus, onSplit, onClose
             className="shrink-0 text-muted-foreground"
           >
             ⇣
+          </button>
+          <button
+            aria-label={maximized ? "Restore pane" : "Maximize pane"}
+            title={maximized ? "Restore pane" : "Maximize pane"}
+            onClick={() => (maximized ? onRestore() : onMaximize(paneId))}
+            className="shrink-0 text-muted-foreground"
+          >
+            {maximized ? "⤡" : "⤢"}
           </button>
           <button
             aria-label="Close pane"

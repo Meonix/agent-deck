@@ -1009,6 +1009,166 @@ describe("Split layout (2.1 to 2.3)", () => {
   });
 });
 
+describe("Maximize pane (2.1 to 2.4)", () => {
+  const paneNamed = (title: string) => screen.getByRole("region", { name: `agent-deck · ${title}` });
+  const wrapper = (title: string) => paneNamed(title).parentElement!;
+  const button = (title: string, name: string) => within(paneNamed(title)).getByRole("button", { name });
+  const styleOf = (title: string) => wrapper(title).getAttribute("style");
+
+  async function threePanes() {
+    const sessions = fakeSessions();
+    sessions.title = vi.fn(async (id: string) => id);
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await screen.findByRole("region", { name: "agent-deck · p1" });
+    await ctx.user.click(button("p1", "Split right"));
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    await ctx.user.click(button("p2", "Split down"));
+    await screen.findByRole("region", { name: "agent-deck · p3" });
+    return ctx;
+  }
+
+  it("covers the window with the maximized pane and hides the others in place (SRS-FR-041)", async () => {
+    const { user } = await threePanes();
+    const before = { p1: styleOf("p1"), p3: styleOf("p3") };
+
+    await user.click(button("p2", "Maximize pane"));
+
+    expect(wrapper("p2")).toHaveClass("fixed");
+    for (const title of ["p1", "p3"] as const) {
+      expect(wrapper(title)).toHaveClass("invisible");
+      expect(wrapper(title)).toHaveAttribute("inert");
+      expect(styleOf(title)).toBe(before[title]);
+    }
+    expect(sidebar()).toHaveAttribute("inert");
+    expect(screen.queryAllByRole("separator")).toHaveLength(0);
+    expect(button("p2", "Restore pane")).toBeInTheDocument();
+  });
+
+  it("moves the keyboard into the pane it maximizes", async () => {
+    const { user, adapters } = await threePanes();
+    fireEvent.focus(paneNamed("p1"));
+    const focusCalls = vi.mocked(adapters[1].focus).mock.calls.length;
+
+    await user.click(button("p2", "Maximize pane"));
+
+    expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(focusCalls + 1);
+    expect(paneNamed("p2")).toHaveClass("border-ring");
+    expect(paneNamed("p1")).not.toHaveClass("border-ring");
+  });
+
+  it("keeps an error toast above the maximized pane", async () => {
+    const sessions = fakeSessions();
+    sessions.title = vi.fn(async (id: string) => id);
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await screen.findByRole("region", { name: "agent-deck · p1" });
+    await ctx.user.click(button("p1", "Maximize pane"));
+    vi.mocked(sessions.open).mockRejectedValueOnce("spawn failed");
+
+    await ctx.user.click(button("p1", "Split right"));
+
+    const toast = await screen.findByRole("alert");
+    expect(wrapper("p1")).toHaveClass("z-10");
+    expect(toast).toHaveClass("z-20");
+  });
+
+  it("brings back the same layout on Restore (SRS-FR-042)", async () => {
+    const { user } = await threePanes();
+    const before = ["p1", "p2", "p3"].map(styleOf);
+
+    await user.click(button("p2", "Maximize pane"));
+    await user.click(button("p2", "Restore pane"));
+
+    expect(["p1", "p2", "p3"].map(styleOf)).toEqual(before);
+    for (const title of ["p1", "p2", "p3"]) {
+      expect(wrapper(title)).not.toHaveClass("fixed");
+      expect(wrapper(title)).not.toHaveClass("invisible");
+      expect(wrapper(title)).not.toHaveAttribute("inert");
+    }
+    expect(sidebar()).not.toHaveAttribute("inert");
+    expect(button("p2", "Maximize pane")).toBeInTheDocument();
+  });
+
+  it("fits the terminal to the new size on maximize and back on restore (SRS-FR-043)", async () => {
+    const { user, sessions, adapters } = await threePanes();
+    adapters[1].size = { cols: 200, rows: 50 };
+
+    await user.click(button("p2", "Maximize pane"));
+    expect(sessions.resize).toHaveBeenLastCalledWith("p2", 200, 50);
+
+    adapters[1].size = { cols: 80, rows: 24 };
+    await user.click(button("p2", "Restore pane"));
+    expect(sessions.resize).toHaveBeenLastCalledWith("p2", 80, 24);
+  });
+
+  it("restores the layout before a new pane opens (SRS-FR-046)", async () => {
+    const { user } = await threePanes();
+    await user.click(button("p1", "Maximize pane"));
+
+    await user.click(button("p1", "Split right"));
+
+    await screen.findByRole("region", { name: "agent-deck · p4" });
+    expect(wrapper("p1")).not.toHaveClass("fixed");
+    expect(wrapper("p2")).not.toHaveClass("invisible");
+    expect(sidebar()).not.toHaveAttribute("inert");
+    const rect = (title: string) => ["left", "width"].map((k) => parseFloat(wrapper(title).style.getPropertyValue(k)));
+    expect(rect("p4")[0]).toBeCloseTo(rect("p1")[0] + rect("p1")[1]);
+  });
+
+  const badge = (title: string) => within(paneNamed(title)).queryByRole("button", { name: /needs? you$/ });
+
+  it("counts the other sessions that need the user on the maximized pane (SRS-FR-044)", async () => {
+    const { user, sessions } = await threePanes();
+    const [p1, p2, p3] = sessions.opened.map((o) => o.stream);
+    await user.click(button("p1", "Maximize pane"));
+
+    act(() => p1.status({ state: "Needs Approval" }));
+    act(() => p3.status({ state: "Running" }));
+    expect(badge("p1")).not.toBeInTheDocument();
+
+    act(() => p3.status({ state: "Needs Approval" }));
+    expect(badge("p1")).toHaveAccessibleName("1 session needs you");
+    expect(badge("p1")).toHaveTextContent("1 need you");
+    expect(badge("p1")).toHaveClass("bg-approval-bg");
+
+    act(() => p2.status({ state: "Error", reason: "overloaded" }));
+    expect(badge("p1")).toHaveAccessibleName("2 sessions need you");
+    expect(badge("p1")).toHaveClass("bg-error-bg");
+    expect(badge("p2")).not.toBeInTheDocument();
+  });
+
+  it("restores and focuses the most urgent session when the badge is clicked (SRS-FR-045)", async () => {
+    const { user, sessions, adapters } = await threePanes();
+    const [, p2, p3] = sessions.opened.map((o) => o.stream);
+    await user.click(button("p1", "Maximize pane"));
+    act(() => p2.status({ state: "Needs Approval", since: new Date(2026, 9, 17, 14, 0).getTime() }));
+    act(() => p3.status({ state: "Error", since: new Date(2026, 9, 17, 14, 5).getTime() }));
+    // A browser ignores focus() inside an inert subtree, so the fake records whether the pane was still inert.
+    const focusedWhileInert: boolean[] = [];
+    vi.mocked(adapters[2].focus).mockImplementation(() => focusedWhileInert.push(wrapper("p3").hasAttribute("inert")));
+
+    await user.click(badge("p1")!);
+
+    expect(wrapper("p1")).not.toHaveClass("fixed");
+    expect(sidebar()).not.toHaveAttribute("inert");
+    expect(focusedWhileInert).toEqual([false]);
+    expect(badge("p1")).not.toBeInTheDocument();
+  });
+
+  it("shows the other panes again when the maximized pane is closed", async () => {
+    const { user } = await threePanes();
+    await user.click(button("p2", "Maximize pane"));
+
+    await user.click(button("p2", "Close pane"));
+
+    await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · p2" })).not.toBeInTheDocument());
+    expect(wrapper("p1")).not.toHaveClass("invisible");
+    expect(wrapper("p3")).not.toHaveAttribute("inert");
+    expect(sidebar()).not.toHaveAttribute("inert");
+  });
+});
+
 describe("Jump from a highlighted session row (2.3)", () => {
   const since = new Date(2026, 9, 16, 14, 2).getTime();
   const rowButton = (title: string) =>
