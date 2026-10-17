@@ -18,4 +18,4 @@ Nguồn: `SRS.md` Baselined v1.1 (2026-10-17), CR-001 thêm mục 9–11. Thứ 
 | 8 | Bấm thẻ trên bảng trạng thái để tới ô | add-status-card-jump | SRS-FR-037 | 3 | Should; tiện hơn nhưng không chặn BO-01 vì thẻ đã cho biết phiên nào cần mình | archived |
 | 9 | Báo trạng thái ở cột trái thay Status Board | update-status-highlight | SRS-FR-031, SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-037, SRS-FR-038, SRS-FR-039, SRS-FR-040 | 3, 4, 8 | Must; CR-001, đổi hành vi đã archived của mục 3, 4, 8 → /dev-update; trực tiếp phục vụ BO-01 | archived |
 | 10 | Phóng to một ô ra cả cửa sổ | add-pane-maximize | SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046 | 7, 9 | Should; CR-001; badge của ô phóng to dùng Status Highlight của mục 9 | archived |
-| 11 | Xoá phiên vào Thùng rác | add-session-delete | SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-NFR-005 | 5 | Should; CR-001; nới SRS-NFR-005 đã archived ở mục 5 | applied |
+| 11 | Xoá phiên vào Thùng rác | add-session-delete | SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-NFR-005 | 5 | Should; CR-001; nới SRS-NFR-005 đã archived ở mục 5 | archived |
