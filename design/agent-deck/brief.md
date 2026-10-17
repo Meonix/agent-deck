@@ -42,10 +42,10 @@ Dense (4+ ô, nhiều phiên Live ở nhiều folder cùng lúc tô màu), hộp
 
 ## Đã chốt cho CR-001 (2026-10-17)
 
-- Bố cục: wireframe A · Tô cả dòng (`stories/WireframeCr001.stories.js` › A, A · Ô phóng to). Delete nằm cạnh Resume trên dòng đang chọn.
-- Màu: bản 1 · Soft fill trên nền P4 Dark attention (`stories/ProposalCr001.stories.js` › V1SoftFill). Dòng phiên và dòng folder tô nền `--*-bg` (bậc 3), badge chip có ô vuông, dòng phụ "giờ · lý do" màu `--*-foreground`. Không thêm token.
+- Bố cục: wireframe A · Tô cả dòng (`design.html#cr001`, ô phóng to: `#cr001-maximized-dark`). Delete nằm cạnh Resume trên dòng đang chọn.
+- Màu: bản 1 · Soft fill trên nền P4 Dark attention (`design.html#cr001-v1-soft-fill`). Dòng phiên và dòng folder tô nền `--*-bg` (bậc 3), badge chip có ô vuông, dòng phụ "giờ · lý do" màu `--*-foreground`. Không thêm token.
 - Ô phóng to: badge "N need you" trên header ô, màu Error nếu có phiên Error, còn lại màu Needs Approval.
-- Trạng thái: `stories/StatesCr001.stories.js`. Hàm vẽ dùng chung: `stories/renderCr001.js`.
+- Trạng thái: `design.html#cr001-states`.
 
 ## Phạm vi CR-002 (2026-10-17)
 
@@ -55,7 +55,7 @@ Dense (4+ ô, nhiều phiên Live ở nhiều folder cùng lúc tô màu), hộp
 
 ## Đã chốt cho CR-002 (2026-10-17)
 
-- Bố cục: wireframe C (`stories/WireframeCr002.stories.js` › C). Cột trái: Folders trên, Active Sessions dưới; dòng Active một dòng (ô vuông trạng thái · tiêu đề · chip tên folder), dòng phụ "giờ · lý do" chỉ khi Needs Approval / Error. Session History Panel là thẻ bo góc 280px có khoảng hở, header: tên folder · New Session · ✕.
-- Màu: bản 1 · Tint phẳng, dark (`stories/ProposalCr002.stories.js` › V1Flat). Section Folders nền `--section-folders` (sky-3), Active Sessions nền `--section-active` (sand-3), phủ hết bề ngang, ngăn bằng viền 1px `--border`. Chip folder: viền `--border`, chữ `--muted-foreground`. Folder đang chọn: nền `--accent`; đang chọn mà có Status Highlight thì giữ nền trạng thái + `ring-1 ring-ring` (như `folderLook` hiện tại). Trạng thái giữ soft fill của CR-001.
+- Bố cục: wireframe C (`design.html#cr002`). Cột trái: Folders trên, Active Sessions dưới; dòng Active một dòng (ô vuông trạng thái · tiêu đề · chip tên folder), dòng phụ "giờ · lý do" chỉ khi Needs Approval / Error. Session History Panel là thẻ bo góc 280px có khoảng hở, header: tên folder · New Session · ✕.
+- Màu: bản 1 · Tint phẳng, dark (`design.html#cr002-v1-flat`). Section Folders nền `--section-folders` (sky-3), Active Sessions nền `--section-active` (sand-3), phủ hết bề ngang, ngăn bằng viền 1px `--border`. Chip folder: viền `--border`, chữ `--muted-foreground`. Folder đang chọn: nền `--accent`; đang chọn mà có Status Highlight thì giữ nền trạng thái + `ring-1 ring-ring` (như folder đang chọn trong `design.html#cr001-v1-soft-fill`). Trạng thái giữ soft fill của CR-001.
 - Token mới: `--section-folders`, `--section-active` (tokens.css, tailwind.preset.js `section.folders` / `section.active`).
-- Trạng thái: `stories/StatesCr002.stories.js`. Hàm vẽ dùng chung: `stories/renderCr002.js`.
+- Trạng thái: `design.html#cr002-states`.
