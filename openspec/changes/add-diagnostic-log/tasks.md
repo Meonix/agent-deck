@@ -9,4 +9,5 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app`; open the app once and show the log file's first lines
+- [x] 3.1 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `npm test`, `npm run build`, `npm run tauri build -- --bundles app`; open the app once and show the log file's first lines
+  - 2026-10-17, release `.app`: `~/Library/Logs/dev.agentdeck.desktop/agent-deck.log` got `INFO app: agent-deck 0.1.0 on macos aarch64` at start and `INFO watchdog: health: app rss=94.7MB cpu=0.0% panes=0` 60 s later.
