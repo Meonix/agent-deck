@@ -3,30 +3,10 @@
 ## Purpose
 TBD - created by archiving change add-status-latency-report. Update Purpose after archive.
 ## Requirements
-### Requirement: Record status change timing (SRS-FR-038)
-Traces: SRS-FR-038 ← BR-06 ← BO-01
-
-When a session open in a pane changes state, the system SHALL record the time Claude Code reported the change and the time the Status Board showed it.
-
-#### Scenario: Permission request recorded
-- **GIVEN** a pane is `Running`
-- **WHEN** Claude Code reports a permission request at 14:02:00.200 and the card appears on the Status Board at 14:02:00.450
-- **THEN** one record is kept with the new state `Needs Approval`, reported at 14:02:00.200 and shown at 14:02:00.450 (250 ms)
-
-#### Scenario: Change that removes a card is recorded
-- **GIVEN** a pane is `Running` and its card is on the Status Board
-- **WHEN** Claude Code reports that the turn finished and the card disappears
-- **THEN** one record is kept with the new state `Idle`
-
-#### Scenario: No record without a state change
-- **GIVEN** a pane is `Running`
-- **WHEN** a status signal arrives that keeps the session `Running`
-- **THEN** no record is kept
-
 ### Requirement: Status latency report (SRS-FR-039)
 Traces: SRS-FR-039 ← BR-06 ← BO-01
 
-When the user opens the Status Latency report, the system SHALL show the percentage of state changes in the last 14 days that appeared on the Status Board within 3 seconds.
+When the user opens the Status Latency report, the system SHALL show the percentage of state changes in the last 14 days whose Status Highlight appeared within 3 seconds.
 
 #### Scenario: Report with data
 - **GIVEN** the last 14 days hold 400 state change records, 398 of them shown within 3 seconds of being reported
@@ -47,4 +27,24 @@ When the user opens the Status Latency report, the system SHALL show the percent
 - **GIVEN** no state change has been recorded in the last 14 days
 - **WHEN** the user opens the Status Latency report
 - **THEN** it shows "No data yet" and no percentage
+
+### Requirement: Record Status Highlight timing (SRS-FR-038)
+Traces: SRS-FR-038 ← BR-06 ← BO-01
+
+When a session open in a pane changes state, the system SHALL record the time Claude Code reported the change and the time the Status Highlight showed it.
+
+#### Scenario: Permission request recorded
+- **GIVEN** a pane is `Running`
+- **WHEN** Claude Code reports a permission request at 14:02:00.200 and the Status Highlight changes at 14:02:00.450
+- **THEN** one record is kept with the new state `Needs Approval`, reported at 14:02:00.200 and shown at 14:02:00.450 (250 ms)
+
+#### Scenario: Change that removes a highlight is recorded
+- **GIVEN** a pane is `Running` and its row shows the `Running` highlight
+- **WHEN** Claude Code reports that the turn finished and the highlight goes away
+- **THEN** one record is kept with the new state `Idle`
+
+#### Scenario: No record without a state change
+- **GIVEN** a pane is `Running`
+- **WHEN** a status signal arrives that keeps the session `Running`
+- **THEN** no record is kept
 
