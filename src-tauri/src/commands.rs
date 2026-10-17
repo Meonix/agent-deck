@@ -22,6 +22,7 @@ pub struct AppState {
     pub hooks: Option<Arc<HookServer>>,
     /// Status change timing records; no other lock is held while it is used.
     pub latency: Mutex<StatusLatencyLog>,
+    pub watchdog: Mutex<crate::watchdog::Watchdog>,
 }
 
 #[tauri::command]

@@ -1,5 +1,6 @@
 mod commands;
 pub mod diag;
+mod diag_commands;
 pub mod hooks;
 mod latency_commands;
 pub mod launcher;
@@ -12,6 +13,7 @@ pub mod session_list;
 pub mod session_title;
 pub mod status;
 pub mod status_latency;
+pub mod watchdog;
 pub mod workspace;
 
 use std::io;
@@ -75,7 +77,9 @@ pub fn run() {
                     .ok()
                     .map(Arc::new),
                 latency: Mutex::new(latency),
+                watchdog: Mutex::new(watchdog::Watchdog::new()),
             });
+            diag_commands::start_sampler(app.handle().clone());
             Ok(())
         })
         .on_page_load(|webview, payload| {
@@ -94,7 +98,9 @@ pub fn run() {
             pane_commands::close_pane,
             latency_commands::record_status_shown,
             latency_commands::status_latency_report,
-            session_commands::list_sessions
+            session_commands::list_sessions,
+            diag_commands::diag_log,
+            diag_commands::diag_report
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

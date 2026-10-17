@@ -1,7 +1,7 @@
 ## 1. Backend
 
 - [x] 1.1 `diag.rs`: log writer with format, single-line cap and rotation; panic hook; startup line; the 6 `eprintln!` sites write to it (S1, S3)
-- [ ] 1.2 `Watchdog` + sampler thread (`ps`), `PaneRegistry::pids()`, survivor check after close, commands `diag_log` / `diag_report` (S2)
+- [x] 1.2 `Watchdog` + sampler thread (`ps`), `PaneRegistry::pids()`, survivor check after close, commands `diag_log` / `diag_report` (S2)
 
 ## 2. UI
 

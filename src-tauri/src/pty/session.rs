@@ -35,6 +35,10 @@ pub trait PaneProcess: Send {
     fn resize(&mut self, cols: u16, rows: u16) -> io::Result<()>;
     /// Idempotent; ends the whole process group and reaps the child.
     fn close(&mut self);
+    /// The child's process id, where the platform gives one.
+    fn pid(&self) -> Option<u32> {
+        None
+    }
 }
 
 pub struct PtySession {
@@ -73,6 +77,13 @@ impl ProcessKiller {
         #[cfg(windows)]
         drop(self.0.job.lock().unwrap().take());
         *ended = true;
+    }
+
+    pub fn pid(&self) -> Option<u32> {
+        #[cfg(unix)]
+        return Some(self.0.pgid as u32);
+        #[cfg(windows)]
+        return None;
     }
 }
 
@@ -195,6 +206,10 @@ impl PaneProcess for PtySession {
         // dropped, which a live program would read as Enter and Ctrl-D.
         self.writer = None;
         self.master = None;
+    }
+
+    fn pid(&self) -> Option<u32> {
+        self.killer.pid()
     }
 }
 

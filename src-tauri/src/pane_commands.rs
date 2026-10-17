@@ -95,8 +95,11 @@ pub async fn pane_title(pane_id: String, app: AppHandle) -> String {
 
 #[tauri::command]
 pub fn close_pane(pane_id: String, state: State<'_, AppState>) {
-    let process = state.panes.lock().unwrap().take(&PaneId(pane_id));
+    let process = state.panes.lock().unwrap().take(&PaneId(pane_id.clone()));
     if let Some(mut process) = process {
+        if let Some(pid) = process.pid() {
+            crate::diag_commands::check_survivor(pane_id, pid);
+        }
         std::thread::spawn(move || process.close());
     }
 }
@@ -108,6 +111,9 @@ pub fn close_all_on_reload(app: &AppHandle) {
         return;
     };
     let processes = state.panes.lock().unwrap().take_all();
+    for pid in processes.iter().filter_map(|p| p.pid()) {
+        crate::diag_commands::check_survivor("(reload)".into(), pid);
+    }
     if !processes.is_empty() {
         std::thread::spawn(move || close_in_parallel(processes));
     }
@@ -404,6 +410,10 @@ impl PaneProcess for TrackedProcess {
         self.unregister();
         self.inner.close();
     }
+
+    fn pid(&self) -> Option<u32> {
+        self.inner.pid()
+    }
 }
 
 impl Drop for TrackedProcess {
@@ -486,6 +496,10 @@ impl PaneProcess for QueuedProcess {
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
         }
+    }
+
+    fn pid(&self) -> Option<u32> {
+        self.killer.as_ref().and_then(ProcessKiller::pid)
     }
 }
 

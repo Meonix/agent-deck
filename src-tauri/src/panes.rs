@@ -180,6 +180,14 @@ impl PaneRegistry {
         close_in_parallel(self.take_all());
     }
 
+    /// Process id of every pane whose process started.
+    pub fn pids(&self) -> Vec<(PaneId, u32)> {
+        self.panes
+            .iter()
+            .filter_map(|(id, pane)| Some((id.clone(), pane.process.as_ref()?.pid()?)))
+            .collect()
+    }
+
     pub fn session_of(&self, pane: &PaneId) -> Option<SessionId> {
         self.panes.get(pane).map(|p| p.session.clone())
     }
