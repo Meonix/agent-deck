@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SessionsClient } from "./api/sessions";
 import type { WorkspacesClient } from "./api/workspaces";
 import { ConfirmClose } from "./components/ConfirmClose";
@@ -12,12 +12,16 @@ import { useWorkspaces } from "./components/useWorkspaces";
 import type { OpenSession } from "./components/sessionList";
 import { useMinuteClock, useSessionList } from "./components/useSessionList";
 import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
+import { countTerminals, type DiagClient } from "./diagnostics";
 
 type Deps = {
   workspaces: WorkspacesClient;
   sessions: SessionsClient;
   createTerminal: TerminalAdapterFactory;
+  diag?: DiagClient;
 };
+
+const REPORT_MS = 60_000;
 
 function App(deps: Deps) {
   const [reportOpen, setReportOpen] = useState(false);
@@ -41,7 +45,9 @@ function App(deps: Deps) {
   );
 }
 
-function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: Deps) {
+function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag }: Deps) {
+  const terminals = useMemo(() => countTerminals(makeTerminal), [makeTerminal]);
+  const createTerminal = terminals.factory;
   const workspaces = useWorkspaces(workspacesClient);
   const { refresh } = workspaces;
   const paneArea = useRef<HTMLElement>(null);
@@ -52,6 +58,14 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal }: D
     paneArea,
     workspaces.items,
   );
+  const { diagnostics } = panes;
+  useEffect(() => {
+    if (!diag) return;
+    const timer = setInterval(() => {
+      void diag.report({ terminals: terminals.live(), ...diagnostics() }).catch(() => {});
+    }, REPORT_MS);
+    return () => clearInterval(timer);
+  }, [diag, diagnostics, terminals]);
   const newSession = () => {
     if (workspaces.selected) void panes.newSession(workspaces.selected);
   };

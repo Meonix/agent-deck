@@ -35,6 +35,8 @@ export type SessionPanes = PanesState & {
   focusPane(paneId: string): void;
   jumpTo(paneId: string): void;
   resizeSplit(path: SplitPath, ratio: number): void;
+  /** Counts for the diagnostic report. */
+  diagnostics(): { expectedTerminals: number; titleTimers: number; livePanes: number };
 };
 
 export function useSessionPanes(
@@ -267,7 +269,16 @@ export function useSessionPanes(
     [client, showToast],
   );
 
-  return { ...layout, newSession, resume, splitFrom, closePane, focusPane, jumpTo, resizeSplit };
+  const diagnostics = useCallback(
+    () => ({
+      expectedTerminals: entries.current.filter((e) => e.adapter !== null).length,
+      titleTimers: titleTimers.current.size,
+      livePanes: entries.current.filter((e) => e.pane.started && !e.ended).length,
+    }),
+    [],
+  );
+
+  return { ...layout, newSession, resume, splitFrom, closePane, focusPane, jumpTo, resizeSplit, diagnostics };
 }
 
 function openHolder(entries: PaneEntry[], sessionId: string): PaneEntry | undefined {

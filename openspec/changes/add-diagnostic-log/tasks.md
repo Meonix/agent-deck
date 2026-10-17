@@ -5,7 +5,7 @@
 
 ## 2. UI
 
-- [ ] 2.1 `diagnostics.ts` error hooks with rate limit; counters report every 60 s from `useSessionPanes` (S4)
+- [x] 2.1 `diagnostics.ts` error hooks with rate limit; counters report every 60 s from `useSessionPanes` (S4)
 
 ## 3. Verification
 

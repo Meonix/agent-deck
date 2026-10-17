@@ -995,3 +995,27 @@ describe("Jump from a Status Board card (1.1)", () => {
     expectJumpedToSecond(adapters, focusCalls);
   });
 });
+
+describe("Diagnostics report (2.1)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("reports terminals, title timers and live panes to the diagnostic log every minute", async () => {
+    vi.useFakeTimers();
+    const diag = { log: vi.fn(async () => {}), report: vi.fn(async () => {}) };
+    const sessions = fakeSessions();
+    render(<App workspaces={workspacesClient([ws("a", "agent-deck")])} sessions={sessions} createTerminal={() => fakeAdapter()} diag={diag} />);
+    const settle = () => act(async () => vi.advanceTimersByTimeAsync(0));
+    await settle();
+    fireEvent.click(within(sidebar()).getByText("agent-deck"));
+    fireEvent.click(newSessionButton());
+    await settle();
+
+    expect(diag.report).not.toHaveBeenCalled();
+    await act(async () => vi.advanceTimersByTimeAsync(60_000));
+    expect(diag.report).toHaveBeenLastCalledWith({ terminals: 1, expectedTerminals: 1, titleTimers: 1, livePanes: 1 });
+
+    act(() => sessions.opened[0].stream.exit(0));
+    await act(async () => vi.advanceTimersByTimeAsync(60_000));
+    expect(diag.report).toHaveBeenLastCalledWith({ terminals: 1, expectedTerminals: 1, titleTimers: 0, livePanes: 0 });
+  });
+});
