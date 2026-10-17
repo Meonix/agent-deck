@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.2 (2026-10-17)
+status: Baselined v1.3 (2026-10-17)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -16,7 +16,7 @@ source: product/agent-deck/BRD.md
 
 Đặc tả hành vi của agent-deck, ứng dụng desktop cá nhân để làm việc với nhiều phiên Claude Code
 cùng lúc, phục vụ BO-01 (không sót phiên chờ duyệt hoặc lỗi) và BO-02 (mở lại phiên cũ ≤ 3 thao tác)
-của BRD v2.0.
+của BRD v2.2.
 
 ### Phạm vi
 
@@ -53,7 +53,8 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Session History Panel | Cột nằm giữa cột trái và các ô, hiện Session History của workspace đang chọn |
 | Active Sessions | Section ở cột trái, liệt kê mọi phiên đang mở trong ô của mọi workspace |
 | `Live` | Phiên đang mở trong một ô của agent-deck |
-| Pane | Một ô trong cửa sổ, chạy đúng một phiên |
+| Pane | Một ô trong cửa sổ, chạy đúng một phiên, kèm tối đa một Pane Shell |
+| Pane Shell | Terminal chạy shell mặc định của hệ điều hành (không chạy Claude Code), nằm dưới phiên trong cùng ô; không có trạng thái, không có trong Active Sessions |
 | Status Highlight | Màu nền + badge trạng thái trên dòng của Active Sessions, dòng folder, và badge trên tiêu đề Maximized Pane |
 | Maximized Pane | Ô đang phóng to ra cả cửa sổ |
 | `Running` | Đang chạy |
@@ -554,6 +555,99 @@ If a session's history cannot be moved to the trash, then the system shall keep 
 - Ưu tiên: Should
 - Nguồn: BR-08
 
+## 2.10 Terminal phụ trong ô
+
+- Luồng chính: 1. Người dùng bấm Shell trên tiêu đề ô → SRS-FR-055. 2. Người dùng gõ lệnh trong Pane Shell. 3. Người dùng bấm Shell để ẩn, lệnh vẫn chạy → SRS-FR-056, SRS-FR-058. 4. Người dùng bấm lại để hiện → SRS-FR-057.
+- Luồng thay thế: A1 người dùng kéo vách giữa phiên và Pane Shell → SRS-FR-059, SRS-FR-060
+- Luồng thay thế: A2 người dùng gõ `exit` trong Pane Shell → SRS-FR-061
+- Luồng thay thế: A3 phiên Claude Code trong ô kết thúc → SRS-FR-064
+- Luồng ngoại lệ: E1 đóng ô khi Pane Shell đang chạy một lệnh → hỏi xác nhận → SRS-FR-063, SRS-FR-062
+- Luồng ngoại lệ: E2 shell không khởi động được → SRS-FR-065
+
+### SRS-FR-055 — Open the pane shell
+When the user chooses Shell on a pane that has no Pane Shell, the system shall open a Pane Shell below the session in that pane, running the operating system's default shell in the workspace folder.
+- Giải thích: mặc định cao 30% ô, phiên Claude Code chiếm phần còn lại; shell mặc định là shell đăng nhập của người dùng trên macOS, PowerShell trên Windows.
+- Ví dụ: ô "agent-deck · Scaffold Tauri app", bấm Shell → khu dưới hiện dấu nhắc ở folder `agent-deck`, gõ `pwd` ra đường dẫn folder đó.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-056 — Hide the pane shell
+When the user chooses Shell on a pane whose Pane Shell is visible, the system shall hide the Pane Shell and keep its process running.
+- Ví dụ: shell đang chạy `npm run dev`, bấm Shell → khu dưới biến mất, phiên Claude Code chiếm cả ô, server vẫn trả lời ở `localhost:1420`.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-057 — Show the pane shell again
+When the user chooses Shell on a pane whose Pane Shell is hidden, the system shall show the Pane Shell with its previous output and height.
+- Ví dụ: ẩn lúc cao 40% ô, bấm lại → hiện cao 40%, thấy log `npm run dev` in ra trong lúc ẩn.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-058 — Hidden shell marker
+While a pane's Pane Shell is hidden, the system shall show a running marker on that pane's Shell button.
+- Giải thích: giữ ý của SRS-FR-029 "không để phiên chạy ngầm không ai thấy" cho shell ẩn.
+- Ví dụ: shell chạy `npm run dev` rồi ẩn → nút Shell trên tiêu đề ô có chấm.
+- Ví dụ âm: ô chưa mở shell, hoặc shell đang hiện → nút Shell không có chấm.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-059 — Resize the pane shell
+When the user drags the divider between the session and the Pane Shell, the system shall resize both to follow the divider.
+- Ví dụ: kéo vách lên 100 px → shell cao thêm, phần Claude Code thấp đi tương ứng.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-060 — Reflow the pane shell
+When the Pane Shell changes size, the system shall fit the Pane Shell's content to its new size.
+- Giải thích: gồm kéo vách (SRS-FR-059), đổi khổ ô (SRS-FR-023), phóng to và thu về (SRS-FR-041, SRS-FR-042); phần phiên Claude Code vẫn theo SRS-FR-024.
+- Ví dụ: phóng to ô đang hiện shell chạy `htop` → `htop` vẽ lại vừa khổ mới.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-061 — Shell exits
+When the Pane Shell's process exits, the system shall close the Pane Shell.
+- Ví dụ: gõ `exit` → khu dưới đóng, phiên Claude Code chiếm cả ô, nút Shell không chấm; bấm Shell lại → shell mới, không còn nội dung cũ.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-062 — Close pane ends its shell
+When the user closes a pane, the system shall end the Pane Shell process of that pane.
+- Giải thích: đúng cả khi shell đang ẩn; cũng áp khi ô đóng vì xoá phiên (SRS-FR-049).
+- Ví dụ: shell ẩn chạy `npm run dev`, đóng ô và xác nhận → `localhost:1420` ngừng trả lời.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-063 — Confirm closing a pane with a busy shell
+If the user closes a pane whose Pane Shell is running a command, then the system shall ask for confirmation before closing that pane.
+- Giải thích: "đang chạy một lệnh" là shell không đứng ở dấu nhắc chờ lệnh. Ô vừa bận theo SRS-FR-027 vừa có shell bận → chỉ một hộp xác nhận.
+- Ví dụ: phiên `Idle`, shell ẩn chạy `npm run dev`, bấm đóng → hộp "A command is still running in the shell. Close anyway?"; chọn Cancel → ô và shell vẫn chạy.
+- Ví dụ âm: shell đứng ở dấu nhắc, phiên `Idle` → đóng không hỏi.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-064 — Shell outlives the session
+While the session in a pane has ended, the system shall keep that pane's Pane Shell running.
+- Ví dụ: gõ `/exit` trong Claude Code → phần trên hiện "Session ended" (SRS-FR-028), shell vẫn chạy `npm run dev`.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-065 — Report shell start failure
+If the Pane Shell cannot start, then the system shall show the message "Shell could not start" in that pane and keep the session running.
+- Ví dụ âm: shell mặc định không chạy được → ô hiện "Shell could not start", phiên Claude Code vẫn `Running`, nút Shell không chấm.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
 ## 3. Dữ liệu
 
 ### Workspace
@@ -579,6 +673,7 @@ If a session's history cannot be moved to the trash, then the system shall keep 
 | Trạng thái | Trạng thái hiện tại của phiên | Có | Một trong năm trạng thái ở mục 5 |
 | Thời điểm vào trạng thái | Lúc phiên vào trạng thái hiện tại | Có | Hiện ở dòng phụ (SRS-FR-033) |
 | Lý do | Thao tác chờ duyệt hoặc loại lỗi | Khi `Needs Approval` hoặc `Error` | Theo RULE-04, RULE-06 |
+| Pane Shell | Có hay không, đang ẩn hay hiện, chiều cao | Không | Tối đa một mỗi ô (SRS-FR-055); không giữ lại giữa các lần mở app |
 
 ### Status Change Record
 | Trường | Nghĩa | Bắt buộc | Ràng buộc nghiệp vụ |
@@ -623,6 +718,7 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Thùng rác của hệ điều hành | Nhận lịch sử phiên người dùng xoá | Khi người dùng xác nhận xoá (SRS-FR-047) | Không chuyển được → SRS-FR-050 |
 | Claude Code (phiên tương tác) | Chạy phiên mới hoặc tiếp tục phiên cũ trong một ô; nhận phím, trả nội dung hiển thị | Khi mở ô (SRS-FR-013, SRS-FR-018) | Không khởi động được → SRS-FR-017 |
 | Claude Code (tín hiệu trạng thái) | Sự kiện đổi trạng thái của phiên trong ô | Liên tục khi ô còn mở | Không theo dõi được → SRS-FR-036 |
+| Shell mặc định của hệ điều hành | Nhận phím, trả nội dung hiển thị | Khi mở Pane Shell (SRS-FR-055) | Không khởi động được → SRS-FR-065 |
 
 ## 7. Màn hình
 
@@ -631,7 +727,7 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing`; Status Highlight của folder; tint riêng của section | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006, SRS-FR-034, SRS-FR-040, SRS-FR-054, SRS-NFR-009 |
 | Cửa sổ chính · Active Sessions | Phiên đang mở trong ô của mọi folder, Status Highlight, dòng phụ "giờ · lý do", bấm dòng để tới ô; tint riêng của section | SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-NFR-009 |
 | Cửa sổ chính · Session History Panel | Lịch sử phiên của folder đang chọn, nhãn `Live`, Resume, New Session, xoá phiên, đóng khung | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-054, SRS-NFR-003 |
-| Cửa sổ chính · Pane Grid | Làm việc với các phiên, chia ô, đóng ô, phóng to/thu về, badge của ô phóng to | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-022, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046 |
+| Cửa sổ chính · Pane Grid | Làm việc với các phiên, chia ô, đóng ô, phóng to/thu về, badge của ô phóng to, Pane Shell dưới phiên | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-022, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065 |
 | Status Latency | Xem tỉ lệ đổi trạng thái hiện ≤ 3 giây | SRS-FR-039 |
 
 ## 8. Báo cáo
@@ -724,7 +820,7 @@ The system shall give the Workspace List section and the Active Sessions section
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-054 (trừ SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-001 đến SRS-FR-065 (trừ SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
 | SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
 | SRS-NFR-001 đến SRS-NFR-009 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
@@ -787,6 +883,17 @@ The system shall give the Workspace List section and the Active Sessions section
 | SRS-FR-052 | BR-06 | | Test | Baselined |
 | SRS-FR-053 | BR-06 | | Test | Baselined |
 | SRS-FR-054 | BR-02 | | Test | Baselined |
+| SRS-FR-055 | BR-05 | | Demo | Baselined |
+| SRS-FR-056 | BR-05 | | Test | Baselined |
+| SRS-FR-057 | BR-05 | | Demo | Baselined |
+| SRS-FR-058 | BR-05 | | Test | Baselined |
+| SRS-FR-059 | BR-05 | | Demo | Baselined |
+| SRS-FR-060 | BR-05 | | Demo | Baselined |
+| SRS-FR-061 | BR-05 | | Test | Baselined |
+| SRS-FR-062 | BR-05 | | Test | Baselined |
+| SRS-FR-063 | BR-05 | | Test | Baselined |
+| SRS-FR-064 | BR-05 | | Test | Baselined |
+| SRS-FR-065 | BR-05 | | Test | Baselined |
 | SRS-NFR-001 | BR-05 | | Test | Baselined |
 | SRS-NFR-002 | BR-05 | | Test | Baselined |
 | SRS-NFR-003 | BR-02 | | Test | Baselined |
@@ -796,7 +903,6 @@ The system shall give the Workspace List section and the Active Sessions section
 | SRS-NFR-007 | BRD mục 8 (ràng buộc) | | Inspection | Baselined |
 | SRS-NFR-008 | BR-06 | | Inspection | Baselined |
 | SRS-NFR-009 | BR-06 | | Analysis | Baselined |
-
 ## 13. Câu hỏi mở
 
 | ID | Câu hỏi | Người trả lời | Trạng thái | Chặn gate |
@@ -814,3 +920,4 @@ The system shall give the Workspace List section and the Active Sessions section
 | v1.0 | 2026-10-15 | PO | Baseline; theo BRD v1.0 |
 | v1.1 | 2026-10-17 | PO | CR-001: Status Highlight thay Status Board (SRS-FR-031 xoá); phóng to ô; xoá phiên vào Thùng rác; theo BRD v2.0 |
 | v1.2 | 2026-10-17 | PO | CR-002: Active Sessions ở cột trái, lịch sử phiên sang Session History Panel; thêm SRS-FR-051 đến SRS-FR-054, SRS-NFR-009; theo BRD v2.1 |
+| v1.3 | 2026-10-17 | PO | CR-003: Pane Shell dưới phiên trong cùng ô, ẩn đi mà vẫn chạy; thêm SRS-FR-055 đến SRS-FR-065; theo BRD v2.2 |

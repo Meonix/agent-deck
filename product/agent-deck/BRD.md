@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v2.1 (2026-10-17)
+status: Approved v2.2 (2026-10-17)
 ---
 # BRD — agent-deck
 
@@ -45,6 +45,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 - Chạy nhiều phiên Claude Code tương tác cùng lúc, chia ô trong một cửa sổ.
 - Theo dõi trạng thái từng phiên: đang chạy, cần duyệt, lỗi.
 - Xoá phiên cũ vào Thùng rác.
+- Một terminal thường (không chạy Claude Code) dưới mỗi phiên, ẩn đi được mà vẫn chạy.
 
 ### Ngoài phạm vi
 
@@ -61,7 +62,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BR-02 | Người dùng xem danh sách phiên Claude Code đã có trên máy của folder đang chọn, mỗi phiên có tiêu đề và thời điểm hoạt động gần nhất | BO-02 | Must |
 | BR-03 | Người dùng mở lại một phiên cũ để làm tiếp | BO-02 | Must |
 | BR-04 | Người dùng bắt đầu một phiên Claude Code mới trong folder đang chọn | BO-02 | Must |
-| BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, chia ô ngang và dọc, phóng to một ô ra cả cửa sổ, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
+| BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, chia ô ngang và dọc, phóng to một ô ra cả cửa sổ, mở một terminal thường dưới phiên trong cùng ô và ẩn nó đi mà vẫn chạy, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
 | BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
 | BR-07 | Từ dấu báo trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
 | BR-08 | Người dùng xoá một phiên cũ của folder bằng cách chuyển nó vào Thùng rác | BO-02 | Should |
@@ -127,6 +128,7 @@ Luật nghiệp vụ:
 | 2026-10-15 | Phiên mở ngoài app có hiện trạng thái không? | Không. BO-01 chỉ tính phiên mở trong agent-deck; phiên ngoài chỉ hiện trong lịch sử; không sửa cấu hình Claude Code toàn máy |
 | 2026-10-17 | CR-001: xoá phiên nghĩa là gì? | Chuyển phiên vào Thùng rác, từng phiên một, có xác nhận; phiên đang mở thì đóng ô rồi xoá |
 | 2026-10-17 | CR-001: bảng trạng thái chiếm chỗ | Gộp vào cột trái: dòng phiên và dòng folder đổi màu nền + badge; ô phóng to có badge đếm phiên khác cần duyệt/lỗi |
+| 2026-10-17 | CR-003: terminal phụ chạy ngầm có trái với "không để phiên chạy ngầm không ai thấy" không? | Không, nếu gắn với ô: ẩn thì nút Shell có chấm báo đang chạy; đóng ô thì kết thúc shell, hỏi xác nhận nếu shell đang chạy lệnh |
 
 ## 14. Duyệt
 
@@ -135,3 +137,4 @@ Luật nghiệp vụ:
 | v1.0 | 2026-10-15 | PO | Duyệt, chuyển sang viết SRS |
 | v2.0 | 2026-10-17 | PO | CR-001: chỉ số BO-01 đổi sang dấu báo trạng thái; BR-05, BR-06, BR-07 sửa; thêm BR-08; nới ràng buộc chỉ-đọc cho xoá vào Thùng rác |
 | v2.1 | 2026-10-17 | PO | CR-002: BR-06 "danh sách phiên" → "danh sách phiên đang mở" (Active Sessions); lịch sử phiên sang khung riêng |
+| v2.2 | 2026-10-17 | PO | CR-003: BR-05 thêm terminal thường dưới phiên trong cùng ô, ẩn đi mà vẫn chạy |

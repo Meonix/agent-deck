@@ -122,3 +122,56 @@ Backlog — thêm (áp sau GATE CR):
 Thiết kế: design/agent-deck/brief.md, stories (wireframe cột trái + Session History Panel, hai tint) → /ux-design-ui. Không sửa ở CR này.
 
 Việc tiếp theo: /ux-design-ui (Active Sessions, Session History Panel, hai tint) → /dev-update add-session-history (mục 12).
+
+## CR-003 — Terminal phụ dưới mỗi ô phiên
+Ngày: 2026-10-17
+Yêu cầu: "thêm một nút trên các session window mục đích dùng để mở thêm một cửa sổ chạy terminal (không chạy claude) bên dưới, cửa sổ này có thể ẩn đi để chạy ngầm."
+Status: Approved (2026-10-17)
+Ảnh hưởng:
+- BR-05 (chưa có terminal không chạy Claude Code); SRS mục 1 Thuật ngữ "Pane — chạy đúng một phiên", mục 2.5, mục 3 Pane, mục 7 Pane Grid, mục 10 "Claude Code là agent duy nhất" (shell không phải agent, giữ nguyên).
+- SRS-FR-029 "Close pane ends its session", giải thích "không để phiên chạy ngầm không ai thấy" (archived: add-session-pane → /dev-update nếu đổi nghĩa); SRS-FR-027 xác nhận đóng ô bận; SRS-FR-030 tiêu đề ô; SRS-FR-024, SRS-FR-041, SRS-FR-043 (fit lại khi ô đổi khổ / phóng to); SRS-NFR-001 số ô chạy cùng lúc.
+- Spec/code: openspec/specs/session-pane, pane-layout; src/components/TerminalPane.tsx, PaneGrid.tsx, useSessionPanes.ts, paneTree.ts; src-tauri/src/pty/, panes.rs, pane_commands.rs, launcher.rs.
+- Thiết kế: design/agent-deck/design.html, brief.md (tiêu đề ô, khu terminal phụ) → /ux-design-ui.
+Trả lời của PO (2026-10-17):
+- Terminal phụ gắn với ô: ẩn thì nút Shell trên tiêu đề ô có chấm báo đang chạy; đóng ô thì kết thúc luôn shell, hỏi xác nhận nếu shell đang chạy một lệnh. SRS-FR-029 giữ nguyên nghĩa, thêm FR mới cho shell.
+- Mỗi ô tối đa 1 terminal phụ, nằm dưới phiên Claude Code trong cùng ô, mặc định cao 30% ô, có vách kéo đổi chiều cao; bấm nút lần nữa thì ẩn/hiện.
+- Shell mặc định của máy (macOS: shell đăng nhập của người dùng; Windows: PowerShell), mở ở folder của workspace. Phiên Claude Code kết thúc thì shell vẫn chạy tới khi đóng ô. Shell tự thoát thì khu terminal phụ đóng; bấm nút lại thì mở shell mới.
+
+Diff đề xuất:
+
+Phiên bản: BRD v2.1 → v2.2 (sửa BR-05; không đụng BO). SRS v1.2 → v1.3.
+
+BRD:
+- BR-05. Trước: "…chia ô ngang và dọc, phóng to một ô ra cả cửa sổ, thao tác đầy đủ như trong terminal thường". Sau: "…chia ô ngang và dọc, phóng to một ô ra cả cửa sổ, mở một terminal thường dưới phiên trong cùng ô và ẩn nó đi mà vẫn chạy, thao tác đầy đủ như trong terminal thường".
+- Mục 5 Trong phạm vi: thêm "Một terminal thường (không chạy Claude Code) dưới mỗi phiên, ẩn đi được mà vẫn chạy."
+- Mục 13 log phỏng vấn: thêm dòng CR-003.
+
+SRS — đổi:
+- Thuật ngữ. Pane trước: "Một ô trong cửa sổ, chạy đúng một phiên". Sau: "Một ô trong cửa sổ, chạy đúng một phiên, kèm tối đa một Pane Shell". Thêm "Pane Shell — terminal chạy shell mặc định của hệ điều hành (không chạy Claude Code), nằm dưới phiên trong cùng ô; không có trạng thái, không có trong Active Sessions".
+- Mục 2.10 mới "Terminal phụ trong ô": luồng chính 1. bấm Shell trên tiêu đề ô → SRS-FR-055; 2. gõ lệnh; 3. bấm Shell để ẩn → SRS-FR-056, SRS-FR-058; 4. bấm lại để hiện → SRS-FR-057. A1 kéo vách → SRS-FR-059, SRS-FR-060; A2 gõ `exit` → SRS-FR-061; A3 phiên Claude Code kết thúc → SRS-FR-064; E1 đóng ô khi shell đang chạy lệnh → SRS-FR-063; E2 shell không khởi động được → SRS-FR-065.
+- Mục 3 Pane: thêm trường "Pane Shell · có/không, ẩn/hiện, chiều cao · Không bắt buộc · Tối đa một mỗi ô (SRS-FR-055); không giữ lại giữa các lần mở app".
+- Mục 6: thêm dòng "Shell mặc định của hệ điều hành · Nhận phím, trả nội dung hiển thị · Khi mở Pane Shell (SRS-FR-055) · Không khởi động được → SRS-FR-065".
+- Mục 7 Pane Grid: thêm SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065. Mục 11: SRS-FR-001 đến SRS-FR-065. Mục 12 dựng lại bằng grep.
+- SRS-FR-027, SRS-FR-029, SRS-FR-030, SRS-FR-041, SRS-NFR-001: không đổi chữ (SRS-FR-029 vẫn chỉ nói phiên Claude Code; shell có FR riêng SRS-FR-062).
+
+SRS — mới (mọi FR Nguồn: BR-05, Ưu tiên: Should):
+- SRS-FR-055 — Open the pane shell (Demo): "When the user chooses Shell on a pane that has no Pane Shell, the system shall open a Pane Shell below the session in that pane, running the operating system's default shell in the workspace folder." Giải thích: mặc định cao 30% ô; phiên Claude Code chiếm phần còn lại. Ví dụ: ô "agent-deck · Scaffold Tauri app", bấm Shell → khu dưới hiện prompt ở folder `agent-deck`, gõ `pwd` ra đường dẫn folder đó.
+- SRS-FR-056 — Hide the pane shell (Test): "When the user chooses Shell on a pane whose Pane Shell is visible, the system shall hide the Pane Shell and keep its process running." Ví dụ: shell đang chạy `npm run dev`, bấm Shell → khu dưới biến mất, phiên Claude Code chiếm cả ô, server vẫn trả lời ở `localhost:1420`.
+- SRS-FR-057 — Show the pane shell again (Demo): "When the user chooses Shell on a pane whose Pane Shell is hidden, the system shall show the Pane Shell with its previous output and height." Ví dụ: ẩn lúc cao 40% ô, bấm lại → hiện cao 40%, thấy log `npm run dev` in ra trong lúc ẩn.
+- SRS-FR-058 — Hidden shell marker (Test): "While a pane's Pane Shell is hidden, the system shall show a running marker on that pane's Shell button." Giải thích: thay cho lời giải thích của SRS-FR-029, shell ẩn vẫn có người thấy. Ví dụ âm: ô chưa mở shell, hoặc shell đang hiện → nút Shell không có chấm.
+- SRS-FR-059 — Resize the pane shell (Demo): "When the user drags the divider between the session and the Pane Shell, the system shall resize both to follow the divider." Ví dụ: kéo vách lên 100 px → shell cao thêm, phần Claude Code thấp đi tương ứng.
+- SRS-FR-060 — Reflow the pane shell (Demo): "When the Pane Shell changes size, the system shall fit the Pane Shell's content to its new size." Giải thích: gồm kéo vách, đổi khổ ô (SRS-FR-023), phóng to/thu về (SRS-FR-041, SRS-FR-042); phần phiên Claude Code vẫn theo SRS-FR-024. Ví dụ: phóng to ô đang hiện shell chạy `htop` → `htop` vẽ lại vừa khổ mới.
+- SRS-FR-061 — Shell exits (Test): "When the Pane Shell's process exits, the system shall close the Pane Shell." Ví dụ: gõ `exit` → khu dưới đóng, phiên Claude Code chiếm cả ô, nút Shell không chấm; bấm Shell lại → shell mới, không còn nội dung cũ.
+- SRS-FR-062 — Close pane ends its shell (Test): "When the user closes a pane, the system shall end the Pane Shell process of that pane." Giải thích: đúng cả khi shell đang ẩn; cũng áp khi ô đóng vì xoá phiên (SRS-FR-049). Ví dụ: shell ẩn chạy `npm run dev`, đóng ô và xác nhận → `localhost:1420` ngừng trả lời.
+- SRS-FR-063 — Confirm closing a pane with a busy shell (Test): "If the user closes a pane whose Pane Shell is running a command, then the system shall ask for confirmation before closing that pane." Giải thích: "đang chạy một lệnh" = shell không đứng ở dấu nhắc chờ lệnh. Ô vừa bận theo SRS-FR-027 vừa có shell bận → chỉ một hộp xác nhận. Ví dụ: phiên `Idle`, shell ẩn chạy `npm run dev`, bấm đóng → hộp "A command is still running in the shell. Close anyway?"; chọn Cancel → ô và shell vẫn chạy. Ví dụ âm: shell đứng ở dấu nhắc, phiên `Idle` → đóng không hỏi.
+- SRS-FR-064 — Shell outlives the session (Test): "While the session in a pane has ended, the system shall keep that pane's Pane Shell running." Ví dụ: gõ `/exit` trong Claude Code → phần trên hiện "Session ended" (SRS-FR-028), shell vẫn chạy `npm run dev`.
+- SRS-FR-065 — Report shell start failure (Test): "If the Pane Shell cannot start, then the system shall show the message "Shell could not start" in that pane and keep the session running." Ví dụ âm: shell mặc định không chạy được → ô hiện thông báo, phiên Claude Code vẫn `Running`, nút Shell không chấm.
+
+Ngoài phạm vi CR này: nhiều shell / tab shell trong một ô; giữ shell hay nội dung shell qua lần mở app; trạng thái hay Status Highlight cho shell; chọn shell khác shell mặc định.
+
+Backlog — thêm (áp sau GATE CR):
+- 13 · Terminal phụ dưới mỗi ô · add-pane-shell · SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065 · phụ thuộc 7, 10 · Should; CR-003; chỉ thêm FR mới, không đổi hành vi đã archived → /dev-feature.
+
+Thiết kế: design/agent-deck/design.html chưa có nút Shell và khu shell trong ô → /ux-design-ui bổ sung trước khi code mục 13. Không sửa ở CR này.
+
+Việc tiếp theo: /ux-design-ui (nút Shell + chấm, khu shell + vách kéo) → /dev-feature add-pane-shell (mục 13).
