@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Icon agent-deck</title>
+<style>
+  :root {
+    --page: #fcfcfd; --text: #1c2024; --muted: #60646c; --line: #d9d9e0; --card: #f9f9fb;
+    --accent: #f0f1fe; --accent-text: #5753c6; --error: #e5484d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 16px 80px; }
+  .eyebrow { font-size: 13px; color: var(--muted); margin: 0; }
+  h1 { font-size: 30px; margin: 4px 0 8px; }
+  h2 { font-size: 20px; margin: 0 0 4px; }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+  code { font: 13px ui-monospace, "SF Mono", Menlo, monospace; }
+  section { border: 1px solid var(--line); border-radius: 16px; padding: 24px; margin-top: 28px; background: var(--card); }
+  .row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 24px; margin-top: 20px; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); text-align: center; }
+  .cell img, .cell svg { display: block; }
+  .pair { display: flex; gap: 10px; align-items: flex-end; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid var(--line); }
+  .note { margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .ok { color: #18794e; font-weight: 600; }
+  .warn { color: #ab6400; font-weight: 600; }
+
+  .hero { display: grid; grid-template-columns: auto 1fr; gap: 32px; align-items: center; }
+  .hero dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 14px; }
+  .hero dt { color: var(--muted); }
+  .hero dd { margin: 0; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; border: 1px solid var(--line); }
+  @media (max-width: 640px) { .hero { grid-template-columns: 1fr; } .hero img { width: 200px; height: 200px; } }
+
+  /* Ngữ cảnh hệ điều hành */
+  .scene { border-radius: 14px; padding: 28px 20px 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .wall-light { background: #dfe3ec; }
+  .wall-dark { background: #1b1c22; }
+  .dock { display: flex; align-items: flex-end; gap: 10px; padding: 8px 12px; border-radius: 22px; }
+  .wall-light .dock { background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.7); }
+  .wall-dark .dock { background: rgba(60,62,70,.6); border: 1px solid rgba(255,255,255,.08); }
+  .dock .ph { width: 64px; height: 64px; border-radius: 15px; }
+  .wall-light .ph { background: #b9bccb; }
+  .wall-dark .ph { background: #3a3c45; }
+  .scene .label { font-size: 12px; }
+  .wall-light .label { color: #3b3f4a; }
+  .wall-dark .label { color: #b0b4ba; }
+  .badged { position: relative; }
+  .badged b { position: absolute; top: -2px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--error); color: #fff; font-size: 13px; line-height: 22px; text-align: center; font-weight: 600; }
+
+  .switcher { background: rgba(40,40,46,.82); border-radius: 22px; padding: 14px; display: flex; gap: 12px; }
+  .switcher .slot { width: 112px; height: 112px; border-radius: 16px; display: grid; place-items: center; }
+  .switcher .slot.sel { background: rgba(255,255,255,.16); }
+  .switcher .ph { width: 96px; height: 96px; border-radius: 22px; background: #4a4c56; }
+
+  .finder { background: #fff; border: 1px solid var(--line); border-radius: 10px; width: 300px; overflow: hidden; font-size: 13px; }
+  .finder div { display: flex; align-items: center; gap: 8px; padding: 4px 10px; }
+  .finder div:nth-child(even) { background: #f5f5f7; }
+  .finder .sel { background: #5b5bd6 !important; color: #fff; }
+  .finder i { width: 16px; height: 16px; border-radius: 4px; background: #c1c1c9; display: inline-block; }
+
+  .taskbar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; }
+  .taskbar.dark { background: #202020; }
+  .taskbar.light { background: #eeeef0; }
+  .taskbar .tb { width: 40px; height: 40px; border-radius: 6px; display: grid; place-items: center; }
+  .taskbar.dark .tb.active { background: rgba(255,255,255,.1); }
+  .taskbar.light .tb.active { background: rgba(0,0,0,.06); }
+  .taskbar .ph { width: 24px; height: 24px; border-radius: 5px; background: #8b8d98; }
+
+  .tinted { filter: grayscale(1) brightness(1.05); }
+
+  .peers { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px; background: #1b1c22; border-radius: 14px; padding: 20px; }
+  .peers .cell { color: #b0b4ba; }
+  .peers .ours { outline: 2px solid #9b9ef0; outline-offset: 6px; border-radius: 18px; }
+
+  details { margin-top: 28px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .chosen { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-text); }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">agent-deck · icon app · bước 7</p>
+  <h1>Icon đã chốt: bố cục A · bản 2 Nền iris</h1>
+  <p class="muted">Dấu nhắc <code>&gt;_</code> trên khung tối, hai khung tím ló ra góc trên-phải. File nguồn: <code>agent-deck-icon.svg</code> (từ 48px trở lên) và <code>agent-deck-icon-small.svg</code> (16–32px).</p>
+
+  <section class="hero" id="chot">
+    <img src="agent-deck-icon.svg" width="256" height="256" alt="Icon agent-deck">
+    <dl>
+      <dt>Nền</dt><dd><span class="sw" style="background:#5b5bd6"></span>iris-9 #5b5bd6</dd>
+      <dt>Khung sau xa</dt><dd><span class="sw" style="background:#9b9ef0"></span>iris-8 #9b9ef0</dd>
+      <dt>Khung sau gần</dt><dd><span class="sw" style="background:#b1a9ff"></span>iris-dark-11 #b1a9ff</dd>
+      <dt>Khung trước</dt><dd><span class="sw" style="background:#111113"></span>slate-dark-1 #111113</dd>
+      <dt>Dấu &gt;</dt><dd><span class="sw" style="background:#edeef0"></span>slate-dark-12 #edeef0 · 16.25 AA trên khung trước</dd>
+      <dt>Con trỏ _</dt><dd><span class="sw" style="background:#ffc53d"></span>amber-9 #ffc53d · 11.95 AA trên khung trước</dd>
+      <dt>Lưới</dt><dd>Canvas 1024, squircle 824 bo 185 (lưới icon macOS)</dd>
+    </dl>
+  </section>
+
+  <section id="sizes">
+    <h2>Các cỡ</h2>
+    <p class="muted">Bản lớn dùng cho Dock, Launchpad, Cmd+Tab. Ở 16 và 32px, ba khung với nét mảnh dính vào nhau, nên có thêm bản nhỏ: chỉ một khung sau, nét dày hơn, không đổ bóng.</p>
+    <div class="row">
+      <div class="cell"><img src="agent-deck-icon.svg" width="128" height="128" alt=""><span>128</span></div>
+      <div class="cell"><img src="agent-deck-icon.svg" width="64" height="64" alt=""><span>64</span></div>
+      <div class="cell"><img src="agent-deck-icon.svg" width="48" height="48" alt=""><span>48</span></div>
+      <div class="cell">
+        <div class="pair"><img src="agent-deck-icon.svg" width="32" height="32" alt=""><img src="agent-deck-icon-small.svg" width="32" height="32" alt=""></div>
+        <span>32 · bản lớn ↔ bản nhỏ</span>
+      </div>
+      <div class="cell">
+        <div class="pair"><img src="agent-deck-icon.svg" width="16" height="16" alt=""><img src="agent-deck-icon-small.svg" width="16" height="16" alt=""></div>
+        <span>16 · bản lớn ↔ bản nhỏ</span>
+      </div>
+    </div>
+    <p class="note">Ở 16px (màn 1x), bản nhỏ vẫn còn rõ dấu <code>&gt;</code> và vệt amber. Bản lớn thì dấu <code>&gt;</code> mờ, vệt amber gần như mất. Màn Retina vẽ 16pt bằng ảnh 32px, nên ở đó bản nhỏ dư sức đọc.</p>
+  </section>
+
+  <section id="dock">
+    <h2>Dock · nền sáng và nền tối, có và không có badge</h2>
+    <p class="muted">Badge đỏ là của hệ điều hành, gắn ở góc trên-phải, đúng chỗ hai khung tím ló ra. Hiện app chưa có badge (chưa có trong SRS), nhưng nếu sau này thêm badge đếm phiên chờ thì sẽ thấy cảnh này.</p>
+    <div class="row">
+      <div class="scene wall-light">
+        <div class="dock"><div class="ph"></div><img src="agent-deck-icon.svg" width="64" height="64" alt=""><div class="ph"></div><div class="badged"><img src="agent-deck-icon.svg" width="64" height="64" alt=""><b>3</b></div></div>
+        <span class="label">Dock sáng · thường · có badge</span>
+      </div>
+      <div class="scene wall-dark">
+        <div class="dock"><div class="ph"></div><img src="agent-deck-icon.svg" width="64" height="64" alt=""><div class="ph"></div><div class="badged"><img src="agent-deck-icon.svg" width="64" height="64" alt=""><b>3</b></div></div>
+        <span class="label">Dock tối · thường · có badge</span>
+      </div>
+    </div>
+    <p class="note"><span class="warn">Cần biết:</span> badge che gần hết khung sau xa. Icon vẫn nhận ra nhờ khung tối và <code>&gt;_</code>, không mất nghĩa.</p>
+  </section>
+
+  <section id="switch">
+    <h2>Cmd+Tab · Finder · taskbar Windows</h2>
+    <div class="row">
+      <div class="cell">
+        <div class="switcher"><div class="slot"><div class="ph"></div></div><div class="slot sel"><img src="agent-deck-icon.svg" width="96" height="96" alt=""></div><div class="slot"><div class="ph"></div></div></div>
+        <span>Cmd+Tab, đang chọn</span>
+      </div>
+      <div class="cell">
+        <div class="finder">
+          <div><i></i>Notes.app</div>
+          <div class="sel"><img src="agent-deck-icon-small.svg" width="16" height="16" alt="">agent-deck.app</div>
+          <div><i></i>Terminal.app</div>
+          <div><img src="agent-deck-icon-small.svg" width="16" height="16" alt="">agent-deck.app</div>
+        </div>
+        <span>Finder dạng danh sách, 16px (dòng chọn và dòng thường)</span>
+      </div>
+      <div class="cell">
+        <div class="taskbar dark"><div class="tb"><div class="ph"></div></div><div class="tb active"><img src="agent-deck-icon-small.svg" width="24" height="24" alt=""></div><div class="tb"><div class="ph"></div></div></div>
+        <div class="taskbar light"><div class="tb"><div class="ph"></div></div><div class="tb active"><img src="agent-deck-icon-small.svg" width="24" height="24" alt=""></div><div class="tb"><div class="ph"></div></div></div>
+        <span>Taskbar Windows 11, 24px, tối và sáng</span>
+      </div>
+    </div>
+    <p class="note"><span class="ok">Ổn:</span> trên dòng chọn màu iris của Finder, viền tím của icon hoà vào nền, nhưng khung đen giữa icon vẫn tách rõ. Trên taskbar Windows, icon vẫn có squircle macOS (Tauri dùng chung một file nguồn) nên trông nhỏ hơn icon vuông của Windows một chút.</p>
+  </section>
+
+  <section id="tinted">
+    <h2>macOS dạng đơn sắc (Tinted) · giả lập</h2>
+    <p class="muted">Khi người dùng bật chế độ icon đơn sắc, macOS bỏ màu và giữ độ sáng. Ở đây giả lập bằng bộ lọc xám, không phải ảnh do macOS dựng.</p>
+    <div class="row">
+      <div class="cell"><img src="agent-deck-icon.svg" width="96" height="96" alt=""><span>Màu</span></div>
+      <div class="cell"><img class="tinted" src="agent-deck-icon.svg" width="96" height="96" alt=""><span>Đơn sắc (giả lập)</span></div>
+    </div>
+    <p class="note"><span class="ok">Ổn:</span> khi bỏ màu, ba khung vẫn tách nhau theo độ sáng (đậm → nhạt → đen), nên hình xếp không mất. Vệt amber thành xám nhạt nhưng vẫn đọc ra là <code>_</code>.</p>
+  </section>
+
+  <section id="peers">
+    <h2>Cạnh các app terminal khác</h2>
+    <p class="muted">Icon của các app khác cắt từ ảnh chụp trang chủ của họ (<code>refs/icon/</code>), độ nét chỉ đủ để so.</p>
+    <div class="row">
+      <div class="peers">
+        <div class="cell"><img src="compare/apple-terminal.png" width="72" height="72" alt=""><span>Terminal</span></div>
+        <div class="cell"><img src="compare/iterm2.png" width="72" height="72" alt=""><span>iTerm2</span></div>
+        <div class="cell"><img src="compare/hyper.png" width="72" height="72" alt=""><span>Hyper</span></div>
+        <div class="cell"><img src="compare/kitty.png" width="72" height="72" alt=""><span>kitty</span></div>
+        <div class="cell ours"><img src="agent-deck-icon.svg" width="72" height="72" alt=""><span>agent-deck</span></div>
+      </div>
+    </div>
+    <p class="note"><span class="ok">Khác biệt:</span> trong nhóm này chỉ agent-deck có nền màu đặc, ba app kia nền đen. Hai khung xếp là chi tiết không app nào có.</p>
+  </section>
+
+  <details>
+    <summary>Các bản đã cân nhắc (bước 5–6)</summary>
+    <div class="row" id="history"></div>
+    <p class="note">Bố cục xám: <code>wireframe.html</code>. Reference: <code>references.md</code>. Token: <code>tokens.md</code>.</p>
+  </details>
+</main>
+
+<script>
+  const SHAPE = {
+    back2: { x: 348, y: 260, w: 480, h: 400, r: 64 },
+    back1: { x: 284, y: 324, w: 480, h: 400, r: 64 },
+    front: { x: 212, y: 388, w: 496, h: 424, r: 72 },
+  };
+  const VERSIONS = [
+    { name: 'Bản 1 · Đêm + con trỏ amber', c: { bg: '#111113', back2: '#272a2d', back1: '#363a3f', front: '#18191b', frontStroke: '#5b5bd6', glyph: '#edeef0', cursor: '#ffc53d' } },
+    { name: 'Bản 2 · Nền iris', chosen: true, c: { bg: '#5b5bd6', back2: '#9b9ef0', back1: '#b1a9ff', front: '#111113', glyph: '#edeef0', cursor: '#ffc53d' } },
+    { name: 'Bản 3 · Nét viền iris', c: { bg: '#111113', back2: '#111113', back1: '#111113', front: '#18191b', back2Stroke: '#5958b1', back1Stroke: '#9b9ef0', frontStroke: '#b1a9ff', glyph: '#b1a9ff', cursor: '#b1a9ff' } },
+    { name: 'Bản 4 · Khung trạng thái', c: { bg: '#111113', back2: '#30a46c', back1: '#ffc53d', front: '#18191b', frontStroke: '#363a3f', glyph: '#edeef0', cursor: '#edeef0' } },
+  ];
+  let uid = 0;
+  function iconSvg(c, px) {
+    const k = ++uid;
+    const rect = (s, fill, stroke) => `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" rx="${s.r}" fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="16"` : ''}/>`;
+    const f = SHAPE.front, gx = f.x + 72, gy = f.y + 120;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 1024 1024">
+      <defs><clipPath id="h${k}"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath></defs>
+      <g clip-path="url(#h${k})">
+        <rect x="100" y="100" width="824" height="824" fill="${c.bg}"/>
+        ${rect(SHAPE.back2, c.back2, c.back2Stroke)}${rect(SHAPE.back1, c.back1, c.back1Stroke)}${rect(f, c.front, c.frontStroke)}
+        <polyline points="${gx},${gy} ${gx + 96},${gy + 84} ${gx},${gy + 168}" fill="none" stroke="${c.glyph}" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="${gx + 140}" y="${gy + 144}" width="152" height="40" rx="12" fill="${c.cursor}"/>
+      </g></svg>`;
+  }
+  document.getElementById('history').innerHTML = VERSIONS.map(v =>
+    `<div class="cell">${iconSvg(v.c, 96)}<span>${v.name}${v.chosen ? ' <span class="chosen">đã chọn</span>' : ''}</span></div>`).join('');
+</script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Icon agent-deck · bố cục xám</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<style>
+  .canvas { width: 256px; height: 256px; position: relative; transform-origin: 0 0; }
+  .sq { position: absolute; left: 25px; top: 25px; width: 206px; height: 206px; border-radius: 46px; overflow: hidden; }
+  .glyph { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+</style>
+</head>
+<body class="bg-white text-gray-900 font-sans">
+<main class="max-w-5xl mx-auto px-4 py-10">
+  <p class="text-sm text-gray-500">agent-deck · icon app · bước 5</p>
+  <h1 class="text-3xl font-semibold mt-1">3 bố cục xám</h1>
+  <p class="mt-2 text-gray-600 max-w-2xl">Chỉ so hình khối, chưa tô màu. Mỗi bố cục: bản lớn 256px, rồi 128 · 64 · 32 · 16px như trong Dock, Cmd+Tab, Finder và taskbar. Ý chính là dấu nhắc terminal, phụ ý là nhiều khung xếp phía sau.</p>
+
+  <div id="layouts" class="mt-10 space-y-12"></div>
+</main>
+
+<template id="icon-a">
+  <!-- A · Xếp chéo: hai khung ló ra góc trên-phải -->
+  <div class="sq bg-gray-900">
+    <div class="absolute rounded-[16px] bg-gray-600" style="left:62px;top:40px;width:120px;height:100px"></div>
+    <div class="absolute rounded-[16px] bg-gray-500" style="left:46px;top:56px;width:120px;height:100px"></div>
+    <div class="absolute rounded-[18px] bg-gray-700 border-2 border-gray-400" style="left:28px;top:72px;width:124px;height:106px">
+      <div class="glyph absolute text-gray-100 text-[54px]" style="left:16px;top:24px">&gt;</div>
+      <div class="absolute bg-gray-100 rounded-[3px]" style="left:58px;top:66px;width:40px;height:9px"></div>
+    </div>
+  </div>
+</template>
+
+<template id="icon-b">
+  <!-- B · Quạt bài: ba thẻ xoè, thẻ trước có ❯ và con trỏ khối -->
+  <div class="sq bg-gray-200">
+    <div class="absolute rounded-[18px] bg-gray-400" style="left:44px;top:46px;width:110px;height:132px;transform:rotate(-16deg)"></div>
+    <div class="absolute rounded-[18px] bg-gray-500" style="left:50px;top:40px;width:110px;height:132px;transform:rotate(-6deg)"></div>
+    <div class="absolute rounded-[18px] bg-gray-800" style="left:60px;top:36px;width:110px;height:132px;transform:rotate(6deg)">
+      <div class="glyph absolute text-white text-[58px]" style="left:16px;top:34px">❯</div>
+      <div class="absolute bg-gray-300 rounded-[3px]" style="left:62px;top:42px;width:22px;height:46px"></div>
+    </div>
+  </div>
+</template>
+
+<template id="icon-c">
+  <!-- C · Tầng xếp: cửa sổ trước rộng, hai mép cửa sổ sau hẹp dần phía trên -->
+  <div class="sq bg-gray-900">
+    <div class="absolute rounded-[14px] bg-gray-600" style="left:51px;top:30px;width:104px;height:60px"></div>
+    <div class="absolute rounded-[16px] bg-gray-500" style="left:37px;top:44px;width:132px;height:60px"></div>
+    <div class="absolute rounded-[18px] bg-gray-700 border-2 border-gray-400" style="left:22px;top:60px;width:162px;height:122px">
+      <div class="absolute flex gap-[6px]" style="left:14px;top:12px">
+        <span class="block w-[10px] h-[10px] rounded-full bg-gray-400"></span>
+        <span class="block w-[10px] h-[10px] rounded-full bg-gray-400"></span>
+        <span class="block w-[10px] h-[10px] rounded-full bg-gray-400"></span>
+      </div>
+      <div class="glyph absolute text-gray-100 text-[56px]" style="left:18px;top:40px">&gt;</div>
+      <div class="absolute bg-gray-100 rounded-[3px]" style="left:62px;top:82px;width:44px;height:9px"></div>
+    </div>
+  </div>
+</template>
+
+<script>
+  const layouts = [
+    { id: 'a', name: 'A · Xếp chéo', note: 'Hai khung ló ra góc trên-phải, khung trước giữ >_. Gần kitty (vật ló sau khối) nhưng thay con mèo bằng chính các phiên.', small: 'Ở 16px: thành một khối có bậc thang góc trên-phải, >_ còn thấy lờ mờ.' },
+    { id: 'b', name: 'B · Quạt bài', note: 'Ba thẻ xoè như bộ bài cầm tay, thẻ trước có ❯ và con trỏ khối. Chơi chữ "deck" rõ nhất, ít giống app terminal nào.', small: 'Ở 16px: hình quạt nghiêng còn nhận ra, dấu ❯ mất trước.' },
+    { id: 'c', name: 'C · Tầng xếp', note: 'Cửa sổ trước rộng có ba chấm tiêu đề và >_, hai mép cửa sổ phía sau hẹp dần lên trên. Đối xứng, đứng yên, giống ảnh chồng cửa sổ.', small: 'Ở 16px: thành khối bậc thang đối xứng, >_ to nhất trong ba bản.' },
+  ];
+  const sizes = [128, 64, 32, 16];
+  const root = document.getElementById('layouts');
+  for (const l of layouts) {
+    const tpl = document.getElementById('icon-' + l.id).innerHTML;
+    const icon = (px) => `<div style="width:${px}px;height:${px}px"><div class="canvas" style="transform:scale(${px / 256})">${tpl}</div></div>`;
+    root.insertAdjacentHTML('beforeend', `
+      <section id="${l.id}" class="border border-gray-200 rounded-2xl p-6">
+        <h2 class="text-xl font-semibold">${l.name}</h2>
+        <p class="mt-1 text-gray-600">${l.note}</p>
+        <div class="mt-6 flex flex-wrap items-end gap-8">
+          <div class="bg-gray-100 rounded-xl">${icon(256)}</div>
+          ${sizes.map(px => `<div class="flex flex-col items-center gap-2">${icon(px)}<span class="text-xs text-gray-500">${px}px</span></div>`).join('')}
+          <div class="flex flex-col items-center gap-2">
+            <div class="bg-gray-300 rounded-xl px-3 py-2 flex gap-2 items-center">
+              <div class="w-[48px] h-[48px] rounded-[11px] bg-gray-400"></div>${icon(48)}<div class="w-[48px] h-[48px] rounded-[11px] bg-gray-400"></div>
+            </div>
+            <span class="text-xs text-gray-500">giữa Dock</span>
+          </div>
+        </div>
+        <p class="mt-4 text-sm text-gray-500">${l.small}</p>
+      </section>`);
+  }
+</script>
+</body>
+</html>
