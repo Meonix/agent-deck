@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v1.0 (2026-10-15)
+status: Approved v2.0 (2026-10-17)
 ---
 # BRD — agent-deck
 
@@ -12,8 +12,8 @@ status: Approved v1.0 (2026-10-15)
 
 agent-deck là ứng dụng desktop dùng cá nhân, cài và chạy trên máy (macOS trước, Windows sau).
 Nó gom việc làm với Claude Code về một chỗ: các folder hay làm việc, lịch sử phiên của từng folder,
-nhiều phiên Claude Code tương tác cùng lúc trong một cửa sổ, và một bảng cho biết phiên nào đang
-chạy, phiên nào đang chờ mình duyệt, phiên nào đang lỗi.
+nhiều phiên Claude Code tương tác cùng lúc trong một cửa sổ, và dấu báo trạng thái ở cột trái cho
+biết phiên nào đang chạy, phiên nào đang chờ mình duyệt, phiên nào đang lỗi.
 
 ## 2. Vấn đề và lý do
 
@@ -33,7 +33,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 
 | ID | Mục tiêu | Chỉ số | Ngưỡng | Thời hạn |
 | --- | --- | --- | --- | --- |
-| BO-01 | Không bỏ sót phiên Claude Code đang chờ duyệt hoặc đang lỗi | Thời gian từ lúc một phiên mở trong agent-deck bắt đầu chờ duyệt hoặc gặp lỗi đến lúc phiên đó hiện trên bảng trạng thái | ≤ 3 giây | Đạt trong 2 tuần dùng thử ngay sau khi có MVP |
+| BO-01 | Không bỏ sót phiên Claude Code đang chờ duyệt hoặc đang lỗi | Thời gian từ lúc một phiên mở trong agent-deck bắt đầu chờ duyệt hoặc gặp lỗi đến lúc phiên đó hiện dấu báo trạng thái trong app (dòng phiên, dòng folder, hoặc badge của ô phóng to) | ≤ 3 giây | Đạt trong 2 tuần dùng thử ngay sau khi có MVP |
 | BO-02 | Quay lại làm tiếp một phiên cũ thật nhanh | Số thao tác từ lúc mở app đến lúc gõ tiếp được vào một phiên cũ bất kỳ | ≤ 3 thao tác | Đạt trong 2 tuần dùng thử ngay sau khi có MVP |
 
 ## 5. Phạm vi
@@ -44,6 +44,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 - Xem và mở lại phiên Claude Code đã có trên máy, theo từng folder.
 - Chạy nhiều phiên Claude Code tương tác cùng lúc, chia ô trong một cửa sổ.
 - Theo dõi trạng thái từng phiên: đang chạy, cần duyệt, lỗi.
+- Xoá phiên cũ vào Thùng rác.
 
 ### Ngoài phạm vi
 
@@ -60,9 +61,10 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BR-02 | Người dùng xem danh sách phiên Claude Code đã có trên máy của folder đang chọn, mỗi phiên có tiêu đề và thời điểm hoạt động gần nhất | BO-02 | Must |
 | BR-03 | Người dùng mở lại một phiên cũ để làm tiếp | BO-02 | Must |
 | BR-04 | Người dùng bắt đầu một phiên Claude Code mới trong folder đang chọn | BO-02 | Must |
-| BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, chia ô ngang và dọc, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
-| BR-06 | Người dùng thấy trên một bảng phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
-| BR-07 | Từ bảng trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
+| BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, chia ô ngang và dọc, phóng to một ô ra cả cửa sổ, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
+| BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
+| BR-07 | Từ dấu báo trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
+| BR-08 | Người dùng xoá một phiên cũ của folder bằng cách chuyển nó vào Thùng rác | BO-02 | Should |
 
 ## 7. Quy trình và luật nghiệp vụ
 
@@ -72,8 +74,8 @@ Quy trình chính:
 2. App hiện các phiên đã có của folder đó.
 3. Người dùng mở lại một phiên cũ, hoặc bắt đầu phiên mới; phiên mở ra trong một ô.
 4. Người dùng mở thêm ô, ở cùng folder hoặc folder khác.
-5. Khi một phiên cần duyệt hoặc gặp lỗi, phiên đó hiện trong cột tương ứng của bảng trạng thái.
-6. Người dùng bấm vào phiên trên bảng để tới đúng ô và xử lý.
+5. Khi một phiên cần duyệt hoặc gặp lỗi, dòng phiên và dòng folder của nó ở cột trái đổi màu và hiện badge.
+6. Người dùng bấm vào dòng phiên đó để tới đúng ô và xử lý.
 
 Luật nghiệp vụ:
 
@@ -85,7 +87,7 @@ Luật nghiệp vụ:
 - Dùng cá nhân, một người dùng.
 - App cài và chạy trên máy như ứng dụng desktop, không phải trang web.
 - Bản đầu dùng hằng ngày trên macOS; phải build ra được bản chạy trên Windows.
-- Chỉ đọc dữ liệu phiên của Claude Code trên máy, không sửa dữ liệu đó.
+- Không sửa dữ liệu phiên của Claude Code trên máy; chỉ được chuyển cả một phiên vào Thùng rác khi người dùng chọn xoá phiên đó (BR-08).
 - Không thay đổi cấu hình Claude Code dùng chung toàn máy của người dùng.
 
 ## 9. Giả định (A)
@@ -104,7 +106,7 @@ Luật nghiệp vụ:
 
 ## 11. Chỉ số thành công
 
-- BO-01: trong 2 tuần dùng thử sau khi có MVP, mọi phiên mở trong agent-deck mà chờ duyệt hoặc lỗi hiện trên bảng trạng thái trong ≤ 3 giây.
+- BO-01: trong 2 tuần dùng thử sau khi có MVP, mọi phiên mở trong agent-deck mà chờ duyệt hoặc lỗi hiện dấu báo trạng thái trong ≤ 3 giây.
 - BO-02: trong 2 tuần dùng thử sau khi có MVP, mở lại bất kỳ phiên cũ nào trong ≤ 3 thao tác (chọn folder, chọn phiên, mở).
 
 ## 12. Câu hỏi mở (Q)
@@ -123,9 +125,12 @@ Luật nghiệp vụ:
 | 2026-10-15 | Q-01: BO-01 đo bằng gì? | Không sót phiên chờ: phiên chờ duyệt hoặc lỗi hiện trên bảng ≤ 3 giây, đạt trong 2 tuần dùng thử sau MVP |
 | 2026-10-15 | Có thêm BO cho folder, lịch sử phiên, chia ô không? | Có, BO-02: mở lại phiên cũ ≤ 3 thao tác, đạt trong 2 tuần dùng thử sau MVP |
 | 2026-10-15 | Phiên mở ngoài app có hiện trạng thái không? | Không. BO-01 chỉ tính phiên mở trong agent-deck; phiên ngoài chỉ hiện trong lịch sử; không sửa cấu hình Claude Code toàn máy |
+| 2026-10-17 | CR-001: xoá phiên nghĩa là gì? | Chuyển phiên vào Thùng rác, từng phiên một, có xác nhận; phiên đang mở thì đóng ô rồi xoá |
+| 2026-10-17 | CR-001: bảng trạng thái chiếm chỗ | Gộp vào cột trái: dòng phiên và dòng folder đổi màu nền + badge; ô phóng to có badge đếm phiên khác cần duyệt/lỗi |
 
 ## 14. Duyệt
 
 | Version | Ngày | Người duyệt | Ghi chú |
 | --- | --- | --- | --- |
 | v1.0 | 2026-10-15 | PO | Duyệt, chuyển sang viết SRS |
+| v2.0 | 2026-10-17 | PO | CR-001: chỉ số BO-01 đổi sang dấu báo trạng thái; BR-05, BR-06, BR-07 sửa; thêm BR-08; nới ràng buộc chỉ-đọc cho xoá vào Thùng rác |

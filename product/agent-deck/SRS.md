@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.0 (2026-10-15)
+status: Baselined v1.1 (2026-10-17)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -16,12 +16,12 @@ source: product/agent-deck/BRD.md
 
 Đặc tả hành vi của agent-deck, ứng dụng desktop cá nhân để làm việc với nhiều phiên Claude Code
 cùng lúc, phục vụ BO-01 (không sót phiên chờ duyệt hoặc lỗi) và BO-02 (mở lại phiên cũ ≤ 3 thao tác)
-của BRD v1.0.
+của BRD v2.0.
 
 ### Phạm vi
 
-Trong phạm vi: BR-01 đến BR-07 của BRD. Ngoài phạm vi: như BRD mục 5. Cụ thể, phiên Claude Code mở
-ngoài agent-deck vẫn hiện trong lịch sử phiên nhưng không có trạng thái và không lên bảng trạng thái.
+Trong phạm vi: BR-01 đến BR-08 của BRD. Ngoài phạm vi: như BRD mục 5. Cụ thể, phiên Claude Code mở
+ngoài agent-deck vẫn hiện trong lịch sử phiên nhưng không có trạng thái và không có Status Highlight.
 
 ### Người dùng
 
@@ -52,7 +52,8 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Session History | Danh sách phiên đã có trên máy của một workspace |
 | `Live` | Phiên đang mở trong một ô của agent-deck |
 | Pane | Một ô trong cửa sổ, chạy đúng một phiên |
-| Status Board | Bảng trạng thái, ba cột |
+| Status Highlight | Màu nền + badge trạng thái trên dòng phiên, dòng folder, và badge trên tiêu đề Maximized Pane |
+| Maximized Pane | Ô đang phóng to ra cả cửa sổ |
 | `Running` | Đang chạy |
 | `Needs Approval` | Cần duyệt |
 | `Idle` | Rảnh, chờ yêu cầu mới |
@@ -253,6 +254,8 @@ If the user starts a new session in a `Missing` workspace, then the system shall
 - Luồng thay thế: A1 người dùng chọn chia xuống dưới thay vì sang phải → SRS-FR-022
 - Luồng thay thế: A2 phiên trong ô tự thoát → ô báo "Session ended" → SRS-FR-028
 - Luồng ngoại lệ: E1 đóng ô khi phiên đang `Running` hoặc `Needs Approval` → hỏi xác nhận → SRS-FR-027
+- Luồng thay thế: A3 người dùng phóng to một ô ra cả cửa sổ rồi thu về → SRS-FR-041, SRS-FR-042
+- Luồng thay thế: A4 đang phóng to mà mở ô mới → thu về trước → SRS-FR-046
 
 ### SRS-FR-021 — Split right by default
 When a new pane opens, the system shall split the focused pane and place the new pane to its right.
@@ -330,52 +333,81 @@ The system shall show the workspace name and the session title in the header of 
 - Ưu tiên: Must
 - Nguồn: BR-05
 
-## 2.6 Bảng trạng thái
+### SRS-FR-041 — Maximize pane
+When the user chooses Maximize on a pane, the system shall show that pane over the whole application window below the title bar, covering the Workspace List, the session list and the other panes.
+- Giải thích: các ô khác vẫn chạy, không kết thúc phiên nào.
+- Ví dụ: 3 ô, phóng to ô 2 → chỉ thấy ô 2; ô 1 và ô 3 vẫn `Running`.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-05
 
-- Luồng chính: 1. Một phiên trong ô đổi trạng thái theo RULE-03 đến RULE-07. 2. Status Board cập nhật trong ≤ 3 giây. 3. Phiên `Running`, `Needs Approval`, `Error` hiện thẻ ở cột tương ứng; `Idle` và `Ended` không có thẻ.
-- Luồng thay thế: A1 phiên mở ngoài agent-deck → không có trạng thái, không lên bảng (BRD mục 5).
+### SRS-FR-042 — Restore pane
+When the user chooses Restore on the Maximized Pane, the system shall show the previous layout with the same pane sizes.
+- Ví dụ: hai ô chia 30/70, phóng to rồi Restore → vẫn 30/70.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-043 — Reflow on maximize
+When a pane is maximized or restored, the system shall fit the session's terminal content to the new pane size.
+- Giải thích: như SRS-FR-024, áp cho lúc phóng to và thu về.
+- Ví dụ: phóng to ô đang chiếm nửa cửa sổ → khung nhập của Claude Code vẽ lại rộng hết cửa sổ.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-046 — Restore before a new pane
+If a new pane opens while a pane is maximized, then the system shall restore the layout before placing the new pane.
+- Ví dụ: đang phóng to ô 1, bấm Split Right trên ô 1 → bố cục cũ hiện lại, ô mới nằm bên phải ô 1.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+## 2.6 Trạng thái phiên
+
+- Luồng chính: 1. Một phiên trong ô đổi trạng thái theo RULE-03 đến RULE-07. 2. Status Highlight cập nhật trong ≤ 3 giây. 3. Phiên `Running`, `Needs Approval`, `Error` tô dòng phiên và dòng folder theo trạng thái; `Idle` và `Ended` không tô.
+- Luồng thay thế: A1 phiên mở ngoài agent-deck → không có trạng thái, không có Status Highlight (BRD mục 5).
 - Luồng thay thế: A2 một lệnh hay công cụ Claude Code chạy bị lỗi nhưng lượt vẫn tiếp → không tính `Error` theo RULE-06 → SRS-FR-032
-- Luồng thay thế: A3 phiên `Error` nhận yêu cầu mới → `Running`; đóng ô → thẻ biến mất, theo RULE-08 → SRS-FR-032
+- Luồng thay thế: A3 phiên `Error` nhận yêu cầu mới → `Running`; đóng ô → hết tô, theo RULE-08 → SRS-FR-032
+- Luồng thay thế: A4 phiên ở folder không được chọn → dòng folder đó tô theo trạng thái gấp nhất → SRS-FR-040
+- Luồng thay thế: A5 đang có Maximized Pane → badge trên tiêu đề ô đó → SRS-FR-044
 - Luồng ngoại lệ: E1 không theo dõi được trạng thái của một phiên trong ô → báo trên tiêu đề ô → SRS-FR-036
 - Luồng ngoại lệ: E2 tín hiệu trạng thái không hợp với trạng thái hiện tại → giữ nguyên → SRS-FR-035
 
-### SRS-FR-031 — Status Board columns
-The system shall show a Status Board with the three columns `Running`, `Needs Approval` and `Error`.
-- Ví dụ: mở app, chưa có ô nào → bảng có ba cột rỗng.
-- Kiểm chứng: Inspection
-- Ưu tiên: Must
-- Nguồn: BR-06
+### SRS-FR-031 — Status Board columns — Deleted (CR-001)
+Không còn bảng ba cột; trạng thái hiện bằng Status Highlight ở cột trái (SRS-FR-032, SRS-FR-040).
 
-### SRS-FR-032 — Place session cards
-While a session open in a pane is in the state `Running`, `Needs Approval` or `Error`, the system shall show a card for that session in the column of that state.
+### SRS-FR-032 — Highlight session rows
+While a session open in a pane is in the state `Running`, `Needs Approval` or `Error`, the system shall show the Status Highlight of that state on the row of that session in the session list.
 - Giải thích: trạng thái xác định theo RULE-03, RULE-04, RULE-05, RULE-06, RULE-07, RULE-08 và bảng ở mục 5.
-- Ví dụ: ô 1 `Running`, ô 2 `Needs Approval`, ô 3 `Idle` → cột `Running` có 1 thẻ, cột `Needs Approval` có 1 thẻ, ô 3 không có thẻ.
-- Ví dụ âm: phiên `Ended` → không có thẻ ở cột nào.
-- Ví dụ âm: Claude Code chạy `npm test` bị fail rồi tự sửa tiếp → phiên vẫn `Running`, không có thẻ ở cột `Error` (RULE-06).
+- Ví dụ: ô 1 `Running`, ô 2 `Needs Approval`, ô 3 `Idle`, cùng folder đang chọn → dòng 1 nền Running + badge "Running", dòng 2 nền Needs Approval + badge "Needs Approval", dòng 3 không tô.
+- Ví dụ âm: phiên `Ended` → dòng không tô.
+- Ví dụ âm: Claude Code chạy `npm test` bị fail rồi tự sửa tiếp → dòng vẫn Running, không tô Error (RULE-06).
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-06
 
-### SRS-FR-033 — Card content
-The system shall show on each card the workspace name, the session title, the time the session entered its current state, and the reason of that state.
+### SRS-FR-033 — Status detail line
+While a session row shows the Status Highlight of `Needs Approval` or `Error`, the system shall show below the session title the time the session entered that state and the reason of that state.
 - Giải thích: lý do là thao tác đang chờ duyệt (ví dụ "Edit src/main.rs") hoặc loại lỗi (RULE-06).
-- Ví dụ: thẻ "agent-deck · Scaffold Tauri app · 14:02 · Edit src/main.rs" trong cột `Needs Approval`.
+- Ví dụ: dòng "Scaffold Tauri app" badge "Needs Approval", dòng phụ "14:02 · Edit src/main.rs".
+- Ví dụ âm: dòng `Running` → không có dòng phụ.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-06
 
 ### SRS-FR-034 — Status update latency
-When a session open in a pane changes state, the system shall update the Status Board within 3 seconds.
-- Giải thích: ngưỡng lấy thẳng từ BO-01.
-- Ví dụ: Claude Code hiện hộp xin phép sửa file lúc 14:02:00 → thẻ hiện ở cột `Needs Approval` trước 14:02:03.
-- Ví dụ âm: thẻ hiện lúc 14:02:05 → không đạt.
+When a session open in a pane changes state, the system shall update every Status Highlight of that session within 3 seconds.
+- Giải thích: ngưỡng lấy thẳng từ BO-01; gồm dòng phiên, dòng folder và badge của Maximized Pane.
+- Ví dụ: Claude Code hiện hộp xin phép sửa file lúc 14:02:00 → dòng phiên tô Needs Approval trước 14:02:03.
+- Ví dụ âm: dòng đổi màu lúc 14:02:05 → không đạt.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-06
 
 ### SRS-FR-035 — Ignore inapplicable status signals
 If a status signal does not apply to the current state of a session per the table in section 5, then the system shall keep the session in its current state.
-- Ví dụ âm: phiên `Ended` nhận tín hiệu "turn finished" → vẫn `Ended`, không hiện thẻ.
+- Ví dụ âm: phiên `Ended` nhận tín hiệu "turn finished" → vẫn `Ended`, dòng không tô.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-06
@@ -383,42 +415,107 @@ If a status signal does not apply to the current state of a session per the tabl
 ### SRS-FR-036 — Report unavailable status
 If the system cannot track the state of a session open in a pane, then the system shall show `Status unavailable` in the header of that pane.
 - Giải thích: thà báo không biết còn hơn để người dùng tưởng phiên đang rảnh (BO-01).
-- Ví dụ âm: Claude Code bản cũ không gửi được tín hiệu trạng thái → tiêu đề ô có nhãn `Status unavailable`, ô không lên bảng.
+- Ví dụ âm: Claude Code bản cũ không gửi được tín hiệu trạng thái → tiêu đề ô có nhãn `Status unavailable`, dòng phiên không tô.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-06
 
-## 2.7 Chuyển tới ô từ bảng trạng thái
+### SRS-FR-040 — Workspace status
+While at least one session of a workspace open in a pane is `Running`, `Needs Approval` or `Error`, the system shall show on that workspace's row the Status Highlight of its most urgent state and the number of its sessions in that state.
+- Giải thích: thứ tự gấp `Error` > `Needs Approval` > `Running`; để thấy phiên cần mình ở folder đang không chọn.
+- Ví dụ: `mokairo` có 1 phiên `Error`, 2 phiên `Running` → dòng `mokairo` nền Error, badge "1".
+- Ví dụ âm: mọi phiên của folder `Idle` → dòng folder không tô.
+- Kiểm chứng: Test
+- Ưu tiên: Must
+- Nguồn: BR-06
 
-- Luồng chính: 1. Người dùng bấm một thẻ trên Status Board. 2. Ô của phiên đó được focus, sẵn sàng nhận phím.
+### SRS-FR-044 — Maximized pane status badge
+While a pane is maximized and at least one other session open in a pane is `Needs Approval` or `Error`, the system shall show in the header of the Maximized Pane a badge with the number of those sessions.
+- Giải thích: cột trái bị che khi phóng to (SRS-FR-041), badge giữ BO-01. Badge màu Error nếu có ít nhất một phiên `Error`, còn lại màu Needs Approval.
+- Ví dụ: phóng to ô 1, ô 3 sang `Needs Approval` lúc 14:02:00 → tiêu đề ô 1 có badge "1" trước 14:02:03.
+- Ví dụ âm: các ô khác chỉ `Running` → không có badge.
+- Kiểm chứng: Test
+- Ưu tiên: Must
+- Nguồn: BR-06
 
-### SRS-FR-037 — Jump to pane from card
-When the user clicks a card on the Status Board, the system shall move keyboard focus to the pane of that session.
-- Ví dụ: bấm thẻ "agent-deck · Scaffold Tauri app" ở cột `Needs Approval` → ô đó được focus, bấm phím `1` là chọn "Yes" trong hộp xin phép.
+## 2.7 Chuyển tới ô từ dấu báo trạng thái
+
+- Luồng chính: 1. Người dùng bấm một dòng phiên đang có Status Highlight. 2. Ô của phiên đó được focus, sẵn sàng nhận phím.
+- Luồng thay thế: A1 đang có Maximized Pane, người dùng bấm badge trên tiêu đề → thu về, focus ô gấp nhất → SRS-FR-045
+
+### SRS-FR-037 — Jump to pane from a highlighted row
+When the user clicks a session row that shows a Status Highlight, the system shall move keyboard focus to the pane of that session.
+- Ví dụ: bấm dòng "Scaffold Tauri app" đang tô Needs Approval → ô đó được focus, bấm phím `1` là chọn "Yes" trong hộp xin phép.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-07
+
+### SRS-FR-045 — Jump from the maximized badge
+When the user clicks the status badge of the Maximized Pane, the system shall restore the layout and move keyboard focus to the pane of the most urgent other session.
+- Giải thích: gấp nhất là `Error` trước `Needs Approval`; cùng trạng thái thì phiên vào trạng thái sớm nhất.
+- Ví dụ: phóng to ô 1, ô 2 `Needs Approval` từ 14:00, ô 3 `Error` từ 14:05 → bấm badge → bố cục cũ, ô 3 được focus.
 - Kiểm chứng: Demo
 - Ưu tiên: Should
 - Nguồn: BR-07
 
 ## 2.8 Đo độ trễ trạng thái
 
-- Luồng chính: 1. Mỗi lần một phiên trong ô đổi trạng thái, hệ thống ghi lúc Claude Code báo đổi và lúc thẻ hiện trên bảng. 2. Người dùng mở "Status Latency". 3. Báo cáo hiện tỉ lệ lần đổi trạng thái hiện trên bảng ≤ 3 giây trong 14 ngày gần nhất.
+- Luồng chính: 1. Mỗi lần một phiên trong ô đổi trạng thái, hệ thống ghi lúc Claude Code báo đổi và lúc Status Highlight hiện. 2. Người dùng mở "Status Latency". 3. Báo cáo hiện tỉ lệ lần đổi trạng thái có Status Highlight hiện ≤ 3 giây trong 14 ngày gần nhất.
 - Luồng thay thế: A1 chưa có lần đổi trạng thái nào → báo cáo hiện "No data yet" → SRS-FR-039
 
 ### SRS-FR-038 — Record status change timing
-When a session open in a pane changes state, the system shall record the time Claude Code reported the change and the time the Status Board showed it.
+When a session open in a pane changes state, the system shall record the time Claude Code reported the change and the time the Status Highlight showed it.
 - Giải thích: dữ liệu để đo BO-01 (Q-01).
-- Ví dụ: Claude Code báo xin phép lúc 14:02:00.200, thẻ hiện lúc 14:02:00.450 → ghi một dòng độ trễ 250 ms.
+- Ví dụ: Claude Code báo xin phép lúc 14:02:00.200, dòng phiên đổi màu lúc 14:02:00.450 → ghi một dòng độ trễ 250 ms.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-06
 
 ### SRS-FR-039 — Status latency report
-When the user opens the Status Latency report, the system shall show the percentage of state changes in the last 14 days that appeared on the Status Board within 3 seconds.
+When the user opens the Status Latency report, the system shall show the percentage of state changes in the last 14 days whose Status Highlight appeared within 3 seconds.
 - Ví dụ: 14 ngày có 400 lần đổi trạng thái, 398 lần ≤ 3 giây → báo cáo hiện "99.5% (398/400) within 3 s".
 - Ví dụ âm: chưa có lần đổi trạng thái nào → hiện "No data yet", không hiện 0%.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-06
+
+## 2.9 Xoá phiên
+
+- Luồng chính: 1. Người dùng chọn Delete trên một dòng phiên. 2. Hệ thống hỏi xác nhận. 3. Người dùng đồng ý; phiên vào Thùng rác, biến khỏi danh sách.
+- Luồng thay thế: A1 người dùng chọn Cancel → không đổi gì → SRS-FR-048
+- Luồng thay thế: A2 phiên đang mở trong ô → kết thúc phiên, đóng ô rồi mới xoá → SRS-FR-049
+- Luồng ngoại lệ: E1 không chuyển được vào Thùng rác → giữ phiên, báo lỗi → SRS-FR-050
+
+### SRS-FR-047 — Delete a session
+When the user confirms deleting a session, the system shall move that session's history to the operating system's trash and remove the session from the session list.
+- Giải thích: khôi phục được bằng tay từ Thùng rác; ngoại lệ duy nhất của SRS-NFR-005.
+- Ví dụ: xoá "Scaffold Tauri app" → dòng biến mất; khôi phục từ Trash rồi chọn lại folder → thấy lại phiên.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-08
+
+### SRS-FR-048 — Confirm deleting a session
+When the user chooses Delete on a session row, the system shall ask "Move "<title>" to Trash?" before deleting.
+- Ví dụ: Delete trên "Scaffold Tauri app" → hộp "Move "Scaffold Tauri app" to Trash?".
+- Ví dụ âm: chọn Cancel → phiên vẫn còn, không file nào bị chuyển.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-08
+
+### SRS-FR-049 — Delete an open session
+If the user confirms deleting a session that is open in a pane, then the system shall end that session and close its pane before moving its history to the trash.
+- Giải thích: câu xác nhận đổi thành "Close "<title>" and move it to Trash?".
+- Ví dụ: phiên `Running` ở ô 2, Delete + đồng ý → ô 2 đóng, phiên kết thúc, rồi vào Thùng rác.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-08
+
+### SRS-FR-050 — Report delete failure
+If a session's history cannot be moved to the trash, then the system shall keep that session in the session list and show the message "Session could not be deleted".
+- Ví dụ âm: file phiên bị khoá quyền ghi → phiên vẫn còn, hiện "Session could not be deleted".
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-08
 
 ## 3. Dữ liệu
 
@@ -430,7 +527,7 @@ When the user opens the Status Latency report, the system shall show the percent
 | Thứ tự | Vị trí trong danh sách | Có | Theo thứ tự thêm vào |
 | `Missing` | Folder còn trên máy hay không | Có | Tính lại mỗi lần mở app (SRS-FR-005) |
 
-### Session (chỉ đọc, dữ liệu của Claude Code)
+### Session (chỉ đọc, dữ liệu của Claude Code; trừ xoá vào Thùng rác theo SRS-FR-047)
 | Trường | Nghĩa | Bắt buộc | Ràng buộc nghiệp vụ |
 | --- | --- | --- | --- |
 | Mã phiên | Định danh phiên do Claude Code đặt | Có | Duy nhất |
@@ -443,7 +540,7 @@ When the user opens the Status Latency report, the system shall show the percent
 | --- | --- | --- | --- |
 | Phiên | Phiên chạy trong ô | Có | Một phiên mở ở tối đa một ô (SRS-FR-015) |
 | Trạng thái | Trạng thái hiện tại của phiên | Có | Một trong năm trạng thái ở mục 5 |
-| Thời điểm vào trạng thái | Lúc phiên vào trạng thái hiện tại | Có | Hiện trên thẻ (SRS-FR-033) |
+| Thời điểm vào trạng thái | Lúc phiên vào trạng thái hiện tại | Có | Hiện ở dòng phụ (SRS-FR-033) |
 | Lý do | Thao tác chờ duyệt hoặc loại lỗi | Khi `Needs Approval` hoặc `Error` | Theo RULE-04, RULE-06 |
 
 ### Status Change Record
@@ -452,7 +549,7 @@ When the user opens the Status Latency report, the system shall show the percent
 | Phiên | Phiên đổi trạng thái | Có | Chỉ phiên mở trong ô |
 | Trạng thái mới | Trạng thái phiên chuyển sang | Có | Một trong năm trạng thái ở mục 5 |
 | Lúc Claude Code báo | Thời điểm Claude Code báo đổi trạng thái | Có | |
-| Lúc hiện trên bảng | Thời điểm Status Board hiện thay đổi | Có | Không sớm hơn lúc Claude Code báo |
+| Lúc hiện Status Highlight | Thời điểm Status Highlight hiện thay đổi | Có | Không sớm hơn lúc Claude Code báo |
 
 Bản ghi chỉ cần giữ đủ 14 ngày gần nhất cho SRS-FR-039.
 
@@ -465,7 +562,7 @@ Bản ghi chỉ cần giữ đủ 14 ngày gần nhất cho SRS-FR-039.
 | RULE-03 | Phiên ở `Running` khi Claude Code đang xử lý một yêu cầu của người dùng. | BR-06 |
 | RULE-04 | Phiên ở `Needs Approval` khi Claude Code đang dừng chờ người dùng cho phép một thao tác hoặc chọn một phương án (A-06). | BR-06 |
 | RULE-05 | Phiên ở `Idle` khi Claude Code đã xong yêu cầu và đang chờ yêu cầu mới. | BR-06 |
-| RULE-06 | Phiên ở `Error` khi lượt làm việc bị dừng vì lỗi dịch vụ (hết hạn mức, quá tải, lỗi máy chủ, lỗi đăng nhập) hoặc khi phiên thoát bất thường; một lệnh hay công cụ Claude Code chạy bị lỗi mà lượt làm việc vẫn tiếp tục thì không tính là lỗi. Loại lỗi là lý do hiện trên thẻ. | BR-06 |
+| RULE-06 | Phiên ở `Error` khi lượt làm việc bị dừng vì lỗi dịch vụ (hết hạn mức, quá tải, lỗi máy chủ, lỗi đăng nhập) hoặc khi phiên thoát bất thường; một lệnh hay công cụ Claude Code chạy bị lỗi mà lượt làm việc vẫn tiếp tục thì không tính là lỗi. Loại lỗi là lý do hiện ở dòng phụ của dòng phiên (SRS-FR-033). | BR-06 |
 | RULE-07 | Phiên ở `Ended` khi phiên đã thoát bình thường. | BR-06 |
 | RULE-08 | Phiên rời `Error` khi người dùng gửi yêu cầu mới trong phiên đó (sang `Running`) hoặc khi người dùng đóng ô của phiên. | BR-06 |
 
@@ -486,6 +583,7 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Hệ thống | Trao đổi gì | Khi nào | Bên kia lỗi thì |
 | --- | --- | --- | --- |
 | Claude Code (lịch sử phiên trên máy) | Danh sách phiên, tiêu đề, folder bắt đầu, thời điểm hoạt động | Mỗi lần người dùng chọn một workspace | Phiên không đọc được → SRS-FR-011 |
+| Thùng rác của hệ điều hành | Nhận lịch sử phiên người dùng xoá | Khi người dùng xác nhận xoá (SRS-FR-047) | Không chuyển được → SRS-FR-050 |
 | Claude Code (phiên tương tác) | Chạy phiên mới hoặc tiếp tục phiên cũ trong một ô; nhận phím, trả nội dung hiển thị | Khi mở ô (SRS-FR-013, SRS-FR-018) | Không khởi động được → SRS-FR-017 |
 | Claude Code (tín hiệu trạng thái) | Sự kiện đổi trạng thái của phiên trong ô | Liên tục khi ô còn mở | Không theo dõi được → SRS-FR-036 |
 
@@ -493,17 +591,16 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 
 | Màn hình | Làm gì | SRS-FR |
 | --- | --- | --- |
-| Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing` | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006 |
-| Cửa sổ chính · Session List | Xem phiên của folder, Resume, New Session | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020 |
-| Cửa sổ chính · Pane Grid | Làm việc với các phiên, chia ô, đóng ô | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-022, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036 |
-| Cửa sổ chính · Status Board | Xem trạng thái, bấm thẻ để tới ô | SRS-FR-031, SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038 |
+| Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing`; Status Highlight của folder | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006, SRS-FR-034, SRS-FR-040 |
+| Cửa sổ chính · Session List | Xem phiên của folder, Resume, New Session, Status Highlight, bấm dòng để tới ô, xoá phiên | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050 |
+| Cửa sổ chính · Pane Grid | Làm việc với các phiên, chia ô, đóng ô, phóng to/thu về, badge của ô phóng to | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-022, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046 |
 | Status Latency | Xem tỉ lệ đổi trạng thái hiện ≤ 3 giây | SRS-FR-039 |
 
 ## 8. Báo cáo
 
 | Báo cáo | Chỉ số | Lọc | Tần suất | Ai xem | FR | BO |
 | --- | --- | --- | --- | --- | --- | --- |
-| Status Latency | Số lần đổi trạng thái hiện trên bảng ≤ 3 giây / tổng số lần đổi trạng thái | 14 ngày gần nhất | Khi người dùng mở | PO | SRS-FR-038, SRS-FR-039 | BO-01 |
+| Status Latency | Số lần đổi trạng thái có Status Highlight hiện ≤ 3 giây / tổng số lần đổi trạng thái | 14 ngày gần nhất | Khi người dùng mở | PO | SRS-FR-038, SRS-FR-039 | BO-01 |
 
 BO-02 (≤ 3 thao tác) không có báo cáo trong app: kiểm bằng kịch bản demo theo A-09.
 
@@ -540,7 +637,8 @@ The system shall run as an installed desktop application on macOS 14 or later an
 - Nguồn: BRD mục 8 (ràng buộc)
 
 ### SRS-NFR-005 — Read-only session history
-The system shall not modify any Claude Code session history on the machine.
+The system shall not modify any Claude Code session history on the machine other than moving a session the user deletes to the operating system's trash.
+- Giải thích: ngoại lệ duy nhất là SRS-FR-047 (BR-08, CR-001).
 - Ví dụ âm: bỏ workspace, resume, đóng ô → không file lịch sử nào của Claude Code bị app sửa hay xoá (chỉ Claude Code tự ghi).
 - Kiểm chứng: Inspection
 - Ưu tiên: Must
@@ -579,8 +677,8 @@ The system shall display its own labels and messages in English.
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-039 | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
-| SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần thẻ hiện ≤ 3 giây |
+| SRS-FR-001 đến SRS-FR-050 (trừ SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
 | SRS-NFR-001 đến SRS-NFR-008 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
 ## 12. Bảng truy vết
@@ -618,7 +716,7 @@ The system shall display its own labels and messages in English.
 | SRS-FR-028 | BR-05 | | Test | Baselined |
 | SRS-FR-029 | BR-05 | | Test | Baselined |
 | SRS-FR-030 | BR-05 | | Demo | Baselined |
-| SRS-FR-031 | BR-06 | | Inspection | Baselined |
+| SRS-FR-031 | BR-06 | | Inspection | Deleted (CR-001) |
 | SRS-FR-032 | BR-06 | | Test | Baselined |
 | SRS-FR-033 | BR-06 | | Test | Baselined |
 | SRS-FR-034 | BR-06 | | Test | Baselined |
@@ -627,6 +725,17 @@ The system shall display its own labels and messages in English.
 | SRS-FR-037 | BR-07 | | Demo | Baselined |
 | SRS-FR-038 | BR-06 | | Test | Baselined |
 | SRS-FR-039 | BR-06 | | Test | Baselined |
+| SRS-FR-040 | BR-06 | | Test | Baselined |
+| SRS-FR-041 | BR-05 | | Demo | Baselined |
+| SRS-FR-042 | BR-05 | | Demo | Baselined |
+| SRS-FR-043 | BR-05 | | Demo | Baselined |
+| SRS-FR-044 | BR-06 | | Test | Baselined |
+| SRS-FR-045 | BR-07 | | Demo | Baselined |
+| SRS-FR-046 | BR-05 | | Test | Baselined |
+| SRS-FR-047 | BR-08 | | Test | Baselined |
+| SRS-FR-048 | BR-08 | | Test | Baselined |
+| SRS-FR-049 | BR-08 | | Test | Baselined |
+| SRS-FR-050 | BR-08 | | Test | Baselined |
 | SRS-NFR-001 | BR-05 | | Test | Baselined |
 | SRS-NFR-002 | BR-05 | | Test | Baselined |
 | SRS-NFR-003 | BR-02 | | Test | Baselined |
@@ -651,3 +760,4 @@ The system shall display its own labels and messages in English.
 | Version | Ngày | Người duyệt | Ghi chú |
 | --- | --- | --- | --- |
 | v1.0 | 2026-10-15 | PO | Baseline; theo BRD v1.0 |
+| v1.1 | 2026-10-17 | PO | CR-001: Status Highlight thay Status Board (SRS-FR-031 xoá); phóng to ô; xoá phiên vào Thùng rác; theo BRD v2.0 |
