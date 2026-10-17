@@ -10,7 +10,7 @@ Traces: SRS-FR-032 ← BR-06 ← BO-01
 
 While a session open in a pane is in the state `Running`, `Needs Approval` or `Error`, the system SHALL show the Status Highlight of that state on the row of that session in Active Sessions. The Status Highlight is the background of that state and a marker of that state. The state follows RULE-03 to RULE-08 and the transition table in SRS section 5; a pane starts in `Idle` (RULE-05: Claude Code waits for a request).
 
-#### Scenario: Panes of two folders in three states
+#### Scenario: Three panes in three states
 - **GIVEN** `agent-deck` has pane 1 `Running`, `mokairo` has pane 2 `Needs Approval` and pane 3 `Idle`
 - **AND** `agent-deck` is the selected folder
 - **THEN** in Active Sessions the row of pane 2 has the `Needs Approval` background and the row of pane 1 the `Running` background
@@ -51,6 +51,11 @@ While a session open in a pane is in the state `Running`, `Needs Approval` or `E
 - **WHEN** Claude Code asks the user to choose an option
 - **THEN** the session is `Needs Approval` (A-06)
 
+#### Scenario: Highlighted row keeps its Live mark
+- **GIVEN** the session "Scaffold Tauri app" is open in a pane and `Needs Approval`
+- **THEN** its row in Active Sessions shows the `Needs Approval` highlight
+- **AND** its row in the Session History Panel still shows `Live`, without a highlight (SRS-FR-012)
+
 ### Requirement: Jump to pane from Active Sessions (SRS-FR-037)
 Traces: SRS-FR-037 ← BR-07 ← BO-01
 
@@ -72,6 +77,11 @@ When the user clicks a row in Active Sessions, the system SHALL move keyboard fo
 - **GIVEN** the row "Refactor API client" in Active Sessions is `Idle` and another pane has keyboard focus
 - **WHEN** the user clicks that row
 - **THEN** the pane of "Refactor API client" is focused
+
+#### Scenario: Row without highlight does not jump
+- **GIVEN** the row of a session in the Session History Panel
+- **WHEN** the user clicks it
+- **THEN** keyboard focus stays where it was and the row shows its Resume button
 
 ## ADDED Requirements
 
