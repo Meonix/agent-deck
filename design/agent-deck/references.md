@@ -40,3 +40,15 @@ Chụp bằng Playwright ngày 2026-10-17, viewport 1440×900, chờ 5–6 giây
 | 15 | Superhuman Go | https://superhuman.com | `refs/superhuman-home.png` | Panel phụ cạnh nội dung, nền tint rất nhạt, tách bằng viền mảnh, có nút đóng/thu ở header — mẫu cho khung lịch sử đóng được |
 
 Đã thử nhưng bỏ: https://linear.app/docs/sidebar (404), https://code.visualstudio.com/docs/copilot/chat/chat-sessions (chỉ có chữ), https://chatgpt.com/codex (trang trắng, cần đăng nhập), https://linear.app/agents (không thấy sidebar).
+
+## CR-003 (2026-10-17) — nút Shell và Pane Shell trong ô
+
+Chụp bằng Playwright ngày 2026-10-17, viewport 1440×900; hai ảnh VS Code cắt từ ảnh full-page của trang docs. Dùng lại #5, #11, #12 ở trên; thêm ba mục dưới.
+
+| # | Nguồn | Link | Ảnh | Lấy gì |
+| --- | --- | --- | --- | --- |
+| 16 | VS Code · Terminal Basics | https://code.visualstudio.com/docs/terminal/basics | `refs/cr003-vscode-terminal-panel.png` | Panel terminal dưới có dải header mỏng: nhãn "TERMINAL" trái, tên shell + nút (+, chia, xoá, ^ phóng, × ẩn) phải; bật/tắt bằng một nút, đóng panel không giết shell |
+| 17 | VS Code · Managing terminals | https://code.visualstudio.com/docs/terminal/basics#_managing-terminals | `refs/cr003-vscode-terminal-tabs.png` | Tên shell kèm biểu tượng nhỏ canh phải header; tài liệu ghi icon cạnh tên terminal đổi khi trạng thái đổi (chuông, dấu check) — mẫu cho chấm báo trên nút Shell |
+| 18 | Tabby | https://tabby.sh | `refs/cr003-tabby.png` | Hai shell chia cạnh nhau trong một cửa sổ, vách ngăn chỉ là một đường mảnh 1px, không thanh kéo to — vách kéo giữa Claude Code và Pane Shell nên mảnh như vậy |
+
+Đã thử nhưng bỏ: https://zed.dev/docs/terminal và https://www.jetbrains.com/help/idea/terminal-emulator.html (chỉ có chữ, không có ảnh panel), https://www.waveterm.dev và https://www.warp.dev/terminal (phần đầu trang chỉ là hero, không thấy giao diện).

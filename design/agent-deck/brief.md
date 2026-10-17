@@ -1,6 +1,6 @@
 # Design brief — agent-deck
 
-Nguồn: `product/agent-deck/BRD.md` (Approved v2.1), `product/agent-deck/SRS.md` (Baselined v1.2) mục 7. CR-001 (2026-10-17) bỏ Status Board, thêm phóng to ô và xoá phiên. CR-002 (2026-10-17) tách Active Sessions ở cột trái, lịch sử phiên sang Session History Panel.
+Nguồn: `product/agent-deck/BRD.md` (Approved v2.2), `product/agent-deck/SRS.md` (Baselined v1.3) mục 7. CR-001 (2026-10-17) bỏ Status Board, thêm phóng to ô và xoá phiên. CR-002 (2026-10-17) tách Active Sessions ở cột trái, lịch sử phiên sang Session History Panel. CR-003 (2026-10-17) thêm Pane Shell dưới phiên trong mỗi ô.
 
 ## Nền tảng
 
@@ -59,3 +59,21 @@ Dense (4+ ô, nhiều phiên Live ở nhiều folder cùng lúc tô màu), hộp
 - Màu: bản 1 · Tint phẳng, dark (`design.html#cr002-v1-flat`). Section Folders nền `--section-folders` (sky-3), Active Sessions nền `--section-active` (sand-3), phủ hết bề ngang, ngăn bằng viền 1px `--border`. Chip folder: viền `--border`, chữ `--muted-foreground`. Folder đang chọn: nền `--accent`; đang chọn mà có Status Highlight thì giữ nền trạng thái + `ring-1 ring-ring` (như folder đang chọn trong `design.html#cr001-v1-soft-fill`). Trạng thái giữ soft fill của CR-001.
 - Token mới: `--section-folders`, `--section-active` (tokens.css, tailwind.preset.js `section.folders` / `section.active`).
 - Trạng thái: `design.html#cr002-states`.
+
+## Phạm vi CR-003 (2026-10-17)
+
+Màn hình: Cửa sổ chính · Pane Grid (SRS mục 7), không thêm màn mới. SRS-FR-055 … SRS-FR-065.
+
+- Nút Shell trên header ô, cạnh Maximize / Close. Ba trạng thái nhìn khác nhau: chưa mở shell · shell đang hiện · shell đang ẩn mà vẫn chạy (có chấm, SRS-FR-058).
+- Pane Shell nằm dưới phần Claude Code trong cùng ô, mặc định cao 30% ô; vách kéo giữa hai phần (SRS-FR-059); không có trạng thái, không tô Status Highlight.
+- Giá trị: shell ẩn không bị quên (giữ ý SRS-FR-029); terminal Claude Code vẫn chiếm phần lớn ô.
+- Trạng thái cần vẽ: chưa mở · đang hiện · đang ẩn có chấm · hộp xác nhận đóng ô khi shell đang chạy lệnh ("A command is still running in the shell. Close anyway?") · "Shell could not start" · phiên đã "Session ended" mà shell vẫn chạy · ô phóng to có shell · Dense (4 ô, vài ô có shell, vài ô shell ẩn) · cửa sổ hẹp · light.
+- Ngoài phạm vi: nhiều shell / tab trong một ô, chọn shell khác, giữ shell qua lần mở app.
+- Token (bước 4): giữ nguyên tokens.css, không thêm token. Chấm báo shell ẩn dùng `--primary` (iris-9) vì xanh / vàng / đỏ đã dành cho Running / Needs Approval / Error. Đo trên `--card` (nền header ô): light 5.10:1, dark 3.28:1, đều ≥ 3:1 (ngưỡng WCAG cho thành phần không phải chữ). Nút Shell dùng `--muted-foreground` như các nút header khác (5.65 light, 8.45 dark trên `--card`); đang hiện shell thì nền `--accent` + chữ `--accent-foreground`.
+
+## Đã chốt cho CR-003 (2026-10-17)
+
+- Bố cục: wireframe C · Chip lệnh đang chạy (`design.html#cr003`). Chip `>_ Shell` nằm giữa ⇥ ⇣ và ⤢ ✕ trên header ô. Ẩn mà shell đang chạy lệnh → chip đổi thành chấm + tên lệnh (cắt bớt khi hẹp); ẩn ở dấu nhắc → chấm + "Shell". Khu shell dưới phần Claude Code, cao 30% ô, ngăn bằng viền 1px có tay nắm giữa, không có header riêng.
+- Màu: bản 1 · Viền iris (`design.html#cr003-v1-iris`, light `#cr003-v1-iris-light`). Chưa mở: viền `--border`, chữ `--muted-foreground`. Đang hiện: nền `--accent`, viền `--ring`, chữ `--accent-foreground`. Ẩn đang chạy: viền + chấm `--primary`, chữ `--accent-foreground`. Khu shell nền `--card`, tay nắm `--border`. Không thêm token.
+- Hộp xác nhận đóng ô khi shell bận: mẫu hộp xoá phiên CR-001, nút "Close" nền `--error`. "Shell could not start": dải `--error-*` ở đáy ô, có ✕.
+- Trạng thái: `#cr003-states-not-opened`, `-hidden-at-prompt`, `-close-confirm`, `-shell-failed`, `-session-ended`, `-maximized`, `-dense-data`, `-narrow`. Không vẽ Loading (shell mở ngay, SRS không có trạng thái chờ) và No permission (app một người dùng).

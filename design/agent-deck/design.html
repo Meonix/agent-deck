@@ -38,6 +38,418 @@
 }
 </style></head>
 <body class="bg-gray-100 p-6 flex flex-wrap gap-6 items-start">
+<h1 id="cr003" class="w-full text-lg font-semibold text-gray-800 mt-4">CR-003 · đã chốt: bản 1 Viền iris (wireframe C)</h1>
+<section id="cr003-v1-iris">
+  <h2 class="text-sm text-gray-700">Đã chốt · bản 1 Viền iris (dark) · 1100×640</h2>
+  <p class="mt-1 mb-2 max-w-[1100px] text-xs text-gray-600">Ô trái: shell đang hiện, nút nền <code>--accent</code> + viền <code>--ring</code>; khu shell nền <code>--card</code>, cao 30% ô, tay nắm <code>--border</code> trên vách 1px. Ô phải: shell ẩn đang chạy <code>npm run dev</code> → chip viền + chấm <code>--primary</code>, chữ <code>--accent-foreground</code> (SRS-FR-056, SRS-FR-058).</p>
+  <div class="w-[1100px] h-[640px] overflow-hidden border border-gray-300">
+    <div class="dark h-full relative bg-background font-sans">
+    <main class="h-full grid grid-cols-2  gap-2 p-2"><section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-running bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Scaffold Tauri app</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-running-bg text-running-foreground border-running-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-running"></span>Running</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-ring bg-accent text-accent-foreground" title="Hide Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">✻ Editing src/App.tsx…
+  ⎿ Updated 2 lines
+✻ Running Bash(npm test)…
+  ⎿ 42 passed
+
+></pre>
+    <div class="h-[30%] shrink-0 flex flex-col border-t border-border bg-card">
+      <div class="h-1.5 -mt-1 flex justify-center cursor-row-resize"><span class="mt-0.5 w-8 h-1 rounded-full bg-border"></span></div>
+      <pre class="flex-1 min-h-0 px-3 pb-2 font-mono text-xs leading-5 text-foreground overflow-hidden">~/agent-deck $ npm run dev
+  VITE v8.0.16  ready in 412 ms
+  ➜  Local:   http://localhost:1420/
+  page reload src/App.tsx</pre>
+    </div>
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-border bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">mokairo ·</span> Fix login redirect</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-muted text-muted-foreground border-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-muted-foreground"></span>Idle</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-primary text-accent-foreground" title="Show Shell"><span class="size-1.5 shrink-0 rounded-full bg-primary"></span><span class="font-mono truncate">npm run dev</span></span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Done. 3 files changed.
+
+></pre>
+    
+  </section></main>
+    
+    </div>
+  </div>
+</section>
+<section id="cr003-v1-iris-light">
+  <h2 class="text-sm text-gray-700">Đã chốt · bản 1 Viền iris (light) · 1100×640</h2>
+  <p class="mt-1 mb-2 max-w-[1100px] text-xs text-gray-600">Cùng bố cục, token light. Chấm <code>--primary</code> trên <code>--card</code> 5.10:1.</p>
+  <div class="w-[1100px] h-[640px] overflow-hidden border border-gray-300">
+    <div class="h-full relative bg-background font-sans">
+    <main class="h-full grid grid-cols-2  gap-2 p-2"><section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-running bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Scaffold Tauri app</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-running-bg text-running-foreground border-running-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-running"></span>Running</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-ring bg-accent text-accent-foreground" title="Hide Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">✻ Editing src/App.tsx…
+  ⎿ Updated 2 lines
+✻ Running Bash(npm test)…
+  ⎿ 42 passed
+
+></pre>
+    <div class="h-[30%] shrink-0 flex flex-col border-t border-border bg-card">
+      <div class="h-1.5 -mt-1 flex justify-center cursor-row-resize"><span class="mt-0.5 w-8 h-1 rounded-full bg-border"></span></div>
+      <pre class="flex-1 min-h-0 px-3 pb-2 font-mono text-xs leading-5 text-foreground overflow-hidden">~/agent-deck $ npm run dev
+  VITE v8.0.16  ready in 412 ms
+  ➜  Local:   http://localhost:1420/
+  page reload src/App.tsx</pre>
+    </div>
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-border bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">mokairo ·</span> Fix login redirect</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-muted text-muted-foreground border-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-muted-foreground"></span>Idle</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-primary text-accent-foreground" title="Show Shell"><span class="size-1.5 shrink-0 rounded-full bg-primary"></span><span class="font-mono truncate">npm run dev</span></span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Done. 3 files changed.
+
+></pre>
+    
+  </section></main>
+    
+    </div>
+  </div>
+</section>
+<section id="cr003-states-not-opened">
+  <h2 class="text-sm text-gray-700">Trạng thái · Chưa mở shell (Empty) · 1100×640</h2>
+  <p class="mt-1 mb-2 max-w-[1100px] text-xs text-gray-600">Mặc định khi mở ô: chip <code>&gt;_ Shell</code> viền <code>--border</code>, chữ <code>--muted-foreground</code>; phiên Claude Code chiếm cả ô. Bấm chip → SRS-FR-055.</p>
+  <div class="w-[1100px] h-[640px] overflow-hidden border border-gray-300">
+    <div class="dark h-full relative bg-background font-sans">
+    <main class="h-full grid grid-cols-2  gap-2 p-2"><section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-running bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Scaffold Tauri app</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-running-bg text-running-foreground border-running-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-running"></span>Running</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-border text-muted-foreground" title="Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">✻ Editing src/App.tsx…
+  ⎿ Updated 2 lines
+✻ Running Bash(npm test)…
+  ⎿ 42 passed
+
+></pre>
+    
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-border bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">mokairo ·</span> Fix login redirect</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-muted text-muted-foreground border-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-muted-foreground"></span>Idle</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-border text-muted-foreground" title="Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Done. 3 files changed.
+
+></pre>
+    
+  </section></main>
+    
+    </div>
+  </div>
+</section>
+<section id="cr003-states-hidden-at-prompt">
+  <h2 class="text-sm text-gray-700">Trạng thái · Shell ẩn, đứng ở dấu nhắc · 1100×640</h2>
+  <p class="mt-1 mb-2 max-w-[1100px] text-xs text-gray-600">Shell ẩn mà không chạy lệnh nào: vẫn có chấm (shell còn sống, SRS-FR-058), chữ "Shell" thay tên lệnh. Đóng ô lúc này không hỏi thêm (Ví dụ âm SRS-FR-063).</p>
+  <div class="w-[1100px] h-[640px] overflow-hidden border border-gray-300">
+    <div class="dark h-full relative bg-background font-sans">
+    <main class="h-full grid grid-cols-2  gap-2 p-2"><section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-running bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Scaffold Tauri app</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-running-bg text-running-foreground border-running-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-running"></span>Running</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-primary text-accent-foreground" title="Show Shell"><span class="size-1.5 shrink-0 rounded-full bg-primary"></span><span class="truncate">Shell</span></span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">✻ Editing src/App.tsx…
+  ⎿ Updated 2 lines
+✻ Running Bash(npm test)…
+  ⎿ 42 passed
+
+></pre>
+    
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-border bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">mokairo ·</span> Fix login redirect</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-muted text-muted-foreground border-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-muted-foreground"></span>Idle</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-primary text-accent-foreground" title="Show Shell"><span class="size-1.5 shrink-0 rounded-full bg-primary"></span><span class="font-mono truncate">cargo watch -x test</span></span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Done. 3 files changed.
+
+></pre>
+    
+  </section></main>
+    
+    </div>
+  </div>
+</section>
+<section id="cr003-states-close-confirm">
+  <h2 class="text-sm text-gray-700">Trạng thái · Đóng ô khi shell đang chạy lệnh · 1100×640</h2>
+  <p class="mt-1 mb-2 max-w-[1100px] text-xs text-gray-600">SRS-FR-063: phiên <code>Idle</code>, shell ẩn chạy <code>npm run dev</code>, bấm ✕ → hộp xác nhận theo mẫu hộp xoá phiên của CR-001; nút xác nhận dùng <code>--error</code> vì lệnh sẽ bị dừng. Cancel → ô và shell vẫn chạy.</p>
+  <div class="w-[1100px] h-[640px] overflow-hidden border border-gray-300">
+    <div class="dark h-full relative bg-background font-sans">
+    <main class="h-full grid grid-cols-2  gap-2 p-2"><section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-running bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Scaffold Tauri app</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-running-bg text-running-foreground border-running-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-running"></span>Running</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-border text-muted-foreground" title="Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">✻ Editing src/App.tsx…
+  ⎿ Updated 2 lines
+✻ Running Bash(npm test)…
+  ⎿ 42 passed
+
+></pre>
+    
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-border bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">mokairo ·</span> Fix login redirect</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-muted text-muted-foreground border-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-muted-foreground"></span>Idle</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-primary text-accent-foreground" title="Show Shell"><span class="size-1.5 shrink-0 rounded-full bg-primary"></span><span class="font-mono truncate">npm run dev</span></span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Done. 3 files changed.
+
+></pre>
+    
+  </section></main>
+    <div class="absolute inset-0 bg-black/50 flex items-center justify-center">
+    <div class="w-96 rounded-lg border border-border bg-card p-5 space-y-4">
+      <div class="text-base font-medium text-foreground">A command is still running in the shell. Close anyway?</div>
+      <div class="text-sm text-muted-foreground"><span class="font-mono">npm run dev</span> will be stopped.</div>
+      <div class="flex justify-end gap-2">
+        <button class="text-sm text-foreground border border-border rounded-md px-3 py-1.5">Cancel</button>
+        <button class="text-sm bg-error text-black rounded-md px-3 py-1.5">Close</button>
+      </div>
+    </div>
+  </div>
+    </div>
+  </div>
+</section>
+<section id="cr003-states-shell-failed">
+  <h2 class="text-sm text-gray-700">Trạng thái · Shell không khởi động được (Error) · 1100×640</h2>
+  <p class="mt-1 mb-2 max-w-[1100px] text-xs text-gray-600">SRS-FR-065: khu shell không mở; dải báo "Shell could not start" màu <code>--error-*</code> nằm đáy ô, có ✕ để tắt; phiên Claude Code vẫn chạy, chip quay về "chưa mở".</p>
+  <div class="w-[1100px] h-[640px] overflow-hidden border border-gray-300">
+    <div class="dark h-full relative bg-background font-sans">
+    <main class="h-full grid grid-cols-2  gap-2 p-2"><section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-running bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Scaffold Tauri app</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-running-bg text-running-foreground border-running-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-running"></span>Running</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-border text-muted-foreground" title="Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">✻ Editing src/App.tsx…
+  ⎿ Updated 2 lines
+✻ Running Bash(npm test)…
+  ⎿ 42 passed
+
+></pre>
+    <div class="mx-2 mb-2 flex items-center justify-between rounded-md border border-error-border bg-error-bg px-3 py-1.5 text-xs text-error-foreground"><span>Shell could not start</span><span>✕</span></div>
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-border bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">mokairo ·</span> Fix login redirect</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-muted text-muted-foreground border-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-muted-foreground"></span>Idle</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-border text-muted-foreground" title="Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Done. 3 files changed.
+
+></pre>
+    
+  </section></main>
+    
+    </div>
+  </div>
+</section>
+<section id="cr003-states-session-ended">
+  <h2 class="text-sm text-gray-700">Trạng thái · Phiên Claude Code đã kết thúc, shell vẫn chạy · 1100×640</h2>
+  <p class="mt-1 mb-2 max-w-[1100px] text-xs text-gray-600">SRS-FR-064: phần trên hiện "Session ended" (SRS-FR-028), shell bên dưới vẫn chạy và vẫn gõ được; badge <code>Ended</code>.</p>
+  <div class="w-[1100px] h-[640px] overflow-hidden border border-gray-300">
+    <div class="dark h-full relative bg-background font-sans">
+    <main class="h-full grid grid-cols-2  gap-2 p-2"><section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-border bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Scaffold Tauri app</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-muted text-muted-foreground border-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-muted-foreground"></span>Ended</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-ring bg-accent text-accent-foreground" title="Hide Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Done. Bye!
+
+Session ended</pre>
+    <div class="h-[45%] shrink-0 flex flex-col border-t border-border bg-card">
+      <div class="h-1.5 -mt-1 flex justify-center cursor-row-resize"><span class="mt-0.5 w-8 h-1 rounded-full bg-border"></span></div>
+      <pre class="flex-1 min-h-0 px-3 pb-2 font-mono text-xs leading-5 text-foreground overflow-hidden">~/agent-deck $ npm run dev
+  VITE v8.0.16  ready in 412 ms
+  ➜  Local:   http://localhost:1420/
+  page reload src/App.tsx</pre>
+    </div>
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-border bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">mokairo ·</span> Fix login redirect</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-muted text-muted-foreground border-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-muted-foreground"></span>Idle</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-border text-muted-foreground" title="Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Done. 3 files changed.
+
+></pre>
+    
+  </section></main>
+    
+    </div>
+  </div>
+</section>
+<section id="cr003-states-maximized">
+  <h2 class="text-sm text-gray-700">Trạng thái · Ô phóng to có shell · 1100×640</h2>
+  <p class="mt-1 mb-2 max-w-[1100px] text-xs text-gray-600">SRS-FR-060: phóng to ô → cả phần Claude Code và shell vẽ lại theo khổ mới, shell giữ tỉ lệ 30%. Header dùng ⤡ Restore.</p>
+  <div class="w-[1100px] h-[640px] overflow-hidden border border-gray-300">
+    <div class="dark h-full relative bg-background font-sans">
+    <main class="h-full p-2"><section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-running bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Scaffold Tauri app</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-running-bg text-running-foreground border-running-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-running"></span>Running</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-ring bg-accent text-accent-foreground" title="Hide Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤡ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">✻ Editing src/App.tsx…
+  ⎿ Updated 2 lines
+✻ Running Bash(npm test)…
+  ⎿ 42 passed
+
+></pre>
+    <div class="h-[30%] shrink-0 flex flex-col border-t border-border bg-card">
+      <div class="h-1.5 -mt-1 flex justify-center cursor-row-resize"><span class="mt-0.5 w-8 h-1 rounded-full bg-border"></span></div>
+      <pre class="flex-1 min-h-0 px-3 pb-2 font-mono text-xs leading-5 text-foreground overflow-hidden">~/agent-deck $ npm run dev
+  VITE v8.0.16  ready in 412 ms
+  ➜  Local:   http://localhost:1420/
+  page reload src/App.tsx</pre>
+    </div>
+  </section></main>
+    
+    </div>
+  </div>
+</section>
+<section id="cr003-states-dense-data">
+  <h2 class="text-sm text-gray-700">Trạng thái · Dense, 4 ô · 1100×640</h2>
+  <p class="mt-1 mb-2 max-w-[1100px] text-xs text-gray-600">4 ô: một ô hiện shell, hai ô shell ẩn đang chạy lệnh khác nhau, một ô chưa mở. Viền và badge trạng thái của ô (CR-001) không đổi; chip shell chỉ dùng iris nên không lẫn với xanh/vàng/đỏ.</p>
+  <div class="w-[1100px] h-[640px] overflow-hidden border border-gray-300">
+    <div class="dark h-full relative bg-background font-sans">
+    <main class="h-full grid grid-cols-2 grid-rows-2 gap-2 p-2"><section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-approval border-2 bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Scaffold Tauri app</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-approval-bg text-approval-foreground border-approval-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-approval"></span>Needs Approval</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-primary text-accent-foreground" title="Show Shell"><span class="size-1.5 shrink-0 rounded-full bg-primary"></span><span class="font-mono truncate">npm run dev</span></span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Do you want to edit src/main.rs?
+❯ 1. Yes
+  2. Yes, and don’t ask again
+  3. No</pre>
+    
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-running bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">mokairo ·</span> Fix login redirect</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-running-bg text-running-foreground border-running-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-running"></span>Running</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-ring bg-accent text-accent-foreground" title="Hide Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">✻ Running Bash(npm test)…
+  ⎿ 42 passed, 1 failed</pre>
+    <div class="h-[30%] shrink-0 flex flex-col border-t border-border bg-card">
+      <div class="h-1.5 -mt-1 flex justify-center cursor-row-resize"><span class="mt-0.5 w-8 h-1 rounded-full bg-border"></span></div>
+      <pre class="flex-1 min-h-0 px-3 pb-2 font-mono text-xs leading-5 text-foreground overflow-hidden">~/mokairo $ docker compose up
+  db-1   | ready to accept connections
+  api-1  | listening on :8080</pre>
+    </div>
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-error bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Research PTY crates</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-error-bg text-error-foreground border-error-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-error"></span>Error</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-border text-muted-foreground" title="Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">API Error: 529 overloaded
+
+></pre>
+    
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-border bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">mokairo ·</span> Refactor API client</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-muted text-muted-foreground border-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-muted-foreground"></span>Idle</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-primary text-accent-foreground" title="Show Shell"><span class="size-1.5 shrink-0 rounded-full bg-primary"></span><span class="font-mono truncate">cargo watch -x test</span></span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Done. 3 files changed.
+
+></pre>
+    
+  </section></main>
+    
+    </div>
+  </div>
+</section>
+<section id="cr003-states-narrow">
+  <h2 class="text-sm text-gray-700">Trạng thái · Cửa sổ hẹp · 720×640</h2>
+  <p class="mt-1 mb-2 max-w-[720px] text-xs text-gray-600">Ô hẹp: tiêu đề cắt trước, chip giữ nguyên chấm và cắt tên lệnh ("npm run d…"), các nút ⇥ ⇣ ⤢ ✕ không rớt dòng.</p>
+  <div class="w-[720px] h-[640px] overflow-hidden border border-gray-300">
+    <div class="dark h-full relative bg-background font-sans">
+    <main class="h-full grid grid-cols-2  gap-2 p-2"><section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-running bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">agent-deck ·</span> Scaffold Tauri app</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-running-bg text-running-foreground border-running-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-running"></span>Running</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-ring bg-accent text-accent-foreground" title="Hide Shell"><span class="font-mono">&gt;_</span>Shell</span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">✻ Editing src/App.tsx…
+  ⎿ Updated 2 lines
+✻ Running Bash(npm test)…
+  ⎿ 42 passed
+
+></pre>
+    <div class="h-[30%] shrink-0 flex flex-col border-t border-border bg-card">
+      <div class="h-1.5 -mt-1 flex justify-center cursor-row-resize"><span class="mt-0.5 w-8 h-1 rounded-full bg-border"></span></div>
+      <pre class="flex-1 min-h-0 px-3 pb-2 font-mono text-xs leading-5 text-foreground overflow-hidden">~/agent-deck $ npm run dev
+  VITE v8.0.16  ready in 412 ms
+  ➜  Local:   http://localhost:1420/
+  page reload src/App.tsx</pre>
+    </div>
+  </section>
+<section class="flex flex-col min-h-0 min-w-0 h-full rounded-lg border border-border bg-background overflow-hidden">
+    <header class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-card">
+      <span class="min-w-0 text-xs text-foreground truncate"><span class="text-muted-foreground">mokairo ·</span> Fix login redirect</span>
+      <span class="flex min-w-0 shrink-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-[11px] bg-muted text-muted-foreground border-border"><span class="inline-block size-2 shrink-0 rounded-[2px] bg-muted-foreground"></span>Idle</span><span class="text-muted-foreground">⇥ ⇣</span><span class="inline-flex items-center gap-1 rounded-md border px-1.5 text-[11px] min-w-0 max-w-[150px] border-primary text-accent-foreground" title="Show Shell"><span class="size-1.5 shrink-0 rounded-full bg-primary"></span><span class="font-mono truncate">npm run dev -- --host 0.0.0.0</span></span><span class="text-muted-foreground">⤢ ✕</span>
+      </span>
+    </header>
+    <pre class="flex-1 min-h-0 p-3 font-mono text-xs leading-5 text-foreground overflow-hidden">Done. 3 files changed.
+
+></pre>
+    
+  </section></main>
+    
+    </div>
+  </div>
+</section>
+<h2 id="cr003-states" class="hidden"></h2>
 <h1 id="cr002" class="w-full text-lg font-semibold text-gray-800 mt-4">CR-002 · đã chốt: bản 1 Tint phẳng (wireframe C)</h1>
 <section id="cr002-v1-flat">
   <h2 class="text-sm text-gray-700">1 · Tint phẳng (dark) · 1440×900</h2>
