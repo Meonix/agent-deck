@@ -29,7 +29,6 @@ function setup(items: Workspace[], sessions: FakeSessions = fakeSessions(), size
 }
 
 const sidebar = () => screen.getByRole("complementary", { name: "Workspaces" });
-const board = () => screen.getByRole("complementary", { name: "Status Board" });
 const newSessionButton = () => within(sidebar()).getByRole("button", { name: "New Session" });
 const panes = () => within(screen.getByTestId("pane-grid")).getAllByRole("region");
 
@@ -177,11 +176,8 @@ describe("New Session (5.4)", () => {
   });
 });
 
-describe("Status Board and pane state (4.2 to 4.4)", () => {
+describe("Pane state (4.2 to 4.4)", () => {
   afterEach(() => vi.useRealTimers());
-
-  const section = (name: string) => within(board()).getByText(name).closest("div")!.parentElement!;
-  const since = new Date(2026, 9, 16, 14, 2).getTime();
 
   async function openPane(sessions = fakeSessions({ titles: ["Scaffold Tauri app"] })) {
     const ctx = setup([ws("a", "agent-deck")], sessions);
@@ -201,71 +197,6 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
     return { stream: sessions.opened[0].stream };
   }
 
-  it("shows three empty sections when no pane is open", async () => {
-    setup([ws("a", "agent-deck")]);
-    await within(sidebar()).findByText("agent-deck");
-    expect(within(board()).getByText("Status Board")).toBeInTheDocument();
-    const names = within(board()).getAllByText(/^(Needs Approval|Error|Running)$/).map((n) => n.textContent);
-    expect(names).toEqual(["Needs Approval", "Error", "Running"]);
-    expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
-  });
-
-  it("follows a pane through Needs Approval, Idle and Error", async () => {
-    const { stream } = await openPane();
-    await vi.waitFor(() => expect(screen.getAllByText("Scaffold Tauri app").length).toBeGreaterThan(0));
-    act(() => stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
-    expect(within(section("Needs Approval")).getByText("Scaffold Tauri app")).toBeInTheDocument();
-    expect(within(board()).getByText(/agent-deck · 14:02 ·/)).toHaveTextContent("agent-deck · 14:02 · Edit src/main.rs");
-    expect(within(board()).getAllByText("Nothing here")).toHaveLength(2);
-
-    act(() => stream.status({ state: "Idle", since }));
-    expect(within(board()).queryByRole("button")).not.toBeInTheDocument();
-    expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
-
-    act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
-    expect(within(section("Error")).getByText("Scaffold Tauri app")).toBeInTheDocument();
-    expect(within(board()).getByRole("button")).toHaveTextContent("agent-deck · 14:02 · overloaded");
-  });
-
-  it("removes the card of an Error pane the user closes (M7)", async () => {
-    const { user, sessions, stream } = await openPane();
-    act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
-    expect(within(section("Error")).getByRole("button")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Close pane" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(sessions.close).toHaveBeenCalledWith("p1");
-    await vi.waitFor(() => expect(within(board()).queryByRole("button")).not.toBeInTheDocument());
-    expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
-  });
-
-  it("keeps the Error card and header chip after an abnormal exit (M7, M1)", async () => {
-    const { stream } = await openPane();
-    act(() => stream.status({ state: "Running", since }));
-    act(() => stream.status({ state: "Error", since, reason: "exit code 1" }));
-    act(() => stream.exit(1));
-    expect(within(section("Error")).getByRole("button")).toHaveTextContent("exit code 1");
-    const pane = within(screen.getByTestId("pane-grid"));
-    expect(pane.getByText("Error", { selector: "span.border" })).toBeInTheDocument();
-    expect(pane.queryByText("Ended", { selector: "span.border" })).not.toBeInTheDocument();
-    expect(pane.getByText("Session ended")).toBeInTheDocument();
-  });
-
-  it("shows no card for a pane whose session ended normally (M7)", async () => {
-    const { stream } = await openPane();
-    act(() => stream.status({ state: "Running", since }));
-    act(() => stream.status({ state: "Ended", since }));
-    act(() => stream.exit(0));
-    expect(within(board()).queryByRole("button")).not.toBeInTheDocument();
-    expect(within(board()).getAllByText("Nothing here")).toHaveLength(3);
-    expect(within(screen.getByTestId("pane-grid")).getByText("Ended", { selector: "span.border" })).toBeInTheDocument();
-  });
-
-  it("omits the reason part when there is none", async () => {
-    const { stream } = await openPane();
-    act(() => stream.status({ state: "Running", since, reason: null }));
-    expect(within(board()).getByRole("button")).toHaveTextContent(/^Scaffold Tauri appagent-deck · 14:02$/);
-  });
-
   it("shows the chip, then Status unavailable after 5 s untracked, cleared by a tracked status", async () => {
     vi.useFakeTimers();
     const sessions = fakeSessions();
@@ -279,13 +210,6 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
     act(() => stream.status({ state: "Running" }));
     expect(pane().queryByText("Status unavailable")).not.toBeInTheDocument();
     expect(pane().getByText("Running")).toBeInTheDocument();
-  });
-
-  it("shows the session title in the pane header and on the card", async () => {
-    const { stream } = await openPane(fakeSessions({ titles: ["Fix login"] }));
-    await screen.findByRole("region", { name: "agent-deck · Fix login" });
-    act(() => stream.status({ state: "Running" }));
-    expect(within(board()).getByText("Fix login")).toBeInTheDocument();
   });
 
   it("refreshes the title every 10 s and stops once the session has ended", async () => {
@@ -456,6 +380,145 @@ describe("Status Board and pane state (4.2 to 4.4)", () => {
   });
 });
 
+describe("Status Highlight on session rows (2.1)", () => {
+  const since = new Date(2026, 9, 16, 14, 2).getTime();
+  const sessionRow = (title: string) =>
+    within(within(sidebar()).getByRole("list", { name: "Sessions" })).getByText(title).closest("li")!;
+
+  async function openPane(sessions = fakeSessions({ titles: ["Scaffold Tauri app"] })) {
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" });
+    await within(sidebar()).findByText("Scaffold Tauri app");
+    return { ...ctx, stream: sessions.opened[0].stream };
+  }
+
+  it("has no Status Board column (SRS-FR-031 removed)", async () => {
+    setup([ws("a", "agent-deck")]);
+    await within(sidebar()).findByText("agent-deck");
+    expect(screen.queryByRole("complementary", { name: "Status Board" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Status Board")).not.toBeInTheDocument();
+  });
+
+  it("follows a pane through Needs Approval, Idle and Error on its row", async () => {
+    const { stream } = await openPane();
+
+    act(() => stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
+    expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-approval-bg");
+    expect(within(sessionRow("Scaffold Tauri app")).getByText("Needs Approval")).toBeInTheDocument();
+    expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02 · Edit src/main.rs")).toBeInTheDocument();
+
+    act(() => stream.status({ state: "Idle", since }));
+    expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-approval-bg");
+    expect(within(sessionRow("Scaffold Tauri app")).queryByText("Needs Approval")).not.toBeInTheDocument();
+    expect(within(sessionRow("Scaffold Tauri app")).getByText("Live")).toBeInTheDocument();
+
+    act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
+    expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-error-bg");
+    expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02 · overloaded")).toBeInTheDocument();
+  });
+
+  it("keeps the Live mark on a highlighted row (SRS-FR-012)", async () => {
+    const { stream } = await openPane();
+    act(() => stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
+    expect(within(sessionRow("Scaffold Tauri app")).getByText(/^Live · /)).toBeInTheDocument();
+  });
+
+  it("shows the Running chip without a detail line", async () => {
+    const { stream } = await openPane();
+    act(() => stream.status({ state: "Running", since, reason: "Bash npm test" }));
+    const row = within(sessionRow("Scaffold Tauri app"));
+    expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-running-bg");
+    expect(row.getByText("Running")).toBeInTheDocument();
+    expect(row.queryByText(/14:02/)).not.toBeInTheDocument();
+  });
+
+  it("shows only the time when the state has no reason", async () => {
+    const { stream } = await openPane();
+    act(() => stream.status({ state: "Error", since, reason: null }));
+    expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02")).toBeInTheDocument();
+  });
+
+  it("clears the highlight of an Error pane the user closes (RULE-08)", async () => {
+    const listed = { sessions: [{ id: "s1", title: "Scaffold Tauri app", lastActivity: since }], unreadable: 0 };
+    const { user, sessions, stream } = await openPane(
+      fakeSessions({ titles: ["Scaffold Tauri app"], list: vi.fn(async () => listed) }),
+    );
+    act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
+    expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-error-bg");
+    await user.click(screen.getByRole("button", { name: "Close pane" }));
+    expect(sessions.close).toHaveBeenCalledWith("p1");
+    await vi.waitFor(() => expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-error-bg"));
+  });
+
+  it("keeps the Error highlight after an abnormal exit", async () => {
+    const listed = { sessions: [{ id: "s1", title: "Scaffold Tauri app", lastActivity: since }], unreadable: 0 };
+    const { stream } = await openPane(fakeSessions({ titles: ["Scaffold Tauri app"], list: vi.fn(async () => listed) }));
+    act(() => stream.status({ state: "Running", since }));
+    act(() => stream.status({ state: "Error", since, reason: "exit code 1" }));
+    act(() => stream.exit(1));
+    await vi.waitFor(() => expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02 · exit code 1")).toBeInTheDocument());
+    expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-error-bg");
+  });
+
+  it("does not highlight a session that ended normally or an untracked pane", async () => {
+    const { stream } = await openPane();
+    act(() => stream.status({ state: "Running", tracked: false }));
+    expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-running-bg");
+    act(() => stream.status({ state: "Running", since }));
+    act(() => stream.status({ state: "Ended", since }));
+    expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-running-bg");
+    expect(within(sessionRow("Scaffold Tauri app")).queryByText("Running")).not.toBeInTheDocument();
+  });
+});
+
+describe("Status Highlight on folder rows (2.2)", () => {
+  const folderRow = (name: string) => within(sidebar()).getByText(name).closest("li")!;
+
+  async function twoFolders() {
+    const ctx = setup([ws("a", "agent-deck"), ws("m", "mokairo")]);
+    await selectAndStart(ctx.user, "mokairo");
+    await ctx.user.click(newSessionButton());
+    await ctx.user.click(newSessionButton());
+    await vi.waitFor(() => expect(ctx.sessions.opened).toHaveLength(3));
+    await ctx.user.click(within(sidebar()).getByText("agent-deck"));
+    return ctx;
+  }
+
+  it("shows the most urgent state of an unselected folder and how many sessions are in it", async () => {
+    const { sessions } = await twoFolders();
+    const [first, second, third] = sessions.opened.map((o) => o.stream);
+
+    act(() => first.status({ state: "Running" }));
+    expect(folderRow("mokairo")).toHaveClass("bg-running-bg");
+    expect(within(folderRow("mokairo")).getByRole("img", { name: "1 Running" })).toHaveTextContent("1");
+
+    act(() => second.status({ state: "Running" }));
+    act(() => third.status({ state: "Needs Approval" }));
+    expect(folderRow("mokairo")).toHaveClass("bg-approval-bg");
+    expect(within(folderRow("mokairo")).getByRole("img", { name: "1 Needs Approval" })).toHaveTextContent("1");
+
+    act(() => second.status({ state: "Error", reason: "overloaded" }));
+    expect(folderRow("mokairo")).toHaveClass("bg-error-bg");
+    expect(within(folderRow("mokairo")).getByRole("img", { name: "1 Error" })).toBeInTheDocument();
+    expect(folderRow("agent-deck")).not.toHaveClass("bg-error-bg");
+  });
+
+  it("highlights the selected folder too and drops the highlight when every session is Idle", async () => {
+    const { user, sessions } = await twoFolders();
+    await user.click(within(sidebar()).getByText("mokairo"));
+    const [first] = sessions.opened.map((o) => o.stream);
+
+    act(() => first.status({ state: "Needs Approval" }));
+    expect(folderRow("mokairo")).toHaveClass("bg-approval-bg");
+    expect(folderRow("mokairo")).toHaveAttribute("aria-current", "true");
+
+    act(() => first.status({ state: "Idle" }));
+    expect(folderRow("mokairo")).not.toHaveClass("bg-approval-bg");
+    expect(within(folderRow("mokairo")).queryByRole("img", { name: /^\d+ (Running|Needs Approval|Error)$/ })).not.toBeInTheDocument();
+  });
+});
+
 describe("Status latency (2.1, 2.2)", () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -467,7 +530,7 @@ describe("Status latency (2.1, 2.2)", () => {
     return { ...ctx, stream: sessions.opened[0].stream };
   }
 
-  it("records a state change with the time the board committed it", async () => {
+  it("records a state change with the time its Status Highlight was committed", async () => {
     const { sessions, stream } = await openPane();
     vi.spyOn(Date, "now").mockReturnValue(1_000_450);
     act(() => stream.status({ state: "Needs Approval", reason: "Edit src/main.rs", reportedAt: 1_000_200 }));
@@ -946,15 +1009,21 @@ describe("Split layout (2.1 to 2.3)", () => {
   });
 });
 
-describe("Jump from a Status Board card (1.1)", () => {
+describe("Jump from a highlighted session row (2.3)", () => {
   const since = new Date(2026, 9, 16, 14, 2).getTime();
-  const askingCard = () => within(board()).getByRole("button", { name: /^agent-deck · .+, Needs Approval$/ });
+  const rowButton = (title: string) =>
+    within(within(within(sidebar()).getByRole("list", { name: "Sessions" })).getByText(title).closest("li")!).getAllByRole(
+      "button",
+    )[0];
 
   async function twoPanesSecondAsking() {
-    const ctx = setup([ws("a", "agent-deck")]);
+    const listed = { sessions: [{ id: "old", title: "Old work", lastActivity: 1 }], unreadable: 0 };
+    const sessions = fakeSessions({ titles: ["First", "Second"], list: vi.fn(async () => listed) });
+    const ctx = setup([ws("a", "agent-deck")], sessions);
     await selectAndStart(ctx.user, "agent-deck");
     await ctx.user.click(newSessionButton());
     await vi.waitFor(() => expect(panes()).toHaveLength(2));
+    await within(sidebar()).findByText("Second");
     act(() => ctx.sessions.opened[1].stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
     fireEvent.focus(panes()[0]);
     expect(panes()[0]).toHaveClass("border-ring");
@@ -967,10 +1036,10 @@ describe("Jump from a Status Board card (1.1)", () => {
     expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(focusCalls + 1);
   }
 
-  it("focuses the pane of the clicked card and sends the next key to it (SRS-FR-037)", async () => {
+  it("focuses the pane of the clicked row and sends the next key to it (SRS-FR-037)", async () => {
     const { user, sessions, adapters, focusCalls } = await twoPanesSecondAsking();
 
-    await user.click(askingCard());
+    await user.click(rowButton("Second"));
 
     expectJumpedToSecond(adapters, focusCalls);
     adapters[1].type("1");
@@ -980,19 +1049,31 @@ describe("Jump from a Status Board card (1.1)", () => {
   it("jumps with Enter and keeps that Enter from reaching the terminal", async () => {
     const { adapters, focusCalls } = await twoPanesSecondAsking();
 
-    const notPrevented = fireEvent.keyDown(askingCard(), { key: "Enter" });
+    const notPrevented = fireEvent.keyDown(rowButton("Second"), { key: "Enter" });
 
     expect(notPrevented).toBe(false);
     expectJumpedToSecond(adapters, focusCalls);
   });
 
-  it("jumps with Space", async () => {
-    const { user, adapters, focusCalls } = await twoPanesSecondAsking();
+  it("leaves Enter alone on a row without a highlight", async () => {
+    await twoPanesSecondAsking();
+    expect(fireEvent.keyDown(rowButton("Old work"), { key: "Enter" })).toBe(true);
+  });
 
-    askingCard().focus();
-    await user.keyboard(" ");
+  it("shows a focus ring on a session row reached with the keyboard", async () => {
+    await twoPanesSecondAsking();
+    expect(rowButton("Second")).toHaveClass("focus-visible:ring-2");
+  });
 
-    expectJumpedToSecond(adapters, focusCalls);
+  it("does not jump from a row without a highlight", async () => {
+    const { user, adapters } = await twoPanesSecondAsking();
+    const calls = adapters.map((a) => vi.mocked(a.focus).mock.calls.length);
+
+    await user.click(rowButton("Old work"));
+
+    expect(adapters.map((a) => vi.mocked(a.focus).mock.calls.length)).toEqual(calls);
+    expect(panes()[0]).toHaveClass("border-ring");
+    expect(within(sidebar()).getByRole("button", { name: "Resume" })).toBeInTheDocument();
   });
 });
 

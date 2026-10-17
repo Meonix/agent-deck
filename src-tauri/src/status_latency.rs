@@ -8,13 +8,13 @@ const FILE: &str = "status-latency.jsonl";
 const TMP: &str = "status-latency.jsonl.tmp";
 /// The report window of SRS-FR-039.
 pub const WINDOW_MS: u64 = 14 * 24 * 60 * 60 * 1000;
-/// BO-01: a change counts when the board showed it within 3 s.
+/// BO-01: a change counts when the Status Highlight showed it within 3 s.
 pub const TARGET_MS: u64 = 3000;
 
 /// The names a record may carry, so a record can never hold anything but a state (SRS-NFR-007).
 pub const STATE_NAMES: [&str; 5] = ["Running", "Needs Approval", "Idle", "Error", "Ended"];
 
-/// One state change: when it was reported to the app and when the board showed it.
+/// One state change: when it was reported to the app and when the Status Highlight showed it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LatencyRecord {

@@ -318,7 +318,7 @@ fn drain(stream: &mut TcpStream) {
     }
 }
 
-/// Inline `--settings` JSON that sends every event the status board uses to `url`.
+/// Inline `--settings` JSON that sends every event the status tracking uses to `url`.
 pub fn hook_settings(url: &str) -> String {
     // `SessionStart` runs only command hooks; `'@-'` is quoted for PowerShell.
     let session_start = json!({

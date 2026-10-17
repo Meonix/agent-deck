@@ -83,7 +83,7 @@ export function TerminalPane({ entry, client, focused, onFocus, onSplit, onClose
     };
   }, [adapter, client, paneId]);
 
-  // After an abnormal exit the header keeps the Error chip, matching the board card.
+  // After an abnormal exit the header keeps the Error chip, matching the session row.
   const endedBadge = ended && !(status.tracked && status.state === "Error");
   const badge = !pane.started
     ? "Not started"

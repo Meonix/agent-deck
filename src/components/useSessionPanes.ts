@@ -63,7 +63,7 @@ export function useSessionPanes(
     [],
   );
 
-  // SRS-FR-038: a change counts as shown once its commit has reached the board. Passive
+  // SRS-FR-038: a change counts as shown once its commit has reached the Status Highlight. Passive
   // effects run after the browser paints, and unlike requestAnimationFrame they are not held
   // back while the window is hidden, so time the user spends away is not counted as latency.
   const unrecorded = useRef<{ pane: OpenedPane; state: SessionState; reportedAt: number }[]>([]);

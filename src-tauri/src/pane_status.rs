@@ -330,7 +330,7 @@ mod tests {
     }
 
     /// RULE-08 / R3: nothing may follow `{"exited"}`, or a finished pane would
-    /// come back on the board.
+    /// come back highlighted.
     #[test]
     fn nothing_is_sent_after_the_exit() {
         let (t, out) = tracker(1000);
@@ -596,7 +596,7 @@ mod tests {
         assert_eq!(out.take(), Vec::<Value>::new());
     }
 
-    /// F-M2: the app saw the exit, so an untracked pane's crash reaches the board.
+    /// F-M2: the app saw the exit, so an untracked pane's crash gets highlighted.
     #[test]
     fn an_exit_marks_an_untracked_pane_tracked() {
         let (t, out) = tracker(1000);

@@ -5,8 +5,8 @@ import { ConfirmClose } from "./components/ConfirmClose";
 import { StatusLatencyReport } from "./components/StatusLatencyReport";
 import { PaneGrid } from "./components/PaneGrid";
 import { TerminalPane, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
-import { StatusBoard } from "./components/BoardColumn";
 import { ToastProvider } from "./components/Toast";
+import { folderHighlights, sessionHighlights } from "./components/statusHighlight";
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useWorkspaces } from "./components/useWorkspaces";
 import type { OpenSession } from "./components/sessionList";
@@ -86,6 +86,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     .join(",");
   const sessionList = useSessionList(sessions, workspaces.selected, workspaces.selections, openHere);
   const now = useMinuteClock();
+  const highlights = { sessions: sessionHighlights(panes.entries), folders: folderHighlights(panes.entries) };
 
   const [confirming, setConfirming] = useState<string | null>(null);
   const confirmed = panes.entries.find((e) => e.pane.paneId === confirming);
@@ -101,13 +102,15 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   };
 
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-[240px_1fr_280px]">
+    <div className="flex-1 min-h-0 grid grid-cols-[260px_1fr]">
       <WorkspaceSidebar
         workspaces={workspaces}
         onNewSession={newSession}
         onResume={resume}
+        onJump={panes.jumpTo}
         sessions={sessionList}
         openSessions={openSessions}
+        highlights={highlights}
         now={now}
       />
       <main ref={paneArea} className="min-h-0 min-w-0">
@@ -146,7 +149,6 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           />
         )}
       </main>
-      <StatusBoard entries={panes.entries} onJump={panes.jumpTo} />
       {confirmed && stillBusy && (
         <ConfirmClose
           workspaceName={confirmed.workspaceName}

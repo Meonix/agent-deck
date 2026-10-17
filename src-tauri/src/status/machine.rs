@@ -60,7 +60,7 @@ impl StatusMachine {
     }
 
     /// `None` covers both "keep" cells and re-entry into the current state, so the
-    /// card keeps showing when the wait began.
+    /// session row keeps showing when the wait began.
     pub fn apply(&mut self, signal: Signal, now: u64) -> Option<StatusChange> {
         use Signal::*;
         use State::*;

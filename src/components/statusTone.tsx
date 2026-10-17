@@ -1,13 +1,14 @@
 import type { SessionState } from "../api/sessions";
 
 // Class names are written out in full so Tailwind can see them.
-export const tone: Record<SessionState, { dot: string; chip: string; text: string; edge: string; ring: string }> = {
+export const tone: Record<SessionState, { dot: string; chip: string; text: string; edge: string; ring: string; fill: string }> = {
   "Needs Approval": {
     dot: "bg-approval",
     chip: "bg-approval-bg text-approval-foreground border-approval-border",
     text: "text-approval-foreground",
     edge: "border-l-approval",
     ring: "border-approval",
+    fill: "bg-approval-bg",
   },
   Running: {
     dot: "bg-running",
@@ -15,6 +16,7 @@ export const tone: Record<SessionState, { dot: string; chip: string; text: strin
     text: "text-running-foreground",
     edge: "border-l-running",
     ring: "border-running",
+    fill: "bg-running-bg",
   },
   Error: {
     dot: "bg-error",
@@ -22,6 +24,7 @@ export const tone: Record<SessionState, { dot: string; chip: string; text: strin
     text: "text-error-foreground",
     edge: "border-l-error",
     ring: "border-error",
+    fill: "bg-error-bg",
   },
   Idle: {
     dot: "bg-muted-foreground",
@@ -29,6 +32,7 @@ export const tone: Record<SessionState, { dot: string; chip: string; text: strin
     text: "text-muted-foreground",
     edge: "border-l-border",
     ring: "border-border",
+    fill: "bg-muted",
   },
   Ended: {
     dot: "bg-muted-foreground",
@@ -36,6 +40,7 @@ export const tone: Record<SessionState, { dot: string; chip: string; text: strin
     text: "text-muted-foreground",
     edge: "border-l-border",
     ring: "border-border",
+    fill: "bg-muted",
   },
 };
 
