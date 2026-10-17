@@ -38,7 +38,10 @@ pub async fn status_latency_report(app: AppHandle) -> Result<LatencyReport, Stri
         let now = now_ms();
         // Also pruned here, so an app left open for weeks still keeps only the window.
         if let Err(e) = log.prune(now) {
-            eprintln!("status latency records could not be pruned: {e}");
+            crate::diag::error(
+                "latency",
+                &format!("status latency records could not be pruned: {e}"),
+            );
         }
         log.report(now).map_err(|e| e.to_string())
     })

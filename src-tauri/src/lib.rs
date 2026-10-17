@@ -1,4 +1,5 @@
 mod commands;
+pub mod diag;
 pub mod hooks;
 mod latency_commands;
 pub mod launcher;
@@ -13,6 +14,7 @@ pub mod status;
 pub mod status_latency;
 pub mod workspace;
 
+use std::io;
 use std::sync::{Arc, Mutex};
 
 use tauri::webview::PageLoadEvent;
@@ -30,12 +32,36 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            if let Err(e) = app
+                .path()
+                .app_log_dir()
+                .map_err(io::Error::other)
+                .and_then(|dir| diag::init(&dir))
+            {
+                diag::error(
+                    "app",
+                    &format!("log folder unavailable, logging to stderr: {e}"),
+                );
+            }
+            diag::install_panic_hook();
+            diag::info(
+                "app",
+                &format!(
+                    "agent-deck {} on {} {}",
+                    env!("CARGO_PKG_VERSION"),
+                    std::env::consts::OS,
+                    std::env::consts::ARCH
+                ),
+            );
             let data_dir = app.path().app_data_dir()?;
             let store = WorkspaceStore::new(data_dir.clone());
             let list = store.load()?;
             let latency = StatusLatencyLog::new(data_dir);
             if let Err(e) = latency.prune(pane_status::now_ms()) {
-                eprintln!("status latency records could not be pruned: {e}");
+                diag::error(
+                    "latency",
+                    &format!("status latency records could not be pruned: {e}"),
+                );
             }
             app.manage(AppState {
                 list: Mutex::new(list),
@@ -43,7 +69,9 @@ pub fn run() {
                 panes: Mutex::new(PaneRegistry::new()),
                 launch: LaunchLookup::start(),
                 hooks: HookServer::start()
-                    .map_err(|e| eprintln!("hook listener could not start: {e}"))
+                    .map_err(|e| {
+                        diag::error("hooks", &format!("hook listener could not start: {e}"))
+                    })
                     .ok()
                     .map(Arc::new),
                 latency: Mutex::new(latency),

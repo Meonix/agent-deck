@@ -121,7 +121,7 @@ fn accept_loop(listener: TcpListener, sinks: &Sinks, stopping: &AtomicBool) {
         match accepted {
             Ok((stream, _)) => serve_on_thread(stream, sinks, &open),
             Err(e) => {
-                eprintln!("hook listener: accept failed: {e}");
+                crate::diag::error("hooks", &format!("hook listener: accept failed: {e}"));
                 std::thread::sleep(ACCEPT_RETRY);
             }
         }

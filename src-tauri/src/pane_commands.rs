@@ -335,7 +335,7 @@ impl Spawner for PtySpawner<'_> {
                 }))
             }
             Err(e) => {
-                eprintln!("claude could not be started: {e}");
+                crate::diag::error("pane", &format!("claude could not be started: {e}"));
                 if let Some((server, token)) = hook {
                     server.unregister(&token);
                 }
@@ -445,7 +445,7 @@ impl QueuedProcess {
                 if let Err(e) = result
                     && !logged
                 {
-                    eprintln!("pane input failed: {e}");
+                    crate::diag::error("pane", &format!("pane input failed: {e}"));
                     logged = true;
                 }
             }
