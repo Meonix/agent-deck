@@ -81,8 +81,11 @@ impl Watchdog {
             self.cpu_warned = false;
             return None;
         }
+        if self.cpu_warned {
+            return None;
+        }
         self.recent_cpu.push(cpu);
-        if self.cpu_warned || self.recent_cpu.len() < CPU_HIGH_SAMPLES as usize {
+        if self.recent_cpu.len() < CPU_HIGH_SAMPLES as usize {
             return None;
         }
         self.cpu_warned = true;

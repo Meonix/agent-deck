@@ -65,7 +65,16 @@ fn sample(pids: &[(crate::panes::PaneId, u32)]) -> Option<Sample> {
         .map(|pid| pid.to_string())
         .collect();
     let output = std::process::Command::new("ps")
-        .args(["-o", "pid=,rss=,%cpu=", "-p", &list.join(",")])
+        .args([
+            "-o",
+            "pid=",
+            "-o",
+            "rss=",
+            "-o",
+            "%cpu=",
+            "-p",
+            &list.join(","),
+        ])
         .output()
         .ok()?;
     let stats = parse_ps(&String::from_utf8_lossy(&output.stdout));
@@ -93,8 +102,8 @@ pub fn check_survivor(pane: String, pid: u32) {
 
 #[cfg(unix)]
 fn alive(pid: u32) -> bool {
-    // Signal 0 only checks that the process exists.
-    unsafe { libc::kill(pid as libc::pid_t, 0) == 0 }
+    // Signal 0 to the negated id only checks whether any member of the group is left.
+    unsafe { libc::kill(-(pid as libc::pid_t), 0) == 0 }
 }
 
 #[cfg(not(unix))]

@@ -79,9 +79,10 @@ impl ProcessKiller {
         *ended = true;
     }
 
+    /// None once the child is reaped: its id may then belong to another process.
     pub fn pid(&self) -> Option<u32> {
         #[cfg(unix)]
-        return Some(self.0.pgid as u32);
+        return (!self.0.reaped.load(Ordering::SeqCst)).then_some(self.0.pgid as u32);
         #[cfg(windows)]
         return None;
     }
@@ -492,6 +493,17 @@ mod tests {
             canonical
         );
         assert!(probe.exit.recv_timeout(Duration::from_millis(100)).is_err());
+    }
+
+    #[test]
+    fn pid_is_gone_once_the_child_has_been_reaped() {
+        let dir = tempfile::tempdir().unwrap();
+        let (sink, probe) = sink();
+        let session = PtySession::spawn(sh("exit 0", dir.path().into()), sink).unwrap();
+        assert!(session.pid().is_some());
+        probe.exit.recv_timeout(Duration::from_secs(3)).unwrap();
+        // A reaped child's id can be handed to an unrelated process.
+        assert_eq!(session.pid(), None);
     }
 
     #[test]

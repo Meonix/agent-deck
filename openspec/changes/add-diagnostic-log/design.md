@@ -60,6 +60,16 @@ row.
 - [False memory warnings] → RSS grows normally when panes open; the 25 % + 10-sample streak keeps noise low; it
   is a hint to look, not a verdict.
 - [Log volume] → health line per minute ≈ 150 B → ~200 KB/day; rotation caps the total at 15 MB.
+- ["app" is the Rust process only] → on macOS the WKWebView content process is launched by the system (parent
+  pid 1), so JS heap growth or a render loop never shows in the app's rss / CPU and never trips the memory or CPU
+  warning. UI-side leaks are caught only through the counters report (terminals, title timers). Measuring the
+  web process (its pid via WebKit private API) is a follow-up if a UI leak is suspected.
+- [Linux `ps`] → `%cpu` there is an average since process start, so the busy-loop check is close to blind on
+  Linux; macOS reports recent CPU. Linux is not a target today.
+- [Panic text] → a panic message is logged as Rust formats it; a string-slicing panic would quote up to 256
+  bytes of that string. No slicing of terminal or prompt data was found; keep it that way.
+- [Pane ids after exit] → a pane whose process was reaped reports no pid (an id can be reused), so it drops out
+  of the health line and of the survivor check.
 
 ## Open Questions
 

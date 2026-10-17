@@ -1,4 +1,4 @@
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -26,14 +26,23 @@ impl Level {
     }
 }
 
-/// One log line: `<UTC time> <LEVEL> <source>: <message>`, the message on one line and capped.
+/// One log line: `<UTC time> <LEVEL> <source>: <message>`, source and message on one line and capped.
 pub fn line(now_ms: u64, level: Level, source: &str, message: &str) -> String {
-    let one_line = message.replace('\r', "\\r").replace('\n', "\\n");
-    let message = match one_line.char_indices().nth(MAX_MESSAGE) {
-        Some((cut, _)) => format!("{}…", &one_line[..cut]),
-        None => one_line,
-    };
-    format!("{} {} {source}: {message}", utc(now_ms), level.label())
+    format!(
+        "{} {} {}: {}",
+        utc(now_ms),
+        level.label(),
+        one_line(source),
+        one_line(message)
+    )
+}
+
+fn one_line(text: &str) -> String {
+    let flat = text.replace('\r', "\\r").replace('\n', "\\n");
+    match flat.char_indices().nth(MAX_MESSAGE) {
+        Some((cut, _)) => format!("{}…", &flat[..cut]),
+        None => flat,
+    }
 }
 
 fn utc(ms: u64) -> String {
@@ -66,7 +75,8 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
 pub struct Log {
     dir: PathBuf,
     max_bytes: u64,
-    file: Mutex<Option<(File, u64)>>,
+    /// Serialises size checks, rotation and appends.
+    lock: Mutex<()>,
 }
 
 impl Log {
@@ -79,36 +89,29 @@ impl Log {
         Ok(Log {
             dir: dir.to_path_buf(),
             max_bytes,
-            file: Mutex::new(None),
+            lock: Mutex::new(()),
         })
     }
 
     pub fn write(&self, level: Level, source: &str, message: &str) {
         let text = format!("{}\n", line(now_ms(), level, source, message));
-        let mut slot = self.file.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
         // Losing a diagnostic line must never disturb the app.
-        let _ = self.append(&mut slot, text.as_bytes());
+        let _ = self.append(text.as_bytes());
     }
 
-    fn append(&self, slot: &mut Option<(File, u64)>, bytes: &[u8]) -> io::Result<()> {
-        if slot.is_none() {
-            let file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(self.path(0))?;
-            let len = file.metadata()?.len();
-            *slot = Some((file, len));
-        }
-        let size = slot.as_ref().map_or(0, |(_, len)| *len);
+    /// Opens the file by path on every write, so a log deleted or rotated by another
+    /// instance is picked up rather than written to through a stale handle.
+    fn append(&self, bytes: &[u8]) -> io::Result<()> {
+        let size = fs::metadata(self.path(0)).map_or(0, |m| m.len());
         if size > 0 && size + bytes.len() as u64 > self.max_bytes {
-            *slot = None;
             self.rotate()?;
-            *slot = Some((File::create(self.path(0))?, 0));
         }
-        let (file, len) = slot.as_mut().expect("opened above");
-        file.write_all(bytes)?;
-        *len += bytes.len() as u64;
-        Ok(())
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.path(0))?
+            .write_all(bytes)
     }
 
     fn rotate(&self) -> io::Result<()> {
@@ -210,6 +213,28 @@ mod tests {
             capped.ends_with(&format!("{}…", "x".repeat(MAX_MESSAGE))),
             "{}",
             capped.len()
+        );
+    }
+
+    #[test]
+    fn line_keeps_the_source_on_one_line_too() {
+        assert_eq!(
+            line(0, Level::Info, "ui:a\nb", "m"),
+            "1970-01-01T00:00:00.000Z INFO ui:a\\nb: m"
+        );
+    }
+
+    #[test]
+    fn a_log_file_deleted_while_running_is_created_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = Log::open(dir.path()).unwrap();
+        log.write(Level::Info, "app", "first");
+        fs::remove_file(dir.path().join(FILE_NAME)).unwrap();
+        log.write(Level::Info, "app", "second");
+        let text = read(dir.path(), FILE_NAME);
+        assert!(
+            text.contains("app: second") && !text.contains("first"),
+            "{text}"
         );
     }
 

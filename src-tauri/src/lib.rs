@@ -49,10 +49,11 @@ pub fn run() {
             diag::info(
                 "app",
                 &format!(
-                    "agent-deck {} on {} {}",
+                    "agent-deck {} on {} {}, pid {}",
                     env!("CARGO_PKG_VERSION"),
                     std::env::consts::OS,
-                    std::env::consts::ARCH
+                    std::env::consts::ARCH,
+                    std::process::id()
                 ),
             );
             let data_dir = app.path().app_data_dir()?;
