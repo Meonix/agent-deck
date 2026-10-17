@@ -244,7 +244,7 @@ fn encoded(path: &Path) -> String {
 
 /// `(project folder name, session file)` for every `*.jsonl` one level below `projects_dir`.
 /// No projects folder means no sessions; any other failure to list it is an error.
-fn session_files(projects_dir: &Path) -> io::Result<Vec<(String, PathBuf)>> {
+pub(crate) fn session_files(projects_dir: &Path) -> io::Result<Vec<(String, PathBuf)>> {
     let folders = match fs::read_dir(projects_dir) {
         Ok(folders) => folders,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -267,7 +267,7 @@ fn session_files(projects_dir: &Path) -> io::Result<Vec<(String, PathBuf)>> {
     Ok(files)
 }
 
-enum Head {
+pub(crate) enum Head {
     Cwd(String),
     /// Readable records (or none yet), but no `cwd` among them.
     NoCwd,
@@ -276,7 +276,7 @@ enum Head {
 }
 
 /// The folder the session started in: the first record's `cwd`, looked for in the head only.
-fn first_cwd(file: &Path) -> Head {
+pub(crate) fn first_cwd(file: &Path) -> Head {
     let Ok(opened) = File::open(file) else {
         return Head::Broken;
     };
@@ -314,20 +314,20 @@ fn modified_ms(file: &Path) -> u64 {
 }
 
 /// Exact path match, or a start path (e.g. through a symlink) that canonicalises to the workspace.
-struct CwdMatcher<'a> {
+pub(crate) struct CwdMatcher<'a> {
     workspace: &'a Path,
     seen: HashMap<String, bool>,
 }
 
 impl<'a> CwdMatcher<'a> {
-    fn new(workspace: &'a Path) -> Self {
+    pub(crate) fn new(workspace: &'a Path) -> Self {
         Self {
             workspace,
             seen: HashMap::new(),
         }
     }
 
-    fn is(&mut self, cwd: &str) -> bool {
+    pub(crate) fn is(&mut self, cwd: &str) -> bool {
         if Path::new(cwd) == self.workspace {
             return true;
         }

@@ -95,6 +95,7 @@ export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean
     recordStatusShown: vi.fn(async () => {}),
     latencyReport: vi.fn(async () => ({ within: 0, total: 0 })),
     list: vi.fn(async () => ({ sessions: [], unreadable: 0 })),
+    deleteSession: vi.fn(async () => {}),
     ...methods,
   };
   return client;

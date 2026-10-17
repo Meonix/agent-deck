@@ -41,6 +41,11 @@ export interface SessionsClient {
   latencyReport(): Promise<LatencyReport>;
   /** The workspace's Claude Code sessions, newest first; rejects with "folder_missing". */
   list(workspaceId: string): Promise<SessionListing>;
+  /**
+   * Moves the session's files to the trash; with `paneId` that pane's session is ended first.
+   * Rejects with "not_found" when nothing of it is on disk.
+   */
+  deleteSession(workspaceId: string, sessionId: string, paneId?: string): Promise<void>;
 }
 
 type ExitMessage = { exited: number | null };
@@ -177,4 +182,6 @@ export const tauriSessionsClient: SessionsClient = {
     invoke<void>("record_status_shown", { sessionId, state, reportedAt, shownAt }),
   latencyReport: () => invoke<LatencyReport>("status_latency_report"),
   list: (workspaceId) => invoke<SessionListing>("list_sessions", { workspaceId }),
+  deleteSession: (workspaceId, sessionId, paneId) =>
+    invoke<void>("delete_session", { workspaceId, sessionId, paneId: paneId ?? null }),
 };

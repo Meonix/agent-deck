@@ -1237,6 +1237,147 @@ describe("Jump from a highlighted session row (2.3)", () => {
   });
 });
 
+describe("Delete a session (2.2 to 2.4)", () => {
+  type Row = { id: string; title: string; lastActivity: number };
+
+  async function folderWithSessions(over: Partial<FakeSessions> = {}) {
+    let rows: Row[] = [
+      { id: "old", title: "Old work", lastActivity: 2 },
+      { id: "keep", title: "Init repo", lastActivity: 1 },
+    ];
+    const sessions = fakeSessions({
+      titles: ["Live work"],
+      list: vi.fn(async () => ({ sessions: [...rows], unreadable: 0 })),
+      deleteSession: vi.fn(async (_ws: string, id: string) => {
+        rows = rows.filter((r) => r.id !== id);
+      }),
+      ...over,
+    });
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await ctx.user.click(await within(sidebar()).findByText("agent-deck"));
+    await within(sidebar()).findByText("Old work");
+    return { ...ctx, drop: (id: string) => (rows = rows.filter((r) => r.id !== id)) };
+  }
+
+  const pick = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
+    await user.click(within(sidebar()).getByText(title));
+    await user.click(within(sidebar()).getByRole("button", { name: "Delete" }));
+  };
+
+  it("asks before deleting and Cancel keeps the session (SRS-FR-048)", async () => {
+    const { user, sessions } = await folderWithSessions();
+
+    await pick(user, "Old work");
+
+    const dialog = screen.getByRole("dialog", { name: "Move “Old work” to Trash?" });
+    expect(within(dialog).getByText("You can restore it from the Trash.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(sessions.deleteSession).not.toHaveBeenCalled();
+    expect(within(sidebar()).getByText("Old work")).toBeInTheDocument();
+  });
+
+  it("moves the session to the Trash and reads the list again (SRS-FR-047)", async () => {
+    const { user, sessions } = await folderWithSessions();
+
+    await pick(user, "Old work");
+    await user.click(screen.getByRole("button", { name: "Move to Trash" }));
+
+    expect(sessions.deleteSession).toHaveBeenCalledWith("a", "old", undefined);
+    await vi.waitFor(() => expect(within(sidebar()).queryByText("Old work")).not.toBeInTheDocument());
+    expect(within(sidebar()).getByText("Init repo")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("ends an open session and closes its pane as part of the delete (SRS-FR-049)", async () => {
+    const { user, sessions } = await folderWithSessions();
+    await user.click(newSessionButton());
+    await screen.findByRole("region", { name: "agent-deck · Live work" });
+    await within(sidebar()).findByText("Live work");
+
+    await pick(user, "Live work");
+
+    const dialog = screen.getByRole("dialog", { name: "Close “Live work” and move it to Trash?" });
+    expect(within(dialog).getByText("The session will be ended and its pane closed.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Close and move" }));
+
+    expect(sessions.deleteSession).toHaveBeenCalledWith("a", "s1", "p1");
+    await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · Live work" })).not.toBeInTheDocument());
+  });
+
+  it("keeps the session and says so when it cannot be moved (SRS-FR-050)", async () => {
+    const { user } = await folderWithSessions({ deleteSession: vi.fn(async () => Promise.reject("locked")) });
+
+    await pick(user, "Old work");
+    await user.click(screen.getByRole("button", { name: "Move to Trash" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Session could not be deleted");
+    expect(within(sidebar()).getByText("Old work")).toBeInTheDocument();
+  });
+
+  it("ignores a second Delete while the first one is still running", async () => {
+    let finish: () => void = () => {};
+    const { user, sessions } = await folderWithSessions({
+      deleteSession: vi.fn(() => new Promise<void>((r) => (finish = r))),
+    });
+
+    await pick(user, "Old work");
+    await user.click(screen.getByRole("button", { name: "Move to Trash" }));
+    await user.click(within(sidebar()).getByRole("button", { name: "Delete" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(sessions.deleteSession).toHaveBeenCalledTimes(1);
+    await act(async () => finish());
+  });
+
+  it("leaves a pane that runs another session alone", async () => {
+    const { user } = await folderWithSessions({ deleteSession: vi.fn(async () => Promise.reject("wrong_pane")) });
+    await user.click(newSessionButton());
+    await within(sidebar()).findByText("Live work");
+
+    await pick(user, "Live work");
+    await user.click(screen.getByRole("button", { name: "Close and move" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Session could not be deleted");
+    expect(screen.getByRole("region", { name: "agent-deck · Live work" })).toBeInTheDocument();
+  });
+
+  it("removes the pane of a session that had already ended", async () => {
+    const { user, sessions } = await folderWithSessions({
+      list: vi.fn(async () => ({
+        sessions: [
+          { id: "s1", title: "Live work", lastActivity: 3 },
+          { id: "old", title: "Old work", lastActivity: 2 },
+        ],
+        unreadable: 0,
+      })),
+    });
+    await user.click(newSessionButton());
+    await screen.findByRole("region", { name: "agent-deck · Live work" });
+    act(() => sessions.opened[0].stream.exit(0));
+
+    await pick(user, "Live work");
+    await user.click(screen.getByRole("button", { name: "Move to Trash" }));
+
+    expect(sessions.deleteSession).toHaveBeenCalledWith("a", "s1", undefined);
+    await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · Live work" })).not.toBeInTheDocument());
+  });
+
+  it("treats a session that is no longer on disk as deleted", async () => {
+    const ctx = await folderWithSessions();
+    vi.mocked(ctx.sessions.deleteSession).mockImplementationOnce(async (_ws, id) => {
+      ctx.drop(id);
+      throw "not_found";
+    });
+
+    await pick(ctx.user, "Old work");
+    await ctx.user.click(screen.getByRole("button", { name: "Move to Trash" }));
+
+    await vi.waitFor(() => expect(within(sidebar()).queryByText("Old work")).not.toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
 describe("Diagnostics report (2.1)", () => {
   afterEach(() => vi.useRealTimers());
 

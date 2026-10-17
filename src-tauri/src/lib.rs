@@ -11,6 +11,7 @@ pub mod pty;
 mod session_commands;
 pub mod session_list;
 pub mod session_title;
+pub mod session_trash;
 pub mod status;
 pub mod status_latency;
 pub mod watchdog;
@@ -100,6 +101,7 @@ pub fn run() {
             latency_commands::record_status_shown,
             latency_commands::status_latency_report,
             session_commands::list_sessions,
+            session_commands::delete_session,
             diag_commands::diag_log,
             diag_commands::diag_report
         ])

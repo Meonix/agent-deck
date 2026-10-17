@@ -41,6 +41,10 @@ pub fn resume_id(raw: &str) -> Result<SessionId, InvalidSessionId> {
         .map_err(|_| InvalidSessionId)
 }
 
+/// The pane runs another session than the one asked for.
+#[derive(Debug)]
+pub struct WrongSession;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Opened {
     pub pane_id: PaneId,
@@ -160,6 +164,18 @@ impl PaneRegistry {
     /// (which may block) outside any lock around the registry.
     pub fn take(&mut self, pane: &PaneId) -> Option<Box<dyn PaneProcess>> {
         self.panes.remove(pane)?.process
+    }
+
+    /// Like `take`, but only when the pane runs that session; otherwise the pane stays.
+    pub fn take_for_session(
+        &mut self,
+        pane: &PaneId,
+        session: &SessionId,
+    ) -> Result<Option<Box<dyn PaneProcess>>, WrongSession> {
+        match self.panes.get(pane) {
+            Some(open) if open.session != *session => Err(WrongSession),
+            _ => Ok(self.take(pane)),
+        }
     }
 
     /// Closes the process if any and forgets the pane; an unknown id is a no-op.
@@ -410,6 +426,25 @@ mod tests {
 
         let process = reg.take(&opened.pane_id);
 
+        assert!(process.is_some());
+        assert!(spawner.log(0).is_empty());
+        assert!(!reg.has_open_panes(&a.id));
+    }
+
+    #[test]
+    fn take_for_session_hands_over_only_the_pane_of_that_session() {
+        let mut reg = PaneRegistry::new();
+        let spawner = FakeSpawner::new(true);
+        let a = workspace("/w/a", false);
+        let opened = open(&mut reg, &a, &spawner);
+
+        let wrong = reg.take_for_session(&opened.pane_id, &SessionId("someone-else".into()));
+        assert!(wrong.is_err());
+        assert!(reg.has_open_panes(&a.id));
+
+        let process = reg
+            .take_for_session(&opened.pane_id, &opened.session_id)
+            .unwrap();
         assert!(process.is_some());
         assert!(spawner.log(0).is_empty());
         assert!(!reg.has_open_panes(&a.id));

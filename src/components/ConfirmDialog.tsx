@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 
-type Props = { workspaceName: string; title: string; onCancel(): void; onConfirm(): void };
+type Props = { title: string; detail: string; action: string; onCancel(): void; onConfirm(): void };
 
-export function ConfirmClose({ workspaceName, title, onCancel, onConfirm }: Props) {
+export function ConfirmDialog({ title, detail, action, onCancel, onConfirm }: Props) {
   const dialog = useRef<HTMLDivElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   const confirm = useRef<HTMLButtonElement>(null);
@@ -34,21 +34,19 @@ export function ConfirmClose({ workspaceName, title, onCancel, onConfirm }: Prop
         ref={dialog}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="confirm-close-title"
+        aria-labelledby="confirm-dialog-title"
         className="w-96 rounded-lg border border-border bg-card p-5 space-y-4"
       >
-        <div id="confirm-close-title" className="text-base font-medium text-foreground">
-          Session is still running. Close anyway?
+        <div id="confirm-dialog-title" className="text-base font-medium text-foreground">
+          {title}
         </div>
-        <div className="text-sm text-muted-foreground">
-          {workspaceName} · {title} will be ended.
-        </div>
+        <div className="text-sm text-muted-foreground">{detail}</div>
         <div className="flex justify-end gap-2">
           <button ref={cancel} onClick={onCancel} className="text-sm text-foreground border border-border rounded-md px-3 py-1.5">
             Cancel
           </button>
           <button ref={confirm} onClick={onConfirm} className="text-sm bg-error text-black rounded-md px-3 py-1.5">
-            Close
+            {action}
           </button>
         </div>
       </div>

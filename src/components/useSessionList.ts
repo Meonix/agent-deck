@@ -11,13 +11,15 @@ export type SessionListState =
 
 /**
  * Reads the selected workspace's sessions on every selection (SRS-FR-007) and again when a pane of
- * that workspace opens or closes, so a new session's file and a closed pane's label are picked up.
+ * that workspace opens or closes, so a new session's file and a closed pane's label are picked up,
+ * and on each `reloads` bump (a deleted session).
  */
 export function useSessionList(
   client: SessionsClient,
   selected: Workspace | null,
   selections: number,
   openSessions: string,
+  reloads: number,
 ): SessionListState {
   const [state, setState] = useState<SessionListState>({ kind: "none" });
   const seq = useRef(0);
@@ -34,7 +36,7 @@ export function useSessionList(
       (listing) => mine === seq.current && setState({ kind: "ready", workspaceId: id, listing }),
       (e) => mine === seq.current && setState({ kind: e === "folder_missing" ? "missing" : "failed" }),
     );
-  }, [client, id, missing, selections, openSessions]);
+  }, [client, id, missing, selections, openSessions, reloads]);
 
   return state;
 }

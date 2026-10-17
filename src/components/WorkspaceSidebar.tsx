@@ -10,6 +10,7 @@ type Props = {
   onNewSession(): void;
   onResume(workspaceId: string, row: { id: string; title: string }): void;
   onJump(paneId: string): void;
+  onDelete(workspaceId: string, row: { id: string; title: string }): void;
   sessions: SessionListState;
   openSessions: OpenSession[];
   highlights: Highlights;
@@ -25,6 +26,7 @@ export function WorkspaceSidebar({
   onNewSession,
   onResume,
   onJump,
+  onDelete,
   sessions,
   openSessions,
   highlights,
@@ -94,6 +96,7 @@ export function WorkspaceSidebar({
         now={now}
         onResume={onResume}
         onJump={onJump}
+        onDelete={onDelete}
       />
     </aside>
   );
@@ -106,9 +109,10 @@ type ListProps = {
   now: number;
   onResume(workspaceId: string, row: { id: string; title: string }): void;
   onJump(paneId: string): void;
+  onDelete(workspaceId: string, row: { id: string; title: string }): void;
 };
 
-function SessionList({ state, openSessions, highlights, now, onResume, onJump }: ListProps) {
+function SessionList({ state, openSessions, highlights, now, onResume, onJump, onDelete }: ListProps) {
   switch (state.kind) {
     case "none":
       return <div className="px-4 py-2 text-xs text-muted-foreground">Select a folder to see its sessions.</div>;
@@ -146,6 +150,7 @@ function SessionList({ state, openSessions, highlights, now, onResume, onJump }:
               now={now}
               onResume={onResume}
               onJump={onJump}
+              onDelete={onDelete}
             />
           )}
         </>
@@ -161,6 +166,7 @@ function SessionRows({
   now,
   onResume,
   onJump,
+  onDelete,
 }: {
   workspaceId: string;
   rows: ListedSession[];
@@ -168,6 +174,7 @@ function SessionRows({
   now: number;
   onResume: ListProps["onResume"];
   onJump: ListProps["onJump"];
+  onDelete: ListProps["onDelete"];
 }) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const picked = rows.find((r) => r.id === pickedId) ?? null;
@@ -214,12 +221,18 @@ function SessionRows({
             )}
             {highlight && <div className="text-xs text-muted-foreground">{row.live ? `Live · ${when}` : when}</div>}
             {row === picked && (
-              <div className="mt-1 flex justify-end">
+              <div className="mt-1 flex justify-end gap-1">
                 <button
                   onClick={() => onResume(workspaceId, { id: row.id, title: row.title })}
                   className="text-xs text-foreground border border-border rounded px-1.5"
                 >
                   Resume
+                </button>
+                <button
+                  onClick={() => onDelete(workspaceId, { id: row.id, title: row.title })}
+                  className="text-xs text-muted-foreground border border-border rounded px-1.5"
+                >
+                  Delete
                 </button>
               </div>
             )}
