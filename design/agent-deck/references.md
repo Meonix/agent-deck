@@ -28,3 +28,15 @@ Chụp bằng Playwright ngày 2026-10-17, viewport 1440×900. Dùng lại #3, #
 | 12 | iTerm2 Split Panes | https://iterm2.com/features.html | `refs/iterm2-features.png` | Header ô split mỏng một dòng, nút ✕ trái và ≡ phải — giữ header ô gọn khi thêm nút phóng to |
 
 Đã thử nhưng bỏ: https://ghostty.org (chỉ có ảnh ASCII, không thấy giao diện ô), https://slack.com/features (sidebar chỉ có mục chọn tô nền, không có badge đếm).
+
+## CR-002 (2026-10-17) — Active Sessions, Session History Panel, tint hai section
+
+Chụp bằng Playwright ngày 2026-10-17, viewport 1440×900, chờ 5–6 giây cho trang tải. Dùng lại #1, #3, #6, #7, #11 ở trên; thêm ba mục dưới.
+
+| # | Nguồn | Link | Ảnh | Lấy gì |
+| --- | --- | --- | --- | --- |
+| 13 | Cursor | https://cursor.com | `refs/cursor-home.png` | Cột trái chia section theo trạng thái "IN PROGRESS 1" / "READY FOR REVIEW 4" (nhãn nhỏ in hoa + số đếm); cột giữa riêng cho nội dung đang chọn rồi mới tới vùng làm việc — mẫu cho Active Sessions + Session History Panel |
+| 14 | GitHub Desktop | https://desktop.github.com | `refs/github-desktop.png` | Cột danh sách hẹp có header "Changes 3 / History" nằm giữa toolbar và vùng diff; nền cột hơi khác nền vùng chính, ngăn bằng viền 1px |
+| 15 | Superhuman Go | https://superhuman.com | `refs/superhuman-home.png` | Panel phụ cạnh nội dung, nền tint rất nhạt, tách bằng viền mảnh, có nút đóng/thu ở header — mẫu cho khung lịch sử đóng được |
+
+Đã thử nhưng bỏ: https://linear.app/docs/sidebar (404), https://code.visualstudio.com/docs/copilot/chat/chat-sessions (chỉ có chữ), https://chatgpt.com/codex (trang trắng, cần đăng nhập), https://linear.app/agents (không thấy sidebar).
