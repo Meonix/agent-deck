@@ -1655,6 +1655,180 @@ describe("Delete a session (2.2 to 2.4)", () => {
   });
 });
 
+describe("Delete selected sessions (1.1, 1.2)", () => {
+  type Row = { id: string; title: string; lastActivity: number };
+
+  async function folderWithSessions(over: Partial<FakeSessions> = {}, items = [ws("a", "agent-deck")]) {
+    let rows: Row[] = [
+      { id: "s-a", title: "Scaffold Tauri app", lastActivity: 3 },
+      { id: "s-b", title: "Fix login bug", lastActivity: 2 },
+      { id: "s-c", title: "Init repo", lastActivity: 1 },
+    ];
+    const sessions = fakeSessions({
+      titles: ["Live work"],
+      list: vi.fn(async (workspaceId: string) => ({ sessions: workspaceId === "a" ? [...rows] : [], unreadable: 0 })),
+      deleteSession: vi.fn(async (_ws: string, id: string) => {
+        rows = rows.filter((r) => r.id !== id);
+      }),
+      ...over,
+    });
+    const ctx = setup(items, sessions);
+    await ctx.user.click(await folderList().findByText("agent-deck"));
+    await within(historyPanel()).findByText("Scaffold Tauri app");
+    return ctx;
+  }
+
+  const box = (title: string) => within(historyPanel()).getByRole("checkbox", { name: `Select ${title}` });
+  const bar = (name: string | RegExp) => within(historyPanel()).queryByRole("button", { name });
+
+  it("ticks rows into the selection without opening anything (SRS-FR-073, SRS-FR-074)", async () => {
+    const { user, sessions } = await folderWithSessions();
+    expect(bar(/^Delete selected/)).not.toBeInTheDocument();
+    expect(bar("Select all")).not.toBeInTheDocument();
+
+    await user.click(box("Scaffold Tauri app"));
+    await user.click(box("Fix login bug"));
+
+    expect(bar("Delete selected (2)")).toBeInTheDocument();
+    expect(bar("Select all")).toBeInTheDocument();
+    expect(sessions.open).not.toHaveBeenCalled();
+
+    await user.click(box("Scaffold Tauri app"));
+    expect(bar("Delete selected (1)")).toBeInTheDocument();
+    await user.click(box("Fix login bug"));
+    expect(bar(/^Delete selected/)).not.toBeInTheDocument();
+  });
+
+  it("selects every listed session with Select all (SRS-FR-075)", async () => {
+    const { user } = await folderWithSessions();
+    await user.click(box("Init repo"));
+
+    await user.click(bar("Select all")!);
+
+    expect(bar("Delete selected (3)")).toBeInTheDocument();
+    for (const title of ["Scaffold Tauri app", "Fix login bug", "Init repo"]) expect(box(title)).toBeChecked();
+  });
+
+  it("empties the selection on a switch of folder and on close (SRS-FR-076)", async () => {
+    const { user } = await folderWithSessions({}, [ws("a", "agent-deck"), ws("b", "mokairo")]);
+    await user.click(box("Scaffold Tauri app"));
+    await user.click(box("Fix login bug"));
+
+    await user.click(folderList().getByText("mokairo"));
+    await user.click(folderList().getByText("agent-deck"));
+    await within(historyPanel()).findByText("Scaffold Tauri app");
+    expect(box("Scaffold Tauri app")).not.toBeChecked();
+    expect(bar(/^Delete selected/)).not.toBeInTheDocument();
+
+    await user.click(box("Fix login bug"));
+    await user.click(within(historyPanel()).getByRole("button", { name: "Close session history" }));
+    await user.click(folderList().getByText("agent-deck"));
+    await within(historyPanel()).findByText("Fix login bug");
+    expect(box("Fix login bug")).not.toBeChecked();
+  });
+
+  it("asks once and Cancel keeps everything (SRS-FR-077)", async () => {
+    const { user, sessions } = await folderWithSessions();
+    await user.click(box("Init repo"));
+    await user.click(bar("Select all")!);
+
+    await user.click(bar("Delete selected (3)")!);
+
+    const dialog = screen.getByRole("dialog", { name: "Move 3 sessions to Trash?" });
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(sessions.deleteSession).not.toHaveBeenCalled();
+    expect(bar("Delete selected (3)")).toBeInTheDocument();
+  });
+
+  it("closes the open one and deletes each selected session in turn (SRS-FR-077, SRS-FR-078)", async () => {
+    const { user, sessions } = await folderWithSessions();
+    await user.click(newSessionButton());
+    await screen.findByRole("region", { name: "agent-deck · Live work" });
+    await within(historyPanel()).findByText("Live work");
+    await user.click(box("Live work"));
+    await user.click(box("Fix login bug"));
+    await user.click(box("Init repo"));
+
+    await user.click(bar("Delete selected (3)")!);
+    const dialog = screen.getByRole("dialog", { name: "Close 1 open sessions and move 3 sessions to Trash?" });
+    await user.click(within(dialog).getByRole("button", { name: "Close and move" }));
+
+    await vi.waitFor(() => expect(sessions.deleteSession).toHaveBeenCalledTimes(3));
+    expect(vi.mocked(sessions.deleteSession).mock.calls).toEqual([
+      ["a", "s1", "p1"],
+      ["a", "s-b", undefined],
+      ["a", "s-c", undefined],
+    ]);
+    await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · Live work" })).not.toBeInTheDocument());
+    await vi.waitFor(() => expect(within(historyPanel()).queryByText("Init repo")).not.toBeInTheDocument());
+    expect(within(historyPanel()).queryByText("Fix login bug")).not.toBeInTheDocument();
+    expect(within(historyPanel()).getByText("Scaffold Tauri app")).toBeInTheDocument();
+    expect(bar(/^Delete selected/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("deletes one session at a time and takes no other delete meanwhile (SRS-FR-078)", async () => {
+    const finish: (() => void)[] = [];
+    const { user, sessions } = await folderWithSessions({
+      deleteSession: vi.fn(() => new Promise<void>((r) => finish.push(r))),
+    });
+    await user.click(box("Init repo"));
+    await user.click(box("Fix login bug"));
+    await user.click(bar("Delete selected (2)")!);
+    await user.click(screen.getByRole("button", { name: "Move to Trash" }));
+
+    await vi.waitFor(() => expect(sessions.deleteSession).toHaveBeenCalledTimes(1));
+    expect(bar("Delete selected (2)")).toBeDisabled();
+    await user.click(within(historyPanel()).getByText("Scaffold Tauri app"));
+    await user.click(within(historyPanel()).getByRole("button", { name: "Delete" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await act(async () => finish[0]());
+    await vi.waitFor(() => expect(sessions.deleteSession).toHaveBeenCalledTimes(2));
+    await act(async () => finish[1]());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows the selection bar below the rows, so ticking moves no row (SRS-FR-074)", async () => {
+    const { user } = await folderWithSessions();
+    const rowsBefore = within(historyPanel()).getByRole("list", { name: "Session history" });
+
+    await user.click(box("Init repo"));
+
+    const deleteSelected = bar("Delete selected (1)")!;
+    expect(rowsBefore.compareDocumentPosition(deleteSelected) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rowsBefore.contains(deleteSelected)).toBe(false);
+  });
+
+  it("keeps the ones that could not be moved ticked and counts the rest (SRS-FR-079)", async () => {
+    let rows = ["s-a", "s-b", "s-c"];
+    const { user } = await folderWithSessions({
+      deleteSession: vi.fn(async (_ws: string, id: string) => {
+        if (id === "s-b") throw "locked";
+        rows = rows.filter((r) => r !== id);
+      }),
+      list: vi.fn(async () => ({
+        sessions: [
+          { id: "s-a", title: "Scaffold Tauri app", lastActivity: 3 },
+          { id: "s-b", title: "Fix login bug", lastActivity: 2 },
+          { id: "s-c", title: "Init repo", lastActivity: 1 },
+        ].filter((r) => rows.includes(r.id)),
+        unreadable: 0,
+      })),
+    });
+    await user.click(box("Init repo"));
+    await user.click(bar("Select all")!);
+
+    await user.click(bar("Delete selected (3)")!);
+    await user.click(screen.getByRole("button", { name: "Move to Trash" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("2 of 3 sessions deleted");
+    await vi.waitFor(() => expect(within(historyPanel()).queryByText("Init repo")).not.toBeInTheDocument());
+    expect(box("Fix login bug")).toBeChecked();
+    expect(bar("Delete selected (1)")).toBeInTheDocument();
+  });
+});
+
 describe("Diagnostics report (2.1)", () => {
   afterEach(() => vi.useRealTimers());
 

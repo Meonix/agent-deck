@@ -3,6 +3,14 @@ import { formatWhen, type ListedSession, mergeSessions, type OpenSession } from 
 import type { SessionListState } from "./useSessionList";
 
 type RowAction = (workspaceId: string, row: { id: string; title: string }) => void;
+type SelectionProps = {
+  /** Session Selection: ids of the ticked rows (SRS-FR-073). */
+  selected: string[];
+  onSelect(ids: string[]): void;
+  onDeleteSelected(workspaceId: string, ids: string[]): void;
+  /** A Delete selected is still running (SRS-FR-078). */
+  deletingSelection: boolean;
+};
 
 type Props = {
   workspaceName: string;
@@ -15,10 +23,10 @@ type Props = {
   onClose(): void;
   onResume: RowAction;
   onDelete: RowAction;
-};
+} & SelectionProps;
 
 /** The selected folder's sessions, between the left column and the panes (SRS-FR-007, SRS-FR-054). */
-export function SessionHistoryPanel({ workspaceName, sessions, openSessions, covered, now, onNewSession, onClose, onResume, onDelete }: Props) {
+export function SessionHistoryPanel({ workspaceName, covered, onNewSession, onClose, ...list }: Props) {
   return (
     <div className="min-h-0 p-2 pr-0">
       <section
@@ -41,21 +49,21 @@ export function SessionHistoryPanel({ workspaceName, sessions, openSessions, cov
             </button>
           </span>
         </div>
-        <SessionList state={sessions} openSessions={openSessions} now={now} onResume={onResume} onDelete={onDelete} />
+        <SessionList {...list} />
       </section>
     </div>
   );
 }
 
 type ListProps = {
-  state: SessionListState;
+  sessions: SessionListState;
   openSessions: OpenSession[];
   now: number;
   onResume: RowAction;
   onDelete: RowAction;
-};
+} & SelectionProps;
 
-function SessionList({ state, openSessions, now, onResume, onDelete }: ListProps) {
+function SessionList({ sessions: state, openSessions, now, onResume, onDelete, selected, onSelect, onDeleteSelected, deletingSelection }: ListProps) {
   switch (state.kind) {
     case "none":
       return null;
@@ -77,6 +85,9 @@ function SessionList({ state, openSessions, now, onResume, onDelete }: ListProps
     case "ready": {
       const rows = mergeSessions(state.listing.sessions, openSessions, state.workspaceId);
       const { unreadable } = state.listing;
+      // Only listed rows count: an id whose session went away since it was ticked is not deleted again.
+      const ticked = rows.filter((r) => selected.includes(r.id)).map((r) => r.id);
+      const workspaceId = state.workspaceId;
       return (
         <>
           {unreadable > 0 && (
@@ -92,7 +103,27 @@ function SessionList({ state, openSessions, now, onResume, onDelete }: ListProps
               now={now}
               onResume={onResume}
               onDelete={onDelete}
+              ticked={ticked}
+              onTick={(id, on) => onSelect(on ? [...ticked, id] : ticked.filter((t) => t !== id))}
             />
+          )}
+          {ticked.length > 0 && (
+            // Below the rows and pinned to the bottom: it shows next to old rows ticked far down, and moves no row.
+            <div className="sticky bottom-0 px-4 py-2 flex justify-end gap-1 border-t border-border bg-background">
+              <button
+                onClick={() => onSelect(rows.map((r) => r.id))}
+                className="text-xs text-foreground border border-border rounded px-1.5"
+              >
+                Select all
+              </button>
+              <button
+                disabled={deletingSelection}
+                onClick={() => onDeleteSelected(workspaceId, ticked)}
+                className="text-xs text-muted-foreground border border-border rounded px-1.5 disabled:opacity-50"
+              >
+                Delete selected ({ticked.length})
+              </button>
+            </div>
           )}
         </>
       );
@@ -100,29 +131,46 @@ function SessionList({ state, openSessions, now, onResume, onDelete }: ListProps
   }
 }
 
-type RowsProps = { workspaceId: string; rows: ListedSession[]; now: number; onResume: RowAction; onDelete: RowAction };
+type RowsProps = {
+  workspaceId: string;
+  rows: ListedSession[];
+  now: number;
+  onResume: RowAction;
+  onDelete: RowAction;
+  ticked: string[];
+  onTick(id: string, on: boolean): void;
+};
 
-function SessionRows({ workspaceId, rows, now, onResume, onDelete }: RowsProps) {
+function SessionRows({ workspaceId, rows, now, onResume, onDelete, ticked, onTick }: RowsProps) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const picked = rows.find((r) => r.id === pickedId) ?? null;
   return (
     <ul aria-label="Session history" className="px-2 space-y-0.5">
       {rows.map((row) => (
         <li key={row.id} className={`rounded-md px-2 py-1.5 ${row === picked ? "bg-muted" : ""}`}>
-          <button
-            aria-pressed={row === picked}
-            onClick={() => setPickedId(row.id)}
-            className="flex w-full items-center justify-between gap-2 rounded-sm text-left text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="truncate">{row.title}</span>
-            {row.live ? (
-              <span className="shrink-0 text-[10px] uppercase font-medium text-accent-foreground bg-accent rounded px-1">
-                Live
-              </span>
-            ) : (
-              <span className="shrink-0 text-xs text-muted-foreground">{formatWhen(row.lastActivity, now)}</span>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              aria-label={`Select ${row.title}`}
+              checked={ticked.includes(row.id)}
+              onChange={(e) => onTick(row.id, e.target.checked)}
+              className="shrink-0 accent-primary"
+            />
+            <button
+              aria-pressed={row === picked}
+              onClick={() => setPickedId(row.id)}
+              className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-sm text-left text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="truncate">{row.title}</span>
+              {row.live ? (
+                <span className="shrink-0 text-[10px] uppercase font-medium text-accent-foreground bg-accent rounded px-1">
+                  Live
+                </span>
+              ) : (
+                <span className="shrink-0 text-xs text-muted-foreground">{formatWhen(row.lastActivity, now)}</span>
+              )}
+            </button>
+          </div>
           {row === picked && (
             <div className="mt-1 flex justify-end gap-1">
               <button

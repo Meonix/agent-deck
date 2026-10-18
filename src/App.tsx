@@ -12,7 +12,7 @@ import { activeSessions, folderHighlights, maximizedBadge } from "./components/s
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useTextZoom } from "./components/useTextZoom";
 import { useWorkspaces } from "./components/useWorkspaces";
-import type { OpenSession } from "./components/sessionList";
+import { mergeSessions, type OpenSession } from "./components/sessionList";
 import { useMinuteClock, useSessionList } from "./components/useSessionList";
 import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
 import { countTerminals, type DiagClient } from "./diagnostics";
@@ -96,6 +96,9 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   const now = useMinuteClock();
   const historyShown = workspaces.historyOpen && workspaces.selected !== null;
   const othersBadge = panes.maximizedId === null ? null : maximizedBadge(panes.entries, panes.maximizedId);
+  const [selection, setSelection] = useState<string[]>([]);
+  // SRS-FR-076: a switch of folder or a close starts the next view of the panel with nothing ticked.
+  useEffect(() => setSelection([]), [selectedId, historyShown]);
 
   // `shellBusy`: what the shell answered when Close was clicked.
   const [confirming, setConfirming] = useState<{ paneId: string; shellBusy: boolean } | null>(null);
@@ -130,13 +133,17 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   // A second Delete while the first still waits for its session to end would move files Claude Code may still write.
   const inFlight = useRef(new Set<string>());
   const cancelDelete = useCallback(() => setDeleting(null), []);
-  const requestDelete = (workspaceId: string, row: { id: string; title: string }) => {
-    if (inFlight.current.has(row.id)) return;
+  const target = (workspaceId: string, row: { id: string; title: string }): Deleting => {
     const pane = panes.entries.find((e) => e.pane.sessionId === row.id && e.pane.started);
-    setDeleting({ workspaceId, ...row, paneId: pane?.pane.paneId ?? null, live: pane !== undefined && !pane.ended });
+    return { workspaceId, ...row, paneId: pane?.pane.paneId ?? null, live: pane !== undefined && !pane.ended };
   };
-  const confirmDelete = async ({ workspaceId, id, paneId, live }: Deleting) => {
-    setDeleting(null);
+  const requestDelete = (workspaceId: string, row: { id: string; title: string }) => {
+    if (deletingSelection || inFlight.current.has(row.id)) return;
+    setDeleting(target(workspaceId, row));
+  };
+  /** True when nothing of the session is left on disk. */
+  const deleteOne = async ({ workspaceId, id, paneId, live }: Deleting): Promise<boolean> => {
+    if (inFlight.current.has(id)) return false;
     inFlight.current.add(id);
     let error: unknown = null;
     try {
@@ -150,8 +157,33 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     const gone = error === null || error === "not_found";
     // The backend ended a live pane's session before moving anything, so the pane goes unless it ran another session.
     if (paneId && error !== "wrong_pane") await panes.closePane(paneId);
-    if (gone) setReloads((n) => n + 1);
+    return gone;
+  };
+  const confirmDelete = async (deleting: Deleting) => {
+    setDeleting(null);
+    if (await deleteOne(deleting)) setReloads((n) => n + 1);
     else showToast("Session could not be deleted");
+  };
+
+  const [deletingMany, setDeletingMany] = useState<Deleting[] | null>(null);
+  const [deletingSelection, setDeletingSelection] = useState(false);
+  const cancelDeleteMany = useCallback(() => setDeletingMany(null), []);
+  const requestDeleteMany = (workspaceId: string, ids: string[]) => {
+    // A delete already running would make its session count as not deleted.
+    if (deletingSelection || inFlight.current.size > 0) return;
+    const rows = sessionList.kind === "ready" ? mergeSessions(sessionList.listing.sessions, openSessions, workspaceId) : [];
+    setDeletingMany(rows.filter((r) => ids.includes(r.id)).map((r) => target(workspaceId, r)));
+  };
+  // One at a time, so two deletes never close panes or move files at the same moment (SRS-FR-078).
+  const confirmDeleteMany = async (targets: Deleting[]) => {
+    setDeletingMany(null);
+    setDeletingSelection(true);
+    const kept: string[] = [];
+    for (const t of targets) if (!(await deleteOne(t))) kept.push(t.id);
+    setDeletingSelection(false);
+    setReloads((n) => n + 1);
+    setSelection(kept);
+    if (kept.length > 0) showToast(`${targets.length - kept.length} of ${targets.length} sessions deleted`);
   };
 
   return (
@@ -174,6 +206,10 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           onClose={workspaces.closeHistory}
           onResume={resume}
           onDelete={requestDelete}
+          selected={selection}
+          onSelect={setSelection}
+          onDeleteSelected={requestDeleteMany}
+          deletingSelection={deletingSelection}
         />
       )}
       <main ref={paneArea} className="min-h-0 min-w-0">
@@ -235,6 +271,13 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           onConfirm={() => void confirmDelete(deleting)}
         />
       )}
+      {deletingMany && (
+        <ConfirmDialog
+          {...deleteManyText(deletingMany)}
+          onCancel={cancelDeleteMany}
+          onConfirm={() => void confirmDeleteMany(deletingMany)}
+        />
+      )}
       {confirming && confirmed && stillBusy && (
         <ConfirmDialog
           title="Session is still running. Close anyway?"
@@ -277,6 +320,19 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
 
 /** `paneId`: the pane of this session, live or ended; `live`: its session still runs. */
 type Deleting = { workspaceId: string; id: string; title: string; paneId: string | null; live: boolean };
+
+// The SRS fixes the plural wording, also for one session (SRS-FR-077).
+function deleteManyText(targets: Deleting[]) {
+  const open = targets.filter((d) => d.live).length;
+  const n = targets.length;
+  return open > 0
+    ? {
+        title: `Close ${open} open sessions and move ${n} sessions to Trash?`,
+        detail: "Their sessions will be ended and their panes closed.",
+        action: "Close and move",
+      }
+    : { title: `Move ${n} sessions to Trash?`, detail: "You can restore them from the Trash.", action: "Move to Trash" };
+}
 
 type CenteredStateProps = { title: string; hint: string; action: string; disabled?: boolean; onAction(): void };
 
