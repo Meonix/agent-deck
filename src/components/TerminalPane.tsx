@@ -155,6 +155,8 @@ export function TerminalPane({
   const quiet =
     !pane.started || endedBadge || !status.tracked || status.state === "Idle" || status.state === "Ended";
   const border = quiet ? (focused ? "border-ring" : "border-border") : tone[status.state].ring;
+  const toggleMaximized = () => (maximized ? onRestore() : onMaximize(paneId));
+  const headerPressed = useRef(false);
 
   return (
     <section
@@ -162,7 +164,18 @@ export function TerminalPane({
       onFocus={() => onFocus(paneId)}
       className={`flex flex-col min-h-0 min-w-0 rounded-lg border ${border} ${!quiet && status.state === "Needs Approval" ? "border-2" : ""} bg-background overflow-hidden`}
     >
-      <header className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-card">
+      <header
+        // dblclick lands on whatever is under the second press, which the first click may have moved there,
+        // so both presses must hit this header outside its buttons (SRS-FR-066).
+        onMouseDown={(e) => {
+          if (e.detail === 1) headerPressed.current = !onButton(e.target);
+        }}
+        onMouseLeave={() => (headerPressed.current = false)}
+        onDoubleClick={(e) => {
+          if (headerPressed.current && !onButton(e.target)) toggleMaximized();
+        }}
+        className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-card select-none"
+      >
         <span className="min-w-0 text-xs text-foreground truncate">
           <span className="text-muted-foreground">{workspaceName} ·</span> {title}
         </span>
@@ -209,7 +222,7 @@ export function TerminalPane({
           <button
             aria-label={maximized ? "Restore pane" : "Maximize pane"}
             title={maximized ? "Restore pane" : "Maximize pane"}
-            onClick={() => (maximized ? onRestore() : onMaximize(paneId))}
+            onClick={toggleMaximized}
             className="shrink-0 text-muted-foreground"
           >
             {maximized ? "⤡" : "⤢"}
@@ -253,4 +266,8 @@ export function TerminalPane({
       {shellFailed && <ShellFailure onDismiss={() => onDismissShellFailure(paneId)} />}
     </section>
   );
+}
+
+function onButton(target: EventTarget) {
+  return target instanceof Element && target.closest("button") !== null;
 }

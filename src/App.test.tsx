@@ -1259,6 +1259,71 @@ describe("Maximize pane (2.1 to 2.4)", () => {
     expect(wrapper("p3")).not.toHaveAttribute("inert");
     expect(sidebar()).not.toHaveAttribute("inert");
   });
+
+  const header = (title: string) => paneNamed(title).querySelector("header")!;
+
+  it("maximizes a pane when its header is double-clicked (SRS-FR-066)", async () => {
+    const { user } = await threePanes();
+    const before = { p1: styleOf("p1"), p3: styleOf("p3") };
+
+    await user.dblClick(header("p2"));
+
+    expect(wrapper("p2")).toHaveClass("fixed");
+    for (const title of ["p1", "p3"] as const) {
+      expect(wrapper(title)).toHaveClass("invisible");
+      expect(wrapper(title)).toHaveAttribute("inert");
+      expect(styleOf(title)).toBe(before[title]);
+    }
+    expect(sidebar()).toHaveAttribute("inert");
+    expect(button("p2", "Restore pane")).toBeInTheDocument();
+  });
+
+  it("leaves the pane as it is on a double-click inside the terminal or on a header button (SRS-FR-066)", async () => {
+    const { user } = await threePanes();
+
+    await user.dblClick(paneNamed("p2").querySelector("[data-pane-body]")!);
+    await user.dblClick(within(paneNamed("p2")).getByRole("button", { name: /^(Open|Hide|Show) shell$/ }));
+
+    expect(wrapper("p2")).not.toHaveClass("fixed");
+    expect(sidebar()).not.toHaveAttribute("inert");
+    expect(button("p2", "Maximize pane")).toBeInTheDocument();
+  });
+
+  // A browser sends dblclick to whatever is under the second press, even when the first click moved it there.
+  it("toggles nothing extra when the first press of a double-click hit a header button (SRS-FR-066)", async () => {
+    await threePanes();
+    const maximizeP2 = button("p2", "Maximize pane");
+    fireEvent.mouseDown(maximizeP2, { detail: 1 });
+    fireEvent.click(maximizeP2, { detail: 1 });
+    fireEvent.mouseDown(header("p2"), { detail: 2 });
+    fireEvent.dblClick(header("p2"), { detail: 2 });
+    expect(wrapper("p2")).toHaveClass("fixed");
+
+    fireEvent.mouseDown(header("p1"), { detail: 1 });
+    fireEvent.mouseLeave(header("p1"));
+    fireEvent.mouseDown(button("p2", "Restore pane"), { detail: 1 });
+    fireEvent.click(button("p2", "Restore pane"), { detail: 1 });
+    fireEvent.mouseDown(header("p1"), { detail: 2 });
+    fireEvent.dblClick(header("p1"), { detail: 2 });
+    expect(wrapper("p1")).not.toHaveClass("fixed");
+  });
+
+  it("restores the same layout when the maximized header is double-clicked (SRS-FR-067)", async () => {
+    const { user } = await threePanes();
+    const before = ["p1", "p2", "p3"].map(styleOf);
+
+    await user.dblClick(header("p2"));
+    expect(wrapper("p2")).toHaveClass("fixed");
+    await user.dblClick(header("p2"));
+
+    expect(["p1", "p2", "p3"].map(styleOf)).toEqual(before);
+    for (const title of ["p1", "p2", "p3"]) {
+      expect(wrapper(title)).not.toHaveClass("fixed");
+      expect(wrapper(title)).not.toHaveAttribute("inert");
+    }
+    expect(sidebar()).not.toHaveAttribute("inert");
+    expect(button("p2", "Maximize pane")).toBeInTheDocument();
+  });
 });
 
 describe("Jump from Active Sessions (2.4)", () => {
