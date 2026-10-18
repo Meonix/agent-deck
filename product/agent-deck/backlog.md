@@ -4,7 +4,7 @@ slug: agent-deck
 ---
 # Backlog — agent-deck
 
-Nguồn: `SRS.md` Baselined v1.3 (2026-10-17), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13. Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
+Nguồn: `SRS.md` Baselined v1.4 (2026-10-18), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16. Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
 
 | # | Mục | change-id | SRS-ID | Phụ thuộc | Lý do | Trạng thái |
 |---|---|---|---|---|---|---|
@@ -21,3 +21,6 @@ Nguồn: `SRS.md` Baselined v1.3 (2026-10-17), CR-001 thêm mục 9, 10, 11; CR-
 | 11 | Xoá phiên vào Thùng rác | add-session-delete | SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-NFR-005 | 5 | Should; CR-001; nới SRS-NFR-005 đã archived ở mục 5 | archived |
 | 12 | Tách Active Sessions ở cột trái, lịch sử phiên sang khung phải | update-active-sessions | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-019, SRS-FR-032, SRS-FR-037, SRS-FR-041, SRS-FR-047, SRS-FR-048, SRS-FR-050, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-FR-054, SRS-NFR-003, SRS-NFR-009 | 5, 6, 9, 10, 11 | Should; CR-002, đổi hành vi đã archived của mục 5, 6, 9, 10, 11 → /dev-update; màu hai section theo /ux-design-ui | archived |
 | 13 | Terminal phụ dưới mỗi ô | add-pane-shell | SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065 | 7, 10 | Should; CR-003; chỉ thêm FR mới, không đổi hành vi đã archived → /dev-feature; nút Shell và khu shell theo /ux-design-ui | archived |
+| 14 | Nhấp đúp tiêu đề ô để phóng to / thu về | add-pane-header-double-click | SRS-FR-066, SRS-FR-067 | 10 | Should; CR-004; chỉ thêm FR mới → /dev-feature | todo |
+| 15 | Phóng to, thu nhỏ cỡ chữ cả cửa sổ bằng phím tắt | add-text-zoom | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071, SRS-FR-072 | 2, 13 | Should; CR-004; chỉ thêm FR mới → /dev-feature | todo |
+| 16 | Tick chọn và xoá nhiều phiên cùng lúc | add-bulk-session-delete | SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079 | 11, 12 | Should; CR-004; chỉ thêm FR mới → /dev-feature; checkbox và thanh "Delete selected" theo /ux-design-ui | todo |

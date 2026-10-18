@@ -175,3 +175,65 @@ Backlog — thêm (áp sau GATE CR):
 Thiết kế: design/agent-deck/design.html chưa có nút Shell và khu shell trong ô → /ux-design-ui bổ sung trước khi code mục 13. Không sửa ở CR này.
 
 Việc tiếp theo: /ux-design-ui (nút Shell + chấm, khu shell + vách kéo) → /dev-feature add-pane-shell (mục 13).
+
+## CR-004 — Nhấp đúp phóng to ô, phóng/thu cỡ chữ, xoá nhiều phiên cùng lúc
+Ngày: 2026-10-18
+Yêu cầu: "1. khi double click vào sesions chat thì nó sẽ tự mở rộng cửa sổ ra full màng hình, tương tự như nút phóng to hiện tại 2. với phần text size của tất cả các text trong màng hình tôi cũng muốn có thể cho phép phóng to hay thu nhỏ bằng tổ hợp phím tắt "Crtl +" và "Crtl -" 3. cho phép user tick chọn nhiều sesion cũ trong history để chọn cho mục đích xóa (chức năng xóa history session hàng loạt)." — gộp cả 3 vào một CR.
+Status: Approved (2026-10-18)
+Ảnh hưởng:
+- Nhấp đúp phóng to: BR-05 đã có "phóng to một ô ra cả cửa sổ", không đổi chữ; SRS-FR-041, SRS-FR-042, SRS-FR-043 (archived: add-pane-maximize) giữ nguyên nghĩa, FR mới gọi lại chúng; SRS-FR-025 (nhấp đúp trong terminal để bôi đen một từ) phải giữ nguyên; SRS-FR-030 tiêu đề ô.
+- Cỡ chữ: chưa có BR, BR-05 gần nhất (làm việc trong một cửa sổ, thao tác như terminal thường); SRS-FR-024 fit terminal theo khổ ô (trigger khác, cần FR riêng); SRS-NFR-009 tương phản không đổi; SRS mục 3 chưa có dữ liệu cài đặt app.
+- Xoá nhiều phiên: BR-08 "xoá một phiên cũ", log phỏng vấn BRD 2026-10-17 "từng phiên một"; SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050 (archived: add-session-delete, update-active-sessions) giữ nguyên nghĩa; SRS-NFR-005 giữ nguyên chữ.
+- Spec/code: openspec/specs/pane-layout, session-history, app-shell; src/components/PaneGrid.tsx, TerminalPane.tsx, PaneShell.tsx, xtermAdapter.ts, SessionHistoryPanel.tsx, App.tsx, src/index.css; src/api/sessions.ts; src-tauri/src/session_trash.rs.
+- Thiết kế: design/agent-deck/design.html chưa có checkbox trên dòng history và thanh "Delete selected" → /ux-design-ui. Nhấp đúp và cỡ chữ không cần thiết kế mới.
+Trả lời của PO (2026-10-18):
+- Nhấp đúp chỉ trên tiêu đề ô, bật/tắt: ô thường → phóng to; ô đang phóng to → thu về. Vùng terminal vẫn nhấp đúp để bôi đen một từ.
+- Phím tắt: macOS Cmd, Windows Ctrl (Cmd/Ctrl + to, − nhỏ, 0 về 100%). Ctrl trên macOS vẫn tới terminal.
+- Cỡ chữ: mỗi lần ±10%, từ 50% tới 200%, mặc định 100%; giữ lại giữa các lần mở app; áp cho mọi chữ trong cửa sổ (cột trái, Session History Panel, tiêu đề ô, terminal phiên, Pane Shell).
+- Xoá nhiều: checkbox trên mỗi dòng history; tick ≥ 1 thì hiện "Delete selected (n)" và "Select all"; một hộp xác nhận cho cả nhóm; phiên đang mở thì đóng ô trước; phiên nào không chuyển được thì giữ lại và báo "k of n sessions deleted"; đổi folder hoặc đóng khung thì bỏ chọn. Nút Delete trên từng dòng giữ nguyên.
+
+Diff đề xuất:
+
+Phiên bản: BRD v2.2 → v2.3 (sửa BR-05, BR-08; không đụng BO). SRS v1.3 → v1.4.
+
+BRD:
+- BR-05. Trước: "…mở một terminal thường dưới phiên trong cùng ô và ẩn nó đi mà vẫn chạy, thao tác đầy đủ như trong terminal thường". Sau: "…mở một terminal thường dưới phiên trong cùng ô và ẩn nó đi mà vẫn chạy, phóng to hoặc thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt, thao tác đầy đủ như trong terminal thường".
+- BR-08. Trước: "Người dùng xoá một phiên cũ của folder bằng cách chuyển nó vào Thùng rác". Sau: "Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc bằng cách chuyển chúng vào Thùng rác".
+- Mục 5 Trong phạm vi: "Xoá phiên cũ vào Thùng rác." → "Xoá một hoặc nhiều phiên cũ vào Thùng rác."; thêm "Phóng to, thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt."
+- Mục 13 log phỏng vấn: thêm dòng CR-004 (dòng 2026-10-17 "từng phiên một" giữ nguyên, là lịch sử).
+
+SRS — đổi:
+- Thuật ngữ thêm: "Text Size — tỉ lệ cỡ của mọi chữ trong cửa sổ so với mặc định, từ 50% đến 200%, mặc định 100%". "Zoom shortcut — macOS: Cmd + (hoặc Cmd =) để to, Cmd − để nhỏ, Cmd 0 về 100%; Windows: Ctrl thay cho Cmd". "Session Selection — các phiên đang được tick trong Session History Panel".
+- Mục 2.5: thêm A5 nhấp đúp tiêu đề ô để phóng to / thu về → SRS-FR-066, SRS-FR-067.
+- Mục 2.9: thêm A3 tick nhiều dòng rồi chọn "Delete selected" → SRS-FR-073 … SRS-FR-079; luồng chính một phiên giữ nguyên.
+- Mục 2.11 mới "Cỡ chữ": luồng chính 1. người dùng bấm Zoom shortcut to/nhỏ → SRS-FR-068, SRS-FR-069; 2. mọi chữ đổi cỡ, terminal fit lại → SRS-FR-072; 3. mở lại app vẫn cỡ đó → SRS-FR-071. A1 về 100% → SRS-FR-070. E1 đã tới 200% hoặc 50% → giữ nguyên (Ví dụ âm của SRS-FR-068, SRS-FR-069).
+- Mục 3: thêm thực thể "App settings": trường "Text Size · Có · 50%–200%, bước 10%; giữ lại giữa các lần mở app (SRS-FR-071)". Session History Panel: Session Selection không giữ khi đổi workspace, đóng khung (SRS-FR-076) hay mở lại app.
+- Mục 7: Pane Grid thêm SRS-FR-066, SRS-FR-067, SRS-FR-072; Session History Panel thêm SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079; thêm dòng "Cửa sổ chính · toàn cửa sổ | Phóng to, thu nhỏ, về mặc định cỡ chữ | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071". Mục 11: SRS-FR-001 đến SRS-FR-079. Mục 12 dựng lại bằng grep. Mục 1 Mục đích: BRD v2.3.
+- SRS-FR-025, SRS-FR-041, SRS-FR-042, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-NFR-005: không đổi chữ.
+
+SRS — mới:
+- SRS-FR-066 — Maximize on header double-click (BR-05, Should, Test): "When the user double-clicks the header of a pane that is not maximized, the system shall maximize that pane as in SRS-FR-041." Ví dụ: 3 ô, nhấp đúp tiêu đề ô 2 → chỉ thấy ô 2, giống bấm Maximize. Ví dụ âm: nhấp đúp lên một từ trong vùng terminal → từ đó được bôi đen, ô không phóng to (SRS-FR-025); nhấp đúp lên nút trên tiêu đề (Shell, đóng) → chỉ làm việc của nút đó.
+- SRS-FR-067 — Restore on header double-click (BR-05, Should, Test): "When the user double-clicks the header of the Maximized Pane, the system shall restore the previous layout as in SRS-FR-042." Ví dụ: hai ô 30/70, nhấp đúp tiêu đề ô 1 → phóng to; nhấp đúp lần nữa → lại 30/70.
+- SRS-FR-068 — Increase text size (BR-05, Should, Test): "When the user presses the Zoom shortcut to enlarge, the system shall increase the Text Size by 10 percentage points, up to 200%." Giải thích: áp cho mọi chữ trong cửa sổ: Workspace List, Active Sessions, Session History Panel, tiêu đề ô, terminal phiên, Pane Shell, hộp thoại; phím tắt chạy cả khi focus đang ở ô, ô không nhận phím đó. Ví dụ: Text Size 100%, Cmd + hai lần → 120%, chữ cột trái và chữ trong ô cùng to ra. Ví dụ âm: Text Size 200%, Cmd + → vẫn 200%. Ví dụ âm: macOS, Ctrl − trong ô → Claude Code nhận phím, Text Size không đổi.
+- SRS-FR-069 — Decrease text size (BR-05, Should, Test): "When the user presses the Zoom shortcut to shrink, the system shall decrease the Text Size by 10 percentage points, down to 50%." Ví dụ: 100%, Cmd − → 90%. Ví dụ âm: 50%, Cmd − → vẫn 50%.
+- SRS-FR-070 — Reset text size (BR-05, Should, Test): "When the user presses the Zoom shortcut to reset, the system shall set the Text Size to 100%." Ví dụ: 150%, Cmd 0 → 100%.
+- SRS-FR-071 — Persist text size (BR-05, Should, Test): "The system shall keep the Text Size between application launches." Ví dụ: đặt 130%, thoát app, mở lại → 130%.
+- SRS-FR-072 — Reflow on text size change (BR-05, Should, Demo): "When the Text Size changes, the system shall fit the content of every session terminal and Pane Shell to its pane at the new Text Size." Giải thích: như SRS-FR-024, khổ ô không đổi nhưng số cột/dòng đổi. Ví dụ: 2 ô, Cmd + → khung nhập của Claude Code ở cả 2 ô vẽ lại vừa ô, không vỡ dòng.
+- SRS-FR-073 — Select a session (BR-08, Should, Test): "When the user ticks the checkbox of a row in the Session History Panel, the system shall add that session to the Session Selection." Giải thích: bỏ tick thì bỏ khỏi Session Selection; tick không mở phiên. Ví dụ: tick "Scaffold Tauri app" và "Fix login bug" → Session Selection có 2 phiên. Ví dụ âm: tick một dòng → không mở ô nào.
+- SRS-FR-074 — Delete selected action (BR-08, Should, Test): "While the Session Selection is not empty, the system shall show the action "Delete selected (<n>)" and the action "Select all" in the Session History Panel, where <n> is the number of selected sessions." Ví dụ: tick 2 dòng → "Delete selected (2)". Ví dụ âm: bỏ tick hết → hai nút ẩn.
+- SRS-FR-075 — Select all sessions (BR-08, Should, Test): "When the user chooses Select all, the system shall add every session listed in the Session History Panel to the Session Selection." Ví dụ: folder 5 phiên, đã tick 1, chọn Select all → "Delete selected (5)".
+- SRS-FR-076 — Clear the selection (BR-08, Should, Test): "When the Session History Panel switches to another workspace or closes, the system shall empty the Session Selection." Ví dụ: tick 2 phiên ở `agent-deck`, chọn `mokairo` rồi quay lại `agent-deck` → không dòng nào được tick.
+- SRS-FR-077 — Confirm deleting selected sessions (BR-08, Should, Test): "When the user chooses Delete selected, the system shall ask "Move <n> sessions to Trash?" before deleting." Giải thích: có <k> phiên đang mở trong ô thì câu là "Close <k> open sessions and move <n> sessions to Trash?". Ví dụ: 3 phiên, 1 đang mở → "Close 1 open sessions and move 3 sessions to Trash?". Ví dụ âm: chọn Cancel → không phiên nào bị chuyển, Session Selection giữ nguyên.
+- SRS-FR-078 — Delete selected sessions (BR-08, Should, Test): "When the user confirms deleting the selected sessions, the system shall delete each selected session as in SRS-FR-047 and SRS-FR-049." Ví dụ: 3 phiên, 1 đang `Running` ở ô 2 → ô 2 đóng, cả 3 vào Thùng rác, 3 dòng biến mất, Session Selection rỗng.
+- SRS-FR-079 — Report partial delete failure (BR-08, Should, Test): "If some selected sessions cannot be moved to the trash, then the system shall keep those sessions in the Session History Panel and in the Session Selection and show the message "<k> of <n> sessions deleted"." Giải thích: thay cho thông báo của SRS-FR-050 khi xoá nhiều. Ví dụ âm: 3 phiên, 1 file bị khoá quyền ghi → 2 dòng biến mất, dòng còn lại vẫn được tick, hiện "2 of 3 sessions deleted".
+
+Ngoài phạm vi CR này: Shift-click chọn một dải dòng; chọn phiên ở nhiều folder cùng lúc; khôi phục từ Thùng rác trong app; cỡ chữ riêng cho từng ô; chỉnh cỡ chữ qua menu hay thanh trượt; nhấp đúp ở chỗ khác ngoài tiêu đề ô.
+
+Backlog — thêm (áp sau GATE CR):
+- 14 · Nhấp đúp tiêu đề ô để phóng to / thu về · add-pane-header-double-click · SRS-FR-066, SRS-FR-067 · phụ thuộc 10 · Should; CR-004; chỉ thêm FR mới → /dev-feature.
+- 15 · Phóng to, thu nhỏ cỡ chữ cả cửa sổ bằng phím tắt · add-text-zoom · SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071, SRS-FR-072 · phụ thuộc 2, 13 · Should; CR-004; chỉ thêm FR mới → /dev-feature.
+- 16 · Tick chọn và xoá nhiều phiên cùng lúc · add-bulk-session-delete · SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079 · phụ thuộc 11, 12 · Should; CR-004; chỉ thêm FR mới → /dev-feature; checkbox và thanh "Delete selected" theo /ux-design-ui.
+
+Thiết kế: design/agent-deck/design.html chưa có checkbox dòng history và thanh "Delete selected" → /ux-design-ui bổ sung trước khi code mục 16. Không sửa ở CR này.
+
+Việc tiếp theo: /dev-feature add-pane-header-double-click (mục 14) → /dev-feature add-text-zoom (mục 15) → /ux-design-ui (checkbox + Delete selected) → /dev-feature add-bulk-session-delete (mục 16).
