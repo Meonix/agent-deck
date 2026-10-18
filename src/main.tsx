@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { tauriDiagClient } from "./api/diag";
 import { tauriSessionsClient } from "./api/sessions";
 import { tauriWorkspacesClient } from "./api/workspaces";
+import { tauriZoomClient } from "./api/zoom";
 import App from "./App";
 import { createXtermAdapter } from "./components/xtermAdapter";
 import { installErrorHooks } from "./diagnostics";
@@ -22,6 +23,8 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       sessions={tauriSessionsClient}
       createTerminal={createXtermAdapter}
       diag={tauriDiagClient}
+      zoom={tauriZoomClient}
+      mac={navigator.userAgent.includes("Mac")}
     />
   </React.StrictMode>,
 );

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Workspace, WorkspacesClient } from "./api/workspaces";
+import type { ZoomClient } from "./api/zoom";
 import App from "./App";
 import type { TerminalSize } from "./components/TerminalPane";
 import { fakeAdapter, fakeSessions, type FakeAdapter, type FakeSessions } from "./test/fakes";
@@ -17,14 +18,19 @@ function workspacesClient(items: Workspace[]): WorkspacesClient {
   };
 }
 
-function setup(items: Workspace[], sessions: FakeSessions = fakeSessions(), size?: TerminalSize) {
+function setup(
+  items: Workspace[],
+  sessions: FakeSessions = fakeSessions(),
+  size?: TerminalSize,
+  more: { zoom?: ZoomClient; mac?: boolean } = {},
+) {
   const adapters: FakeAdapter[] = [];
   const createTerminal = vi.fn(() => {
     const a = fakeAdapter(size);
     adapters.push(a);
     return a;
   });
-  render(<App workspaces={workspacesClient(items)} sessions={sessions} createTerminal={createTerminal} />);
+  render(<App workspaces={workspacesClient(items)} sessions={sessions} createTerminal={createTerminal} {...more} />);
   return { user: userEvent.setup(), sessions, adapters, createTerminal };
 }
 
@@ -1323,6 +1329,110 @@ describe("Maximize pane (2.1 to 2.4)", () => {
     }
     expect(sidebar()).not.toHaveAttribute("inert");
     expect(button("p2", "Maximize pane")).toBeInTheDocument();
+  });
+});
+
+describe("Text Size (2.1, 2.2)", () => {
+  afterEach(() => localStorage.clear());
+
+  function zoomSetup(stored?: string, mac = false) {
+    if (stored !== undefined) localStorage.setItem("adTextSize", stored);
+    const zoom = { setZoom: vi.fn(async (_scale: number) => {}) };
+    const ctx = setup([ws("a", "agent-deck")], fakeSessions(), undefined, { zoom, mac });
+    return { ...ctx, zoom };
+  }
+  const zooms = (zoom: { setZoom: ReturnType<typeof vi.fn> }) => zoom.setZoom.mock.calls.map(([scale]) => scale);
+  async function press(key: string, mods: { ctrlKey?: boolean; metaKey?: boolean } = { ctrlKey: true }, target: Element | Document = document) {
+    let notPrevented = true;
+    await act(async () => {
+      notPrevented = fireEvent.keyDown(target, { key, ...mods });
+    });
+    return notPrevented;
+  }
+
+  it("applies the stored Text Size on launch (SRS-FR-071)", async () => {
+    const { zoom } = zoomSetup("1.3");
+    await vi.waitFor(() => expect(zooms(zoom)).toEqual([1.3]));
+  });
+
+  it("enlarges by 10 points per press and stores the size (SRS-FR-068, SRS-FR-071)", async () => {
+    const { zoom } = zoomSetup();
+    await vi.waitFor(() => expect(zooms(zoom)).toEqual([1]));
+
+    await press("=");
+    await press("+");
+
+    expect(zooms(zoom)).toEqual([1, 1.1, 1.2]);
+    expect(localStorage.getItem("adTextSize")).toBe("1.2");
+  });
+
+  it("stops at 200% and still keeps the key from the pane (SRS-FR-068)", async () => {
+    const { zoom } = zoomSetup("2");
+    await vi.waitFor(() => expect(zooms(zoom)).toEqual([2]));
+
+    expect(await press("=")).toBe(false);
+
+    expect(zooms(zoom)).toEqual([2]);
+  });
+
+  it("shrinks and resets (SRS-FR-069, SRS-FR-070)", async () => {
+    const { zoom } = zoomSetup();
+    await press("-");
+    await press("0");
+
+    expect(zooms(zoom)).toEqual([1, 0.9, 1]);
+    expect(localStorage.getItem("adTextSize")).toBe("1");
+  });
+
+  it("takes the shortcut from a focused pane without passing it on (SRS-FR-068)", async () => {
+    const { user, zoom } = zoomSetup();
+    await selectAndStart(user, "agent-deck");
+    const pane = (await screen.findAllByRole("region")).find((r) => r.querySelector("[data-pane-body]"))!;
+    const paneHeard = vi.fn();
+    pane.addEventListener("keydown", paneHeard);
+
+    expect(await press("=", { ctrlKey: true }, pane.querySelector("[data-pane-body]")!)).toBe(false);
+
+    expect(paneHeard).not.toHaveBeenCalled();
+    expect(zooms(zoom)).toEqual([1, 1.1]);
+  });
+
+  it("uses Cmd on macOS and leaves Ctrl to the terminal (SRS-FR-068)", async () => {
+    const { zoom } = zoomSetup(undefined, true);
+    await vi.waitFor(() => expect(zooms(zoom)).toEqual([1]));
+
+    expect(await press("-", { ctrlKey: true })).toBe(true);
+    await press("=", { metaKey: true });
+
+    expect(zooms(zoom)).toEqual([1, 1.1]);
+  });
+
+  it("keeps the old size when the zoom fails", async () => {
+    const { zoom } = zoomSetup();
+    await vi.waitFor(() => expect(zooms(zoom)).toEqual([1]));
+    zoom.setZoom.mockRejectedValueOnce(new Error("not allowed"));
+
+    await press("=");
+    await press("=");
+
+    expect(zooms(zoom)).toEqual([1, 1.1, 1.1]);
+    expect(localStorage.getItem("adTextSize")).toBe("1.1");
+  });
+
+  it("fits every session terminal and Pane Shell after a change (SRS-FR-072)", async () => {
+    const { user, sessions, adapters } = zoomSetup();
+    await selectAndStart(user, "agent-deck");
+    const pane = await screen.findByRole("region", { name: /^agent-deck · / });
+    await user.click(within(pane).getByRole("button", { name: "Open shell" }));
+    await vi.waitFor(() => expect(adapters).toHaveLength(2));
+    const [session, shell] = adapters;
+    session.size = { cols: 72, rows: 20 };
+    shell.size = { cols: 72, rows: 6 };
+
+    await press("=");
+
+    await vi.waitFor(() => expect(sessions.resize).toHaveBeenLastCalledWith(sessions.opened[0].pane.paneId, 72, 20));
+    expect(sessions.shellResize).toHaveBeenLastCalledWith(sessions.opened[0].pane.paneId, 72, 6);
   });
 });
 

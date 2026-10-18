@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SessionsClient } from "./api/sessions";
 import type { WorkspacesClient } from "./api/workspaces";
+import type { ZoomClient } from "./api/zoom";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { StatusLatencyReport } from "./components/StatusLatencyReport";
 import { PaneGrid } from "./components/PaneGrid";
@@ -9,6 +10,7 @@ import { ToastProvider, useToast } from "./components/Toast";
 import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
 import { activeSessions, folderHighlights, maximizedBadge } from "./components/statusHighlight";
 import { useSessionPanes } from "./components/useSessionPanes";
+import { useTextZoom } from "./components/useTextZoom";
 import { useWorkspaces } from "./components/useWorkspaces";
 import type { OpenSession } from "./components/sessionList";
 import { useMinuteClock, useSessionList } from "./components/useSessionList";
@@ -20,6 +22,9 @@ type Deps = {
   sessions: SessionsClient;
   createTerminal: TerminalAdapterFactory;
   diag?: DiagClient;
+  zoom?: ZoomClient;
+  /** Picks Cmd rather than Ctrl for the Zoom shortcut. */
+  mac?: boolean;
 };
 
 const REPORT_MS = 60_000;
@@ -27,6 +32,7 @@ const REPORT_MS = 60_000;
 function App(deps: Deps) {
   const [reportOpen, setReportOpen] = useState(false);
   const closeReport = useCallback(() => setReportOpen(false), []);
+  const textSize = useTextZoom(deps.zoom, deps.mac ?? false);
   return (
     <div className="h-screen relative flex flex-col bg-background text-foreground font-sans">
       <ToastProvider>
@@ -39,14 +45,14 @@ function App(deps: Deps) {
             Status Latency
           </button>
         </div>
-        <Workbench {...deps} />
+        <Workbench {...deps} textSize={textSize} />
         {reportOpen && <StatusLatencyReport client={deps.sessions} onClose={closeReport} />}
       </ToastProvider>
     </div>
   );
 }
 
-function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag }: Deps) {
+function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag, textSize }: Deps & { textSize: number }) {
   const terminals = useMemo(() => countTerminals(makeTerminal), [makeTerminal]);
   const createTerminal = terminals.factory;
   const workspaces = useWorkspaces(workspacesClient);
@@ -184,6 +190,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
                   client={sessions}
                   focused={entry.pane.paneId === panes.focusedId}
                   maximized={entry.pane.paneId === panes.maximizedId}
+                  textSize={textSize}
                   othersBadge={entry.pane.paneId === panes.maximizedId ? othersBadge : null}
                   onBadge={panes.restore}
                   onFocus={panes.focusPane}

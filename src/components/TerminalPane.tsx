@@ -59,6 +59,7 @@ type Props = {
   client: SessionsClient;
   focused: boolean;
   maximized: boolean;
+  textSize: number;
   /** Other sessions that need the user, shown while this pane is maximized (SRS-FR-044). */
   othersBadge: MaximizedBadge | null;
   onBadge(target: string): void;
@@ -77,6 +78,7 @@ export function TerminalPane({
   client,
   focused,
   maximized,
+  textSize,
   othersBadge,
   onBadge,
   onFocus,
@@ -133,6 +135,14 @@ export function TerminalPane({
     wasMaximized.current = maximized;
     refit.current?.();
   }, [maximized]);
+
+  // SRS-FR-072: the zoom has landed when the size arrives, and the same pane holds more or fewer cells.
+  const lastTextSize = useRef(textSize);
+  useEffect(() => {
+    if (lastTextSize.current === textSize) return;
+    lastTextSize.current = textSize;
+    refit.current?.();
+  }, [textSize]);
 
   // The session body changes size with the shell area; fit on the commit rather than waiting for the observer.
   const shellLayout = shell === null ? "none" : shell.visible ? `shown ${shell.ratio}` : "hidden";
@@ -259,6 +269,7 @@ export function TerminalPane({
             shell={shell}
             client={client}
             maximized={maximized}
+            textSize={textSize}
             onResize={(ratio) => onResizeShell(paneId, ratio)}
           />
         )}

@@ -41,10 +41,11 @@ type AreaProps = {
   shell: ShellEntry;
   client: SessionsClient;
   maximized: boolean;
+  textSize: number;
   onResize(ratio: number): void;
 };
 
-export function ShellArea({ paneId, shell, client, maximized, onResize }: AreaProps) {
+export function ShellArea({ paneId, shell, client, maximized, textSize, onResize }: AreaProps) {
   const { adapter, visible, ratio } = shell;
   const area = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -85,7 +86,7 @@ export function ShellArea({ paneId, shell, client, maximized, onResize }: AreaPr
   // Fit on the commit rather than waiting for the observer, as the session does on maximize.
   useEffect(() => {
     refit.current?.();
-  }, [visible, ratio, maximized]);
+  }, [visible, ratio, maximized, textSize]);
 
   // Showing gives the shell the keyboard, as opening does; after the commit, as a hidden element cannot take focus.
   const wasVisible = useRef(visible);
