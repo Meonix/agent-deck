@@ -1475,6 +1475,7 @@ describe("Maximize pane (2.1 to 2.4)", () => {
     }
     expect(sidebar()).toHaveAttribute("inert");
     expect(historyPanel()).toHaveAttribute("inert");
+    expect(screen.getByRole("button", { name: "Hide sidebar" })).toHaveAttribute("inert");
     expect(screen.queryAllByRole("separator")).toHaveLength(0);
     expect(button("p2", "Restore pane")).toBeInTheDocument();
   });
@@ -1778,6 +1779,74 @@ describe("Text Size (2.1, 2.2)", () => {
 
     await vi.waitFor(() => expect(sessions.resize).toHaveBeenLastCalledWith(sessions.opened[0].pane.paneId, 72, 20));
     expect(sessions.shellResize).toHaveBeenLastCalledWith(sessions.opened[0].pane.paneId, 72, 6);
+  });
+});
+
+describe("Sidebar toggle (2.13)", () => {
+  const toggle = (name: "Hide sidebar" | "Show sidebar") => screen.getByRole("button", { name });
+  const sidebarGone = () => expect(screen.queryByRole("complementary", { name: "Workspaces" })).not.toBeInTheDocument();
+  async function press(key: string, mods: { ctrlKey?: boolean; metaKey?: boolean }, target: Element | Document = document) {
+    let notPrevented = true;
+    await act(async () => {
+      notPrevented = fireEvent.keyDown(target, { key, ...mods });
+    });
+    return notPrevented;
+  }
+
+  it("starts shown, hides and shows with the button, and keeps the selected folder (SRS-FR-088, SRS-FR-090)", async () => {
+    const { user } = setup([ws("a", "agent-deck")]);
+    await user.click(await folderList().findByText("agent-deck"));
+    const grid = sidebar().parentElement!;
+    expect(grid.className).toContain("260px");
+    expect(toggle("Hide sidebar")).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(toggle("Hide sidebar"));
+
+    sidebarGone();
+    expect(grid.className).not.toContain("260px");
+    expect(toggle("Show sidebar")).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(toggle("Show sidebar"));
+
+    expect(folderList().getByText("agent-deck").closest("[aria-current]")).toHaveAttribute("aria-current", "true");
+    expect(grid.className).toContain("260px");
+  });
+
+  it("takes Cmd+B from a focused pane on macOS and leaves the focus there (SRS-FR-089)", async () => {
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions(), undefined, { mac: true });
+    await selectAndStart(user, "agent-deck");
+    const pane = (await screen.findAllByRole("region")).find((r) => r.querySelector("[data-pane-body]"))!;
+    fireEvent.focus(pane);
+    const paneHeard = vi.fn();
+    pane.addEventListener("keydown", paneHeard);
+
+    expect(await press("b", { metaKey: true }, pane.querySelector("[data-pane-body]")!)).toBe(false);
+
+    expect(paneHeard).not.toHaveBeenCalled();
+    sidebarGone();
+    expect(pane).toHaveClass("ring-2");
+
+    await press("b", { metaKey: true });
+    expect(sidebar()).toBeInTheDocument();
+  });
+
+  it("leaves Ctrl+B and Ctrl+H to the terminal on macOS (SRS-FR-089)", async () => {
+    setup([ws("a", "agent-deck")], fakeSessions(), undefined, { mac: true });
+    await folderList().findByText("agent-deck");
+
+    expect(await press("b", { ctrlKey: true })).toBe(true);
+    expect(await press("h", { ctrlKey: true })).toBe(true);
+
+    expect(sidebar()).toBeInTheDocument();
+  });
+
+  it("uses Ctrl+B on Windows (SRS-FR-089)", async () => {
+    setup([ws("a", "agent-deck")]);
+    await folderList().findByText("agent-deck");
+
+    expect(await press("b", { ctrlKey: true })).toBe(false);
+
+    sidebarGone();
   });
 });
 

@@ -9,12 +9,14 @@ type Props = {
   onJump(paneId: string): void;
   /** A maximized pane is drawn over the sidebar; keep keyboard focus out of it. */
   covered: boolean;
+  /** SRS-FR-088: kept mounted, so its scroll and state survive a hide. */
+  hidden: boolean;
 };
 
-export function WorkspaceSidebar({ workspaces, folderHighlights, active, onJump, covered }: Props) {
+export function WorkspaceSidebar({ workspaces, folderHighlights, active, onJump, covered, hidden }: Props) {
   const { items, selected, select, addFolder, removeFolder } = workspaces;
   return (
-    <aside aria-label="Workspaces" inert={covered} className="flex flex-col bg-card overflow-auto border-r border-border">
+    <aside aria-label="Workspaces" hidden={hidden} inert={covered} className="flex flex-col bg-card overflow-auto border-r border-border">
       <section className="bg-section-folders pb-2">
         <div className="px-3 pt-3 pb-1 flex items-center justify-between">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Folders</span>

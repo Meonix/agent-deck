@@ -10,6 +10,7 @@ import { ToastProvider, useToast } from "./components/Toast";
 import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
 import { activeSessions, folderHighlights, maximizedBadge } from "./components/statusHighlight";
 import { useSessionPanes } from "./components/useSessionPanes";
+import { useSidebarToggle } from "./components/useSidebarToggle";
 import { useTextZoom } from "./components/useTextZoom";
 import { useWorkspaces } from "./components/useWorkspaces";
 import { mergeSessions, type OpenSession } from "./components/sessionList";
@@ -33,6 +34,7 @@ function App(deps: Deps) {
   const [reportOpen, setReportOpen] = useState(false);
   const closeReport = useCallback(() => setReportOpen(false), []);
   const textSize = useTextZoom(deps.zoom, deps.mac ?? false);
+  const sidebar = useSidebarToggle(deps.mac ?? false);
   return (
     <div className="h-screen relative flex flex-col bg-background text-foreground font-sans">
       <ToastProvider>
@@ -45,14 +47,17 @@ function App(deps: Deps) {
             Status Latency
           </button>
         </div>
-        <Workbench {...deps} textSize={textSize} />
+        <Workbench {...deps} textSize={textSize} sidebar={sidebar} />
         {reportOpen && <StatusLatencyReport client={deps.sessions} onClose={closeReport} />}
       </ToastProvider>
     </div>
   );
 }
 
-function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag, textSize }: Deps & { textSize: number }) {
+function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag, textSize, sidebar }: Deps & {
+  textSize: number;
+  sidebar: { shown: boolean; toggle(): void };
+}) {
   const terminals = useMemo(() => countTerminals(makeTerminal), [makeTerminal]);
   const createTerminal = terminals.factory;
   const workspaces = useWorkspaces(workspacesClient);
@@ -190,14 +195,17 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   };
 
   return (
-    <div className={`flex-1 min-h-0 grid ${historyShown ? "grid-cols-[260px_280px_1fr]" : "grid-cols-[260px_1fr]"}`}>
+    <div className={`flex-1 min-h-0 relative grid ${gridColumns(sidebar.shown, historyShown)}`}>
       <WorkspaceSidebar
+        hidden={!sidebar.shown}
         workspaces={workspaces}
         folderHighlights={folderHighlights(panes.entries)}
         active={activeSessions(panes.entries)}
         onJump={panes.jumpTo}
         covered={panes.maximizedId !== null}
       />
+      {/* After the Sidebar, so Tab reaches its rows first; absolute, so it takes no grid column. */}
+      <SidebarToggle shown={sidebar.shown} covered={panes.maximizedId !== null} onToggle={sidebar.toggle} />
       {historyShown && workspaces.selected && (
         <SessionHistoryPanel
           workspaceName={workspaces.selected.name}
@@ -362,3 +370,23 @@ function CenteredState({ title, hint, action, disabled = false, onAction }: Cent
 }
 
 export default App;
+
+function gridColumns(sidebarShown: boolean, historyShown: boolean): string {
+  if (sidebarShown) return historyShown ? "grid-cols-[260px_280px_1fr]" : "grid-cols-[260px_1fr]";
+  return historyShown ? "grid-cols-[280px_1fr]" : "grid-cols-[1fr]";
+}
+
+// Below the maximized pane's z-10, which covers it (SRS-FR-088).
+function SidebarToggle({ shown, covered, onToggle }: { shown: boolean; covered: boolean; onToggle(): void }) {
+  return (
+    <button
+      onClick={onToggle}
+      inert={covered}
+      aria-label={shown ? "Hide sidebar" : "Show sidebar"}
+      aria-expanded={shown}
+      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 w-4 flex items-center justify-center rounded-md border border-border bg-card text-xs text-muted-foreground hover:text-foreground ${shown ? "left-[260px] -translate-x-1/2" : "left-0 rounded-l-none border-l-0"}`}
+    >
+      {shown ? "‹" : "›"}
+    </button>
+  );
+}
