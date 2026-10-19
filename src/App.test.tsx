@@ -1,10 +1,11 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Workspace, WorkspacesClient } from "./api/workspaces";
 import type { ZoomClient } from "./api/zoom";
 import App from "./App";
 import type { TerminalSize } from "./components/TerminalPane";
+import { readSnapshot, writeSnapshot, type Snapshot } from "./components/paneSnapshot";
 import { fakeAdapter, fakeSessions, type FakeAdapter, type FakeSessions } from "./test/fakes";
 
 const ws = (id: string, name: string, missing = false): Workspace => ({ id, name, path: `/p/${name}`, missing });
@@ -1300,6 +1301,143 @@ describe("Drag a pane (3.1 to 3.3)", () => {
     expect(wrapper("p1")).not.toHaveClass("opacity-50");
     fireEvent.pointerUp(window, { ...sidePoint("p2", "bottom"), pointerId: 1 });
     expect([rectOf("p1"), rectOf("p2")]).toEqual(before);
+  });
+});
+
+describe("Reopen panes at launch (2.2 to 2.4)", () => {
+  const paneNamed = (title: string) => screen.getByRole("region", { name: `agent-deck · ${title}` });
+  const wrapper = (title: string) => paneNamed(title).parentElement!;
+  const rectOf = (title: string) => {
+    const { left, top, width, height } = wrapper(title).style;
+    return [left, top, width, height].map((v) => Math.round(parseFloat(v)));
+  };
+  const titledSessions = () => {
+    const sessions = fakeSessions();
+    sessions.title = vi.fn(async (id: string) => id);
+    return sessions;
+  };
+  const remembered = () => Object.values(readSnapshot()?.panes ?? {}).map((p) => p.sessionId);
+
+  async function firstLaunch(count: number, sessions = titledSessions()) {
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await screen.findByRole("region", { name: "agent-deck · p1" });
+    for (let n = 2; n <= count; n++) {
+      await ctx.user.click(newSessionButton());
+      await screen.findByRole("region", { name: `agent-deck · p${n}` });
+    }
+    return ctx;
+  }
+
+  function relaunch(items = [ws("a", "agent-deck")], sessions = titledSessions()) {
+    cleanup();
+    return setup(items, sessions);
+  }
+
+  function saved(panes: Record<string, string>, layout: Snapshot["layout"]) {
+    writeSnapshot({
+      version: 1,
+      layout,
+      panes: Object.fromEntries(
+        Object.entries(panes).map(([id, workspaceId]) => [id, { workspaceId, sessionId: `old-${id}`, title: `Saved ${id}` }]),
+      ),
+    });
+  }
+  const row = (a: string, b: string, c?: string): Snapshot["layout"] => {
+    const tail: Snapshot["layout"] = c ? { split: "right", ratio: 0.5, first: { pane: b }, second: { pane: c } } : { pane: b };
+    return { split: "right", ratio: 0.5, first: { pane: a }, second: tail };
+  };
+
+  it("remembers the panes as they open, resize and close (SRS-FR-084)", async () => {
+    const { user } = await firstLaunch(2);
+    await vi.waitFor(() => expect(remembered()).toEqual(["s1", "s2"]));
+
+    vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(GRID);
+    const divider = screen.getByRole("separator");
+    fireEvent.pointerDown(divider, { clientX: 600, pointerId: 1 });
+    fireEvent.pointerMove(divider, { clientX: 360, pointerId: 1 });
+    fireEvent.pointerUp(divider, { clientX: 360, pointerId: 1 });
+    expect(readSnapshot()!.layout).toMatchObject({ split: "right", ratio: 0.3 });
+
+    await user.click(within(paneNamed("p2")).getByRole("button", { name: "Close pane" }));
+    await vi.waitFor(() => expect(remembered()).toEqual(["s1"]));
+  });
+
+  it("does not remember a new session that never got a prompt, nor an ended one (SRS-FR-084)", async () => {
+    const sessions = fakeSessions({ titles: ["(untitled)"] });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(user, "agent-deck");
+    await vi.waitFor(() => expect(sessions.title).toHaveBeenCalled());
+    expect(readSnapshot()).toBeNull();
+
+    act(() => sessions.opened[0].stream.status({ state: "Running" }));
+    expect(remembered()).toEqual(["s1"]);
+    act(() => sessions.opened[0].stream.exit(1));
+    expect(readSnapshot()).toBeNull();
+  });
+
+  it("keeps the saved panes while the folder list has not loaded", async () => {
+    saved({ x1: "a" }, { pane: "x1" });
+    const before = localStorage.getItem("adOpenPanes");
+    const client = workspacesClient([]);
+    client.list = vi.fn(() => new Promise<Workspace[]>(() => {}));
+    render(<App workspaces={client} sessions={fakeSessions()} createTerminal={() => fakeAdapter()} />);
+    await act(async () => {});
+    expect(localStorage.getItem("adOpenPanes")).toBe(before);
+  });
+
+  it("resumes the remembered sessions in their places, unmaximized and without a shell (SRS-FR-085)", async () => {
+    const first = await firstLaunch(2);
+    vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(GRID);
+    const divider = screen.getByRole("separator");
+    fireEvent.pointerDown(divider, { clientX: 600, pointerId: 1 });
+    fireEvent.pointerMove(divider, { clientX: 360, pointerId: 1 });
+    fireEvent.pointerUp(divider, { clientX: 360, pointerId: 1 });
+    await first.user.click(within(paneNamed("p1")).getByRole("button", { name: "Open shell" }));
+    await first.user.click(within(paneNamed("p2")).getByRole("button", { name: "Maximize pane" }));
+
+    const { sessions } = relaunch();
+
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    expect(vi.mocked(sessions.open).mock.calls.map((c) => c[3])).toEqual(["s1", "s2"]);
+    expect(rectOf("p1")).toEqual([0, 0, 30, 100]);
+    expect(rectOf("p2")).toEqual([30, 0, 70, 100]);
+    expect(wrapper("p2")).not.toHaveClass("fixed");
+    expect(sessions.openShell).not.toHaveBeenCalled();
+    expect(paneNamed("p2")).toHaveClass("border-ring");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("leaves out the pane of a missing folder and reports it (SRS-FR-086)", async () => {
+    saved({ x1: "a", x2: "b", x3: "a" }, row("x1", "x2", "x3"));
+    const { sessions } = relaunch([ws("a", "agent-deck"), ws("b", "mokairo", true)]);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("1 sessions could not be reopened");
+    expect(vi.mocked(sessions.open).mock.calls.map((c) => c[3])).toEqual(["old-x1", "old-x3"]);
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    expect(rectOf("p1")).toEqual([0, 0, 50, 100]);
+    expect(rectOf("p2")).toEqual([50, 0, 50, 100]);
+  });
+
+  it("counts a folder no longer in the list and a session that cannot be resumed (SRS-FR-086)", async () => {
+    saved({ x1: "a", x2: "gone", x3: "a" }, row("x1", "x2", "x3"));
+    const sessions = titledSessions();
+    vi.mocked(sessions.open).mockRejectedValueOnce("invalid_session");
+    relaunch([ws("a", "agent-deck")], sessions);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("2 sessions could not be reopened");
+    await screen.findByRole("region", { name: "agent-deck · p1" });
+    expect(rectOf("p1")).toEqual([0, 0, 100, 100]);
+  });
+
+  it("counts a session whose Claude Code does not start and closes its pane (SRS-FR-086)", async () => {
+    saved({ x1: "a", x2: "a" }, row("x1", "x2"));
+    const sessions = fakeSessions({ started: false });
+    relaunch([ws("a", "agent-deck")], sessions);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("2 sessions could not be reopened");
+    expect(sessions.close).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument();
   });
 });
 

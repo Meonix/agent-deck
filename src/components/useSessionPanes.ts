@@ -2,6 +2,7 @@ import { type RefObject, useCallback, useEffect, useRef, useState } from "react"
 import type { OpenedPane, PaneStatus, SessionState, SessionsClient } from "../api/sessions";
 import type { Workspace } from "../api/workspaces";
 import { latencyLogEnabled, withLatencyLog } from "./latencyLog";
+import { readSnapshot, rebuildLayout, snapshotOf, writeSnapshot } from "./paneSnapshot";
 import { SHELL_OPEN_SIZE } from "./PaneShell";
 import { type Layout, type Side, type SplitPath, movePane as moveInLayout, paneOrder, removePane, setRatio, splitPane } from "./paneTree";
 import { type PaneEntry, type ShellEntry, type TerminalAdapter, type TerminalAdapterFactory, type TerminalSize, UNTITLED } from "./TerminalPane";
@@ -47,6 +48,8 @@ export type SessionPanes = PanesState & {
   toggleShell(paneId: string): Promise<void>;
   resizeShell(paneId: string, ratio: number): void;
   dismissShellFailure(paneId: string): void;
+  /** Once per launch: resumes the panes remembered from the last one (SRS-FR-085, SRS-FR-086). */
+  reopenPanes(workspaces: Workspace[]): Promise<void>;
   /** Counts for the diagnostic report. */
   diagnostics(): { expectedTerminals: number; titleTimers: number; livePanes: number };
 };
@@ -180,6 +183,59 @@ export function useSessionPanes(
     [client, showToast],
   );
 
+  /** Starts the session of a new pane; the caller places the entry, then wires it. */
+  const startPane = useCallback(
+    async (workspace: Workspace, measuring: TerminalAdapter, openedSize: TerminalSize, resumed?: { id: string; title: string }) => {
+      const { pane, stream } = await client.open(workspace.id, openedSize.cols, openedSize.rows, resumed?.id);
+      const status: PaneStatus = { state: "Idle", since: Date.now(), reason: null, tracked: false, reportedAt: null };
+      const entry: PaneEntry = {
+        pane,
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        openedAt: Date.now(),
+        adapter: pane.started ? measuring : null,
+        stream,
+        openedSize,
+        ended: false,
+        status,
+        title: resumed?.title ?? UNTITLED,
+        graceOver: false,
+        shell: null,
+        shellFailed: false,
+        prompted: resumed !== undefined,
+      };
+      return entry;
+    },
+    [client],
+  );
+
+  // Called after the insert so an exit already queued finds the entry.
+  const wirePane = useCallback(
+    ({ pane, stream, adapter }: PaneEntry) => {
+      if (adapter) stream.onOutput((bytes) => adapter.write(bytes));
+      stream.onStatus((next) => {
+        if (next.tracked && next.reportedAt !== null) {
+          unrecorded.current.push({ pane, state: next.state, reportedAt: next.reportedAt });
+        }
+        // A prompt was sent, so the session now has a history to resume (SRS-FR-084).
+        const prompted = next.state === "Running" || next.state === "Needs Approval";
+        update(pane.paneId, (e) => ({ status: next, prompted: e.prompted || prompted }));
+      });
+      // SRS-FR-083: a normal exit takes its pane along; any other exit, or a failed close, leaves
+      // "Session ended" (SRS-FR-028).
+      const markEnded = () => update(pane.paneId, () => ({ ended: true }));
+      stream.onExit((code) => {
+        if (code !== 0) markEnded();
+        else void closePane(pane.paneId).then((closed) => closed || markEnded());
+      });
+      graceTimers.current.set(
+        pane.paneId,
+        setTimeout(() => update(pane.paneId, () => ({ graceOver: true })), STATUS_GRACE_MS),
+      );
+    },
+    [closePane, update],
+  );
+
   const openPane = useCallback(
     async (workspace: Workspace, target: string | null, resumed?: { id: string; title: string }) => {
       if (workspace.missing) {
@@ -200,53 +256,16 @@ export function useSessionPanes(
       let kept = false;
       try {
         const openedSize = measureOpenSize(measuring, paneArea.current, current.current.layout, target);
-        const { pane, stream } = await client.open(workspace.id, openedSize.cols, openedSize.rows, resumed?.id);
-        kept = pane.started;
-        const adapter = pane.started ? measuring : null;
-        const status: PaneStatus = { state: "Idle", since: Date.now(), reason: null, tracked: false, reportedAt: null };
-        const entry: PaneEntry = {
-          pane,
-          workspaceId: workspace.id,
-          workspaceName: workspace.name,
-          openedAt: Date.now(),
-          adapter,
-          stream,
-          openedSize,
-          ended: false,
-          status,
-          title: resumed?.title ?? UNTITLED,
-          graceOver: false,
-          shell: null,
-          shellFailed: false,
-        };
-        setLayout((l) => {
-          return {
-            entries: [...l.entries, entry],
-            layout: splitPane(l.layout, target, pane.paneId, "right"),
-            focusedId: pane.paneId,
-            // SRS-FR-046: the new pane takes its place in the restored layout.
-            maximizedId: null,
-          };
-        });
-        // Registered after the insert so an exit already queued finds the entry.
-        if (adapter) stream.onOutput((bytes) => adapter.write(bytes));
-        stream.onStatus((next) => {
-          if (next.tracked && next.reportedAt !== null) {
-            unrecorded.current.push({ pane, state: next.state, reportedAt: next.reportedAt });
-          }
-          update(pane.paneId, () => ({ status: next }));
-        });
-        // SRS-FR-083: a normal exit takes its pane along; any other exit, or a failed close, leaves
-        // "Session ended" (SRS-FR-028).
-        const markEnded = () => update(pane.paneId, () => ({ ended: true }));
-        stream.onExit((code) => {
-          if (code !== 0) markEnded();
-          else void closePane(pane.paneId).then((closed) => closed || markEnded());
-        });
-        graceTimers.current.set(
-          pane.paneId,
-          setTimeout(() => update(pane.paneId, () => ({ graceOver: true })), STATUS_GRACE_MS),
-        );
+        const entry = await startPane(workspace, measuring, openedSize, resumed);
+        kept = entry.pane.started;
+        setLayout((l) => ({
+          entries: [...l.entries, entry],
+          layout: splitPane(l.layout, target, entry.pane.paneId, "right"),
+          focusedId: entry.pane.paneId,
+          // SRS-FR-046: the new pane takes its place in the restored layout.
+          maximizedId: null,
+        }));
+        wirePane(entry);
       } catch (e) {
         const holder = e === "already_open" && resumed ? openHolder(entries.current, resumed.id) : undefined;
         if (e === "folder_missing") {
@@ -263,7 +282,76 @@ export function useSessionPanes(
         opening.current = false;
       }
     },
-    [client, closePane, createTerminal, focusHolder, onFolderMissing, paneArea, showToast, update],
+    [createTerminal, focusHolder, onFolderMissing, paneArea, showToast, startPane, wirePane],
+  );
+
+  // SRS-FR-084: the panes are written down as they change, so the last state before quitting is kept.
+  // Not before the launch reopen has read them, nor once the page goes away and its sessions die.
+  const [reopened, setReopened] = useState(false);
+  const leaving = useRef(false);
+  useEffect(() => {
+    const leave = () => (leaving.current = true);
+    window.addEventListener("pagehide", leave);
+    return () => window.removeEventListener("pagehide", leave);
+  }, []);
+  useEffect(() => {
+    if (reopened && !leaving.current) writeSnapshot(snapshotOf(layout.layout, layout.entries));
+  }, [reopened, layout.layout, layout.entries]);
+
+  const reopenStarted = useRef(false);
+  const reopenPanes = useCallback(
+    async (workspaces: Workspace[]) => {
+      if (reopenStarted.current) return;
+      reopenStarted.current = true;
+      const snapshot = readSnapshot();
+      if (!snapshot || current.current.layout !== null || opening.current) {
+        setReopened(true);
+        return;
+      }
+      opening.current = true;
+      const started: PaneEntry[] = [];
+      const ids: Record<string, string | null> = {};
+      let failed = 0;
+      try {
+        for (const old of paneOrder(snapshot.layout)) {
+          const saved = snapshot.panes[old];
+          const workspace = workspaces.find((w) => w.id === saved.workspaceId);
+          ids[old] = null;
+          if (!workspace || workspace.missing) {
+            failed += 1;
+            continue;
+          }
+          const measuring = terminal(createTerminal);
+          try {
+            // Each pane fits itself once mounted and resizes its session to match.
+            const entry = await startPane(workspace, measuring, FALLBACK_SIZE, { id: saved.sessionId, title: saved.title });
+            if (entry.pane.started) {
+              started.push(entry);
+              ids[old] = entry.pane.paneId;
+              continue;
+            }
+            client.close(entry.pane.paneId).catch(() => {});
+          } catch {
+            // Counted below like a missing folder.
+          }
+          measuring.dispose();
+          failed += 1;
+        }
+        const last = started[started.length - 1];
+        setLayout({
+          entries: started,
+          layout: rebuildLayout(snapshot.layout, ids),
+          focusedId: last?.pane.paneId ?? null,
+          maximizedId: null,
+        });
+        started.forEach(wirePane);
+        if (failed > 0) showToast(`${failed} sessions could not be reopened`);
+      } finally {
+        opening.current = false;
+        setReopened(true);
+      }
+    },
+    [client, createTerminal, showToast, startPane, wirePane],
   );
 
   const newSession = useCallback(
@@ -405,6 +493,7 @@ export function useSessionPanes(
     toggleShell,
     resizeShell,
     dismissShellFailure,
+    reopenPanes,
     diagnostics,
   };
 }

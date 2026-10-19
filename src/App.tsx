@@ -65,6 +65,10 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     paneArea,
   );
   const { diagnostics } = panes;
+  const { reopenPanes } = panes;
+  useEffect(() => {
+    if (workspaces.items) void reopenPanes(workspaces.items);
+  }, [reopenPanes, workspaces.items]);
   useEffect(() => {
     if (!diag) return;
     const timer = setInterval(() => {

@@ -38,6 +38,8 @@ export type PaneEntry = {
   shell: ShellEntry | null;
   /** The last attempt to open the shell failed; cleared when the user dismisses it or a shell opens. */
   shellFailed: boolean;
+  /** Resumed, or a prompt was sent: the session has a history to resume. */
+  prompted: boolean;
 };
 
 // Like the session's, the shell's adapter outlives a hide: output keeps flowing into it (SRS-FR-057).

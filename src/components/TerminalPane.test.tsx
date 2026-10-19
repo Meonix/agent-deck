@@ -19,6 +19,7 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
     status: { state: "Idle", since: 1, reason: null, tracked: false, reportedAt: null },
     shell: null,
     shellFailed: false,
+    prompted: false,
     ...over,
   };
 }
