@@ -4,7 +4,7 @@ slug: agent-deck
 ---
 # Backlog — agent-deck
 
-Nguồn: `SRS.md` Baselined v1.5 (2026-10-19), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19. Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
+Nguồn: `SRS.md` Baselined v1.6 (2026-10-20), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21. Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
 
 | # | Mục | change-id | SRS-ID | Phụ thuộc | Lý do | Trạng thái |
 |---|---|---|---|---|---|---|
@@ -27,3 +27,5 @@ Nguồn: `SRS.md` Baselined v1.5 (2026-10-19), CR-001 thêm mục 9, 10, 11; CR-
 | 17 | Phiên thoát bình thường thì đóng ô | update-pane-exit-close | SRS-FR-028, SRS-FR-064, SRS-FR-083 | 2, 13 | Should; CR-005; đổi hành vi đã archived của mục 2, 13 → /dev-update | archived |
 | 18 | Kéo thả ô để đặt vị trí, bỏ nút Split | update-pane-drag-drop | SRS-FR-022, SRS-FR-046, SRS-FR-080, SRS-FR-081, SRS-FR-082 | 7, 10 | Should; CR-005; bỏ hành vi đã archived của mục 7 → /dev-update; Drop Zone theo /ux-design-ui | archived |
 | 19 | Mở lại các ô khi mở app | add-pane-restore | SRS-FR-084, SRS-FR-085, SRS-FR-086 | 6, 17, 18 | Should; CR-005; chỉ thêm FR mới → /dev-feature; làm sau 17, 18 để lưu đúng bố cục đã đổi | archived |
+| 20 | Viền nổi bật cho ô đang focus | add-pane-focus-outline | SRS-FR-087 | 2, 9 | Should; CR-006; chỉ thêm FR mới → /dev-feature | todo |
+| 21 | Ẩn/hiện cột trái bằng nút và phím tắt | add-sidebar-toggle | SRS-FR-088, SRS-FR-089, SRS-FR-090 | 1, 12 | Should; CR-006; chỉ thêm FR mới → /dev-feature | todo |

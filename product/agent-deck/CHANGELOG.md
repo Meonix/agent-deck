@@ -294,3 +294,47 @@ Backlog — thêm (áp sau GATE CR):
 Thiết kế: design/agent-deck/design.html chưa có Drop Zone → /ux-design-ui trước khi code mục 18. Không sửa ở CR này.
 
 Việc tiếp theo: /dev-update add-session-pane, add-pane-shell (mục 17) → /ux-design-ui (Drop Zone) → /dev-update add-pane-split-layout (mục 18) → /dev-feature add-pane-restore (mục 19).
+
+## CR-006 — Viền nổi bật cho ô đang focus, ẩn/hiện cột trái
+Ngày: 2026-10-20
+Yêu cầu: "1. khi focus vào session window của active session nào thì hiển thị background có màu nổi bật lên theo kiểu đang select nó. 2. phần side bar bên trái tôi muốn nó thò thụt để chừa phần diện tích cho phần bên phải, ý tưởng của tôi là sẽ có button để người dùng chủ động show/hide side bar." — PO chốt thêm: "1. viền ô. 2. nút đặt ở vertical center, phím tắt là Ctrl + H để đổi state, auto show khi mở lại app".
+Status: Approved (2026-10-20)
+Ảnh hưởng:
+- Viền focus: SRS-FR-014, SRS-FR-015, SRS-FR-037 (archived) chỉ nói chuyển focus, không nói cách hiện — giữ chữ. Code src/components/TerminalPane.tsx:166 hiện viền `border-ring` chỉ khi ô rảnh; ô Running / Needs Approval / Error dùng viền màu trạng thái (statusTone.tsx) nên ô đang focus không phân biệt được. Viền trạng thái chưa có FR riêng — giữ nguyên.
+- Ẩn/hiện cột trái: chưa có FR nào. Cột trái chứa Workspace List và Active Sessions (SRS-FR-032, SRS-FR-034, SRS-FR-037, SRS-NFR-009) — ẩn đi thì chỉ còn trạng thái trên tiêu đề và viền ô. Các ô nở ra phải fit lại theo SRS-FR-024 (giữ chữ). Phím tắt chạy cả khi focus ở ô, giống Zoom shortcut (SRS-FR-068).
+- Spec/code: openspec/specs/app-shell, pane-shell (viền ô); src/App.tsx, src/components/WorkspaceSidebar.tsx, src/components/TerminalPane.tsx, src/components/useTextZoom.ts (chỗ bắt phím tắt toàn cửa sổ).
+- Thiết kế: design/agent-deck/design.html chưa có nút ẩn/hiện cột trái và vòng focus. Vị trí nút PO đã chốt nên không cần /ux-design-ui.
+Trả lời của PO (2026-10-20):
+- Ô đang focus có thêm một vòng màu iris dày 2px bên ngoài viền. Viền trạng thái giữ nguyên bên trong, nên cùng lúc thấy được cả focus lẫn trạng thái.
+- Nút ẩn/hiện nằm ở giữa theo chiều dọc, sát mép phải cột trái; cột ẩn thì nút nằm sát mép trái cửa sổ. Phím tắt: Cmd+B (macOS), Ctrl+B (Windows), không dùng Ctrl+H vì đó là ^H xoá lùi của terminal. Mở lại app thì cột trái luôn hiện, không nhớ trạng thái ẩn.
+
+Diff đề xuất:
+
+Phiên bản: BRD v2.4 → v2.5 (sửa BR-05; không đụng BO). SRS v1.5 → v1.6.
+
+BRD:
+- BR-05. Trước: "…phóng to hoặc thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt, thao tác đầy đủ như trong terminal thường". Sau: "…phóng to hoặc thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt, thấy rõ ô đang focus, ẩn cột trái để nhường chỗ cho các ô, thao tác đầy đủ như trong terminal thường".
+- Mục 5 Trong phạm vi: thêm "Ẩn/hiện cột trái bằng nút hoặc phím tắt; viền nổi bật cho ô đang focus."
+- Mục 13 log phỏng vấn: thêm dòng CR-006. Mục 14: dòng v2.5.
+
+SRS — đổi:
+- Mục 1 Thuật ngữ thêm: "Focus Outline — vòng màu iris dày 2px bên ngoài viền của ô đang focus". "Sidebar — cột trái chứa Workspace List và Active Sessions". "Sidebar Toggle — nút ở giữa theo chiều dọc, sát mép phải Sidebar (Sidebar ẩn: sát mép trái cửa sổ), bấm để ẩn/hiện Sidebar". "Sidebar shortcut — Cmd+B trên macOS, Ctrl+B trên Windows".
+- Mục 2.5: thêm SRS-FR-087.
+- Mục 2.13 mới "Ẩn/hiện cột trái": luồng chính 1. người dùng bấm Sidebar Toggle hoặc Sidebar shortcut → Sidebar ẩn, các ô nở ra → SRS-FR-088, SRS-FR-089. 2. Bấm lại → Sidebar hiện → SRS-FR-088, SRS-FR-089. A1 mở lại app → Sidebar hiện → SRS-FR-090.
+- Mục 3 App settings: thêm câu "Trạng thái ẩn của Sidebar không được lưu: mở app thì Sidebar luôn hiện (SRS-FR-090)."
+- Mục 7: Pane Grid thêm SRS-FR-087; dòng "toàn cửa sổ" thêm "ẩn/hiện Sidebar" và SRS-FR-088, SRS-FR-089, SRS-FR-090. Mục 11: SRS-FR-001 đến SRS-FR-090. Mục 12 dựng lại bằng grep. Mục 14 dòng v1.6.
+- SRS-FR-014, SRS-FR-015, SRS-FR-024, SRS-FR-037, SRS-FR-068: không đổi chữ.
+
+SRS — mới:
+- SRS-FR-087 — Focused pane outline (BR-05, Should, Test): "While a pane has keyboard focus, the system shall show the Focus Outline around that pane." Giải thích: chỉ một ô có Focus Outline tại một thời điểm; viền màu trạng thái (Running, Needs Approval, Error) vẫn hiện bên trong, không bị thay; áp cả cho ô đang phóng to. Ví dụ: 3 ô, bấm vào ô 2 → ô 2 có Focus Outline, ô 1 và ô 3 không. Ví dụ: ô 2 đang `Needs Approval` và được focus → ô 2 vừa có viền vàng 2px vừa có Focus Outline iris bên ngoài. Ví dụ: bấm dòng một phiên ở Active Sessions → Focus Outline chuyển sang ô của phiên đó.
+- SRS-FR-088 — Toggle sidebar by button (BR-05, Should, Test): "When the user clicks the Sidebar Toggle, the system shall hide the Sidebar if it is shown and show it if it is hidden." Giải thích: Sidebar ẩn hẳn, không còn dải icon; vùng ô nở ra chiếm chỗ đó, terminal fit lại theo SRS-FR-024; Session History Panel đang mở vẫn mở; phiên, ô, Pane Shell không đổi. Ví dụ: Sidebar đang hiện, bấm Sidebar Toggle → Sidebar ẩn, 2 ô cạnh nhau rộng thêm, nút nằm ở mép trái cửa sổ. Ví dụ: bấm lần nữa → Sidebar hiện lại như cũ, folder đang chọn giữ nguyên.
+- SRS-FR-089 — Toggle sidebar by shortcut (BR-05, Should, Test): "When the user presses the Sidebar shortcut, the system shall hide the Sidebar if it is shown and show it if it is hidden." Giải thích: chạy cả khi focus đang ở ô; ô không nhận phím đó; focus vẫn ở ô cũ. Ví dụ: đang gõ trong ô 1 trên macOS, bấm Cmd+B → Sidebar ẩn, gõ tiếp vẫn vào ô 1. Ví dụ âm: trên macOS, bấm Ctrl+B trong ô → Claude Code nhận phím đó, Sidebar không đổi. Ví dụ âm: bấm Ctrl+H trong ô → ô nhận ^H, Sidebar không đổi.
+- SRS-FR-090 — Sidebar shown at launch (BR-05, Should, Test): "When the application starts, the system shall show the Sidebar." Ví dụ: ẩn Sidebar, thoát app, mở lại → Sidebar hiện.
+
+Ngoài phạm vi CR này: dải icon hẹp khi Sidebar ẩn; báo trạng thái trên Sidebar Toggle khi Sidebar ẩn; kéo để đổi độ rộng Sidebar; hiệu ứng trượt; cho người dùng đổi phím tắt.
+
+Backlog — thêm (áp sau GATE CR):
+- 20 · Viền nổi bật cho ô đang focus · add-pane-focus-outline · SRS-FR-087 · phụ thuộc 2, 9 · Should; CR-006; chỉ thêm FR mới → /dev-feature.
+- 21 · Ẩn/hiện cột trái bằng nút và phím tắt · add-sidebar-toggle · SRS-FR-088, SRS-FR-089, SRS-FR-090 · phụ thuộc 1, 12 · Should; CR-006; chỉ thêm FR mới → /dev-feature.
+
+Việc tiếp theo: /dev-feature add-pane-focus-outline (mục 20) → /dev-feature add-sidebar-toggle (mục 21).
