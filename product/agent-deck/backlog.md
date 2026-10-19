@@ -28,4 +28,4 @@ Nguồn: `SRS.md` Baselined v1.6 (2026-10-20), CR-001 thêm mục 9, 10, 11; CR-
 | 18 | Kéo thả ô để đặt vị trí, bỏ nút Split | update-pane-drag-drop | SRS-FR-022, SRS-FR-046, SRS-FR-080, SRS-FR-081, SRS-FR-082 | 7, 10 | Should; CR-005; bỏ hành vi đã archived của mục 7 → /dev-update; Drop Zone theo /ux-design-ui | archived |
 | 19 | Mở lại các ô khi mở app | add-pane-restore | SRS-FR-084, SRS-FR-085, SRS-FR-086 | 6, 17, 18 | Should; CR-005; chỉ thêm FR mới → /dev-feature; làm sau 17, 18 để lưu đúng bố cục đã đổi | archived |
 | 20 | Viền nổi bật cho ô đang focus | add-pane-focus-outline | SRS-FR-087 | 2, 9 | Should; CR-006; chỉ thêm FR mới → /dev-feature | archived |
-| 21 | Ẩn/hiện cột trái bằng nút và phím tắt | add-sidebar-toggle | SRS-FR-088, SRS-FR-089, SRS-FR-090 | 1, 12 | Should; CR-006; chỉ thêm FR mới → /dev-feature | todo |
+| 21 | Ẩn/hiện cột trái bằng nút và phím tắt | add-sidebar-toggle | SRS-FR-088, SRS-FR-089, SRS-FR-090 | 1, 12 | Should; CR-006; chỉ thêm FR mới → /dev-feature | archived |
