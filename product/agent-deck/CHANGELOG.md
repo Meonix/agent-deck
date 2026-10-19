@@ -237,3 +237,60 @@ Backlog — thêm (áp sau GATE CR):
 Thiết kế: design/agent-deck/design.html chưa có checkbox dòng history và thanh "Delete selected" → /ux-design-ui bổ sung trước khi code mục 16. Không sửa ở CR này.
 
 Việc tiếp theo: /dev-feature add-pane-header-double-click (mục 14) → /dev-feature add-text-zoom (mục 15) → /ux-design-ui (checkbox + Delete selected) → /dev-feature add-bulk-session-delete (mục 16).
+
+## CR-005 — Mở lại các ô khi mở app, kéo thả ô để đặt vị trí, `/exit` thì đóng ô
+Ngày: 2026-10-19
+Yêu cầu: "1. khi tắt app thì lưu các session đang mở, khi mở lại app thì tự mở lại các session đó thay vì bỏ trống như hiện tại. 2. các icon mở thêm tab mới bên phải, bên dưới rất khó dùng hiện tại, tôi muốn sửa lại theo kiểu drag and drop để khi nắm cửa sổ session kéo thì sẽ cho chọn vị trí để cố định khung chat. 3. khi gõ /exit của claude trong cửa sổ session chat thì cửa sổ chat cũng sẽ biến mất theo luôn, mở rộng các cửa sổ còn lại." — gộp cả 3 vào một CR.
+Status: Approved (2026-10-19)
+Ảnh hưởng:
+- Mở lại ô khi mở app: BR-03 chỉ có "mở lại một phiên cũ để làm tiếp", chưa có tự mở khi khởi động; SRS-FR-013 (archived: add-session-resume) dùng lại để resume, không đổi chữ; SRS mục 3 Pane ghi Pane Shell "không giữ lại giữa các lần mở app" — giữ nguyên; App settings chưa có dữ liệu ô. Phiên mới mở bằng `--session-id` (src-tauri/src/pane_commands.rs) nên phiên chưa gửi yêu cầu nào thì chưa có trên máy, không resume được.
+- Kéo thả ô: SRS-FR-022 Split down (archived: add-pane-split-layout, openspec/specs/pane-layout) bị bỏ; SRS-FR-021 (archived: add-session-pane) giữ chữ — phiên mới vẫn mở bên phải ô đang focus; SRS-FR-046 Ví dụ nhắc "bấm Split Right" (archived: add-pane-maximize) phải đổi; SRS-FR-023, SRS-FR-024 giữ nguyên; mục 2.5 luồng A1.
+- `/exit` đóng ô: SRS-FR-028 (archived: add-session-pane, openspec/specs/session-pane) ngược hẳn — Ví dụ đang là "/exit → Session ended"; SRS-FR-064 (archived: add-pane-shell, openspec/specs/pane-shell) Ví dụ "/exit → shell vẫn chạy" ngược; SRS-FR-027, SRS-FR-063 (hỏi xác nhận khi đóng ô) không áp cho ô tự đóng; RULE-07 `Ended` giữ nguyên.
+- Spec/code: openspec/specs/session-pane, pane-layout, pane-shell; src/components/TerminalPane.tsx (nút Split right/Split down), paneTree.ts, useSessionPanes.ts (onExit → ended), PaneGrid.tsx, App.tsx; src-tauri/src/pane_commands.rs; lưu bố cục cần chỗ lưu cài đặt app (như Text Size).
+- Thiết kế: design/agent-deck/design.html không có nút Split nên không phải gỡ; chưa có vùng thả khi kéo ô → /ux-design-ui.
+Trả lời của PO (2026-10-19):
+- Kéo thả: nắm tiêu đề ô kéo lên một ô khác, ô đó hiện 4 vùng thả trái/phải/trên/dưới; thả vào vùng nào thì ô kéo chuyển tới cạnh đó, chia đôi ô đích. Bỏ hẳn nút Split right/Split down. Phiên mới vẫn mở bên phải ô đang focus.
+- Mở lại: đúng các phiên đang có ô lúc thoát app, đúng vị trí và tỉ lệ ô. Không khôi phục trạng thái phóng to, Pane Shell, ô đã "Session ended". Phiên không mở lại được (folder `Missing`, phiên đã xoá) thì bỏ ô đó, ô khác nở ra, báo "<k> sessions could not be reopened".
+- `/exit`: thoát bình thường (mã thoát 0: `/exit`, Ctrl+D) → ô đóng ngay, ô còn lại nở ra, Pane Shell của ô cũng kết thúc. Thoát bất thường → giữ ô, hiện "Session ended" như cũ để đọc lỗi.
+
+Diff đề xuất:
+
+Phiên bản: BRD v2.3 → v2.4 (sửa BR-03, BR-05; không đụng BO). SRS v1.4 → v1.5.
+
+BRD:
+- BR-03. Trước: "Người dùng mở lại một phiên cũ để làm tiếp". Sau: "Người dùng mở lại một phiên cũ để làm tiếp; các phiên đang mở trong ô lúc thoát app tự mở lại đúng chỗ khi mở app".
+- BR-05. Trước: "…trong một cửa sổ, chia ô ngang và dọc, phóng to…". Sau: "…trong một cửa sổ, kéo thả ô để đặt nó sang trái, phải, trên hoặc dưới một ô khác, ô tự đóng khi phiên thoát bình thường, phóng to…".
+- Mục 5 Trong phạm vi: "Chạy nhiều phiên Claude Code tương tác cùng lúc, chia ô trong một cửa sổ." → "…chia ô trong một cửa sổ bằng kéo thả, tự mở lại các ô khi mở lại app."
+- Mục 13 log phỏng vấn: thêm dòng CR-005. Mục 14: dòng v2.4.
+
+SRS — đổi:
+- Mục 1 Mục đích: BRD v2.4. Thuật ngữ thêm: "Drop Zone — một trong bốn vùng trái, phải, trên, dưới hiện trên một ô khi người dùng kéo tiêu đề một ô khác lên nó". "Thoát bình thường — phiên Claude Code kết thúc với mã thoát 0 (`/exit`, Ctrl+D); mọi kiểu kết thúc khác là thoát bất thường".
+- Mục 2.5 Luồng chính bước 1: "mỗi phiên mở ra bằng cách chia đôi ô đang focus" giữ; A1 "người dùng chọn chia xuống dưới" → "người dùng kéo tiêu đề ô thả lên Drop Zone của ô khác → SRS-FR-080, SRS-FR-081, SRS-FR-082"; A2 → "phiên thoát bình thường → ô đóng → SRS-FR-083; thoát bất thường → ô báo "Session ended" → SRS-FR-028".
+- SRS-FR-022 — Split down on request: Deleted (CR-005), thay bằng SRS-FR-080, SRS-FR-081.
+- SRS-FR-028. Trước: "When the session in a pane exits, the system shall show the message "Session ended" in that pane." Ví dụ "gõ `/exit` …". Sau: "When the session in a pane exits abnormally, the system shall show the message "Session ended" in that pane." Ví dụ: Claude Code bị kill → ô hiện "Session ended", vẫn xem lại được nội dung cũ. Ví dụ âm: gõ `/exit` → ô đóng (SRS-FR-083), không hiện "Session ended".
+- SRS-FR-046 Ví dụ. Trước: "bấm Split Right trên ô 1". Sau: "đang phóng to ô 1, bấm New Session → bố cục cũ hiện lại, ô mới nằm bên phải ô 1". Câu SHALL giữ nguyên.
+- SRS-FR-064. Trước: "While the session in a pane has ended, …". Sau: "While the session in a pane has exited abnormally, the system shall keep that pane's Pane Shell running." Ví dụ: Claude Code bị kill → phần trên hiện "Session ended", shell vẫn chạy `npm run dev`. Ví dụ âm: gõ `/exit` → ô đóng, shell kết thúc theo (SRS-FR-083). Mục 2.10 A3 sửa theo.
+- Mục 2.12 mới "Mở lại các ô khi mở app": luồng chính 1. người dùng thoát app khi đang có ô → SRS-FR-084; 2. mở lại app → các ô hiện lại đúng chỗ, phiên tiếp tục → SRS-FR-085. E1 có phiên không mở lại được → SRS-FR-086.
+- Mục 3 App settings thêm trường "Open Panes · Không · phiên của từng ô và bố cục (vị trí, tỉ lệ); giữ lại giữa các lần mở app (SRS-FR-084); không gồm phóng to, Pane Shell". Pane: dòng Pane Shell "không giữ lại giữa các lần mở app" giữ nguyên.
+- Mục 7 Pane Grid: bỏ SRS-FR-022; thêm SRS-FR-080 đến SRS-FR-086; "chia ô" → "kéo thả ô". Mục 11: SRS-FR-001 đến SRS-FR-086 (trừ SRS-FR-022, SRS-FR-031 đã xoá). Mục 12 dựng lại bằng grep. Mục 14 dòng v1.5.
+- SRS-FR-013, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-027, SRS-FR-063, RULE-07: không đổi chữ.
+
+SRS — mới:
+- SRS-FR-080 — Show drop zones (BR-05, Should, Test): "While the user drags the header of a pane over another pane, the system shall show the Drop Zones of that other pane." Ví dụ: 2 ô, kéo tiêu đề ô 1 lên ô 2 → ô 2 hiện 4 vùng trái/phải/trên/dưới, vùng dưới con trỏ sáng lên. Ví dụ âm: chỉ có 1 ô → kéo tiêu đề không hiện vùng thả nào. Ví dụ âm: kéo từ nút trên tiêu đề (Shell, Maximize, đóng) → không bắt đầu kéo.
+- SRS-FR-081 — Move a pane by drop (BR-05, Should, Test): "When the user drops a pane on a Drop Zone of another pane, the system shall move the dropped pane to that side of the other pane, splitting the other pane in half." Giải thích: chỗ cũ của ô được kéo trả cho các ô còn lại; phiên và Pane Shell vẫn chạy, nội dung giữ nguyên, terminal fit lại theo SRS-FR-024. Ví dụ: ô 1 | ô 2 cạnh nhau, thả ô 1 vào vùng dưới của ô 2 → ô 2 trên, ô 1 dưới, mỗi ô cao nửa cửa sổ, ô 1 vẫn `Running`.
+- SRS-FR-082 — Cancel a drag (BR-05, Should, Test): "If the user releases a dragged pane outside any Drop Zone or presses Esc while dragging, then the system shall keep the layout unchanged." Ví dụ âm: kéo ô 1 rồi thả lên chính ô 1 → bố cục không đổi.
+- SRS-FR-083 — Close pane on normal exit (BR-05, Should, Test): "When the session in a pane exits normally, the system shall close that pane and give its space to the remaining panes." Giải thích: không hỏi xác nhận (SRS-FR-027, SRS-FR-063 chỉ áp cho người dùng đóng ô); Pane Shell của ô kết thúc theo; dòng của phiên rời Active Sessions; ô đang phóng to thì bố cục còn lại hiện lại. Ví dụ: 3 ô ngang, gõ `/exit` ở ô 2 → ô 2 biến mất, ô 1 và ô 3 chia nhau chỗ trống. Ví dụ: ô duy nhất gõ `/exit` → vùng ô trống như lúc chưa mở phiên nào.
+- SRS-FR-084 — Remember open panes (BR-03, Should, Test): "The system shall keep the session of every open pane and the pane layout between application launches." Giải thích: ô đã "Session ended" và ô của phiên mới chưa gửi yêu cầu nào không được nhớ (phiên đó chưa có trên máy, không resume được). Ví dụ: 3 ô, ô 3 đang "Session ended", thoát app → nhớ ô 1, ô 2 và vị trí, tỉ lệ của chúng.
+- SRS-FR-085 — Reopen panes at launch (BR-03, Should, Demo): "When the application starts, the system shall resume each remembered session in a pane at its remembered position and size." Giải thích: resume như SRS-FR-013; không phóng to, không mở Pane Shell. Ví dụ: thoát app khi có ô 1 | ô 2 chia 30/70, mở lại → 2 ô 30/70, cả hai phiên gõ tiếp được, 0 thao tác.
+- SRS-FR-086 — Report panes not reopened (BR-03, Should, Test): "If a remembered session cannot be resumed at launch, then the system shall leave out its pane, give its space to the other panes and show the message "<k> sessions could not be reopened"." Ví dụ âm: 3 ô, folder của ô 2 đã `Missing` → mở ô 1 và ô 3 chia nhau chỗ, hiện "1 sessions could not be reopened". Ví dụ âm: phiên của ô 1 đã bị xoá vào Thùng rác ở ngoài app → tương tự.
+
+Ngoài phạm vi CR này: kéo ô sang cửa sổ khác hoặc ra ngoài app; vùng thả giữa để đổi chỗ hai ô; khôi phục Pane Shell, trạng thái phóng to, nội dung cuộn cũ của terminal; nhớ ô khi app bị kill hay mất điện (chỉ đảm bảo khi thoát app bình thường).
+
+Backlog — thêm (áp sau GATE CR):
+- 17 · Phiên thoát bình thường thì đóng ô · update-pane-exit-close · SRS-FR-028, SRS-FR-064, SRS-FR-083 · phụ thuộc 2, 13 · Should; CR-005; đổi hành vi đã archived của mục 2, 13 → /dev-update.
+- 18 · Kéo thả ô để đặt vị trí, bỏ nút Split · update-pane-drag-drop · SRS-FR-022, SRS-FR-046, SRS-FR-080, SRS-FR-081, SRS-FR-082 · phụ thuộc 7, 10 · Should; CR-005; bỏ hành vi đã archived của mục 7 → /dev-update; Drop Zone theo /ux-design-ui.
+- 19 · Mở lại các ô khi mở app · add-pane-restore · SRS-FR-084, SRS-FR-085, SRS-FR-086 · phụ thuộc 6, 17, 18 · Should; CR-005; chỉ thêm FR mới → /dev-feature; làm sau 17, 18 để lưu đúng bố cục đã đổi.
+
+Thiết kế: design/agent-deck/design.html chưa có Drop Zone → /ux-design-ui trước khi code mục 18. Không sửa ở CR này.
+
+Việc tiếp theo: /dev-update add-session-pane, add-pane-shell (mục 17) → /ux-design-ui (Drop Zone) → /dev-update add-pane-split-layout (mục 18) → /dev-feature add-pane-restore (mục 19).

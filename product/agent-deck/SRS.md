@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.4 (2026-10-18)
+status: Baselined v1.5 (2026-10-19)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -16,7 +16,7 @@ source: product/agent-deck/BRD.md
 
 Đặc tả hành vi của agent-deck, ứng dụng desktop cá nhân để làm việc với nhiều phiên Claude Code
 cùng lúc, phục vụ BO-01 (không sót phiên chờ duyệt hoặc lỗi) và BO-02 (mở lại phiên cũ ≤ 3 thao tác)
-của BRD v2.3.
+của BRD v2.4.
 
 ### Phạm vi
 
@@ -66,6 +66,8 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Text Size | Tỉ lệ cỡ của mọi chữ trong cửa sổ so với mặc định, từ 50% đến 200%, mặc định 100% |
 | Zoom shortcut | macOS: Cmd + (hoặc Cmd =) để to, Cmd − để nhỏ, Cmd 0 về 100%; Windows: Ctrl thay cho Cmd |
 | Session Selection | Các phiên đang được tick trong Session History Panel |
+| Drop Zone | Một trong bốn vùng trái, phải, trên, dưới hiện trên một ô khi người dùng kéo tiêu đề một ô khác lên nó |
+| Thoát bình thường | Phiên Claude Code kết thúc với mã thoát 0 (`/exit`, Ctrl+D); mọi kiểu kết thúc khác là thoát bất thường |
 
 ## 2. Yêu cầu chức năng
 
@@ -268,8 +270,8 @@ If the user starts a new session in a `Missing` workspace, then the system shall
 ## 2.5 Nhiều ô trong một cửa sổ
 
 - Luồng chính: 1. Người dùng mở thêm phiên (2.3, 2.4); mỗi phiên mở ra bằng cách chia đôi ô đang focus. 2. Người dùng kéo vách ngăn để đổi kích thước. 3. Người dùng gõ và dùng chuột trong từng ô như trong terminal thường. 4. Người dùng đóng ô khi xong.
-- Luồng thay thế: A1 người dùng chọn chia xuống dưới thay vì sang phải → SRS-FR-022
-- Luồng thay thế: A2 phiên trong ô tự thoát → ô báo "Session ended" → SRS-FR-028
+- Luồng thay thế: A1 người dùng kéo tiêu đề ô thả lên Drop Zone của ô khác → SRS-FR-080, SRS-FR-081, SRS-FR-082
+- Luồng thay thế: A2 phiên trong ô thoát bình thường → ô đóng → SRS-FR-083; thoát bất thường → ô báo "Session ended" → SRS-FR-028
 - Luồng ngoại lệ: E1 đóng ô khi phiên đang `Running` hoặc `Needs Approval` → hỏi xác nhận → SRS-FR-027
 - Luồng thay thế: A3 người dùng phóng to một ô ra cả cửa sổ rồi thu về → SRS-FR-041, SRS-FR-042
 - Luồng thay thế: A4 đang phóng to mà mở ô mới → thu về trước → SRS-FR-046
@@ -283,12 +285,8 @@ When a new pane opens, the system shall split the focused pane and place the new
 - Ưu tiên: Must
 - Nguồn: BR-05
 
-### SRS-FR-022 — Split down on request
-Where the user chooses `Split Down` when opening a pane, the system shall place the new pane below the focused pane.
-- Ví dụ: chọn `Split Down` khi bấm "New Session" → ô mới nằm dưới ô đang focus.
-- Kiểm chứng: Demo
-- Ưu tiên: Must
-- Nguồn: BR-05
+### SRS-FR-022 — Split down on request — Deleted (CR-005)
+Không còn nút `Split Down`; đặt ô xuống dưới ô khác bằng kéo thả (SRS-FR-080, SRS-FR-081).
 
 ### SRS-FR-023 — Resize panes
 When the user drags the divider between two panes, the system shall resize both panes to follow the divider.
@@ -330,8 +328,9 @@ If the user closes a pane whose session is `Running` or `Needs Approval`, then t
 - Nguồn: BR-05
 
 ### SRS-FR-028 — Show session ended
-When the session in a pane exits, the system shall show the message "Session ended" in that pane.
-- Ví dụ: gõ `/exit` trong ô → ô hiện "Session ended", vẫn xem lại được nội dung cũ.
+When the session in a pane exits abnormally, the system shall show the message "Session ended" in that pane.
+- Ví dụ: Claude Code trong ô bị kill → ô hiện "Session ended", vẫn xem lại được nội dung cũ.
+- Ví dụ âm: gõ `/exit` → ô đóng (SRS-FR-083), không hiện "Session ended".
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-05
@@ -376,7 +375,7 @@ When a pane is maximized or restored, the system shall fit the session's termina
 
 ### SRS-FR-046 — Restore before a new pane
 If a new pane opens while a pane is maximized, then the system shall restore the layout before placing the new pane.
-- Ví dụ: đang phóng to ô 1, bấm Split Right trên ô 1 → bố cục cũ hiện lại, ô mới nằm bên phải ô 1.
+- Ví dụ: đang phóng to ô 1, bấm New Session → bố cục cũ hiện lại, ô mới nằm bên phải ô 1.
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-05
@@ -393,6 +392,40 @@ When the user double-clicks the header of a pane that is not maximized, the syst
 ### SRS-FR-067 — Restore on header double-click
 When the user double-clicks the header of the Maximized Pane, the system shall restore the previous layout as in SRS-FR-042.
 - Ví dụ: hai ô 30/70, nhấp đúp tiêu đề ô 1 → phóng to; nhấp đúp lần nữa → lại 30/70.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-080 — Show drop zones
+While the user drags the header of a pane over another pane, the system shall show the Drop Zones of that other pane.
+- Ví dụ: 2 ô, kéo tiêu đề ô 1 lên ô 2 → ô 2 hiện 4 vùng trái/phải/trên/dưới, vùng dưới con trỏ sáng lên.
+- Ví dụ âm: chỉ có 1 ô → kéo tiêu đề không hiện vùng thả nào.
+- Ví dụ âm: kéo từ một nút trên tiêu đề (Shell, Maximize, đóng) → không bắt đầu kéo.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-081 — Move a pane by drop
+When the user drops a pane on a Drop Zone of another pane, the system shall move the dropped pane to that side of the other pane, splitting the other pane in half.
+- Giải thích: chỗ cũ của ô được kéo trả cho các ô còn lại; phiên và Pane Shell vẫn chạy, nội dung giữ nguyên, terminal fit lại theo SRS-FR-024.
+- Ví dụ: ô 1 | ô 2 cạnh nhau, thả ô 1 vào vùng dưới của ô 2 → ô 2 trên, ô 1 dưới, mỗi ô cao nửa vùng ô, ô 1 vẫn `Running`.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-082 — Cancel a drag
+If the user releases a dragged pane outside any Drop Zone or presses Esc while dragging, then the system shall keep the layout unchanged.
+- Ví dụ âm: kéo ô 1 rồi thả lên chính ô 1 → bố cục không đổi.
+- Ví dụ âm: đang kéo, bấm Esc → vùng thả biến mất, bố cục không đổi.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-083 — Close pane on normal exit
+When the session in a pane exits normally, the system shall close that pane and give its space to the remaining panes.
+- Giải thích: không hỏi xác nhận (SRS-FR-027, SRS-FR-063 chỉ áp khi người dùng đóng ô); Pane Shell của ô kết thúc theo; dòng của phiên rời Active Sessions; ô đang phóng to thì bố cục còn lại hiện lại.
+- Ví dụ: 3 ô ngang, gõ `/exit` ở ô 2 → ô 2 biến mất, ô 1 và ô 3 chia nhau chỗ trống.
+- Ví dụ: ô duy nhất, gõ `/exit` → vùng ô trống như lúc chưa mở phiên nào.
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-05
@@ -637,7 +670,7 @@ If some selected sessions cannot be moved to the trash, then the system shall ke
 - Luồng chính: 1. Người dùng bấm Shell trên tiêu đề ô → SRS-FR-055. 2. Người dùng gõ lệnh trong Pane Shell. 3. Người dùng bấm Shell để ẩn, lệnh vẫn chạy → SRS-FR-056, SRS-FR-058. 4. Người dùng bấm lại để hiện → SRS-FR-057.
 - Luồng thay thế: A1 người dùng kéo vách giữa phiên và Pane Shell → SRS-FR-059, SRS-FR-060
 - Luồng thay thế: A2 người dùng gõ `exit` trong Pane Shell → SRS-FR-061
-- Luồng thay thế: A3 phiên Claude Code trong ô kết thúc → SRS-FR-064
+- Luồng thay thế: A3 phiên Claude Code trong ô thoát bất thường → SRS-FR-064; thoát bình thường → ô đóng cùng Pane Shell → SRS-FR-083
 - Luồng ngoại lệ: E1 đóng ô khi Pane Shell đang chạy một lệnh → hỏi xác nhận → SRS-FR-063, SRS-FR-062
 - Luồng ngoại lệ: E2 shell không khởi động được → SRS-FR-065
 
@@ -712,8 +745,9 @@ If the user closes a pane whose Pane Shell is running a command, then the system
 - Nguồn: BR-05
 
 ### SRS-FR-064 — Shell outlives the session
-While the session in a pane has ended, the system shall keep that pane's Pane Shell running.
-- Ví dụ: gõ `/exit` trong Claude Code → phần trên hiện "Session ended" (SRS-FR-028), shell vẫn chạy `npm run dev`.
+While the session in a pane has exited abnormally, the system shall keep that pane's Pane Shell running.
+- Ví dụ: Claude Code bị kill → phần trên hiện "Session ended" (SRS-FR-028), shell vẫn chạy `npm run dev`.
+- Ví dụ âm: gõ `/exit` → ô đóng, shell kết thúc theo (SRS-FR-083).
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-05
@@ -771,6 +805,35 @@ When the Text Size changes, the system shall fit the content of every session te
 - Ưu tiên: Should
 - Nguồn: BR-05
 
+## 2.12 Mở lại các ô khi mở app
+
+- Luồng chính: 1. Người dùng thoát app khi đang có ô → SRS-FR-084. 2. Người dùng mở lại app → các ô hiện lại đúng chỗ, phiên tiếp tục → SRS-FR-085.
+- Luồng ngoại lệ: E1 có phiên không mở lại được → SRS-FR-086
+
+### SRS-FR-084 — Remember open panes
+The system shall keep the session of every open pane and the pane layout between application launches.
+- Giải thích: ô đã "Session ended" và ô của phiên mới chưa gửi yêu cầu nào không được nhớ (phiên đó chưa có trên máy, không resume được); không nhớ trạng thái phóng to và Pane Shell.
+- Ví dụ: 3 ô, ô 3 đang "Session ended", thoát app → nhớ ô 1, ô 2 cùng vị trí và tỉ lệ của chúng.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-085 — Reopen panes at launch
+When the application starts, the system shall resume each remembered session in a pane at its remembered position and size.
+- Giải thích: resume như SRS-FR-013; không phóng to, không mở Pane Shell.
+- Ví dụ: thoát app khi có ô 1 | ô 2 chia 30/70, mở lại → 2 ô 30/70, cả hai phiên gõ tiếp được, 0 thao tác.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-086 — Report panes not reopened
+If a remembered session cannot be resumed at launch, then the system shall leave out its pane, give its space to the other panes and show the message "<k> sessions could not be reopened".
+- Ví dụ âm: 3 ô, folder của ô 2 đã `Missing` → ô 1 và ô 3 chia nhau chỗ, hiện "1 sessions could not be reopened".
+- Ví dụ âm: phiên của ô 1 đã bị xoá vào Thùng rác ngoài app → ô 1 không mở, hiện "1 sessions could not be reopened".
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
 ## 3. Dữ liệu
 
 ### Workspace
@@ -812,6 +875,7 @@ Bản ghi chỉ cần giữ đủ 14 ngày gần nhất cho SRS-FR-039.
 | Trường | Nghĩa | Bắt buộc | Ràng buộc nghiệp vụ |
 | --- | --- | --- | --- |
 | Text Size | Cỡ chữ của cả cửa sổ | Có | 50%–200%, bước 10%, mặc định 100%; giữ lại giữa các lần mở app (SRS-FR-071) |
+| Open Panes | Phiên của từng ô và bố cục (vị trí, tỉ lệ) | Không | Giữ lại giữa các lần mở app (SRS-FR-084); không gồm phóng to, Pane Shell |
 
 Session Selection không được lưu: bỏ khi đổi workspace hay đóng Session History Panel (SRS-FR-076) và khi thoát app.
 
@@ -857,7 +921,7 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing`; Status Highlight của folder; tint riêng của section | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006, SRS-FR-034, SRS-FR-040, SRS-FR-054, SRS-NFR-009 |
 | Cửa sổ chính · Active Sessions | Phiên đang mở trong ô của mọi folder, Status Highlight, dòng phụ "giờ · lý do", bấm dòng để tới ô; tint riêng của section | SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-NFR-009 |
 | Cửa sổ chính · Session History Panel | Lịch sử phiên của folder đang chọn, nhãn `Live`, Resume, New Session, xoá một hoặc nhiều phiên, đóng khung | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-054, SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079, SRS-NFR-003 |
-| Cửa sổ chính · Pane Grid | Làm việc với các phiên, chia ô, đóng ô, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-022, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072 |
+| Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô, ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086 |
 | Cửa sổ chính · toàn cửa sổ | Phóng to, thu nhỏ, về mặc định cỡ chữ của mọi chữ trong cửa sổ | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071 |
 | Status Latency | Xem tỉ lệ đổi trạng thái hiện ≤ 3 giây | SRS-FR-039 |
 
@@ -951,7 +1015,7 @@ The system shall give the Workspace List section and the Active Sessions section
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-079 (trừ SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-001 đến SRS-FR-086 (trừ SRS-FR-022, SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
 | SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
 | SRS-NFR-001 đến SRS-NFR-009 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
@@ -981,7 +1045,7 @@ The system shall give the Workspace List section and the Active Sessions section
 | SRS-FR-019 | BR-04 | | Test | Baselined |
 | SRS-FR-020 | BR-04 | | Test | Baselined |
 | SRS-FR-021 | BR-05 | | Demo | Baselined |
-| SRS-FR-022 | BR-05 | | Demo | Baselined |
+| SRS-FR-022 | BR-05 | | Demo | Deleted (CR-005) |
 | SRS-FR-023 | BR-05 | | Demo | Baselined |
 | SRS-FR-024 | BR-05 | | Demo | Baselined |
 | SRS-FR-025 | BR-05 | | Demo | Baselined |
@@ -1039,6 +1103,13 @@ The system shall give the Workspace List section and the Active Sessions section
 | SRS-FR-077 | BR-08 | | Test | Baselined |
 | SRS-FR-078 | BR-08 | | Test | Baselined |
 | SRS-FR-079 | BR-08 | | Test | Baselined |
+| SRS-FR-080 | BR-05 | | Test | Baselined |
+| SRS-FR-081 | BR-05 | | Test | Baselined |
+| SRS-FR-082 | BR-05 | | Test | Baselined |
+| SRS-FR-083 | BR-05 | | Test | Baselined |
+| SRS-FR-084 | BR-03 | | Test | Baselined |
+| SRS-FR-085 | BR-03 | | Demo | Baselined |
+| SRS-FR-086 | BR-03 | | Test | Baselined |
 | SRS-NFR-001 | BR-05 | | Test | Baselined |
 | SRS-NFR-002 | BR-05 | | Test | Baselined |
 | SRS-NFR-003 | BR-02 | | Test | Baselined |
@@ -1067,3 +1138,4 @@ The system shall give the Workspace List section and the Active Sessions section
 | v1.2 | 2026-10-17 | PO | CR-002: Active Sessions ở cột trái, lịch sử phiên sang Session History Panel; thêm SRS-FR-051 đến SRS-FR-054, SRS-NFR-009; theo BRD v2.1 |
 | v1.3 | 2026-10-17 | PO | CR-003: Pane Shell dưới phiên trong cùng ô, ẩn đi mà vẫn chạy; thêm SRS-FR-055 đến SRS-FR-065; theo BRD v2.2 |
 | v1.4 | 2026-10-18 | PO | CR-004: nhấp đúp tiêu đề ô để phóng to/thu về; Text Size cả cửa sổ bằng Zoom shortcut; xoá nhiều phiên cùng lúc; thêm SRS-FR-066 đến SRS-FR-079; theo BRD v2.3 |
+| v1.5 | 2026-10-19 | PO | CR-005: kéo thả ô thay `Split Down` (SRS-FR-022 xoá); ô tự đóng khi phiên thoát bình thường; mở lại các ô khi mở app; sửa SRS-FR-028, SRS-FR-046, SRS-FR-064; thêm SRS-FR-080 đến SRS-FR-086; theo BRD v2.4 |

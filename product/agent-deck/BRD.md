@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v2.3 (2026-10-18)
+status: Approved v2.4 (2026-10-19)
 ---
 # BRD — agent-deck
 
@@ -42,7 +42,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 
 - Quản lý danh sách folder hay làm việc với AI agent.
 - Xem và mở lại phiên Claude Code đã có trên máy, theo từng folder.
-- Chạy nhiều phiên Claude Code tương tác cùng lúc, chia ô trong một cửa sổ.
+- Chạy nhiều phiên Claude Code tương tác cùng lúc, chia ô trong một cửa sổ bằng kéo thả, tự mở lại các ô khi mở lại app.
 - Theo dõi trạng thái từng phiên: đang chạy, cần duyệt, lỗi.
 - Xoá một hoặc nhiều phiên cũ vào Thùng rác.
 - Một terminal thường (không chạy Claude Code) dưới mỗi phiên, ẩn đi được mà vẫn chạy.
@@ -61,9 +61,9 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | --- | --- | --- | --- |
 | BR-01 | Người dùng thêm, bỏ và chọn folder làm việc; danh sách được giữ lại giữa các lần mở app | BO-02 | Must |
 | BR-02 | Người dùng xem danh sách phiên Claude Code đã có trên máy của folder đang chọn, mỗi phiên có tiêu đề và thời điểm hoạt động gần nhất | BO-02 | Must |
-| BR-03 | Người dùng mở lại một phiên cũ để làm tiếp | BO-02 | Must |
+| BR-03 | Người dùng mở lại một phiên cũ để làm tiếp; các phiên đang mở trong ô lúc thoát app tự mở lại đúng chỗ khi mở app | BO-02 | Must |
 | BR-04 | Người dùng bắt đầu một phiên Claude Code mới trong folder đang chọn | BO-02 | Must |
-| BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, chia ô ngang và dọc, phóng to một ô ra cả cửa sổ, mở một terminal thường dưới phiên trong cùng ô và ẩn nó đi mà vẫn chạy, phóng to hoặc thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
+| BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, kéo thả ô để đặt nó sang trái, phải, trên hoặc dưới một ô khác, ô tự đóng khi phiên thoát bình thường, phóng to một ô ra cả cửa sổ, mở một terminal thường dưới phiên trong cùng ô và ẩn nó đi mà vẫn chạy, phóng to hoặc thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
 | BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
 | BR-07 | Từ dấu báo trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
 | BR-08 | Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc bằng cách chuyển chúng vào Thùng rác | BO-02 | Should |
@@ -131,6 +131,7 @@ Luật nghiệp vụ:
 | 2026-10-17 | CR-001: bảng trạng thái chiếm chỗ | Gộp vào cột trái: dòng phiên và dòng folder đổi màu nền + badge; ô phóng to có badge đếm phiên khác cần duyệt/lỗi |
 | 2026-10-17 | CR-003: terminal phụ chạy ngầm có trái với "không để phiên chạy ngầm không ai thấy" không? | Không, nếu gắn với ô: ẩn thì nút Shell có chấm báo đang chạy; đóng ô thì kết thúc shell, hỏi xác nhận nếu shell đang chạy lệnh |
 | 2026-10-18 | CR-004: nhấp đúp, cỡ chữ, xoá nhiều phiên làm thế nào? | Nhấp đúp tiêu đề ô để phóng to / thu về; Cmd (macOS) / Ctrl (Windows) + − 0 đổi cỡ chữ cả cửa sổ, bước 10%, 50–200%, nhớ giữa các lần mở app; tick nhiều dòng history rồi xoá cùng lúc với một hộp xác nhận |
+| 2026-10-19 | CR-005: mở lại ô, kéo thả ô, `/exit` làm thế nào? | Mở lại app thì resume đúng các phiên đang có ô lúc thoát, đúng vị trí và tỉ lệ, không phóng to, không Pane Shell; kéo tiêu đề ô lên ô khác, thả vào 1 trong 4 vùng trái/phải/trên/dưới, bỏ nút Split; thoát bình thường thì ô đóng, thoát bất thường thì giữ "Session ended" |
 
 ## 14. Duyệt
 
@@ -141,3 +142,4 @@ Luật nghiệp vụ:
 | v2.1 | 2026-10-17 | PO | CR-002: BR-06 "danh sách phiên" → "danh sách phiên đang mở" (Active Sessions); lịch sử phiên sang khung riêng |
 | v2.2 | 2026-10-17 | PO | CR-003: BR-05 thêm terminal thường dưới phiên trong cùng ô, ẩn đi mà vẫn chạy |
 | v2.3 | 2026-10-18 | PO | CR-004: BR-05 thêm phóng/thu cỡ chữ cả cửa sổ; BR-08 xoá một hoặc nhiều phiên cùng lúc |
+| v2.4 | 2026-10-19 | PO | CR-005: BR-03 tự mở lại các ô khi mở app; BR-05 kéo thả ô thay nút chia, ô tự đóng khi phiên thoát bình thường |
