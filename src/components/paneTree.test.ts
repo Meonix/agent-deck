@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { layoutRects, minSpan, paneOrder, removePane, setRatio, splitPane, type Layout } from "./paneTree";
+import { dropSide, layoutRects, minSpan, movePane, paneOrder, removePane, setRatio, splitPane, type Layout } from "./paneTree";
 
 const full = { x: 0, y: 0, width: 1, height: 1 };
 
@@ -163,5 +163,53 @@ describe("minSpan", () => {
     };
     expect(minSpan(mixed, "right", 200)).toBe(400);
     expect(minSpan(mixed, "down", 120)).toBe(240);
+  });
+});
+
+describe("movePane (SRS-FR-081)", () => {
+  const AB: Layout = { split: "right", ratio: 0.5, first: { pane: "A" }, second: { pane: "B" } };
+
+  it("puts the pane on each side of the target, splitting the target in half", () => {
+    expect(movePane(AB, "A", "B", "left")).toEqual({ split: "right", ratio: 0.5, first: { pane: "A" }, second: { pane: "B" } });
+    expect(movePane(AB, "A", "B", "right")).toEqual({ split: "right", ratio: 0.5, first: { pane: "B" }, second: { pane: "A" } });
+    expect(movePane(AB, "A", "B", "top")).toEqual({ split: "down", ratio: 0.5, first: { pane: "A" }, second: { pane: "B" } });
+    expect(movePane(AB, "A", "B", "bottom")).toEqual({ split: "down", ratio: 0.5, first: { pane: "B" }, second: { pane: "A" } });
+  });
+
+  it("gives the old place to the panes left behind", () => {
+    // A on the left, B over C on the right; C goes left of A.
+    const layout: Layout = {
+      split: "right",
+      ratio: 0.3,
+      first: { pane: "A" },
+      second: { split: "down", ratio: 0.5, first: { pane: "B" }, second: { pane: "C" } },
+    };
+    const moved = movePane(layout, "C", "A", "left");
+    expect(layoutRects(moved).panes).toEqual({
+      C: { x: 0, y: 0, width: 0.15, height: 1 },
+      A: { x: 0.15, y: 0, width: 0.15, height: 1 },
+      B: { x: 0.3, y: 0, width: 0.7, height: 1 },
+    });
+  });
+
+  it("leaves the layout alone for the same pane or an unknown id", () => {
+    expect(movePane(AB, "A", "A", "left")).toBe(AB);
+    expect(movePane(AB, "X", "B", "left")).toBe(AB);
+    expect(movePane(AB, "A", "X", "left")).toBe(AB);
+  });
+});
+
+describe("dropSide", () => {
+  it("picks the nearest edge", () => {
+    expect(dropSide(0.1, 0.5)).toBe("left");
+    expect(dropSide(0.9, 0.5)).toBe("right");
+    expect(dropSide(0.5, 0.1)).toBe("top");
+    expect(dropSide(0.5, 0.9)).toBe("bottom");
+    expect(dropSide(0.3, 0.8)).toBe("bottom");
+  });
+
+  it("prefers left and right on a tie", () => {
+    expect(dropSide(0.5, 0.5)).toBe("left");
+    expect(dropSide(0.8, 0.8)).toBe("right");
   });
 });

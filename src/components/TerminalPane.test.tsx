@@ -25,7 +25,7 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
 
 function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn() }) {
   const view = render(
-    <TerminalPane entry={e} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={on.focus} onSplit={vi.fn()} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+    <TerminalPane entry={e} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={on.focus} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
   );
   return { client, on, view };
 }
@@ -105,7 +105,7 @@ describe("TerminalPane (5.3)", () => {
     const { client, view } = renderPane(entry(adapter));
     await flush();
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={vi.fn()} onSplit={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
     );
     expect(screen.getByText("Session ended")).toBeInTheDocument();
     expect(screen.getByText("Ended")).toBeInTheDocument();
@@ -140,7 +140,7 @@ describe("TerminalPane (5.3)", () => {
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledWith("p1", "\x1b[M #!");
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={vi.fn()} onSplit={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
     );
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledTimes(1);
@@ -217,7 +217,7 @@ describe("TerminalPane (5.3)", () => {
 describe("TerminalPane header in a narrow pane", () => {
   it("never shrinks the buttons and lets the chip truncate first", () => {
     renderPane(entry(fakeAdapter()));
-    for (const name of ["Split right", "Split down", "Close pane"]) {
+    for (const name of ["Maximize pane", "Close pane"]) {
       expect(screen.getByRole("button", { name })).toHaveClass("shrink-0");
     }
     expect(screen.getByText("Idle")).toHaveClass("min-w-0", "truncate");

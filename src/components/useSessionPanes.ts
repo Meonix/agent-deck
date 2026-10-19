@@ -3,7 +3,7 @@ import type { OpenedPane, PaneStatus, SessionState, SessionsClient } from "../ap
 import type { Workspace } from "../api/workspaces";
 import { latencyLogEnabled, withLatencyLog } from "./latencyLog";
 import { SHELL_OPEN_SIZE } from "./PaneShell";
-import { type Layout, type SplitDir, type SplitPath, paneOrder, removePane, setRatio, splitPane } from "./paneTree";
+import { type Layout, type Side, type SplitPath, movePane as moveInLayout, paneOrder, removePane, setRatio, splitPane } from "./paneTree";
 import { type PaneEntry, type ShellEntry, type TerminalAdapter, type TerminalAdapterFactory, type TerminalSize, UNTITLED } from "./TerminalPane";
 import { useToast } from "./Toast";
 import { errorDetail } from "./useWorkspaces";
@@ -33,7 +33,6 @@ type PanesState = { entries: PaneEntry[]; layout: Layout | null; focusedId: stri
 export type SessionPanes = PanesState & {
   newSession(workspace: Workspace): Promise<void>;
   resume(workspace: Workspace, session: { id: string; title: string }): Promise<void>;
-  splitFrom(paneId: string, dir: SplitDir): Promise<void>;
   /** False when the session could not be closed; the pane then stays. */
   closePane(paneId: string): Promise<boolean>;
   focusPane(paneId: string): void;
@@ -42,6 +41,8 @@ export type SessionPanes = PanesState & {
   /** Back to the layout; with a pane id, that pane gets the keyboard once it is no longer inert. */
   restore(jumpToPaneId?: string): void;
   resizeSplit(path: SplitPath, ratio: number): void;
+  /** Puts the pane on one side of the target, which it splits in half; the moved pane gets the keyboard. */
+  movePane(paneId: string, targetId: string, side: Side): void;
   /** Opens the pane's shell when it has none, else hides or shows it. */
   toggleShell(paneId: string): Promise<void>;
   resizeShell(paneId: string, ratio: number): void;
@@ -55,7 +56,6 @@ export function useSessionPanes(
   createTerminal: TerminalAdapterFactory,
   onFolderMissing: () => void,
   paneArea: RefObject<HTMLElement | null>,
-  workspaces: Workspace[] | null,
 ): SessionPanes {
   const [layout, setLayout] = useState<PanesState>({ entries: [], layout: null, focusedId: null, maximizedId: null });
   const showToast = useToast();
@@ -181,7 +181,7 @@ export function useSessionPanes(
   );
 
   const openPane = useCallback(
-    async (workspace: Workspace, target: string | null, dir: SplitDir, resumed?: { id: string; title: string }) => {
+    async (workspace: Workspace, target: string | null, resumed?: { id: string; title: string }) => {
       if (workspace.missing) {
         showToast(FOLDER_NOT_FOUND);
         return;
@@ -199,7 +199,7 @@ export function useSessionPanes(
       const measuring = terminal(createTerminal);
       let kept = false;
       try {
-        const openedSize = measureOpenSize(measuring, paneArea.current, current.current.layout, target, dir);
+        const openedSize = measureOpenSize(measuring, paneArea.current, current.current.layout, target);
         const { pane, stream } = await client.open(workspace.id, openedSize.cols, openedSize.rows, resumed?.id);
         kept = pane.started;
         const adapter = pane.started ? measuring : null;
@@ -222,7 +222,7 @@ export function useSessionPanes(
         setLayout((l) => {
           return {
             entries: [...l.entries, entry],
-            layout: splitPane(l.layout, target, pane.paneId, dir),
+            layout: splitPane(l.layout, target, pane.paneId, "right"),
             focusedId: pane.paneId,
             // SRS-FR-046: the new pane takes its place in the restored layout.
             maximizedId: null,
@@ -267,26 +267,20 @@ export function useSessionPanes(
   );
 
   const newSession = useCallback(
-    (workspace: Workspace) => openPane(workspace, current.current.focusedId, "right"),
+    (workspace: Workspace) => openPane(workspace, current.current.focusedId),
     [openPane],
   );
   const resume = useCallback(
     (workspace: Workspace, session: { id: string; title: string }) =>
-      openPane(workspace, current.current.focusedId, "right", session),
+      openPane(workspace, current.current.focusedId, session),
     [openPane],
   );
-  const splitFrom = useCallback(
-    async (paneId: string, dir: SplitDir) => {
-      const entry = entries.current.find((e) => e.pane.paneId === paneId);
-      if (!entry) return;
-      const workspace = workspaces?.find((w) => w.id === entry.workspaceId);
-      if (!workspace) {
-        showToast(FOLDER_NOT_FOUND);
-        return;
-      }
-      await openPane(workspace, paneId, dir);
+  const movePane = useCallback(
+    (paneId: string, targetId: string, side: Side) => {
+      setLayout((l) => (l.layout ? { ...l, layout: moveInLayout(l.layout, paneId, targetId, side) } : l));
+      jumpTo(paneId);
     },
-    [openPane, showToast, workspaces],
+    [jumpTo],
   );
   const maximize = useCallback(
     (paneId: string) => {
@@ -401,13 +395,13 @@ export function useSessionPanes(
     ...layout,
     newSession,
     resume,
-    splitFrom,
     closePane,
     focusPane,
     jumpTo,
     maximize,
     restore,
     resizeSplit,
+    movePane,
     toggleShell,
     resizeShell,
     dismissShellFailure,
@@ -430,9 +424,8 @@ function measureOpenSize(
   area: HTMLElement | null,
   layout: Layout | null,
   target: string | null,
-  dir: SplitDir,
 ): TerminalSize {
-  const body = newBodySize(area, layout, target, dir);
+  const body = newBodySize(area, layout, target);
   if (body.width === 0 || body.height === 0) return FALLBACK_SIZE;
   const probe = document.createElement("div");
   Object.assign(probe.style, {
@@ -452,8 +445,8 @@ function measureOpenSize(
   }
 }
 
-/** The new pane's terminal box: the whole area for the first pane, else half of the target's. */
-function newBodySize(area: HTMLElement | null, layout: Layout | null, target: string | null, dir: SplitDir) {
+/** The new pane's terminal box: the whole area for the first pane, else the right half of the target's. */
+function newBodySize(area: HTMLElement | null, layout: Layout | null, target: string | null) {
   const none = { width: 0, height: 0 };
   if (!area) return none;
   if (layout === null) {
@@ -469,8 +462,5 @@ function newBodySize(area: HTMLElement | null, layout: Layout | null, target: st
   if (!box) return none;
   const { width, height } = box.getBoundingClientRect();
   if (width === 0 || height === 0) return none;
-  const half = (size: number, chrome: number) => Math.max(0, Math.floor((size + chrome - PANE_GAP) / 2 - chrome));
-  return dir === "right"
-    ? { width: half(width, CHROME_WIDTH), height }
-    : { width, height: half(height, CHROME_HEIGHT) };
+  return { width: Math.max(0, Math.floor((width + CHROME_WIDTH - PANE_GAP) / 2 - CHROME_WIDTH)), height };
 }

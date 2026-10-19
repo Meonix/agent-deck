@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
 import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
-import type { SplitDir } from "./paneTree";
 import type { MaximizedBadge } from "./statusHighlight";
 import { StateMarker, tone } from "./statusTone";
 
@@ -66,7 +65,6 @@ type Props = {
   onFocus(paneId: string): void;
   onMaximize(paneId: string): void;
   onRestore(): void;
-  onSplit(paneId: string, dir: SplitDir): void;
   onClose(paneId: string): void;
   onToggleShell(paneId: string): void;
   onResizeShell(paneId: string, ratio: number): void;
@@ -84,7 +82,6 @@ export function TerminalPane({
   onFocus,
   onMaximize,
   onRestore,
-  onSplit,
   onClose,
   onToggleShell,
   onResizeShell,
@@ -175,6 +172,7 @@ export function TerminalPane({
       className={`flex flex-col min-h-0 min-w-0 rounded-lg border ${border} ${!quiet && status.state === "Needs Approval" ? "border-2" : ""} bg-background overflow-hidden`}
     >
       <header
+        data-drag-handle
         // dblclick lands on whatever is under the second press, which the first click may have moved there,
         // so both presses must hit this header outside its buttons (SRS-FR-066).
         onMouseDown={(e) => {
@@ -212,22 +210,6 @@ export function TerminalPane({
               {status.state}
             </span>
           )}
-          <button
-            aria-label="Split right"
-            title="Split right"
-            onClick={() => onSplit(paneId, "right")}
-            className="shrink-0 text-muted-foreground"
-          >
-            ⇥
-          </button>
-          <button
-            aria-label="Split down"
-            title="Split down"
-            onClick={() => onSplit(paneId, "down")}
-            className="shrink-0 text-muted-foreground"
-          >
-            ⇣
-          </button>
           <ShellChip shell={shell} onToggle={() => onToggleShell(paneId)} />
           <button
             aria-label={maximized ? "Restore pane" : "Maximize pane"}

@@ -39,6 +39,34 @@ const folderList = () => within(screen.getByRole("list", { name: "Folders" }));
 const historyPanel = () => screen.getByRole("region", { name: "Session history" });
 const newSessionButton = () => within(historyPanel()).getByRole("button", { name: "New Session" });
 const panes = () => within(screen.getByTestId("pane-grid")).getAllByRole("region");
+const GRID = new DOMRect(0, 0, 1200, 800);
+type DropSide = "left" | "right" | "top" | "bottom";
+
+/** Pixel box of a pane in a 1200 x 800 grid, from the percentages the grid places it with. */
+function paneBox(title: string) {
+  const { left, top, width, height } = screen.getByRole("region", { name: `agent-deck · ${title}` }).parentElement!.style;
+  const [x, y, w, h] = [left, top, width, height].map(parseFloat);
+  return { x: (x / 100) * GRID.width, y: (y / 100) * GRID.height, w: (w / 100) * GRID.width, h: (h / 100) * GRID.height };
+}
+
+/** A point well inside the given side of a pane. */
+function sidePoint(title: string, side: DropSide) {
+  const b = paneBox(title);
+  const [fx, fy] = { left: [0.1, 0.5], right: [0.9, 0.5], top: [0.5, 0.1], bottom: [0.5, 0.9] }[side];
+  return { clientX: b.x + b.w * fx, clientY: b.y + b.h * fy };
+}
+
+/** Presses the header of `from` and moves over `to`; releases there unless `release` is false. */
+function dragPane(from: string, to: string, side: DropSide, { release = true } = {}) {
+  vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(GRID);
+  const header = screen.getByRole("region", { name: `agent-deck · ${from}` }).querySelector("header")!;
+  const b = paneBox(from);
+  fireEvent.pointerDown(header, { clientX: b.x + b.w / 2, clientY: b.y + 10, button: 0, pointerId: 1 });
+  const at = sidePoint(to, side);
+  fireEvent.pointerMove(window, { ...at, pointerId: 1 });
+  if (release) fireEvent.pointerUp(window, { ...at, pointerId: 1 });
+}
+
 
 async function selectAndStart(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.click(await folderList().findByText(name));
@@ -996,8 +1024,11 @@ describe("Split layout (2.1 to 2.3)", () => {
     return [left, top, width, height].map(parseFloat);
   };
   const paneNamed = (title: string) => screen.getByRole("region", { name: `agent-deck · ${title}` });
-  const splitDown = (pane: HTMLElement) => within(pane).getByRole("button", { name: "Split down" });
-  const splitRight = (pane: HTMLElement) => within(pane).getByRole("button", { name: "Split right" });
+  // New Session opens to the right of the focused pane, which is the pane opened last.
+  const newSession = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
+    await user.click(newSessionButton());
+    await screen.findByRole("region", { name: `agent-deck · ${title}` });
+  };
 
   async function startOne() {
     const sessions = fakeSessions();
@@ -1008,31 +1039,27 @@ describe("Split layout (2.1 to 2.3)", () => {
     return ctx;
   }
 
-  it("puts the new session below the pane and focuses it", async () => {
+  it("puts the new session to the right of the focused pane and focuses it (SRS-FR-021)", async () => {
     const { user, sessions, adapters } = await startOne();
-    await user.click(splitDown(paneNamed("p1")));
-    await screen.findByRole("region", { name: "agent-deck · p2" });
+    await newSession(user, "p2");
     expect(sessions.open).toHaveBeenLastCalledWith("a", 80, 24, undefined);
-    expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 100, 50]);
-    expect(rectOf(paneNamed("p2"))).toEqual([0, 50, 100, 50]);
+    expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 50, 100]);
+    expect(rectOf(paneNamed("p2"))).toEqual([50, 0, 50, 100]);
     expect(adapters[1].focus).toHaveBeenCalled();
     expect(paneNamed("p2")).toHaveClass("border-ring");
   });
 
-  it("puts the new session to the right of the pane", async () => {
-    const { user } = await startOne();
-    await user.click(splitRight(paneNamed("p1")));
-    await screen.findByRole("region", { name: "agent-deck · p2" });
-    expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 50, 100]);
-    expect(rectOf(paneNamed("p2"))).toEqual([50, 0, 50, 100]);
+  it("has no Split right or Split down button on a pane (SRS-FR-022 removed)", async () => {
+    await startOne();
+    expect(within(paneNamed("p1")).queryByRole("button", { name: "Split right" })).not.toBeInTheDocument();
+    expect(within(paneNamed("p1")).queryByRole("button", { name: "Split down" })).not.toBeInTheDocument();
   });
 
-  it("splits only the right half when the second pane is split down", async () => {
+  it("splits only the right half when a pane is dropped below the second one", async () => {
     const { user } = await startOne();
-    await user.click(splitRight(paneNamed("p1")));
-    await screen.findByRole("region", { name: "agent-deck · p2" });
-    await user.click(splitDown(paneNamed("p2")));
-    await screen.findByRole("region", { name: "agent-deck · p3" });
+    await newSession(user, "p2");
+    await newSession(user, "p3");
+    dragPane("p3", "p2", "bottom");
     expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 50, 100]);
     expect(rectOf(paneNamed("p2"))).toEqual([50, 0, 50, 50]);
     expect(rectOf(paneNamed("p3"))).toEqual([50, 50, 50, 50]);
@@ -1040,8 +1067,8 @@ describe("Split layout (2.1 to 2.3)", () => {
 
   it("splits the focused pane to the right from the sidebar", async () => {
     const { user } = await startOne();
-    await user.click(splitDown(paneNamed("p1")));
-    await screen.findByRole("region", { name: "agent-deck · p2" });
+    await newSession(user, "p2");
+    dragPane("p2", "p1", "bottom");
     act(() => paneNamed("p1").dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
     await user.click(newSessionButton());
     await screen.findByRole("region", { name: "agent-deck · p3" });
@@ -1053,10 +1080,9 @@ describe("Split layout (2.1 to 2.3)", () => {
   it("keeps the terminals mounted when the layout changes shape", async () => {
     const { user, adapters } = await startOne();
     const before = vi.mocked(adapters[0].open).mock.calls.length;
-    await user.click(splitRight(paneNamed("p1")));
-    await screen.findByRole("region", { name: "agent-deck · p2" });
-    await user.click(splitDown(paneNamed("p2")));
-    await screen.findByRole("region", { name: "agent-deck · p3" });
+    await newSession(user, "p2");
+    await newSession(user, "p3");
+    dragPane("p3", "p2", "bottom");
     expect(vi.mocked(adapters[0].open).mock.calls.length).toBe(before);
     expect(adapters[0].container!.isConnected).toBe(true);
   });
@@ -1064,8 +1090,7 @@ describe("Split layout (2.1 to 2.3)", () => {
   describe("divider", () => {
     async function twoPanes() {
       const ctx = await startOne();
-      await ctx.user.click(splitRight(paneNamed("p1")));
-      await screen.findByRole("region", { name: "agent-deck · p2" });
+      await newSession(ctx.user, "p2");
       vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 1200, 800));
       return screen.getByRole("separator");
     }
@@ -1104,10 +1129,8 @@ describe("Split layout (2.1 to 2.3)", () => {
 
     it("keeps the panes nested in the far side at least 200 px wide", async () => {
       const { user } = await startOne();
-      await user.click(splitRight(paneNamed("p1")));
-      await screen.findByRole("region", { name: "agent-deck · p2" });
-      await user.click(splitRight(paneNamed("p2")));
-      await screen.findByRole("region", { name: "agent-deck · p3" });
+      await newSession(user, "p2");
+      await newSession(user, "p3");
       vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 1200, 800));
       const divider = screen.getAllByRole("separator")[0];
       fireEvent.pointerDown(divider, { clientX: 600, pointerId: 1 });
@@ -1127,8 +1150,8 @@ describe("Split layout (2.1 to 2.3)", () => {
 
     it("leaves each side at least 120 px tall for a down split", async () => {
       const { user } = await startOne();
-      await user.click(splitDown(paneNamed("p1")));
-      await screen.findByRole("region", { name: "agent-deck · p2" });
+      await newSession(user, "p2");
+      dragPane("p2", "p1", "bottom");
       vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 1200, 800));
       const divider = screen.getByRole("separator");
       expect(divider).toHaveAttribute("aria-orientation", "horizontal");
@@ -1142,48 +1165,141 @@ describe("Split layout (2.1 to 2.3)", () => {
     const { user, sessions, adapters } = await startOne();
     const body = document.querySelector('[data-pane-body="p1"]')!;
     vi.spyOn(body, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 974, 545));
-    await user.click(splitRight(paneNamed("p1")));
-    await screen.findByRole("region", { name: "agent-deck · p2" });
+    await newSession(user, "p2");
     expect(vi.mocked(adapters[1].open).mock.calls[0][0].style.width).toBe("478px");
     expect(vi.mocked(adapters[1].open).mock.calls[0][0].style.height).toBe("545px");
     expect(sessions.open).toHaveBeenCalledTimes(2);
-
-    vi.spyOn(paneNamed("p2").querySelector('[data-pane-body="p2"]')!, "getBoundingClientRect").mockReturnValue(
-      new DOMRect(0, 0, 478, 545),
-    );
-    await user.click(splitDown(paneNamed("p2")));
-    await vi.waitFor(() => expect(adapters).toHaveLength(3));
-    expect(vi.mocked(adapters[2].open).mock.calls[0][0].style.height).toBe("249px");
-  });
-
-  it("refuses to split a pane whose folder is already missing", async () => {
-    let items = [ws("a", "agent-deck")];
-    const client = workspacesClient([]);
-    client.list = vi.fn(async () => [...items]);
-    client.pickFolder = vi.fn(async () => "/p/agent-deck");
-    const sessions = fakeSessions();
-    const user = userEvent.setup();
-    render(<App workspaces={client} sessions={sessions} createTerminal={() => fakeAdapter()} />);
-    await selectAndStart(user, "agent-deck");
-    await screen.findByTestId("pane-grid");
-
-    items = [ws("a", "agent-deck", true)];
-    await user.click(screen.getByRole("button", { name: "+ Add Folder" }));
-    await vi.waitFor(() => expect(client.list).toHaveBeenCalledTimes(2));
-    await user.click(splitDown(panes()[0]));
-
-    expect(await screen.findByText("Folder not found")).toBeInTheDocument();
-    expect(sessions.open).toHaveBeenCalledTimes(1);
-    expect(panes()).toHaveLength(1);
   });
 
   it("lets the remaining pane fill the area when its neighbour closes", async () => {
     const { user } = await startOne();
-    await user.click(splitRight(paneNamed("p1")));
-    await screen.findByRole("region", { name: "agent-deck · p2" });
+    await newSession(user, "p2");
     await user.click(within(paneNamed("p2")).getByRole("button", { name: "Close pane" }));
     await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · p2" })).not.toBeInTheDocument());
     expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 100, 100]);
+  });
+});
+
+describe("Drag a pane (3.1 to 3.3)", () => {
+  const paneNamed = (title: string) => screen.getByRole("region", { name: `agent-deck · ${title}` });
+  const wrapper = (title: string) => paneNamed(title).parentElement!;
+  const rectOf = (title: string) => {
+    const { left, top, width, height } = wrapper(title).style;
+    return [left, top, width, height].map(parseFloat);
+  };
+  const zones = () => document.querySelector("[data-drop-target]");
+  const header = (title: string) => paneNamed(title).querySelector("header")!;
+
+  async function start(count: number) {
+    const sessions = fakeSessions();
+    sessions.title = vi.fn(async (id: string) => id);
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await screen.findByRole("region", { name: "agent-deck · p1" });
+    for (let n = 2; n <= count; n++) {
+      await ctx.user.click(newSessionButton());
+      await screen.findByRole("region", { name: `agent-deck · p${n}` });
+    }
+    vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(GRID);
+    return ctx;
+  }
+
+  it("shows the Drop Zones of the pane under the pointer with that side lit (SRS-FR-080)", async () => {
+    await start(2);
+    dragPane("p1", "p2", "bottom", { release: false });
+
+    expect(zones()).toHaveAttribute("data-drop-target", "p2");
+    expect(zones()!.querySelectorAll("[data-drop-side]")).toHaveLength(4);
+    expect(zones()!.querySelector("[data-active]")).toHaveAttribute("data-drop-side", "bottom");
+    expect(wrapper("p1")).toHaveClass("opacity-50");
+
+    fireEvent.pointerMove(window, { ...sidePoint("p2", "right"), pointerId: 1 });
+    expect(zones()!.querySelector("[data-active]")).toHaveAttribute("data-drop-side", "right");
+  });
+
+  it("shows no Drop Zone with only one pane (SRS-FR-080)", async () => {
+    await start(1);
+    fireEvent.pointerDown(header("p1"), { clientX: 600, clientY: 10, button: 0, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 600, clientY: 700, pointerId: 1 });
+    expect(zones()).toBeNull();
+    expect(wrapper("p1")).not.toHaveClass("opacity-50");
+  });
+
+  it("starts no drag from a header button (SRS-FR-080)", async () => {
+    await start(2);
+    fireEvent.pointerDown(within(paneNamed("p1")).getByRole("button", { name: "Close pane" }), { clientX: 580, clientY: 10, button: 0, pointerId: 1 });
+    fireEvent.pointerMove(window, { ...sidePoint("p2", "bottom"), pointerId: 1 });
+    expect(zones()).toBeNull();
+  });
+
+  it("starts no drag while a pane is maximized", async () => {
+    const { user } = await start(2);
+    await user.click(within(paneNamed("p1")).getByRole("button", { name: "Maximize pane" }));
+    fireEvent.pointerDown(header("p1"), { clientX: 300, clientY: 10, button: 0, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 900, clientY: 700, pointerId: 1 });
+    expect(zones()).toBeNull();
+    expect(wrapper("p1")).not.toHaveClass("opacity-50");
+  });
+
+  it("does not start a drag before the pointer moves more than 4 px", async () => {
+    await start(2);
+    fireEvent.pointerDown(header("p1"), { clientX: 300, clientY: 10, button: 0, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 303, clientY: 12, pointerId: 1 });
+    expect(wrapper("p1")).not.toHaveClass("opacity-50");
+  });
+
+  it("moves the dropped pane to that side, splitting the target in half (SRS-FR-081)", async () => {
+    const { sessions, adapters } = await start(2);
+    act(() => sessions.opened[0].stream.status({ state: "Running" }));
+    const opens = vi.mocked(adapters[0].open).mock.calls.length;
+    const focusCalls = vi.mocked(adapters[0].focus).mock.calls.length;
+
+    dragPane("p1", "p2", "bottom");
+
+    expect(rectOf("p2")).toEqual([0, 0, 100, 50]);
+    expect(rectOf("p1")).toEqual([0, 50, 100, 50]);
+    expect(zones()).toBeNull();
+    expect(wrapper("p1")).not.toHaveClass("opacity-50");
+    expect(within(paneNamed("p1")).getByText("Running")).toBeInTheDocument();
+    expect(sessions.close).not.toHaveBeenCalled();
+    expect(vi.mocked(adapters[0].open).mock.calls.length).toBe(opens);
+    expect(adapters[0].container!.isConnected).toBe(true);
+    expect(adapters[0].focus).toHaveBeenCalledTimes(focusCalls + 1);
+  });
+
+  it("gives the old place of the moved pane to the others (SRS-FR-081)", async () => {
+    await start(3);
+    dragPane("p3", "p2", "bottom");
+    dragPane("p3", "p1", "left");
+    expect(rectOf("p3")).toEqual([0, 0, 25, 100]);
+    expect(rectOf("p1")).toEqual([25, 0, 25, 100]);
+    expect(rectOf("p2")).toEqual([50, 0, 50, 100]);
+  });
+
+  it("keeps the layout when the pane is released over itself or outside the panes (SRS-FR-082)", async () => {
+    await start(2);
+    const before = [rectOf("p1"), rectOf("p2")];
+    dragPane("p1", "p1", "bottom");
+    expect([rectOf("p1"), rectOf("p2")]).toEqual(before);
+
+    dragPane("p1", "p2", "bottom", { release: false });
+    fireEvent.pointerMove(window, { clientX: -50, clientY: 400, pointerId: 1 });
+    expect(zones()).toBeNull();
+    fireEvent.pointerUp(window, { clientX: -50, clientY: 400, pointerId: 1 });
+    expect([rectOf("p1"), rectOf("p2")]).toEqual(before);
+  });
+
+  it("cancels the drag on Esc (SRS-FR-082)", async () => {
+    await start(2);
+    const before = [rectOf("p1"), rectOf("p2")];
+    dragPane("p1", "p2", "bottom", { release: false });
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(zones()).toBeNull();
+    expect(wrapper("p1")).not.toHaveClass("opacity-50");
+    fireEvent.pointerUp(window, { ...sidePoint("p2", "bottom"), pointerId: 1 });
+    expect([rectOf("p1"), rectOf("p2")]).toEqual(before);
   });
 });
 
@@ -1199,10 +1315,11 @@ describe("Maximize pane (2.1 to 2.4)", () => {
     const ctx = setup([ws("a", "agent-deck")], sessions);
     await selectAndStart(ctx.user, "agent-deck");
     await screen.findByRole("region", { name: "agent-deck · p1" });
-    await ctx.user.click(button("p1", "Split right"));
+    await ctx.user.click(newSessionButton());
     await screen.findByRole("region", { name: "agent-deck · p2" });
-    await ctx.user.click(button("p2", "Split down"));
+    await ctx.user.click(newSessionButton());
     await screen.findByRole("region", { name: "agent-deck · p3" });
+    dragPane("p3", "p2", "bottom");
     return ctx;
   }
 
@@ -1245,7 +1362,7 @@ describe("Maximize pane (2.1 to 2.4)", () => {
     await ctx.user.click(button("p1", "Maximize pane"));
     vi.mocked(sessions.open).mockRejectedValueOnce("spawn failed");
 
-    await ctx.user.click(button("p1", "Split right"));
+    await ctx.user.click(newSessionButton());
 
     const toast = await screen.findByRole("alert");
     expect(wrapper("p1")).toHaveClass("z-10");
@@ -1285,7 +1402,7 @@ describe("Maximize pane (2.1 to 2.4)", () => {
     const { user } = await threePanes();
     await user.click(button("p1", "Maximize pane"));
 
-    await user.click(button("p1", "Split right"));
+    await user.click(newSessionButton());
 
     await screen.findByRole("region", { name: "agent-deck · p4" });
     expect(wrapper("p1")).not.toHaveClass("fixed");

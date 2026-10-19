@@ -2,6 +2,7 @@ export type SplitDir = "right" | "down";
 export type Layout =
   | { pane: string }
   | { split: SplitDir; ratio: number; first: Layout; second: Layout };
+export type Side = "left" | "right" | "top" | "bottom";
 export type SplitPath = ("first" | "second")[];
 export type Rect = { x: number; y: number; width: number; height: number };
 export type DividerRect = { path: SplitPath; dir: SplitDir; box: Rect; at: number };
@@ -31,6 +32,28 @@ export function removePane(layout: Layout, id: string): Layout | null {
   if (first === null) return second;
   if (second === null) return first;
   return first === layout.first && second === layout.second ? layout : { ...layout, first, second };
+}
+
+/** Takes the pane out and splits the target in half, the pane going to the given side of it. */
+export function movePane(layout: Layout, id: string, targetId: string, side: Side): Layout {
+  const order = paneOrder(layout);
+  if (id === targetId || !order.includes(id) || !order.includes(targetId)) return layout;
+  const rest = removePane(layout, id)!;
+  const split: SplitDir = side === "left" || side === "right" ? "right" : "down";
+  const moved = { pane: id };
+  return replaceLeaf(rest, targetId, (leaf) =>
+    side === "left" || side === "top"
+      ? { split, ratio: 0.5, first: moved, second: leaf }
+      : { split, ratio: 0.5, first: leaf, second: moved },
+  );
+}
+
+/** The edge of a box nearest to a point given as fractions of it; left and right win a tie. */
+export function dropSide(x: number, y: number): Side {
+  const horizontal = Math.min(x, 1 - x);
+  const vertical = Math.min(y, 1 - y);
+  if (horizontal <= vertical) return x <= 0.5 ? "left" : "right";
+  return y < 0.5 ? "top" : "bottom";
 }
 
 export function setRatio(layout: Layout, path: SplitPath, ratio: number): Layout {

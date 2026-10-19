@@ -63,7 +63,6 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     createTerminal,
     () => void refresh().catch(() => {}),
     paneArea,
-    workspaces.items,
   );
   const { diagnostics } = panes;
   useEffect(() => {
@@ -218,6 +217,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
             layout={panes.layout}
             maximizedId={panes.maximizedId}
             onResize={panes.resizeSplit}
+            onMove={panes.movePane}
             panes={panes.entries.map((entry) => ({
               id: entry.pane.paneId,
               node: (
@@ -232,7 +232,6 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
                   onFocus={panes.focusPane}
                   onMaximize={panes.maximize}
                   onRestore={panes.restore}
-                  onSplit={(paneId, dir) => void panes.splitFrom(paneId, dir)}
                   onClose={(paneId) => void requestClose(paneId)}
                   onToggleShell={(paneId) => void panes.toggleShell(paneId)}
                   onResizeShell={panes.resizeShell}
