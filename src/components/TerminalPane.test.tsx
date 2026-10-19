@@ -24,9 +24,9 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
   };
 }
 
-function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn() }) {
+function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn() }, focused = true) {
   const view = render(
-    <TerminalPane entry={e} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={on.focus} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={on.focus} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
   );
   return { client, on, view };
 }
@@ -209,9 +209,23 @@ describe("TerminalPane (5.3)", () => {
     expect(at(s("Running"))).toContain("border-running");
     expect(at(s("Error"))).toContain("border-error");
     expect(at(s("Running"))).not.toContain("border-2");
-    // Idle and untracked panes keep the focus ring, which is visible when focused.
-    expect(at(s("Idle"))).toContain("border-ring");
-    expect(at(s("Running", false))).toContain("border-ring");
+    expect(at(s("Idle"))).toContain("border-border");
+    expect(at(s("Running", false))).toContain("border-border");
+    expect(at(s("Idle"))).not.toContain("border-ring");
+  });
+
+  it("puts the Focus Outline outside the status border of the focused pane only (SRS-FR-087)", () => {
+    const at = (state: PaneEntry["status"]["state"], focused: boolean) => {
+      const status = { state, since: 1, reason: null, tracked: true, reportedAt: null };
+      const { view } = renderPane(entry(fakeAdapter(), { status }), undefined, undefined, focused);
+      const cls = screen.getByRole("region").className.split(/\s+/);
+      view.unmount();
+      return cls;
+    };
+    expect(at("Idle", true)).toEqual(expect.arrayContaining(["ring-2", "ring-ring", "ring-offset-1"]));
+    expect(at("Idle", false)).not.toContain("ring-2");
+    expect(at("Needs Approval", true)).toEqual(expect.arrayContaining(["border-approval", "border-2", "ring-2", "ring-ring"]));
+    expect(at("Error", false)).not.toContain("ring-2");
   });
 });
 

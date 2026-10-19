@@ -163,7 +163,9 @@ export function TerminalPane({
         : null;
   const quiet =
     !pane.started || endedBadge || !status.tracked || status.state === "Idle" || status.state === "Ended";
-  const border = quiet ? (focused ? "border-ring" : "border-border") : tone[status.state].ring;
+  const border = quiet ? "border-border" : tone[status.state].ring;
+  // A box-shadow outside the status border, so focus never hides the state colour (SRS-FR-087).
+  const outline = focused ? "ring-2 ring-ring ring-offset-1 ring-offset-background" : "";
   const toggleMaximized = () => (maximized ? onRestore() : onMaximize(paneId));
   const headerPressed = useRef(false);
 
@@ -171,7 +173,7 @@ export function TerminalPane({
     <section
       aria-label={`${workspaceName} · ${title}`}
       onFocus={() => onFocus(paneId)}
-      className={`flex flex-col min-h-0 min-w-0 rounded-lg border ${border} ${!quiet && status.state === "Needs Approval" ? "border-2" : ""} bg-background overflow-hidden`}
+      className={`flex flex-col min-h-0 min-w-0 rounded-lg border ${border} ${!quiet && status.state === "Needs Approval" ? "border-2" : ""} ${outline} bg-background overflow-hidden`}
     >
       <header
         data-drag-handle

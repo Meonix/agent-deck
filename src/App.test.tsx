@@ -963,7 +963,7 @@ describe("Resume (2.1, 2.2)", () => {
     await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" });
     await user.click(newSessionButton());
     await vi.waitFor(() => expect(panes()).toHaveLength(2));
-    const focusedLabel = () => panes().find((p) => p.classList.contains("border-ring"))?.getAttribute("aria-label");
+    const focusedLabel = () => panes().find((p) => p.classList.contains("ring-2"))?.getAttribute("aria-label");
     expect(focusedLabel()).not.toBe("agent-deck · Scaffold Tauri app");
 
     const focusCalls = vi.mocked(adapters[0].focus).mock.calls.length;
@@ -1047,7 +1047,7 @@ describe("Split layout (2.1 to 2.3)", () => {
     expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 50, 100]);
     expect(rectOf(paneNamed("p2"))).toEqual([50, 0, 50, 100]);
     expect(adapters[1].focus).toHaveBeenCalled();
-    expect(paneNamed("p2")).toHaveClass("border-ring");
+    expect(paneNamed("p2")).toHaveClass("ring-2");
   });
 
   it("has no Split right or Split down button on a pane (SRS-FR-022 removed)", async () => {
@@ -1404,7 +1404,7 @@ describe("Reopen panes at launch (2.2 to 2.4)", () => {
     expect(rectOf("p2")).toEqual([30, 0, 70, 100]);
     expect(wrapper("p2")).not.toHaveClass("fixed");
     expect(sessions.openShell).not.toHaveBeenCalled();
-    expect(paneNamed("p2")).toHaveClass("border-ring");
+    expect(paneNamed("p2")).toHaveClass("ring-2");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -1487,8 +1487,17 @@ describe("Maximize pane (2.1 to 2.4)", () => {
     await user.click(button("p2", "Maximize pane"));
 
     expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(focusCalls + 1);
-    expect(paneNamed("p2")).toHaveClass("border-ring");
-    expect(paneNamed("p1")).not.toHaveClass("border-ring");
+    expect(paneNamed("p2")).toHaveClass("ring-2");
+    expect(paneNamed("p1")).not.toHaveClass("ring-2");
+  });
+
+  it("outlines only the pane the user clicks into (SRS-FR-087)", async () => {
+    await threePanes();
+
+    fireEvent.focus(paneNamed("p2"));
+
+    expect(paneNamed("p2")).toHaveClass("ring-2", "ring-ring");
+    for (const title of ["p1", "p3"]) expect(paneNamed(title)).not.toHaveClass("ring-2");
   });
 
   it("keeps an error toast above the maximized pane", async () => {
@@ -1792,13 +1801,14 @@ describe("Jump from Active Sessions (2.4)", () => {
     await within(historyPanel()).findByText("Old work");
     act(() => ctx.sessions.opened[1].stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
     fireEvent.focus(panes()[0]);
-    expect(panes()[0]).toHaveClass("border-ring");
+    expect(panes()[0]).toHaveClass("ring-2");
     return { ...ctx, focusCalls: vi.mocked(ctx.adapters[1].focus).mock.calls.length };
   }
 
-  // A pane asking for approval shows its status ring instead of the focus ring.
+  // The Focus Outline moves onto the pane asking for approval, over its status border (SRS-FR-087).
   function expectJumpedToSecond(adapters: FakeAdapter[], focusCalls: number) {
-    expect(panes()[0]).not.toHaveClass("border-ring");
+    expect(panes()[0]).not.toHaveClass("ring-2");
+    expect(panes()[1]).toHaveClass("ring-2", "border-approval");
     expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(focusCalls + 1);
   }
 
@@ -1834,7 +1844,7 @@ describe("Jump from Active Sessions (2.4)", () => {
     await user.click(rowButton("First"));
 
     expect(vi.mocked(adapters[0].focus).mock.calls.length).toBe(calls + 1);
-    expect(panes()[0]).toHaveClass("border-ring");
+    expect(panes()[0]).toHaveClass("ring-2");
   });
 
   it("does not jump from a history row, which offers Resume instead", async () => {
@@ -1844,7 +1854,7 @@ describe("Jump from Active Sessions (2.4)", () => {
     await user.click(historyRowButton("Second"));
 
     expect(adapters.map((a) => vi.mocked(a.focus).mock.calls.length)).toEqual(calls);
-    expect(panes()[0]).toHaveClass("border-ring");
+    expect(panes()[0]).toHaveClass("ring-2");
     expect(within(historyPanel()).getByRole("button", { name: "Resume" })).toBeInTheDocument();
   });
 
