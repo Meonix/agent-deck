@@ -24,6 +24,6 @@ Nguồn: `SRS.md` Baselined v1.5 (2026-10-19), CR-001 thêm mục 9, 10, 11; CR-
 | 14 | Nhấp đúp tiêu đề ô để phóng to / thu về | add-pane-header-double-click | SRS-FR-066, SRS-FR-067 | 10 | Should; CR-004; chỉ thêm FR mới → /dev-feature | archived |
 | 15 | Phóng to, thu nhỏ cỡ chữ cả cửa sổ bằng phím tắt | add-text-zoom | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071, SRS-FR-072 | 2, 13 | Should; CR-004; chỉ thêm FR mới → /dev-feature | archived |
 | 16 | Tick chọn và xoá nhiều phiên cùng lúc | add-bulk-session-delete | SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079 | 11, 12 | Should; CR-004; chỉ thêm FR mới → /dev-feature; checkbox và thanh "Delete selected" theo /ux-design-ui | archived |
-| 17 | Phiên thoát bình thường thì đóng ô | update-pane-exit-close | SRS-FR-028, SRS-FR-064, SRS-FR-083 | 2, 13 | Should; CR-005; đổi hành vi đã archived của mục 2, 13 → /dev-update | todo |
+| 17 | Phiên thoát bình thường thì đóng ô | update-pane-exit-close | SRS-FR-028, SRS-FR-064, SRS-FR-083 | 2, 13 | Should; CR-005; đổi hành vi đã archived của mục 2, 13 → /dev-update | applied |
 | 18 | Kéo thả ô để đặt vị trí, bỏ nút Split | update-pane-drag-drop | SRS-FR-022, SRS-FR-046, SRS-FR-080, SRS-FR-081, SRS-FR-082 | 7, 10 | Should; CR-005; bỏ hành vi đã archived của mục 7 → /dev-update; Drop Zone theo /ux-design-ui | todo |
 | 19 | Mở lại các ô khi mở app | add-pane-restore | SRS-FR-084, SRS-FR-085, SRS-FR-086 | 6, 17, 18 | Should; CR-005; chỉ thêm FR mới → /dev-feature; làm sau 17, 18 để lưu đúng bố cục đã đổi | todo |

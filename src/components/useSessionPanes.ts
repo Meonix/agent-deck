@@ -34,7 +34,8 @@ export type SessionPanes = PanesState & {
   newSession(workspace: Workspace): Promise<void>;
   resume(workspace: Workspace, session: { id: string; title: string }): Promise<void>;
   splitFrom(paneId: string, dir: SplitDir): Promise<void>;
-  closePane(paneId: string): Promise<void>;
+  /** False when the session could not be closed; the pane then stays. */
+  closePane(paneId: string): Promise<boolean>;
   focusPane(paneId: string): void;
   jumpTo(paneId: string): void;
   maximize(paneId: string): void;
@@ -153,6 +154,32 @@ export function useSessionPanes(
     [focusHolder],
   );
 
+  const closePane = useCallback(
+    async (paneId: string) => {
+      try {
+        await client.close(paneId);
+      } catch (e) {
+        showToast(`Could not close session: ${errorDetail(e)}`);
+        return false;
+      }
+      clearTimeout(graceTimers.current.get(paneId));
+      graceTimers.current.delete(paneId);
+      const closing = entries.current.find((e) => e.pane.paneId === paneId);
+      closing?.stream.dispose();
+      closing?.adapter?.dispose();
+      closing?.shell?.stream.dispose();
+      closing?.shell?.adapter.dispose();
+      setLayout((l) => ({
+        entries: l.entries.filter((e) => e.pane.paneId !== paneId),
+        layout: l.layout && removePane(l.layout, paneId),
+        focusedId: l.focusedId === paneId ? null : l.focusedId,
+        maximizedId: l.maximizedId === paneId ? null : l.maximizedId,
+      }));
+      return true;
+    },
+    [client, showToast],
+  );
+
   const openPane = useCallback(
     async (workspace: Workspace, target: string | null, dir: SplitDir, resumed?: { id: string; title: string }) => {
       if (workspace.missing) {
@@ -209,7 +236,13 @@ export function useSessionPanes(
           }
           update(pane.paneId, () => ({ status: next }));
         });
-        stream.onExit(() => update(pane.paneId, () => ({ ended: true })));
+        // SRS-FR-083: a normal exit takes its pane along; any other exit, or a failed close, leaves
+        // "Session ended" (SRS-FR-028).
+        const markEnded = () => update(pane.paneId, () => ({ ended: true }));
+        stream.onExit((code) => {
+          if (code !== 0) markEnded();
+          else void closePane(pane.paneId).then((closed) => closed || markEnded());
+        });
         graceTimers.current.set(
           pane.paneId,
           setTimeout(() => update(pane.paneId, () => ({ graceOver: true })), STATUS_GRACE_MS),
@@ -230,7 +263,7 @@ export function useSessionPanes(
         opening.current = false;
       }
     },
-    [client, createTerminal, focusHolder, onFolderMissing, paneArea, showToast, update],
+    [client, closePane, createTerminal, focusHolder, onFolderMissing, paneArea, showToast, update],
   );
 
   const newSession = useCallback(
@@ -281,31 +314,6 @@ export function useSessionPanes(
     (path: SplitPath, ratio: number) =>
       setLayout((l) => (l.layout ? { ...l, layout: setRatio(l.layout, path, ratio) } : l)),
     [],
-  );
-
-  const closePane = useCallback(
-    async (paneId: string) => {
-      try {
-        await client.close(paneId);
-      } catch (e) {
-        showToast(`Could not close session: ${errorDetail(e)}`);
-        return;
-      }
-      clearTimeout(graceTimers.current.get(paneId));
-      graceTimers.current.delete(paneId);
-      const closing = entries.current.find((e) => e.pane.paneId === paneId);
-      closing?.stream.dispose();
-      closing?.adapter?.dispose();
-      closing?.shell?.stream.dispose();
-      closing?.shell?.adapter.dispose();
-      setLayout((l) => ({
-        entries: l.entries.filter((e) => e.pane.paneId !== paneId),
-        layout: l.layout && removePane(l.layout, paneId),
-        focusedId: l.focusedId === paneId ? null : l.focusedId,
-        maximizedId: l.maximizedId === paneId ? null : l.maximizedId,
-      }));
-    },
-    [client, showToast],
   );
 
   const shellOpening = useRef(new Set<string>());

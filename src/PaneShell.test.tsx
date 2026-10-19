@@ -315,9 +315,21 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
     expect(adapters[2].written).toEqual(["~/agent-deck $ "]);
   });
 
-  it("keeps the shell running and taking input after the session ends (SRS-FR-064)", async () => {
-    const { sessions, session, shellTerminal } = await paneWithShell();
+  it("ends the shell with the pane when the session exits normally (SRS-FR-083)", async () => {
+    const { sessions, session, shell, shellTerminal } = await paneWithShell();
+    act(() => shell.emit("npm run dev"));
+
     act(() => session.exit(0));
+
+    expect(sessions.close).toHaveBeenCalledWith("p1");
+    await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
+    expect(shell.dispose).toHaveBeenCalled();
+    expect(shellTerminal.dispose).toHaveBeenCalled();
+  });
+
+  it("keeps the shell running and taking input after the session ends abnormally (SRS-FR-064)", async () => {
+    const { sessions, session, shellTerminal } = await paneWithShell();
+    act(() => session.exit(1));
 
     expect(within(paneAt()).getByText("Session ended")).toBeInTheDocument();
     expect(shellArea()).not.toBeNull();

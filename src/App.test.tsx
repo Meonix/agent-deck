@@ -170,7 +170,7 @@ describe("New Session (5.4)", () => {
     await selectAndStart(user, "agent-deck");
     await screen.findByTestId("pane-grid");
     act(() => sessions.opened[0].stream.emit("Done."));
-    act(() => sessions.opened[0].stream.exit(0));
+    act(() => sessions.opened[0].stream.exit(1));
     expect(screen.getByText("Session ended")).toBeInTheDocument();
     expect(adapters[0].written).toEqual(["Done."]);
     expect(adapters[0].dispose).not.toHaveBeenCalled();
@@ -188,6 +188,87 @@ describe("New Session (5.4)", () => {
     expect(adapters[0].dispose).toHaveBeenCalled();
     expect(sessions.opened[0].stream.dispose).toHaveBeenCalled();
     expect(screen.getByText("No open sessions")).toBeInTheDocument();
+  });
+});
+
+describe("Close pane on normal exit (1.2)", () => {
+  const paneNamed = (title: string) => screen.queryByRole("region", { name: `agent-deck · ${title}` });
+  const rectOf = (title: string) => {
+    const { left, top, width, height } = paneNamed(title)!.parentElement!.style;
+    return [left, top, width, height].map(parseFloat);
+  };
+
+  async function startPanes(count: number) {
+    const sessions = fakeSessions();
+    sessions.title = vi.fn(async (id: string) => id);
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await screen.findByRole("region", { name: "agent-deck · p1" });
+    for (let n = 2; n <= count; n++) {
+      await ctx.user.click(newSessionButton());
+      await screen.findByRole("region", { name: `agent-deck · p${n}` });
+    }
+    return ctx;
+  }
+
+  it("closes the pane without asking and gives its space to the others (SRS-FR-083)", async () => {
+    const { sessions } = await startPanes(3);
+    act(() => sessions.opened[1].stream.status({ state: "Running" }));
+
+    act(() => sessions.opened[1].stream.exit(0));
+
+    expect(sessions.close).toHaveBeenCalledWith("p2");
+    await vi.waitFor(() => expect(paneNamed("p2")).toBeNull());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText("Session ended")).not.toBeInTheDocument();
+    expect(rectOf("p1")).toEqual([0, 0, 50, 100]);
+    expect(rectOf("p3")).toEqual([50, 0, 50, 100]);
+    expect(sessions.opened[1].stream.dispose).toHaveBeenCalled();
+  });
+
+  it("leaves an empty pane area when the only pane exits (SRS-FR-083)", async () => {
+    const { sessions } = await startPanes(1);
+    act(() => sessions.opened[0].stream.exit(0));
+    await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
+    expect(screen.getByText("No open sessions")).toBeInTheDocument();
+  });
+
+  it("shows the layout again when the maximized pane exits (SRS-FR-083)", async () => {
+    const { user, sessions } = await startPanes(2);
+    await user.click(within(paneNamed("p1")!).getByRole("button", { name: "Maximize pane" }));
+
+    act(() => sessions.opened[0].stream.exit(0));
+
+    await vi.waitFor(() => expect(paneNamed("p1")).toBeNull());
+    expect(paneNamed("p2")!.parentElement).not.toHaveClass("invisible");
+    expect(sidebar()).not.toHaveAttribute("inert");
+  });
+
+  it("closes the pane under an open close confirmation", async () => {
+    const { user, sessions } = await startPanes(1);
+    act(() => sessions.opened[0].stream.status({ state: "Running" }));
+    await user.click(screen.getByRole("button", { name: "Close pane" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    act(() => sessions.opened[0].stream.exit(0));
+
+    await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the pane with Session ended when closing it after a normal exit fails", async () => {
+    const { sessions } = await startPanes(1);
+    vi.mocked(sessions.close).mockRejectedValueOnce("io");
+    act(() => sessions.opened[0].stream.exit(0));
+    expect(await screen.findByText("Session ended")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not close session");
+  });
+
+  it("keeps the pane with Session ended when the process dies from a signal (SRS-FR-028)", async () => {
+    const { sessions } = await startPanes(1);
+    act(() => sessions.opened[0].stream.exit(null));
+    expect(screen.getByText("Session ended")).toBeInTheDocument();
+    expect(sessions.close).not.toHaveBeenCalled();
   });
 });
 
@@ -237,7 +318,7 @@ describe("Pane state (4.2 to 4.4)", () => {
     await act(async () => vi.advanceTimersByTimeAsync(1));
     expect(sessions.title).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("region", { name: "agent-deck · Fix login redirect" })).toBeInTheDocument();
-    act(() => stream.exit(0));
+    act(() => stream.exit(1));
     await act(async () => vi.advanceTimersByTimeAsync(30_000));
     expect(sessions.title).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("region", { name: "agent-deck · Fix login redirect" })).toBeInTheDocument();
@@ -292,7 +373,7 @@ describe("Pane state (4.2 to 4.4)", () => {
       const { user, stream } = await openPane();
       act(() => stream.status({ state: "Needs Approval" }));
       await user.click(screen.getByRole("button", { name: "Close pane" }));
-      act(() => stream.exit(0));
+      act(() => stream.exit(1));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
@@ -770,7 +851,7 @@ describe("Session list (2.1, 2.2)", () => {
     const { user } = setup([ws("a", "agent-deck")], sessions);
     await selectAndStart(user, "agent-deck");
     await vi.waitFor(() => expect(rowTexts()).toEqual(["Fix loginLive"]));
-    act(() => sessions.opened[0].stream.exit(0));
+    act(() => sessions.opened[0].stream.exit(1));
     await vi.waitFor(() => expect(rowTexts()).toEqual(["Fix loginJust now"]));
   });
 
@@ -1631,7 +1712,7 @@ describe("Delete a session (2.2 to 2.4)", () => {
     });
     await user.click(newSessionButton());
     await screen.findByRole("region", { name: "agent-deck · Live work" });
-    act(() => sessions.opened[0].stream.exit(0));
+    act(() => sessions.opened[0].stream.exit(1));
 
     await pick(user, "Live work");
     await user.click(screen.getByRole("button", { name: "Move to Trash" }));
@@ -1847,7 +1928,7 @@ describe("Diagnostics report (2.1)", () => {
     await act(async () => vi.advanceTimersByTimeAsync(60_000));
     expect(diag.report).toHaveBeenLastCalledWith({ terminals: 1, expectedTerminals: 1, titleTimers: 1, livePanes: 1 });
 
-    act(() => sessions.opened[0].stream.exit(0));
+    act(() => sessions.opened[0].stream.exit(1));
     await act(async () => vi.advanceTimersByTimeAsync(60_000));
     expect(diag.report).toHaveBeenLastCalledWith({ terminals: 1, expectedTerminals: 1, titleTimers: 0, livePanes: 0 });
   });
