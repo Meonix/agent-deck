@@ -22,7 +22,7 @@ None.
 
 - `session-pane`: "Show session ended" narrowed to abnormal exits; "Close pane on normal exit" added
   (SRS-FR-028, SRS-FR-083).
-- `pane-shell`: "Shell outlives the session" narrowed to abnormal exits (SRS-FR-064).
+- `pane-shell`: "Shell outlives the session" replaced by "Shell outlives an abnormal exit" (SRS-FR-064).
 
 ## Impact
 

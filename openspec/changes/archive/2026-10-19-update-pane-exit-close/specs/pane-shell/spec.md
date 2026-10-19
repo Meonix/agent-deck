@@ -1,6 +1,12 @@
-## MODIFIED Requirements
+## REMOVED Requirements
 
 ### Requirement: Shell outlives the session (SRS-FR-064)
+**Reason**: CR-005 — the shell now outlives only an abnormal exit; its scenario "/exit leaves the shell running" no longer holds.
+**Migration**: replaced by "Shell outlives an abnormal exit (SRS-FR-064)" under ADDED below.
+
+## ADDED Requirements
+
+### Requirement: Shell outlives an abnormal exit (SRS-FR-064)
 Traces: SRS-FR-064 ← BR-05 ← BO-01
 
 While the session in a pane has exited abnormally, the system SHALL keep that pane's Pane Shell running.

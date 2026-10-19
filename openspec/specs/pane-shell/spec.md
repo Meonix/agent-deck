@@ -138,17 +138,6 @@ If the user closes a pane whose Pane Shell is running a command, then the system
 - **WHEN** the user closes the pane
 - **THEN** exactly one confirmation dialog appears
 
-### Requirement: Shell outlives the session (SRS-FR-064)
-Traces: SRS-FR-064 ← BR-05 ← BO-01
-
-While the session in a pane has ended, the system SHALL keep that pane's Pane Shell running.
-
-#### Scenario: /exit leaves the shell running
-- **GIVEN** a pane whose Pane Shell runs `npm run dev`
-- **WHEN** the user types `/exit` in Claude Code
-- **THEN** the pane shows "Session ended"
-- **AND** the Pane Shell still runs and accepts input
-
 ### Requirement: Report shell start failure (SRS-FR-065)
 Traces: SRS-FR-065 ← BR-05 ← BO-01
 
@@ -159,4 +148,20 @@ If the Pane Shell cannot start, then the system SHALL show the message "Shell co
 - **WHEN** the user chooses Shell on a `Running` pane
 - **THEN** the pane shows "Shell could not start"
 - **AND** the session stays `Running` and the Shell button has no marker
+
+### Requirement: Shell outlives an abnormal exit (SRS-FR-064)
+Traces: SRS-FR-064 ← BR-05 ← BO-01
+
+While the session in a pane has exited abnormally, the system SHALL keep that pane's Pane Shell running.
+
+#### Scenario: Crash leaves the shell running
+- **GIVEN** a pane whose Pane Shell runs `npm run dev`
+- **WHEN** the Claude Code process of that pane is killed
+- **THEN** the pane shows "Session ended"
+- **AND** the Pane Shell still runs and accepts input
+
+#### Scenario: /exit ends the shell with the pane
+- **GIVEN** a pane whose Pane Shell runs `npm run dev`
+- **WHEN** the user types `/exit` in Claude Code
+- **THEN** the pane closes and its Pane Shell process has ended (SRS-FR-083)
 

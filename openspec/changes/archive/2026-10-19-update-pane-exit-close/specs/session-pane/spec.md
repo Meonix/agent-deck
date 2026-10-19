@@ -10,7 +10,7 @@ When the session in a pane exits abnormally, the system SHALL show the message "
 - **THEN** the pane shows "Session ended"
 - **AND** the earlier pane content can still be scrolled and read
 
-#### Scenario: Normal exit does not show Session ended
+#### Scenario: User exits Claude Code
 - **WHEN** the user types `/exit` in a pane
 - **THEN** the pane closes (SRS-FR-083) and no "Session ended" is shown
 
