@@ -51,6 +51,11 @@ pub trait PaneProcess: Send {
     }
     /// Replaces the session goal of a pane that tracks one; others ignore it.
     fn set_goal(&mut self, _text: &str) {}
+    /// The session Claude Code now reports, when it moved off the one the pane was
+    /// opened with (`/clear` starts a new one).
+    fn session(&self) -> Option<String> {
+        None
+    }
 }
 
 pub struct PtySession {

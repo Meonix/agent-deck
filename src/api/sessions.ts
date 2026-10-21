@@ -24,11 +24,13 @@ export interface PaneStream {
   onStatus(cb: (status: PaneStatus) => void): void;
   /** The Session Goal of the pane's session; null when it has none. */
   onGoal(cb: (goal: string | null) => void): void;
+  /** The session Claude Code moved the pane to, as after `/clear`. */
+  onSession(cb: (sessionId: string) => void): void;
   dispose(): void;
 }
 
 /** A shell sends output and its exit, never a status or a goal. */
-export type ShellStream = Omit<PaneStream, "onStatus" | "onGoal">;
+export type ShellStream = Omit<PaneStream, "onStatus" | "onGoal" | "onSession">;
 
 /** `command`: what the shell runs in its foreground; null while busy means the name could not be read. */
 export type ShellActivity = { busy: boolean; command: string | null };
@@ -105,6 +107,13 @@ function asStatus(message: unknown): PaneStatus | null {
 
 type GoalMessage = { goal: string | null };
 
+function asSession(message: unknown): string | null {
+  const value = typeof message === "string" ? safeParse(message) : message;
+  if (value === null || typeof value !== "object" || !("session" in value)) return null;
+  const { session } = value as { session: unknown };
+  return typeof session === "string" ? session : null;
+}
+
 function asGoal(message: unknown): GoalMessage | null {
   const value = typeof message === "string" ? safeParse(message) : message;
   if (value === null || typeof value !== "object" || !("goal" in value)) return null;
@@ -130,6 +139,8 @@ function createStream(channel: Channel<unknown>): PaneStream {
   let pendingGoal: GoalMessage[] = [];
   let exitCb: ((code: number | null) => void) | null = null;
   let goalCb: ((goal: string | null) => void) | null = null;
+  let pendingSession: string[] = [];
+  let sessionCb: ((sessionId: string) => void) | null = null;
   let statusCb: ((status: PaneStatus) => void) | null = null;
 
   // The exit waits for queued statuses once a status listener exists: the final status precedes it.
@@ -158,6 +169,12 @@ function createStream(channel: Channel<unknown>): PaneStream {
     if (goal) {
       if (goalCb && pendingGoal.length === 0) goalCb(goal.goal);
       else pendingGoal.push(goal);
+      return;
+    }
+    const session = asSession(message);
+    if (session) {
+      if (sessionCb && pendingSession.length === 0) sessionCb(session);
+      else pendingSession.push(session);
       return;
     }
     const exit = asExit(message);
@@ -192,10 +209,18 @@ function createStream(channel: Channel<unknown>): PaneStream {
       pendingGoal = [];
       queued.forEach((m) => cb(m.goal));
     },
+    onSession(cb) {
+      sessionCb = cb;
+      const queued = pendingSession;
+      pendingSession = [];
+      queued.forEach(cb);
+    },
     dispose() {
       channel.onmessage = () => {};
       goalCb = null;
       pendingGoal = [];
+      sessionCb = null;
+      pendingSession = [];
       outputCb = null;
       exitCb = null;
       statusCb = null;

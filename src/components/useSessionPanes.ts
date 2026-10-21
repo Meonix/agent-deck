@@ -225,6 +225,8 @@ export function useSessionPanes(
         update(pane.paneId, (e) => ({ status: next, prompted: e.prompted || prompted }));
       });
       stream.onGoal((goal) => update(pane.paneId, () => ({ goal })));
+      // After `/clear` the pane holds a new session; reopening must resume that one (SRS-FR-084).
+      stream.onSession((sessionId) => update(pane.paneId, (e) => ({ pane: { ...e.pane, sessionId } })));
       // SRS-FR-083: a normal exit takes its pane along; any other exit, or a failed close, leaves
       // "Session ended" (SRS-FR-028).
       const markEnded = () => update(pane.paneId, () => ({ ended: true }));

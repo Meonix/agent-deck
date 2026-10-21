@@ -160,6 +160,22 @@ describe("tauriSessionsClient (5.1)", () => {
   });
 });
 
+describe("session messages (SRS-FR-084)", () => {
+  it("queues a session move sent before onSession, then delivers later ones live", async () => {
+    tauri.invoke.mockImplementation(async () => {
+      send(JSON.stringify({ session: "s2" }));
+      return opened;
+    });
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen: string[] = [];
+    stream.onSession((id) => seen.push(id));
+    expect(seen).toEqual(["s2"]);
+    send({ session: "s3" });
+    send({ session: 7 });
+    expect(seen).toEqual(["s2", "s3"]);
+  });
+});
+
 describe("goal messages (SRS-FR-092)", () => {
   it("queues a goal sent before onGoal, then delivers later ones live, null included", async () => {
     tauri.invoke.mockImplementation(async () => {

@@ -63,6 +63,15 @@ pub trait Spawner {
     ) -> Option<Box<dyn PaneProcess>>;
 }
 
+impl Pane {
+    fn current_session(&self) -> SessionId {
+        self.process
+            .as_ref()
+            .and_then(|p| p.session())
+            .map_or_else(|| self.session.clone(), SessionId)
+    }
+}
+
 struct Pane {
     workspace: WorkspaceId,
     session: SessionId,
@@ -178,7 +187,7 @@ impl PaneRegistry {
         session: &SessionId,
     ) -> Result<Option<Box<dyn PaneProcess>>, WrongSession> {
         match self.panes.get(pane) {
-            Some(open) if open.session != *session => Err(WrongSession),
+            Some(open) if open.current_session() != *session => Err(WrongSession),
             _ => Ok(self.take(pane)),
         }
     }
@@ -210,7 +219,7 @@ impl PaneRegistry {
     }
 
     pub fn session_of(&self, pane: &PaneId) -> Option<SessionId> {
-        self.panes.get(pane).map(|p| p.session.clone())
+        self.panes.get(pane).map(Pane::current_session)
     }
 
     pub fn workspace_of(&self, pane: &PaneId) -> Option<WorkspaceId> {
@@ -262,9 +271,12 @@ mod tests {
 
     type Log = Arc<Mutex<Vec<Call>>>;
 
-    struct FakeProcess(Log);
+    struct FakeProcess(Log, Option<String>);
 
     impl PaneProcess for FakeProcess {
+        fn session(&self) -> Option<String> {
+            self.1.clone()
+        }
         fn write(&mut self, data: &[u8]) -> io::Result<()> {
             self.0.lock().unwrap().push(Call::Write(data.to_vec()));
             Ok(())
@@ -291,6 +303,8 @@ mod tests {
         resumes: RefCell<Vec<bool>>,
         sinks: RefCell<Vec<Box<dyn OutputSink>>>,
         logs: RefCell<Vec<Log>>,
+        /// The session id its processes report, as after a `/clear`.
+        reports: RefCell<Option<String>>,
     }
 
     impl FakeSpawner {
@@ -301,6 +315,7 @@ mod tests {
                 resumes: RefCell::default(),
                 sinks: RefCell::default(),
                 logs: RefCell::default(),
+                reports: RefCell::default(),
             }
         }
 
@@ -331,7 +346,7 @@ mod tests {
             }
             let log = Log::default();
             self.logs.borrow_mut().push(log.clone());
-            Some(Box::new(FakeProcess(log)))
+            Some(Box::new(FakeProcess(log, self.reports.borrow().clone())))
         }
     }
 
@@ -451,6 +466,19 @@ mod tests {
         assert!(process.is_some());
         assert!(spawner.log(0).is_empty());
         assert!(!reg.has_open_panes(&a.id));
+    }
+
+    #[test]
+    fn a_pane_follows_the_session_its_process_reports() {
+        let mut reg = PaneRegistry::new();
+        let spawner = FakeSpawner::new(true);
+        *spawner.reports.borrow_mut() = Some("after-clear".into());
+        let opened = open(&mut reg, &workspace("/w/a", false), &spawner);
+        let moved = SessionId("after-clear".into());
+
+        assert_eq!(reg.session_of(&opened.pane_id), Some(moved.clone()));
+        assert!(matches!(reg.take_for_session(&opened.pane_id, &opened.session_id), Err(WrongSession)));
+        assert!(reg.take_for_session(&opened.pane_id, &moved).unwrap().is_some());
     }
 
     #[test]

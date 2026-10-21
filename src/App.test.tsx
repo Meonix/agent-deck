@@ -1363,6 +1363,14 @@ describe("Reopen panes at launch (2.2 to 2.4)", () => {
     await vi.waitFor(() => expect(remembered()).toEqual(["s1"]));
   });
 
+  it("remembers the session Claude Code moved to after /clear (SRS-FR-084)", async () => {
+    const sessions = titledSessions();
+    await firstLaunch(1, sessions);
+    await vi.waitFor(() => expect(remembered()).toEqual(["s1"]));
+    act(() => sessions.opened[0].stream.session("after-clear"));
+    expect(remembered()).toEqual(["after-clear"]);
+  });
+
   it("does not remember a new session that never got a prompt, nor an ended one (SRS-FR-084)", async () => {
     const sessions = fakeSessions({ titles: ["(untitled)"] });
     const { user } = setup([ws("a", "agent-deck")], sessions);

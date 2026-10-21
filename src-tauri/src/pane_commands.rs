@@ -296,6 +296,7 @@ fn open_blocking(
             hooks: state.hooks.clone(),
             goals: state.goals.clone(),
             goal_out: Arc::new(ChannelGoal(output.clone())),
+            session_out: Arc::new(ChannelStatus(output.clone())),
         };
         let sink = ChannelSink {
             channel: output,
@@ -447,6 +448,7 @@ struct PtySpawner<'a> {
     hooks: Option<Arc<HookServer>>,
     goals: Arc<Mutex<GoalStore>>,
     goal_out: Arc<dyn GoalOut>,
+    session_out: Arc<dyn StatusOut>,
 }
 
 impl Spawner for PtySpawner<'_> {
@@ -464,11 +466,16 @@ impl Spawner for PtySpawner<'_> {
             session_id.0.clone(),
             Box::new(self.goal_out.clone()),
         ));
+        let follower = Arc::new(SessionFollower::new(
+            session_id.0.clone(),
+            self.session_out.clone(),
+        ));
         // Registered before the spawn so the first hook cannot miss its sink.
         let hook = self.hooks.as_ref().map(|server| {
             let token = uuid::Uuid::new_v4().to_string();
             let sink = PaneHooks {
                 tracker: self.tracker.clone(),
+                follower: follower.clone(),
                 keeper: keeper.clone(),
             };
             server.register(&token, Arc::new(sink));
@@ -495,6 +502,7 @@ impl Spawner for PtySpawner<'_> {
                 Some(Box::new(TrackedProcess {
                     inner: QueuedProcess::new(Box::new(session), Some(killer)),
                     tracker: self.tracker.clone(),
+                    follower,
                     keeper,
                     hook,
                 }))
@@ -600,13 +608,52 @@ impl GoalOut for Arc<dyn GoalOut> {
 /// then the keeper may answer a prompt with the Focus Reminder (D2).
 struct PaneHooks {
     tracker: Arc<StatusTracker>,
+    follower: Arc<SessionFollower>,
     keeper: Arc<GoalKeeper>,
 }
 
 impl HookSink for PaneHooks {
     fn hook(&self, event: serde_json::Value) -> Option<serde_json::Value> {
         self.tracker.hook(event.clone());
+        self.follower.follow(&event);
         self.keeper.hook(&event)
+    }
+}
+
+/// The session a pane's Claude Code is in: `/clear` moves it to a new one, and the
+/// pane must remember and resume that one, not the session it was opened with
+/// (SRS-FR-084). The UI learns of a move from `{"session": id}`.
+struct SessionFollower {
+    current: Mutex<String>,
+    out: Arc<dyn StatusOut>,
+}
+
+impl SessionFollower {
+    fn new(session_id: String, out: Arc<dyn StatusOut>) -> Self {
+        SessionFollower {
+            current: Mutex::new(session_id),
+            out,
+        }
+    }
+
+    /// A `SessionEnd` names the session being left and can arrive after the next one started.
+    fn follow(&self, event: &serde_json::Value) {
+        if event["hook_event_name"] == "SessionEnd" {
+            return;
+        }
+        let Some(id) = event["session_id"].as_str().filter(|id| !id.is_empty()) else {
+            return;
+        };
+        let mut current = self.current.lock().unwrap();
+        if *current != id {
+            *current = id.to_string();
+            self.out
+                .send_json(serde_json::json!({ "session": id }).to_string());
+        }
+    }
+
+    fn current(&self) -> String {
+        self.current.lock().unwrap().clone()
     }
 }
 
@@ -615,6 +662,8 @@ impl HookSink for PaneHooks {
 struct TrackedProcess {
     inner: QueuedProcess,
     tracker: Arc<StatusTracker>,
+    /// Same follower as the pane's hook sink; it tells the registry the live session.
+    follower: Arc<SessionFollower>,
     keeper: Arc<GoalKeeper>,
     /// None when the pane was spawned without a listener.
     hook: Option<(Arc<HookServer>, String)>,
@@ -650,6 +699,10 @@ impl PaneProcess for TrackedProcess {
 
     fn set_goal(&mut self, text: &str) {
         self.keeper.set(text);
+    }
+
+    fn session(&self) -> Option<String> {
+        Some(self.follower.current())
     }
 }
 
@@ -825,6 +878,25 @@ mod tests {
         }
     }
 
+    #[test]
+    fn follower_moves_to_the_session_claude_code_reports() {
+        use serde_json::{Value, json};
+        let out = Outbox::default();
+        let follower = SessionFollower::new("s1".into(), Arc::new(out.clone()));
+        follower.follow(&json!({"hook_event_name": "SessionStart", "session_id": "s1"}));
+        assert_eq!(follower.current(), "s1");
+        assert!(out.0.lock().unwrap().is_empty(), "the opened session is not news");
+
+        // `/clear` ends s1 and starts s2; the late SessionEnd of s1 must not move it back.
+        follower.follow(&json!({"hook_event_name": "SessionStart", "session_id": "s2", "source": "clear"}));
+        follower.follow(&json!({"hook_event_name": "SessionEnd", "session_id": "s1"}));
+        follower.follow(&json!({"hook_event_name": "UserPromptSubmit", "session_id": "s2"}));
+        follower.follow(&json!({"hook_event_name": "Stop"}));
+        assert_eq!(follower.current(), "s2");
+        let sent: Vec<Value> = out.0.lock().unwrap().iter().map(|j| serde_json::from_str(j).unwrap()).collect();
+        assert_eq!(sent, vec![json!({"session": "s2"})]);
+    }
+
     fn tracker(out: &Outbox) -> Arc<StatusTracker> {
         Arc::new(StatusTracker::new("/w".into(), Box::new(out.clone()), 1))
     }
@@ -859,6 +931,7 @@ mod tests {
             hooks,
             goals: Arc::new(Mutex::new(GoalStore::load(dir))),
             goal_out: Arc::new(goal_out),
+            session_out: Arc::new(Outbox::default()),
         }
     }
 
@@ -1184,6 +1257,7 @@ mod tests {
         let mut process = TrackedProcess {
             inner: QueuedProcess::new(Box::new(Recorder(calls.clone())), None),
             tracker,
+            follower: Arc::new(SessionFollower::new("s".into(), Arc::new(Outbox::default()))),
             keeper: Arc::new(GoalKeeper::new(
                 Arc::new(Mutex::new(GoalStore::load(
                     std::env::temp_dir().join("agent-deck-no-goals"),
