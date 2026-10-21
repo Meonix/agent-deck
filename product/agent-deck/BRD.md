@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v3.0 (2026-10-21)
+status: Approved v3.1 (2026-10-21)
 ---
 # BRD — agent-deck
 
@@ -71,7 +71,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, kéo thả ô để đặt nó sang trái, phải, trên hoặc dưới một ô khác, ô tự đóng khi phiên thoát bình thường, phóng to một ô ra cả cửa sổ, mở một terminal thường dưới phiên trong cùng ô và ẩn nó đi mà vẫn chạy, phóng to hoặc thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt, thấy rõ ô đang focus, ẩn cột trái để nhường chỗ cho các ô, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
 | BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
 | BR-07 | Từ dấu báo trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
-| BR-08 | Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc bằng cách chuyển chúng vào Thùng rác | BO-02 | Should |
+| BR-08 | Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc, hoặc xoá phiên ngay lúc đóng ô của nó, bằng cách chuyển chúng vào Thùng rác | BO-02 | Should |
 | BR-09 | Người dùng thấy và sửa được việc chính của mỗi phiên đang mở; khi người dùng gửi một yêu cầu khác việc chính, Claude Code nhắc và đề nghị mở phiên mới thay vì làm luôn, trừ khi người dùng bảo cứ làm | BO-03 | Should |
 
 ## 7. Quy trình và luật nghiệp vụ
@@ -155,3 +155,4 @@ Luật nghiệp vụ:
 | v2.4 | 2026-10-19 | PO | CR-005: BR-03 tự mở lại các ô khi mở app; BR-05 kéo thả ô thay nút chia, ô tự đóng khi phiên thoát bình thường |
 | v2.5 | 2026-10-20 | PO | CR-006: BR-05 thêm thấy rõ ô đang focus, ẩn cột trái để nhường chỗ cho các ô |
 | v3.0 | 2026-10-21 | PO | CR-007: thêm BO-03 (mỗi phiên chỉ làm một việc) và BR-09 (ghim việc chính, Claude Code nhắc khi lạc đề) |
+| v3.1 | 2026-10-21 | PO | CR-009: BR-08 thêm xoá phiên ngay lúc đóng ô |

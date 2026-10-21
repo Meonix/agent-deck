@@ -426,3 +426,51 @@ Backlog — thêm (áp sau GATE CR):
 - 23 · Dấu focus trên dòng Active Sessions · add-active-row-focus-mark · SRS-FR-099 · phụ thuộc 12, 20 · Should; CR-008; chỉ thêm FR mới → /dev-feature.
 
 Việc tiếp theo: /dev-feature add-active-row-focus-mark (mục 23).
+
+## CR-009 — Đóng ô bằng nút × thì hỏi có xoá luôn phiên không
+Ngày: 2026-10-21
+Yêu cầu: "khi user chủ động click vào "x" button ở góc phải, app sẽ hiển thị popup hỏi user có muốn xóa luôn cả session chat trong history không, nếu có thì xóa giúp user, nếu không thì thôi. nếu user chủ động "/exit" thì cứ giữ behavior như hiện tại"
+Status: Approved (2026-10-21)
+Đã chốt khi hỏi: (1) một hộp duy nhất cho mọi lần bấm ×, ba nút Cancel · Close · Close and move to Trash; ô bận thì hộp đó thêm dòng cảnh báo, không bao giờ hai hộp liên tiếp; (2) xoá = chuyển vào Thùng rác như Delete hiện có (SRS-FR-047), không xoá hẳn.
+Ảnh hưởng:
+- SRS-FR-027 (archived: add-status-board; openspec/specs/session-pane) — hộp "Session is still running. Close anyway?" thành dòng cảnh báo trong Close Dialog → /dev-update.
+- SRS-FR-063 (archived: add-pane-shell; openspec/specs/pane-shell) — hộp "A command is still running in the shell. Close anyway?" thành dòng cảnh báo; Ví dụ âm "shell ở dấu nhắc, phiên Idle → đóng không hỏi" không còn đúng → /dev-update.
+- SRS-FR-029 (archived: add-session-pane; openspec/specs/session-pane) — giữ chữ; Ví dụ thêm bước chọn Close.
+- SRS-FR-062 — giữ chữ; Ví dụ "đóng ô và xác nhận" vẫn đúng.
+- SRS-FR-047, SRS-FR-050 (archived: add-session-delete; openspec/specs/session-history) — giữ chữ; FR mới dùng lại hành vi chuyển vào Thùng rác và báo lỗi.
+- SRS-FR-048, SRS-FR-049 — giữ chữ: chỉ áp cho Delete trên Session History Panel.
+- SRS-FR-083 — giữ nguyên: `/exit` đóng ô, không hỏi, không xoá (theo yêu cầu).
+- A-05 — giữ chữ.
+- BR-08 "xoá một hoặc nhiều phiên cũ của folder" chưa có lối xoá lúc đóng ô → sửa BR-08.
+- Code: src/App.tsx (requestClose, hai ConfirmDialog đóng ô, deleteOne), src/components/ConfirmDialog (hiện chỉ một nút hành động), src/App.test.tsx, src/PaneShell.test.tsx.
+- Thiết kế: design/agent-deck/design.html và brief.md còn vẽ hộp "…Close anyway?"; bố cục hộp mới đã chốt khi hỏi (một hộp ba nút, dòng cảnh báo khi bận) nên không cần /ux-design-ui.
+
+Diff đề xuất:
+
+Phiên bản: BRD v3.0 → v3.1 (sửa BR-08, không đụng BO). SRS v1.8 → v1.9.
+
+BRD — đổi:
+- BR-08. Trước: "Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc bằng cách chuyển chúng vào Thùng rác". Sau: "Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc, hoặc xoá phiên ngay lúc đóng ô của nó, bằng cách chuyển chúng vào Thùng rác".
+- Mục 8 ràng buộc chỉ-đọc: giữ chữ (vẫn là "khi người dùng chọn xoá phiên đó (BR-08)").
+- Lịch sử: dòng v3.1 "CR-009: BR-08 thêm xoá phiên lúc đóng ô".
+
+SRS — đổi:
+- Mục 1 Thuật ngữ thêm: "Close Dialog — hộp hiện khi người dùng bấm × trên tiêu đề ô, tiêu đề "Close "<title>"?", ba nút Cancel · Close · Close and move to Trash, cùng các dòng cảnh báo khi ô đang bận".
+- SRS-FR-027. Trước: "If the user closes a pane whose session is `Running` or `Needs Approval`, then the system shall ask for confirmation before closing that pane." Sau: "If the user chooses × on a pane whose session is `Running` or `Needs Approval`, then the system shall show the warning "Session is still running." in the Close Dialog." Ví dụ âm mới: ô `Running`, bấm × → Close Dialog có dòng "Session is still running."; chọn Cancel → ô vẫn chạy. Ví dụ âm: ô `Idle` → Close Dialog không có dòng này.
+- SRS-FR-063. Trước: "If the user closes a pane whose Pane Shell is running a command, then the system shall ask for confirmation before closing that pane." Sau: "If the user chooses × on a pane whose Pane Shell is running a command, then the system shall show the warning "A command is still running in the shell." in the Close Dialog." Giải thích: ô vừa bận theo SRS-FR-027 vừa có shell bận → một Close Dialog có cả hai dòng. Ví dụ: phiên `Idle`, shell ẩn chạy `npm run dev`, bấm × → Close Dialog có dòng "A command is still running in the shell."; Cancel → ô và shell vẫn chạy. Ví dụ âm: shell đứng ở dấu nhắc → Close Dialog không có dòng này.
+- SRS-FR-029. Chữ giữ. Ví dụ: "đóng ô có phiên `Idle`" → "bấm × trên ô có phiên `Idle`, chọn Close"; thêm Ví dụ âm: chọn Close → phiên vẫn còn trong Session History Panel.
+- Mục 2.5: bước 4 "Người dùng bấm × trên ô, chọn trong Close Dialog → SRS-FR-100"; E1 → "ô đang `Running` hoặc `Needs Approval` → Close Dialog thêm cảnh báo → SRS-FR-027"; thêm A5 "người dùng chọn Close and move to Trash → SRS-FR-101; không chuyển được → SRS-FR-102".
+- Mục 2.9: thêm A4 "người dùng bấm × trên ô và chọn Close and move to Trash → SRS-FR-101".
+- Mục 2.10 E1: "đóng ô khi Pane Shell đang chạy một lệnh → Close Dialog thêm cảnh báo → SRS-FR-063, SRS-FR-062".
+- Mục 7 dòng Pane Grid: thêm "Close Dialog" và SRS-FR-100, SRS-FR-101, SRS-FR-102. Mục 11: SRS-FR-001 đến SRS-FR-102. Mục 12 dựng lại bằng grep. Mục 14 dòng v1.9.
+- SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-062, SRS-FR-083: không đổi chữ.
+
+SRS — mới:
+- SRS-FR-100 — Close Dialog on pane close (BR-05, Should, Test): "When the user chooses × on a pane header, the system shall show the Close Dialog for that pane before closing it." Giải thích: hiện ở mọi trạng thái; Cancel → không đổi gì; Close → đóng ô như SRS-FR-029, phiên còn trong lịch sử; ô chưa có lịch sử phiên trên đĩa (mở phiên mới mà chưa gõ gì) → Close Dialog không có nút Close and move to Trash. Ví dụ: ô "Fix login bug" `Idle`, bấm × → hộp "Close "Fix login bug"?" ba nút. Ví dụ: chọn Cancel → ô vẫn mở. Ví dụ âm: gõ `/exit` → ô đóng ngay, không có Close Dialog (SRS-FR-083), phiên vẫn còn trong lịch sử.
+- SRS-FR-101 — Close and move to Trash (BR-08, Should, Test): "When the user chooses Close and move to Trash in the Close Dialog, the system shall close that pane and then move that session's history to the operating system's trash." Giải thích: kết thúc phiên và Pane Shell như SRS-FR-029, SRS-FR-062 trước khi chuyển; phiên biến khỏi Session History Panel như SRS-FR-047; không hỏi thêm hộp "Move … to Trash?" (SRS-FR-048 chỉ áp cho Delete trên Session History Panel). Ví dụ: ô "Fix login bug" `Idle`, bấm × → Close and move to Trash → ô biến mất, dòng "Fix login bug" biến khỏi Session History Panel, file phiên nằm trong Thùng rác. Ví dụ: ô `Running` → hộp có dòng "Session is still running."; Close and move to Trash → phiên kết thúc, ô đóng, phiên vào Thùng rác.
+- SRS-FR-102 — Report delete failure after close (BR-08, Should, Test): "If the history of a session closed with Close and move to Trash cannot be moved to the trash, then the system shall keep that session in the Session History Panel and show the message "Session could not be deleted"." Ví dụ âm: file phiên bị khoá quyền ghi → ô vẫn đóng, phiên còn trong Session History Panel, hiện "Session could not be deleted".
+
+Backlog — thêm (áp sau GATE CR):
+- 24 · Đóng ô hỏi có chuyển phiên vào Thùng rác · update-pane-close-dialog · SRS-FR-027, SRS-FR-029, SRS-FR-063, SRS-FR-100, SRS-FR-101, SRS-FR-102 · phụ thuộc 2, 11, 13, 17 · Should; CR-009; đổi hành vi đã archived (SRS-FR-027, SRS-FR-063) → /dev-update.
+
+Việc tiếp theo: /dev-update update-pane-close-dialog (mục 24).

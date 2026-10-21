@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.8 (2026-10-21)
+status: Baselined v1.9 (2026-10-21)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -72,6 +72,7 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Thoát bình thường | Phiên Claude Code kết thúc với mã thoát 0 (`/exit`, Ctrl+D); mọi kiểu kết thúc khác là thoát bất thường |
 | Focus Outline | Vòng màu iris dày 2px bên ngoài viền của ô đang focus |
 | Row Focus Mark | Vòng màu iris dày 2px quanh dòng của phiên trong Active Sessions khi ô của phiên đó có Focus Outline |
+| Close Dialog | Hộp hiện khi người dùng bấm × trên tiêu đề ô, tiêu đề "Close "<title>"?", ba nút Cancel · Close · Close and move to Trash, cùng các dòng cảnh báo khi ô đang bận |
 | Sidebar | Cột trái chứa Workspace List và Active Sessions |
 | Sidebar Toggle | Nút ở giữa theo chiều dọc, sát mép phải Sidebar (Sidebar ẩn: sát mép trái cửa sổ), bấm để ẩn/hiện Sidebar |
 | Sidebar shortcut | macOS: Cmd+B; Windows: Ctrl+B |
@@ -280,10 +281,11 @@ If the user starts a new session in a `Missing` workspace, then the system shall
 
 ## 2.5 Nhiều ô trong một cửa sổ
 
-- Luồng chính: 1. Người dùng mở thêm phiên (2.3, 2.4); mỗi phiên mở ra bằng cách chia đôi ô đang focus. 2. Người dùng kéo vách ngăn để đổi kích thước. 3. Người dùng gõ và dùng chuột trong từng ô như trong terminal thường. 4. Người dùng đóng ô khi xong.
+- Luồng chính: 1. Người dùng mở thêm phiên (2.3, 2.4); mỗi phiên mở ra bằng cách chia đôi ô đang focus. 2. Người dùng kéo vách ngăn để đổi kích thước. 3. Người dùng gõ và dùng chuột trong từng ô như trong terminal thường. 4. Người dùng bấm × trên ô khi xong, chọn trong Close Dialog → SRS-FR-100.
 - Luồng thay thế: A1 người dùng kéo tiêu đề ô thả lên Drop Zone của ô khác → SRS-FR-080, SRS-FR-081, SRS-FR-082
 - Luồng thay thế: A2 phiên trong ô thoát bình thường → ô đóng → SRS-FR-083; thoát bất thường → ô báo "Session ended" → SRS-FR-028
-- Luồng ngoại lệ: E1 đóng ô khi phiên đang `Running` hoặc `Needs Approval` → hỏi xác nhận → SRS-FR-027
+- Luồng ngoại lệ: E1 đóng ô khi phiên đang `Running` hoặc `Needs Approval` → Close Dialog thêm cảnh báo → SRS-FR-027
+- Luồng thay thế: A5 người dùng chọn Close and move to Trash → SRS-FR-101; không chuyển được vào Thùng rác → SRS-FR-102
 - Luồng thay thế: A3 người dùng phóng to một ô ra cả cửa sổ rồi thu về → SRS-FR-041, SRS-FR-042
 - Luồng thay thế: A4 đang phóng to mà mở ô mới → thu về trước → SRS-FR-046
 - Luồng thay thế: A5 người dùng nhấp đúp tiêu đề ô để phóng to, nhấp đúp lần nữa để thu về → SRS-FR-066, SRS-FR-067
@@ -332,9 +334,10 @@ The system shall accept Vietnamese text typed through an operating system input 
 - Nguồn: BR-05
 
 ### SRS-FR-027 — Confirm closing a busy pane
-If the user closes a pane whose session is `Running` or `Needs Approval`, then the system shall ask for confirmation before closing that pane.
-- Giải thích: theo A-05, tránh lỡ tay cắt ngang việc đang làm.
-- Ví dụ âm: ô đang `Running`, bấm đóng → hiện hộp "Session is still running. Close anyway?"; chọn Cancel → ô vẫn chạy.
+If the user chooses × on a pane whose session is `Running` or `Needs Approval`, then the system shall show the warning "Session is still running." in the Close Dialog.
+- Giải thích: theo A-05, tránh lỡ tay cắt ngang việc đang làm. Sửa ở CR-009: trước là hộp riêng "Session is still running. Close anyway?".
+- Ví dụ âm: ô đang `Running`, bấm × → Close Dialog có dòng "Session is still running."; chọn Cancel → ô vẫn chạy.
+- Ví dụ âm: ô `Idle` → Close Dialog không có dòng này.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-05
@@ -350,10 +353,37 @@ When the session in a pane exits abnormally, the system shall show the message "
 ### SRS-FR-029 — Close pane ends its session
 When the user closes a pane, the system shall end the Claude Code session running in that pane.
 - Giải thích: không để phiên chạy ngầm không ai thấy.
-- Ví dụ: đóng ô có phiên `Idle` → ô biến mất, phiên kết thúc, dòng của nó trong danh sách phiên mất nhãn `Live`.
+- Ví dụ: bấm × trên ô có phiên `Idle`, chọn Close → ô biến mất, phiên kết thúc, dòng của nó trong danh sách phiên mất nhãn `Live`.
+- Ví dụ âm: chọn Close → phiên vẫn còn trong Session History Panel.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-05
+
+### SRS-FR-100 — Close Dialog on pane close
+When the user chooses × on a pane header, the system shall show the Close Dialog for that pane before closing it.
+- Giải thích: hiện ở mọi trạng thái; Cancel → không đổi gì; Close → đóng ô như SRS-FR-029, phiên còn trong lịch sử; ô chưa có lịch sử phiên trên đĩa (mở phiên mới mà chưa gõ gì) → Close Dialog không có nút Close and move to Trash.
+- Ví dụ: ô "Fix login bug" `Idle`, bấm × → hộp "Close "Fix login bug"?" với ba nút Cancel · Close · Close and move to Trash.
+- Ví dụ: chọn Cancel → ô vẫn mở.
+- Ví dụ âm: gõ `/exit` → ô đóng ngay, không có Close Dialog (SRS-FR-083), phiên vẫn còn trong lịch sử.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-101 — Close and move to Trash
+When the user chooses Close and move to Trash in the Close Dialog, the system shall close that pane and then move that session's history to the operating system's trash.
+- Giải thích: kết thúc phiên và Pane Shell như SRS-FR-029, SRS-FR-062 trước khi chuyển; phiên biến khỏi Session History Panel như SRS-FR-047; không hỏi thêm hộp "Move … to Trash?" (SRS-FR-048 chỉ áp cho Delete trên Session History Panel).
+- Ví dụ: ô "Fix login bug" `Idle`, bấm × → Close and move to Trash → ô biến mất, dòng "Fix login bug" biến khỏi Session History Panel, file phiên nằm trong Thùng rác.
+- Ví dụ: ô `Running`, bấm × → hộp có dòng "Session is still running."; Close and move to Trash → phiên kết thúc, ô đóng, phiên vào Thùng rác.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-08
+
+### SRS-FR-102 — Report delete failure after close
+If the history of a session closed with Close and move to Trash cannot be moved to the trash, then the system shall keep that session in the Session History Panel and show the message "Session could not be deleted".
+- Ví dụ âm: file phiên bị khoá quyền ghi → ô vẫn đóng, phiên còn trong Session History Panel, hiện "Session could not be deleted".
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-08
 
 ### SRS-FR-030 — Pane header
 The system shall show the workspace name and the session title in the header of each pane.
@@ -609,6 +639,7 @@ When the user opens the Status Latency report, the system shall show the percent
 - Luồng thay thế: A1 người dùng chọn Cancel → không đổi gì → SRS-FR-048
 - Luồng thay thế: A2 phiên đang mở trong ô → kết thúc phiên, đóng ô rồi mới xoá → SRS-FR-049
 - Luồng thay thế: A3 người dùng tick nhiều dòng (SRS-FR-073, SRS-FR-074, SRS-FR-075), chọn "Delete selected", xác nhận một lần → SRS-FR-077, SRS-FR-078; đổi folder hoặc đóng khung thì bỏ chọn → SRS-FR-076
+- Luồng thay thế: A4 người dùng bấm × trên ô và chọn Close and move to Trash → SRS-FR-101
 - Luồng ngoại lệ: E2 xoá nhiều mà có phiên không chuyển được vào Thùng rác → giữ các phiên đó, báo số đã xoá → SRS-FR-079
 - Luồng ngoại lệ: E1 không chuyển được vào Thùng rác → giữ phiên, báo lỗi → SRS-FR-050
 
@@ -704,7 +735,7 @@ If some selected sessions cannot be moved to the trash, then the system shall ke
 - Luồng thay thế: A1 người dùng kéo vách giữa phiên và Pane Shell → SRS-FR-059, SRS-FR-060
 - Luồng thay thế: A2 người dùng gõ `exit` trong Pane Shell → SRS-FR-061
 - Luồng thay thế: A3 phiên Claude Code trong ô thoát bất thường → SRS-FR-064; thoát bình thường → ô đóng cùng Pane Shell → SRS-FR-083
-- Luồng ngoại lệ: E1 đóng ô khi Pane Shell đang chạy một lệnh → hỏi xác nhận → SRS-FR-063, SRS-FR-062
+- Luồng ngoại lệ: E1 đóng ô khi Pane Shell đang chạy một lệnh → Close Dialog thêm cảnh báo → SRS-FR-063, SRS-FR-062
 - Luồng ngoại lệ: E2 shell không khởi động được → SRS-FR-065
 
 ### SRS-FR-055 — Open the pane shell
@@ -769,10 +800,10 @@ When the user closes a pane, the system shall end the Pane Shell process of that
 - Nguồn: BR-05
 
 ### SRS-FR-063 — Confirm closing a pane with a busy shell
-If the user closes a pane whose Pane Shell is running a command, then the system shall ask for confirmation before closing that pane.
-- Giải thích: "đang chạy một lệnh" là shell không đứng ở dấu nhắc chờ lệnh. Ô vừa bận theo SRS-FR-027 vừa có shell bận → chỉ một hộp xác nhận.
-- Ví dụ: phiên `Idle`, shell ẩn chạy `npm run dev`, bấm đóng → hộp "A command is still running in the shell. Close anyway?"; chọn Cancel → ô và shell vẫn chạy.
-- Ví dụ âm: shell đứng ở dấu nhắc, phiên `Idle` → đóng không hỏi.
+If the user chooses × on a pane whose Pane Shell is running a command, then the system shall show the warning "A command is still running in the shell." in the Close Dialog.
+- Giải thích: "đang chạy một lệnh" là shell không đứng ở dấu nhắc chờ lệnh. Ô vừa bận theo SRS-FR-027 vừa có shell bận → một Close Dialog có cả hai dòng. Sửa ở CR-009: trước là hộp riêng "A command is still running in the shell. Close anyway?".
+- Ví dụ: phiên `Idle`, shell ẩn chạy `npm run dev`, bấm × → Close Dialog có dòng "A command is still running in the shell."; chọn Cancel → ô và shell vẫn chạy.
+- Ví dụ âm: shell đứng ở dấu nhắc → Close Dialog không có dòng này.
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-05
@@ -1063,7 +1094,7 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing`; Status Highlight của folder; tint riêng của section | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006, SRS-FR-034, SRS-FR-040, SRS-FR-054, SRS-NFR-009 |
 | Cửa sổ chính · Active Sessions | Phiên đang mở trong ô của mọi folder, Status Highlight, dòng phụ "giờ · lý do", bấm dòng để tới ô, Row Focus Mark của ô đang focus; tint riêng của section | SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-FR-099, SRS-NFR-009 |
 | Cửa sổ chính · Session History Panel | Lịch sử phiên của folder đang chọn, nhãn `Live`, Resume, New Session, xoá một hoặc nhiều phiên, đóng khung | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-054, SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079, SRS-NFR-003 |
-| Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô, ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, Goal Line và sửa Session Goal | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 |
+| Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô qua Close Dialog (có thể chuyển phiên vào Thùng rác), ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, Goal Line và sửa Session Goal | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098, SRS-FR-100, SRS-FR-101, SRS-FR-102 |
 | Cửa sổ chính · toàn cửa sổ | Phóng to, thu nhỏ, về mặc định cỡ chữ của mọi chữ trong cửa sổ; ẩn/hiện Sidebar bằng Sidebar Toggle hoặc Sidebar shortcut | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071, SRS-FR-088, SRS-FR-089, SRS-FR-090 |
 | Status Latency | Xem tỉ lệ đổi trạng thái hiện ≤ 3 giây | SRS-FR-039 |
 
@@ -1157,7 +1188,7 @@ The system shall give the Workspace List section and the Active Sessions section
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-099 (trừ SRS-FR-022, SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-001 đến SRS-FR-102 (trừ SRS-FR-022, SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
 | SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
 | SRS-NFR-001 đến SRS-NFR-009 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
@@ -1265,6 +1296,9 @@ The system shall give the Workspace List section and the Active Sessions section
 | SRS-FR-097 | BR-09 | | Test | Baselined |
 | SRS-FR-098 | BR-09 | | Test | Baselined |
 | SRS-FR-099 | BR-05 | | Test | Baselined |
+| SRS-FR-100 | BR-05 | | Test | Baselined |
+| SRS-FR-101 | BR-08 | | Test | Baselined |
+| SRS-FR-102 | BR-08 | | Test | Baselined |
 | SRS-NFR-001 | BR-05 | | Test | Baselined |
 | SRS-NFR-002 | BR-05 | | Test | Baselined |
 | SRS-NFR-003 | BR-02 | | Test | Baselined |
@@ -1297,3 +1331,4 @@ The system shall give the Workspace List section and the Active Sessions section
 | v1.6 | 2026-10-20 | PO | CR-006: Focus Outline cho ô đang focus; ẩn/hiện Sidebar bằng nút và Cmd+B / Ctrl+B, mở app luôn hiện; thêm SRS-FR-087 đến SRS-FR-090; theo BRD v2.5 |
 | v1.7 | 2026-10-21 | PO | CR-007: Session Goal ghim trên Goal Line, sửa được, giữ giữa các lần mở app; Focus Reminder gửi cùng mỗi prompt, Claude Code nhắc khi lạc đề theo RULE-09; thêm SRS-FR-091 đến SRS-FR-098, A-10, A-11; theo BRD v3.0 |
 | v1.8 | 2026-10-21 | PO | CR-008: Row Focus Mark trên dòng Active Sessions của ô đang focus, ở mọi trạng thái, không thay Status Highlight; thêm SRS-FR-099, Row Focus Mark; theo BRD v3.0 |
+| v1.9 | 2026-10-21 | PO | CR-009: bấm × trên ô luôn hiện Close Dialog (Cancel · Close · Close and move to Trash), cảnh báo bận nằm trong hộp thay hai hộp riêng; `/exit` giữ nguyên; sửa SRS-FR-027, SRS-FR-029, SRS-FR-063; thêm SRS-FR-100 đến SRS-FR-102, Close Dialog; theo BRD v3.1 |
