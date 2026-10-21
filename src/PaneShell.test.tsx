@@ -392,6 +392,7 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
     const { user, adapters } = await openPane(sessions);
     await user.click(chip());
     await user.click(within(paneAt()).getByRole("button", { name: "Close pane" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
     await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
 
     await act(async () => finish());
@@ -403,12 +404,16 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
 
 describe("Closing a pane with a shell (3.4)", () => {
   const closeButton = () => within(paneAt()).getByRole("button", { name: "Close pane" });
+  const chooseClose = (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
   const busy = (command: string | null) => vi.fn(async () => ({ busy: true, command }));
+  const SHELL_WARNING = "A command is still running in the shell.";
 
   it("ends the shell with its pane: stream and terminal disposed, no separate shell call (SRS-FR-062)", async () => {
     const { user, sessions, shell, shellTerminal } = await paneWithShell();
     await user.click(chip());
     await user.click(closeButton());
+    await chooseClose(user);
 
     await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
     expect(sessions.close).toHaveBeenCalledWith("p1");
@@ -417,7 +422,7 @@ describe("Closing a pane with a shell (3.4)", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("asks before closing a pane whose shell runs a command; Cancel keeps both (SRS-FR-063)", async () => {
+  it("warns in the Close Dialog that the shell runs a command; Cancel keeps both (SRS-FR-063)", async () => {
     const sessions = fakeSessions({ shellActivity: busy("npm run dev") });
     const { user, session, shell, shellTerminal } = await paneWithShell(sessions);
     act(() => session.status({ state: "Idle" }));
@@ -425,10 +430,11 @@ describe("Closing a pane with a shell (3.4)", () => {
 
     await user.click(closeButton());
 
-    const dialog = await screen.findByRole("dialog", { name: "A command is still running in the shell. Close anyway?" });
+    const dialog = await screen.findByRole("dialog", { name: "Close “Fix login”?" });
+    expect(within(dialog).getByText(SHELL_WARNING)).toBeInTheDocument();
     expect(dialog).toHaveTextContent("npm run dev will be stopped.");
     expect(within(dialog).getByText("npm run dev")).toHaveClass("font-mono");
-    expect(within(dialog).getByRole("button", { name: "Close" })).toHaveClass("bg-error");
+    expect(dialog).not.toHaveTextContent("Session is still running.");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(sessions.close).not.toHaveBeenCalled();
@@ -437,11 +443,12 @@ describe("Closing a pane with a shell (3.4)", () => {
     expect(shellTerminal.dispose).not.toHaveBeenCalled();
   });
 
-  it("closes the pane after Close in the shell dialog", async () => {
+  it("closes the pane after Close when the shell is busy", async () => {
     const sessions = fakeSessions({ shellActivity: busy("npm run dev") });
     const { user } = await paneWithShell(sessions);
     await user.click(closeButton());
-    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Close" }));
+    await screen.findByRole("dialog");
+    await chooseClose(user);
     expect(sessions.close).toHaveBeenCalledWith("p1");
     await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -454,32 +461,32 @@ describe("Closing a pane with a shell (3.4)", () => {
     expect(await screen.findByRole("dialog")).toHaveTextContent("The shell command will be stopped.");
   });
 
-  it("asks when the shell's activity cannot be read", async () => {
+  it("warns when the shell's activity cannot be read", async () => {
     const sessions = fakeSessions({ shellActivity: vi.fn(async () => Promise.reject("io error")) });
     const { user } = await paneWithShell(sessions);
     await user.click(closeButton());
-    expect(await screen.findByRole("dialog", { name: "A command is still running in the shell. Close anyway?" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog")).toHaveTextContent(SHELL_WARNING);
     expect(sessions.close).not.toHaveBeenCalled();
   });
 
-  it("closes at once when the shell waits at its prompt (SRS-FR-063)", async () => {
+  it("shows no shell warning when the shell waits at its prompt (SRS-FR-063)", async () => {
     const { user, sessions, session } = await paneWithShell();
     act(() => session.status({ state: "Idle" }));
     await user.click(closeButton());
-    await vi.waitFor(() => expect(sessions.close).toHaveBeenCalledWith("p1"));
+    const dialog = await screen.findByRole("dialog");
     expect(sessions.shellActivity).toHaveBeenCalledWith("p1");
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent(SHELL_WARNING);
+    expect(sessions.close).not.toHaveBeenCalled();
   });
 
-  it("closes at once when the shell is already gone", async () => {
+  it("shows no shell warning when the shell is already gone", async () => {
     const sessions = fakeSessions({ shellActivity: vi.fn(async () => Promise.reject("not_found")) });
     const { user } = await paneWithShell(sessions);
     await user.click(closeButton());
-    await vi.waitFor(() => expect(sessions.close).toHaveBeenCalledWith("p1"));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(await screen.findByRole("dialog")).not.toHaveTextContent(SHELL_WARNING);
   });
 
-  it("asks once when both the session and the shell are busy (SRS-FR-063)", async () => {
+  it("shows both warnings in one dialog when the session and the shell are busy (SRS-FR-063)", async () => {
     const sessions = fakeSessions({ shellActivity: busy("npm run dev") });
     const { user, session } = await paneWithShell(sessions);
     await user.click(chip());
@@ -491,26 +498,11 @@ describe("Closing a pane with a shell (3.4)", () => {
 
     const dialogs = screen.getAllByRole("dialog");
     expect(dialogs).toHaveLength(1);
-    expect(dialogs[0]).toHaveAccessibleName("Session is still running. Close anyway?");
-    expect(dialogs[0]).toHaveTextContent(/agent-deck · .* will be ended and the shell command will be stopped\./);
+    expect(within(dialogs[0]).getByText("Session is still running.")).toBeInTheDocument();
+    expect(within(dialogs[0]).getByText(SHELL_WARNING)).toBeInTheDocument();
   });
 
-  it("mentions a visible busy shell in the one dialog of a busy session (SRS-FR-063)", async () => {
-    const sessions = fakeSessions({ shellActivity: busy("npm run dev") });
-    const { user, session } = await paneWithShell(sessions);
-    act(() => session.status({ state: "Running" }));
-
-    await user.click(closeButton());
-    await act(async () => {});
-
-    expect(sessions.shellActivity).toHaveBeenCalledWith("p1");
-    const dialogs = screen.getAllByRole("dialog");
-    expect(dialogs).toHaveLength(1);
-    expect(dialogs[0]).toHaveAccessibleName("Session is still running. Close anyway?");
-    expect(dialogs[0]).toHaveTextContent("the shell command will be stopped.");
-  });
-
-  it("leaves the shell out of the session dialog when its command has ended since the last poll", async () => {
+  it("leaves the shell warning out when its command has ended since the last poll", async () => {
     let activity: ShellActivity = { busy: true, command: "npm run dev" };
     const sessions = fakeSessions({ shellActivity: vi.fn(async () => activity) });
     const { user, session } = await paneWithShell(sessions);
@@ -522,18 +514,18 @@ describe("Closing a pane with a shell (3.4)", () => {
     await user.click(closeButton());
     await act(async () => {});
 
-    const dialog = screen.getByRole("dialog", { name: "Session is still running. Close anyway?" });
-    expect(dialog).toHaveTextContent("Fix login will be ended.");
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Session is still running.")).toBeInTheDocument();
     expect(dialog).not.toHaveTextContent("shell");
   });
 
-  it("keeps the shell dialog open when the session's status changes", async () => {
+  it("keeps the shell warning when the session's status changes", async () => {
     const sessions = fakeSessions({ shellActivity: busy("npm run dev") });
     const { user, session } = await paneWithShell(sessions);
     await user.click(closeButton());
     await screen.findByRole("dialog");
     act(() => session.status({ state: "Idle" }));
-    expect(screen.getByRole("dialog", { name: "A command is still running in the shell. Close anyway?" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent(SHELL_WARNING);
   });
 
   it("counts the shell's terminal in the diagnostic report", async () => {

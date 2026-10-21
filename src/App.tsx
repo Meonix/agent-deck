@@ -5,7 +5,7 @@ import type { ZoomClient } from "./api/zoom";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { StatusLatencyReport } from "./components/StatusLatencyReport";
 import { PaneGrid } from "./components/PaneGrid";
-import { TerminalPane, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
+import { TerminalPane, UNTITLED, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
 import { ToastProvider, useToast } from "./components/Toast";
 import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
 import { activeSessions, folderHighlights, maximizedBadge } from "./components/statusHighlight";
@@ -108,32 +108,34 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   // SRS-FR-076: a switch of folder or a close starts the next view of the panel with nothing ticked.
   useEffect(() => setSelection([]), [selectedId, historyShown]);
 
-  // `shellBusy`: what the shell answered when Close was clicked.
-  const [confirming, setConfirming] = useState<{ paneId: string; shellBusy: boolean } | null>(null);
-  const confirmed = panes.entries.find((e) => e.pane.paneId === confirming?.paneId);
-  const stillBusy = confirmed !== undefined && !confirmed.ended && isBusy(confirmed);
+  // `shell`: what the shell answered when × was clicked, null when it ran nothing.
+  const [closing, setClosing] = useState<{ paneId: string; shell: { command: string | null } | null } | null>(null);
+  const closingEntry = panes.entries.find((e) => e.pane.paneId === closing?.paneId);
   useEffect(() => {
-    if (confirming !== null && !stillBusy) setConfirming(null);
-  }, [confirming, stillBusy]);
-  const cancelConfirm = useCallback(() => setConfirming(null), []);
-  // Kept apart from `confirming`, which is dropped as soon as the session stops being busy.
-  const [confirmingShell, setConfirmingShell] = useState<{ paneId: string; command: string | null } | null>(null);
-  const cancelShellConfirm = useCallback(() => setConfirmingShell(null), []);
+    if (closing !== null && closingEntry === undefined) setClosing(null);
+  }, [closing, closingEntry]);
+  const cancelClose = useCallback(() => setClosing(null), []);
+  // Only the latest × may open the dialog: an older shell answer can come back after a newer click.
+  const closeRequests = useRef(0);
   const requestClose = async (paneId: string) => {
+    const request = ++closeRequests.current;
     const entry = panes.entries.find((e) => e.pane.paneId === paneId);
-    // "not_found": the shell is already gone. Any other failure asks, the safer side.
+    // "not_found": the shell is already gone. Any other failure warns, the safer side.
     const activity = entry?.shell
       ? await sessions.shellActivity(paneId).catch((e) => (e === "not_found" ? null : { busy: true, command: null }))
       : null;
-    if (entry && !entry.ended && isBusy(entry)) {
-      setConfirming({ paneId, shellBusy: activity?.busy ?? false });
-      return;
-    }
-    if (activity?.busy) {
-      setConfirmingShell({ paneId, command: activity.command });
-      return;
-    }
+    if (request === closeRequests.current) setClosing({ paneId, shell: activity?.busy ? { command: activity.command } : null });
+  };
+  const closeOnly = (paneId: string) => {
+    setClosing(null);
     void panes.closePane(paneId);
+  };
+  const closeAndTrash = (entry: PaneEntry) => {
+    const { paneId, sessionId } = entry.pane;
+    // The Delete already running moves the history; this one only has to close the pane.
+    if (inFlight.current.has(sessionId)) return closeOnly(paneId);
+    setClosing(null);
+    void confirmDelete({ workspaceId: entry.workspaceId, id: sessionId, title: entry.title, paneId, live: !entry.ended });
   };
 
   const showToast = useToast();
@@ -291,40 +293,18 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           onConfirm={() => void confirmDeleteMany(deletingMany)}
         />
       )}
-      {confirming && confirmed && stillBusy && (
+      {closing && closingEntry && (
         <ConfirmDialog
-          title="Session is still running. Close anyway?"
-          detail={
-            confirming.shellBusy
-              ? `${confirmed.workspaceName} · ${confirmed.title} will be ended and the shell command will be stopped.`
-              : `${confirmed.workspaceName} · ${confirmed.title} will be ended.`
-          }
-          action="Close"
-          onCancel={cancelConfirm}
-          onConfirm={() => {
-            setConfirming(null);
-            void panes.closePane(confirmed.pane.paneId);
-          }}
-        />
-      )}
-      {confirmingShell && (
-        <ConfirmDialog
-          title="A command is still running in the shell. Close anyway?"
-          detail={
-            confirmingShell.command ? (
-              <>
-                <span className="font-mono">{confirmingShell.command}</span> will be stopped.
-              </>
-            ) : (
-              "The shell command will be stopped."
-            )
-          }
-          action="Close"
-          onCancel={cancelShellConfirm}
-          onConfirm={() => {
-            setConfirmingShell(null);
-            void panes.closePane(confirmingShell.paneId);
-          }}
+          title={`Close “${closingEntry.title}”?`}
+          detail={closeWarnings(!closingEntry.ended && isBusy(closingEntry), closing.shell)}
+          {...(hasHistory(closingEntry)
+            ? {
+                action: "Close and move to Trash",
+                extra: { label: "Close", onChoose: () => closeOnly(closingEntry.pane.paneId) },
+                onConfirm: () => closeAndTrash(closingEntry),
+              }
+            : { action: "Close", onConfirm: () => closeOnly(closingEntry.pane.paneId) })}
+          onCancel={cancelClose}
         />
       )}
     </div>
@@ -348,6 +328,32 @@ function deleteManyText(targets: Deleting[]) {
 }
 
 type CenteredStateProps = { title: string; hint: string; action: string; disabled?: boolean; onAction(): void };
+
+/** RULE-01: "(untitled)" means no prompt yet, so nothing of the session is on disk to trash. */
+function hasHistory({ pane, title }: PaneEntry): boolean {
+  return pane.started && title !== UNTITLED;
+}
+
+function closeWarnings(sessionBusy: boolean, shell: { command: string | null } | null) {
+  if (!sessionBusy && !shell) return null;
+  return (
+    <>
+      {sessionBusy && <p>Session is still running.</p>}
+      {shell && <p>A command is still running in the shell.</p>}
+      {shell && (
+        <p>
+          {shell.command ? (
+            <>
+              <span className="font-mono">{shell.command}</span> will be stopped.
+            </>
+          ) : (
+            "The shell command will be stopped."
+          )}
+        </p>
+      )}
+    </>
+  );
+}
 
 function isBusy({ status }: PaneEntry): boolean {
   return status.tracked && (status.state === "Running" || status.state === "Needs Approval");

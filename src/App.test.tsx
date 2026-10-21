@@ -74,6 +74,12 @@ async function selectAndStart(user: ReturnType<typeof userEvent.setup>, name: st
   await user.click(newSessionButton());
 }
 
+/** × on the pane (the only one, or `pane`), then `choice` in its Close Dialog. */
+async function closeVia(user: ReturnType<typeof userEvent.setup>, choice = "Close", pane?: HTMLElement) {
+  await user.click((pane ? within(pane) : screen).getByRole("button", { name: "Close pane" }));
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: choice }));
+}
+
 describe("New Session (5.4)", () => {
   it("is disabled until a folder is selected, then offered in the Session History Panel", async () => {
     const { user } = setup([ws("a", "agent-deck")]);
@@ -207,11 +213,11 @@ describe("New Session (5.4)", () => {
     expect(sessions.write).not.toHaveBeenCalled();
   });
 
-  it("closes the pane through the client and removes it", async () => {
+  it("closes the pane through the client after Close and removes it (SRS-FR-029)", async () => {
     const { user, sessions, adapters } = setup([ws("a", "agent-deck")]);
     await selectAndStart(user, "agent-deck");
     await screen.findByTestId("pane-grid");
-    await user.click(screen.getByRole("button", { name: "Close pane" }));
+    await closeVia(user);
     expect(sessions.close).toHaveBeenCalledWith("p1");
     await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
     expect(adapters[0].dispose).toHaveBeenCalled();
@@ -368,6 +374,8 @@ describe("Pane state (4.2 to 4.4)", () => {
     expect(vi.getTimerCount()).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Close pane" }));
     await act(async () => vi.advanceTimersByTimeAsync(0));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    await act(async () => vi.advanceTimersByTimeAsync(0));
     expect(sessions.close).toHaveBeenCalled();
     expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument();
     // Only the session list's minute clock, which lives as long as the app.
@@ -387,97 +395,135 @@ describe("Pane state (4.2 to 4.4)", () => {
     expect(sessions.title).toHaveBeenNthCalledWith(2, "p2");
   });
 
-  describe("confirm close", () => {
-    it("dismisses the dialog when the pane stops being busy", async () => {
+  describe("Close Dialog (SRS-FR-100, SRS-FR-027)", () => {
+    const dialog = () => screen.getByRole("dialog");
+    const titled = () => screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" });
+
+    it("asks before closing an Idle pane, with three buttons and no warning", async () => {
       const { user, sessions, stream } = await openPane();
-      act(() => stream.status({ state: "Running" }));
-      await user.click(screen.getByRole("button", { name: "Close pane" }));
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      await titled();
       act(() => stream.status({ state: "Idle" }));
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      expect(dialog()).toHaveAttribute("aria-modal", "true");
+      expect(dialog()).toHaveAccessibleName("Close “Scaffold Tauri app”?");
+      expect(within(dialog()).getAllByRole("button").map((b) => b.textContent)).toEqual([
+        "Cancel",
+        "Close",
+        "Close and move to Trash",
+      ]);
+      expect(within(dialog()).getByRole("button", { name: "Close and move to Trash" })).toHaveClass("bg-error");
+      expect(dialog()).not.toHaveTextContent("still running");
+      expect(within(dialog()).getByRole("button", { name: "Cancel" })).toHaveFocus();
       expect(sessions.close).not.toHaveBeenCalled();
     });
 
-    it("dismisses the dialog when the session ends", async () => {
+    it("asks before closing an untracked pane", async () => {
+      const { user, sessions } = await openPane();
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      expect(dialog()).toBeInTheDocument();
+      expect(sessions.close).not.toHaveBeenCalled();
+    });
+
+    it("asks before closing an ended pane", async () => {
+      const { user, stream } = await openPane();
+      act(() => stream.exit(1));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      expect(dialog()).toBeInTheDocument();
+    });
+
+    it("offers no Trash for a session that has no prompt yet", async () => {
+      const { user } = await openPane(fakeSessions({ title: vi.fn(() => new Promise<string>(() => {})) }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      expect(within(dialog()).getAllByRole("button").map((b) => b.textContent)).toEqual(["Cancel", "Close"]);
+    });
+
+    it("offers no Trash for a pane whose Claude Code did not start", async () => {
+      const { user } = await openPane(fakeSessions({ started: false }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      expect(within(dialog()).queryByRole("button", { name: "Close and move to Trash" })).not.toBeInTheDocument();
+    });
+
+    it("warns that a Running pane is still running; Cancel keeps it", async () => {
+      const { user, sessions, stream } = await openPane();
+      act(() => stream.status({ state: "Running" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      expect(within(dialog()).getByText("Session is still running.")).toBeInTheDocument();
+      await user.click(within(dialog()).getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(sessions.close).not.toHaveBeenCalled();
+      expect(screen.getByTestId("pane-grid")).toBeInTheDocument();
+    });
+
+    it("keeps the dialog and drops the warning when the pane stops being busy", async () => {
+      const { user, sessions, stream } = await openPane();
+      act(() => stream.status({ state: "Running" }));
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      act(() => stream.status({ state: "Idle" }));
+      expect(dialog()).not.toHaveTextContent("Session is still running.");
+      expect(sessions.close).not.toHaveBeenCalled();
+    });
+
+    it("keeps the dialog without the warning when the session ends", async () => {
       const { user, stream } = await openPane();
       act(() => stream.status({ state: "Needs Approval" }));
       await user.click(screen.getByRole("button", { name: "Close pane" }));
       act(() => stream.exit(1));
+      expect(dialog()).not.toHaveTextContent("Session is still running.");
+    });
+
+    it("closes a busy pane after Close", async () => {
+      const { user, sessions, stream } = await openPane();
+      act(() => stream.status({ state: "Needs Approval", reason: "Edit a" }));
+      await closeVia(user);
+      expect(sessions.close).toHaveBeenCalledWith("p1");
+      await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(sessions.deleteSession).not.toHaveBeenCalled();
+    });
+
+    it("cancels on Escape", async () => {
+      const { user, sessions } = await openPane();
+      await user.click(screen.getByRole("button", { name: "Close pane" }));
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(sessions.close).not.toHaveBeenCalled();
     });
 
     it("cancels on Escape even after focus left the dialog", async () => {
-      const { user, stream } = await openPane();
-      act(() => stream.status({ state: "Running" }));
+      const { user } = await openPane();
       await user.click(screen.getByRole("button", { name: "Close pane" }));
       (document.activeElement as HTMLElement).blur();
       await user.keyboard("{Escape}");
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
-    it("asks before closing a Running pane; Cancel keeps it", async () => {
-      const { user, sessions, stream } = await openPane();
-      act(() => stream.status({ state: "Running" }));
+    it("keeps Tab and Shift+Tab inside the dialog across its three buttons (M4)", async () => {
+      const { user } = await openPane();
+      await titled();
       await user.click(screen.getByRole("button", { name: "Close pane" }));
-      const dialog = screen.getByRole("dialog");
-      expect(dialog).toHaveAttribute("aria-modal", "true");
-      expect(within(dialog).getByText("Session is still running. Close anyway?")).toBeInTheDocument();
-      expect(within(dialog).getByText(/agent-deck · .* will be ended\./)).toBeInTheDocument();
-      expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
-      await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(sessions.close).not.toHaveBeenCalled();
-      expect(screen.getByTestId("pane-grid")).toBeInTheDocument();
-    });
-
-    it("closes the pane after Close", async () => {
-      const { user, sessions, stream } = await openPane();
-      act(() => stream.status({ state: "Needs Approval", reason: "Edit a" }));
-      await user.click(screen.getByRole("button", { name: "Close pane" }));
-      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
-      expect(sessions.close).toHaveBeenCalledWith("p1");
-      await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    });
-
-    it("cancels on Escape", async () => {
-      const { user, sessions, stream } = await openPane();
-      act(() => stream.status({ state: "Running" }));
-      await user.click(screen.getByRole("button", { name: "Close pane" }));
-      await user.keyboard("{Escape}");
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(sessions.close).not.toHaveBeenCalled();
-    });
-
-    it("keeps Tab and Shift+Tab inside the dialog (M4)", async () => {
-      const { user, stream } = await openPane();
-      act(() => stream.status({ state: "Running" }));
-      await user.click(screen.getByRole("button", { name: "Close pane" }));
-      const dialog = within(screen.getByRole("dialog"));
-      const cancel = dialog.getByRole("button", { name: "Cancel" });
-      const close = dialog.getByRole("button", { name: "Close" });
+      const [cancel, close, trash] = within(dialog()).getAllByRole("button");
       expect(cancel).toHaveFocus();
       await user.tab();
       expect(close).toHaveFocus();
       await user.tab();
+      expect(trash).toHaveFocus();
+      await user.tab();
       expect(cancel).toHaveFocus();
+      await user.tab({ shift: true });
+      expect(trash).toHaveFocus();
       await user.tab({ shift: true });
       expect(close).toHaveFocus();
-      await user.tab({ shift: true });
-      expect(cancel).toHaveFocus();
     });
 
     it("brings focus back to Cancel when it escapes the dialog (M4)", async () => {
-      const { user, stream } = await openPane();
-      act(() => stream.status({ state: "Running" }));
+      const { user } = await openPane();
       await user.click(screen.getByRole("button", { name: "Close pane" }));
       act(() => screen.getByRole("button", { name: "Close pane" }).focus());
-      expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" })).toHaveFocus();
+      expect(within(dialog()).getByRole("button", { name: "Cancel" })).toHaveFocus();
     });
 
     it("does not let Escape reach the terminal behind the dialog (M4)", async () => {
-      const { user, stream } = await openPane();
-      act(() => stream.status({ state: "Running" }));
+      const { user } = await openPane();
       await user.click(screen.getByRole("button", { name: "Close pane" }));
       const terminal = panes()[0];
       const reached = vi.fn();
@@ -486,21 +532,6 @@ describe("Pane state (4.2 to 4.4)", () => {
       expect(notCancelled).toBe(false);
       expect(reached).not.toHaveBeenCalled();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    });
-
-    it("closes an Idle pane at once", async () => {
-      const { user, sessions, stream } = await openPane();
-      act(() => stream.status({ state: "Idle" }));
-      await user.click(screen.getByRole("button", { name: "Close pane" }));
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(sessions.close).toHaveBeenCalledWith("p1");
-    });
-
-    it("closes an untracked pane at once", async () => {
-      const { user, sessions } = await openPane();
-      await user.click(screen.getByRole("button", { name: "Close pane" }));
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(sessions.close).toHaveBeenCalledWith("p1");
     });
   });
 });
@@ -567,7 +598,7 @@ describe("Active Sessions (2.3)", () => {
     );
     act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
     expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-error-bg");
-    await user.click(screen.getByRole("button", { name: "Close pane" }));
+    await closeVia(user);
     expect(sessions.close).toHaveBeenCalledWith("p1");
     await vi.waitFor(() => expect(within(activeList()).queryByText("Scaffold Tauri app")).not.toBeInTheDocument());
     expect(within(activeList()).getByText("No active sessions")).toBeInTheDocument();
@@ -869,7 +900,7 @@ describe("Session list (2.1, 2.2)", () => {
     await selectAndStart(user, "agent-deck");
     await vi.waitFor(() => expect(rowTexts()).toEqual(["Fix loginLive", "Init repo1 h ago"]));
     list.mockResolvedValue({ sessions: [{ id: "s1", title: "Fix login", lastActivity: now }, { id: "old", title: "Init repo", lastActivity: now - 3_600_000 }], unreadable: 0 });
-    await user.click(screen.getByRole("button", { name: "Close pane" }));
+    await closeVia(user);
     await vi.waitFor(() => expect(rowTexts()).toEqual(["Fix loginJust now", "Init repo1 h ago"]));
   });
 
@@ -1175,7 +1206,7 @@ describe("Split layout (2.1 to 2.3)", () => {
   it("lets the remaining pane fill the area when its neighbour closes", async () => {
     const { user } = await startOne();
     await newSession(user, "p2");
-    await user.click(within(paneNamed("p2")).getByRole("button", { name: "Close pane" }));
+    await closeVia(user, "Close", paneNamed("p2"));
     await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · p2" })).not.toBeInTheDocument());
     expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 100, 100]);
   });
@@ -1359,7 +1390,7 @@ describe("Reopen panes at launch (2.2 to 2.4)", () => {
     fireEvent.pointerUp(divider, { clientX: 360, pointerId: 1 });
     expect(readSnapshot()!.layout).toMatchObject({ split: "right", ratio: 0.3 });
 
-    await user.click(within(paneNamed("p2")).getByRole("button", { name: "Close pane" }));
+    await closeVia(user, "Close", paneNamed("p2"));
     await vi.waitFor(() => expect(remembered()).toEqual(["s1"]));
   });
 
@@ -1612,7 +1643,7 @@ describe("Maximize pane (2.1 to 2.4)", () => {
     const { user } = await threePanes();
     await user.click(button("p2", "Maximize pane"));
 
-    await user.click(button("p2", "Close pane"));
+    await closeVia(user, "Close", screen.getByRole("region", { name: "agent-deck · p2" }));
 
     await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · p2" })).not.toBeInTheDocument());
     expect(wrapper("p1")).not.toHaveClass("invisible");
@@ -1999,8 +2030,10 @@ describe("Row Focus Mark (2.5)", () => {
 describe("Delete a session (2.2 to 2.4)", () => {
   type Row = { id: string; title: string; lastActivity: number };
 
-  async function folderWithSessions(over: Partial<FakeSessions> = {}) {
+  /** `before`: rows already on disk ahead of the two old sessions, such as the one a pane will open as "s1". */
+  async function folderWithSessions(over: Partial<FakeSessions> = {}, before: Row[] = []) {
     let rows: Row[] = [
+      ...before,
       { id: "old", title: "Old work", lastActivity: 2 },
       { id: "keep", title: "Init repo", lastActivity: 1 },
     ];
@@ -2120,6 +2153,80 @@ describe("Delete a session (2.2 to 2.4)", () => {
 
     expect(sessions.deleteSession).toHaveBeenCalledWith("a", "s1", undefined);
     await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · Live work" })).not.toBeInTheDocument());
+  });
+
+  it("keeps the session in the history when its pane is closed with Close (SRS-FR-029)", async () => {
+    const { user, sessions } = await folderWithSessions({}, [{ id: "s1", title: "Live work", lastActivity: 3 }]);
+    await user.click(newSessionButton());
+    await screen.findByRole("region", { name: "agent-deck · Live work" });
+    await within(historyPanel()).findByText("Live work");
+
+    await closeVia(user);
+
+    await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
+    expect(sessions.deleteSession).not.toHaveBeenCalled();
+    expect(within(historyPanel()).getByText("Live work")).toBeInTheDocument();
+  });
+
+  it("closes the pane and moves its session to the Trash with no second question (SRS-FR-101)", async () => {
+    const { user, sessions } = await folderWithSessions({}, [{ id: "s1", title: "Live work", lastActivity: 3 }]);
+    await user.click(newSessionButton());
+    await screen.findByRole("region", { name: "agent-deck · Live work" });
+    await within(historyPanel()).findByText("Live work");
+    act(() => sessions.opened[0].stream.status({ state: "Running" }));
+
+    await closeVia(user, "Close and move to Trash");
+
+    expect(sessions.deleteSession).toHaveBeenCalledWith("a", "s1", "p1");
+    await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
+    await vi.waitFor(() => expect(within(historyPanel()).queryByText("Live work")).not.toBeInTheDocument());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("moves the session of an ended pane to the Trash (SRS-FR-101)", async () => {
+    const { user, sessions } = await folderWithSessions();
+    await user.click(newSessionButton());
+    await screen.findByRole("region", { name: "agent-deck · Live work" });
+    act(() => sessions.opened[0].stream.exit(1));
+
+    await closeVia(user, "Close and move to Trash");
+
+    expect(sessions.deleteSession).toHaveBeenCalledWith("a", "s1", undefined);
+    await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
+  });
+
+  it("closes the pane but keeps the session when it cannot be moved (SRS-FR-102)", async () => {
+    const { user } = await folderWithSessions({ deleteSession: vi.fn(async () => Promise.reject("locked")) }, [{ id: "s1", title: "Live work", lastActivity: 3 }]);
+    await user.click(newSessionButton());
+    await screen.findByRole("region", { name: "agent-deck · Live work" });
+    await within(historyPanel()).findByText("Live work");
+
+    await closeVia(user, "Close and move to Trash");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Session could not be deleted");
+    await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
+    expect(within(historyPanel()).getByText("Live work")).toBeInTheDocument();
+  });
+
+  it("still closes the pane when a Delete of its session is already running (SRS-FR-101)", async () => {
+    let finish: () => void = () => {};
+    const { user, sessions } = await folderWithSessions(
+      { deleteSession: vi.fn(() => new Promise<void>((r) => (finish = r))) },
+      [{ id: "s1", title: "Live work", lastActivity: 3 }],
+    );
+    await user.click(newSessionButton());
+    await screen.findByRole("region", { name: "agent-deck · Live work" });
+    await within(historyPanel()).findByText("Live work");
+    await pick(user, "Live work");
+    await user.click(screen.getByRole("button", { name: "Close and move" }));
+
+    await closeVia(user, "Close and move to Trash");
+
+    await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
+    expect(sessions.deleteSession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await act(async () => finish());
   });
 
   it("treats a session that is no longer on disk as deleted", async () => {
