@@ -49,6 +49,8 @@ pub trait PaneProcess: Send {
     fn pid(&self) -> Option<u32> {
         None
     }
+    /// Replaces the session goal of a pane that tracks one; others ignore it.
+    fn set_goal(&mut self, _text: &str) {}
 }
 
 pub struct PtySession {

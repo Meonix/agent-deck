@@ -16,7 +16,9 @@ use crate::launcher::{find_claude, login_shell_path_with, session_env};
 use crate::pane_status::{StatusOut, StatusTracker, exit_json, now_ms};
 use crate::panes::{OpenError, PaneId, SessionId, Spawner, Start, close_in_parallel, resume_id};
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
-use crate::session_title::{UNTITLED, session_title};
+use crate::session_goal::{GoalKeeper, GoalOut, GoalStore};
+use crate::session_list::first_prompt;
+use crate::session_title::{UNTITLED, find_session_file, session_title};
 use crate::shell::{Activity, ShellError, ShellProcess, ShellSpawner, spawn_shell};
 use crate::workspace::{DiskProbe, WorkspaceId};
 
@@ -92,6 +94,16 @@ pub async fn pane_title(pane_id: String, app: AppHandle) -> String {
     })
     .await
     .unwrap_or_else(|_| UNTITLED.to_string())
+}
+
+#[tauri::command]
+pub fn set_session_goal(
+    pane_id: String,
+    text: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut panes = state.panes.lock().unwrap();
+    panes.set_goal(&PaneId(pane_id), &text).map_err(io_error)
 }
 
 #[tauri::command]
@@ -258,6 +270,9 @@ fn open_blocking(
     let state = app.state::<AppState>();
     let launch = state.launch.get();
     let env = inherited_env();
+    if let Start::Resume(session) = &start {
+        pin_first_prompt(app, &state, &session.0);
+    }
     let opened = {
         // Holding `list` keeps the workspace from being removed until the pane is registered.
         let list = state.list.lock().unwrap();
@@ -279,6 +294,8 @@ fn open_blocking(
             rows,
             tracker: tracker.clone(),
             hooks: state.hooks.clone(),
+            goals: state.goals.clone(),
+            goal_out: Arc::new(ChannelGoal(output.clone())),
         };
         let sink = ChannelSink {
             channel: output,
@@ -294,6 +311,22 @@ fn open_blocking(
         session_id: opened.session_id,
         started: opened.started,
     })
+}
+
+/// A resumed session with no stored goal gets its first prompt, read once from Claude Code's
+/// history file (SRS-FR-097). Any failure leaves the pane without a goal.
+fn pin_first_prompt(app: &AppHandle, state: &AppState, session: &str) {
+    if state.goals.lock().unwrap().get(session).is_some() {
+        return;
+    }
+    let Ok(home) = app.path().home_dir() else {
+        return;
+    };
+    let prompt = find_session_file(&home.join(".claude").join("projects"), session)
+        .and_then(|file| first_prompt(&file));
+    if let Some(prompt) = prompt {
+        state.goals.lock().unwrap().set(session, &prompt);
+    }
 }
 
 fn open_error(e: OpenError) -> String {
@@ -412,6 +445,8 @@ struct PtySpawner<'a> {
     tracker: Arc<StatusTracker>,
     /// None when the listener could not start: spawn without hooks (D2, D5).
     hooks: Option<Arc<HookServer>>,
+    goals: Arc<Mutex<GoalStore>>,
+    goal_out: Arc<dyn GoalOut>,
 }
 
 impl Spawner for PtySpawner<'_> {
@@ -424,10 +459,19 @@ impl Spawner for PtySpawner<'_> {
     ) -> Option<Box<dyn PaneProcess>> {
         let program = self.launch.claude.clone()?;
         let mut args = Vec::new();
+        let keeper = Arc::new(GoalKeeper::new(
+            self.goals.clone(),
+            session_id.0.clone(),
+            Box::new(self.goal_out.clone()),
+        ));
         // Registered before the spawn so the first hook cannot miss its sink.
         let hook = self.hooks.as_ref().map(|server| {
             let token = uuid::Uuid::new_v4().to_string();
-            server.register(&token, self.tracker.clone() as Arc<dyn HookSink>);
+            let sink = PaneHooks {
+                tracker: self.tracker.clone(),
+                keeper: keeper.clone(),
+            };
+            server.register(&token, Arc::new(sink));
             args.push("--settings".into());
             args.push(hook_settings(&server.url_for(&token)));
             (server.clone(), token)
@@ -445,9 +489,13 @@ impl Spawner for PtySpawner<'_> {
         match PtySession::spawn(spec, sink) {
             Ok(session) => {
                 let killer = session.killer();
+                if resume {
+                    keeper.announce();
+                }
                 Some(Box::new(TrackedProcess {
                     inner: QueuedProcess::new(Box::new(session), Some(killer)),
                     tracker: self.tracker.clone(),
+                    keeper,
                     hook,
                 }))
             }
@@ -533,11 +581,41 @@ impl StatusOut for ChannelStatus {
     }
 }
 
+/// Status and goal messages share the pane's channel with its output.
+struct ChannelGoal(Channel<InvokeResponseBody>);
+
+impl GoalOut for ChannelGoal {
+    fn send_json(&self, json: String) {
+        let _ = self.0.send(InvokeResponseBody::Json(json));
+    }
+}
+
+impl GoalOut for Arc<dyn GoalOut> {
+    fn send_json(&self, json: String) {
+        (**self).send_json(json);
+    }
+}
+
+/// The pane's hook sink: the tracker sees the event first, so status timing is as before,
+/// then the keeper may answer a prompt with the Focus Reminder (D2).
+struct PaneHooks {
+    tracker: Arc<StatusTracker>,
+    keeper: Arc<GoalKeeper>,
+}
+
+impl HookSink for PaneHooks {
+    fn hook(&self, event: serde_json::Value) -> Option<serde_json::Value> {
+        self.tracker.hook(event.clone());
+        self.keeper.hook(&event)
+    }
+}
+
 /// A pane process that tells its tracker about input and a close by the user, and
 /// drops its hook token when it closes.
 struct TrackedProcess {
     inner: QueuedProcess,
     tracker: Arc<StatusTracker>,
+    keeper: Arc<GoalKeeper>,
     /// None when the pane was spawned without a listener.
     hook: Option<(Arc<HookServer>, String)>,
 }
@@ -568,6 +646,10 @@ impl PaneProcess for TrackedProcess {
 
     fn pid(&self) -> Option<u32> {
         self.inner.pid()
+    }
+
+    fn set_goal(&mut self, text: &str) {
+        self.keeper.set(text);
     }
 }
 
@@ -753,6 +835,21 @@ mod tests {
         tracker: Arc<StatusTracker>,
         hooks: Option<Arc<HookServer>>,
     ) -> PtySpawner<'a> {
+        spawner_with_goals(launch, env, tracker, hooks, Outbox::default(), None)
+    }
+
+    fn spawner_with_goals<'a>(
+        launch: &'a Launch,
+        env: Vec<(String, String)>,
+        tracker: Arc<StatusTracker>,
+        hooks: Option<Arc<HookServer>>,
+        goal_out: Outbox,
+        goals: Option<&Path>,
+    ) -> PtySpawner<'a> {
+        let dir = goals.map_or_else(
+            || std::env::temp_dir().join("agent-deck-no-goals"),
+            Path::to_path_buf,
+        );
         PtySpawner {
             launch,
             env,
@@ -760,6 +857,8 @@ mod tests {
             rows: 24,
             tracker,
             hooks,
+            goals: Arc::new(Mutex::new(GoalStore::load(dir))),
+            goal_out: Arc::new(goal_out),
         }
     }
 
@@ -940,6 +1039,78 @@ mod tests {
         assert_eq!(std::fs::read_dir(cwd.path()).unwrap().count(), 0);
     }
 
+    impl GoalOut for Outbox {
+        fn send_json(&self, json: String) {
+            self.0.lock().unwrap().push(json);
+        }
+    }
+
+    /// SRS-FR-094 through the pane's own hook URL, SRS-FR-093 through the process, SRS-FR-096 on a resume.
+    #[cfg(unix)]
+    #[test]
+    fn pane_hook_url_answers_prompts_with_the_reminder_and_the_pane_follows_the_goal() {
+        use crate::hooks::test_client::post_url;
+
+        let bin = tempfile::tempdir().unwrap();
+        let cwd = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let launch = fake_claude(bin.path(), r#"printf '<%s>' "$2""#, 0);
+        let mut seeded = GoalStore::load(data.path().to_path_buf());
+        seeded.set("sid-1", "Sửa lỗi resume");
+        let server = Arc::new(HookServer::start().unwrap());
+        let goals = Outbox::default();
+        let spawner = spawner_with_goals(
+            &launch,
+            vec![],
+            tracker(&Outbox::default()),
+            Some(server.clone()),
+            goals.clone(),
+            Some(data.path()),
+        );
+        let out = Arc::new(Mutex::new(Vec::new()));
+        let (tx, rx) = mpsc::channel();
+
+        let mut process = spawner
+            .spawn(
+                cwd.path(),
+                &SessionId("sid-1".into()),
+                true,
+                Box::new(ExitSink(out.clone(), Mutex::new(tx))),
+            )
+            .expect("spawned");
+        let fields = printed_fields(&out);
+        let settings: serde_json::Value = serde_json::from_str(&fields[0]).unwrap();
+        let url = settings["hooks"]["UserPromptSubmit"][0]["hooks"][0]["url"]
+            .as_str()
+            .expect("http hook url")
+            .to_string();
+
+        // A resumed pane announces its stored goal.
+        assert_eq!(*goals.0.lock().unwrap(), [r#"{"goal":"Sửa lỗi resume"}"#]);
+        let response = post_url(
+            &url,
+            r#"{"hook_event_name":"UserPromptSubmit","session_id":"sid-1","prompt":"thêm nút export"}"#,
+        );
+        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+        assert!(response.contains("Sửa lỗi resume"), "{response}");
+        assert!(response.contains("additionalContext"), "{response}");
+
+        process.set_goal("Goal mới");
+        let response = post_url(
+            &url,
+            r#"{"hook_event_name":"UserPromptSubmit","session_id":"sid-1","prompt":"x"}"#,
+        );
+        assert!(response.contains("Goal mới"), "{response}");
+        assert_eq!(
+            goals.0.lock().unwrap().last().unwrap(),
+            r#"{"goal":"Goal mới"}"#
+        );
+
+        process.write(b"\n").unwrap();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(3)).unwrap(), Some(0));
+        process.close();
+    }
+
     #[test]
     fn pty_spawner_drops_the_token_when_claude_fails_to_start() {
         let dir = tempfile::tempdir().unwrap();
@@ -1013,6 +1184,13 @@ mod tests {
         let mut process = TrackedProcess {
             inner: QueuedProcess::new(Box::new(Recorder(calls.clone())), None),
             tracker,
+            keeper: Arc::new(GoalKeeper::new(
+                Arc::new(Mutex::new(GoalStore::load(
+                    std::env::temp_dir().join("agent-deck-no-goals"),
+                ))),
+                "s".into(),
+                Box::new(Outbox::default()),
+            )),
             hook: None,
         };
 

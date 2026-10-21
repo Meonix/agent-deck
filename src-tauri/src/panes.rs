@@ -160,6 +160,11 @@ impl PaneRegistry {
         self.process(pane)?.resize(cols, rows)
     }
 
+    pub fn set_goal(&mut self, pane: &PaneId, text: &str) -> io::Result<()> {
+        self.process(pane)?.set_goal(text);
+        Ok(())
+    }
+
     /// Forgets the pane and hands back its process, so the caller can close it
     /// (which may block) outside any lock around the registry.
     pub fn take(&mut self, pane: &PaneId) -> Option<Box<dyn PaneProcess>> {

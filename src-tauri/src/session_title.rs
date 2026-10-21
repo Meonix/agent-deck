@@ -15,7 +15,7 @@ pub fn session_title(projects_dir: &Path, session_id: &str) -> String {
         .map_or_else(|| UNTITLED.to_string(), |facts| facts.title())
 }
 
-fn find_session_file(projects_dir: &Path, session_id: &str) -> Option<PathBuf> {
+pub(crate) fn find_session_file(projects_dir: &Path, session_id: &str) -> Option<PathBuf> {
     let name = format!("{session_id}.jsonl");
     fs::read_dir(projects_dir)
         .ok()?

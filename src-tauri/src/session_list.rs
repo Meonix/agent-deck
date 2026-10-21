@@ -817,9 +817,15 @@ mod tests {
     #[test]
     fn first_prompt_skips_meta_and_local_command_records() {
         let text = line(serde_json::json!({"type": "mode", "mode": "default"}))
-            + &meta(serde_json::json!("<local-command-caveat>Caveat: ...</local-command-caveat>"))
-            + &user(serde_json::json!("<command-name>/clear</command-name>\n<command-message>clear</command-message>\n<command-args></command-args>"))
-            + &user(serde_json::json!("<local-command-stdout></local-command-stdout>"))
+            + &meta(serde_json::json!(
+                "<local-command-caveat>Caveat: ...</local-command-caveat>"
+            ))
+            + &user(serde_json::json!(
+                "<command-name>/clear</command-name>\n<command-message>clear</command-message>\n<command-args></command-args>"
+            ))
+            + &user(serde_json::json!(
+                "<local-command-stdout></local-command-stdout>"
+            ))
             + &meta(serde_json::json!([{"type": "text", "text": "injected"}]))
             + &user(serde_json::json!("Scaffold Tauri app"))
             + &user(serde_json::json!("later"));
@@ -830,27 +836,34 @@ mod tests {
 
     #[test]
     fn first_prompt_rebuilds_a_skill_command() {
-        let text = user(serde_json::json!("<command-name>/dev-bug</command-name>\n<command-message>dev-bug</command-message>\n<command-args>lỗi X</command-args>"));
+        let text = user(serde_json::json!(
+            "<command-name>/dev-bug</command-name>\n<command-message>dev-bug</command-message>\n<command-args>lỗi X</command-args>"
+        ));
         assert_eq!(first_prompt_of(&text).0.as_deref(), Some("/dev-bug lỗi X"));
     }
 
     #[test]
     fn first_prompt_of_a_command_without_args_is_the_command() {
-        let text = user(serde_json::json!("<command-name>/dev-bug</command-name><command-message>dev-bug</command-message><command-args></command-args>"));
+        let text = user(serde_json::json!(
+            "<command-name>/dev-bug</command-name><command-message>dev-bug</command-message><command-args></command-args>"
+        ));
         assert_eq!(first_prompt_of(&text).0.as_deref(), Some("/dev-bug"));
     }
 
     #[test]
     fn first_prompt_reads_a_text_part_and_skips_tool_results() {
-        let text = user(serde_json::json!([{"type": "tool_result", "tool_use_id": "t", "content": "x"}]))
-            + &user(serde_json::json!([{"type": "text", "text": "Sửa lỗi resume"}]));
+        let text =
+            user(serde_json::json!([{"type": "tool_result", "tool_use_id": "t", "content": "x"}]))
+                + &user(serde_json::json!([{"type": "text", "text": "Sửa lỗi resume"}]));
         assert_eq!(first_prompt_of(&text).0.as_deref(), Some("Sửa lỗi resume"));
     }
 
     #[test]
     fn first_prompt_is_none_without_a_user_prompt() {
         let text = line(serde_json::json!({"type": "assistant"}))
-            + &user(serde_json::json!("<command-name>/clear</command-name><command-message>clear</command-message><command-args></command-args>"))
+            + &user(serde_json::json!(
+                "<command-name>/clear</command-name><command-message>clear</command-message><command-args></command-args>"
+            ))
             + "not json\n";
         let (found, unchanged) = first_prompt_of(&text);
         assert_eq!(found, None);
