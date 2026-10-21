@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.7 (2026-10-21)
+status: Baselined v1.8 (2026-10-21)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -71,6 +71,7 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Drop Zone | Một trong bốn vùng trái, phải, trên, dưới hiện trên một ô khi người dùng kéo tiêu đề một ô khác lên nó |
 | Thoát bình thường | Phiên Claude Code kết thúc với mã thoát 0 (`/exit`, Ctrl+D); mọi kiểu kết thúc khác là thoát bất thường |
 | Focus Outline | Vòng màu iris dày 2px bên ngoài viền của ô đang focus |
+| Row Focus Mark | Vòng màu iris dày 2px quanh dòng của phiên trong Active Sessions khi ô của phiên đó có Focus Outline |
 | Sidebar | Cột trái chứa Workspace List và Active Sessions |
 | Sidebar Toggle | Nút ở giữa theo chiều dọc, sát mép phải Sidebar (Sidebar ẩn: sát mép trái cửa sổ), bấm để ẩn/hiện Sidebar |
 | Sidebar shortcut | macOS: Cmd+B; Windows: Ctrl+B |
@@ -447,6 +448,17 @@ While a pane has keyboard focus, the system shall show the Focus Outline around 
 - Ví dụ: 3 ô, bấm vào ô 2 → ô 2 có Focus Outline, ô 1 và ô 3 không.
 - Ví dụ: ô 2 đang `Needs Approval` và được focus → ô 2 vừa có viền vàng 2px vừa có Focus Outline iris bên ngoài.
 - Ví dụ: bấm dòng một phiên ở Active Sessions → Focus Outline chuyển sang ô của phiên đó.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-05
+
+### SRS-FR-099 — Focused session row mark
+While a pane has the Focus Outline, the system shall show the Row Focus Mark on the row of that pane's session in Active Sessions.
+- Giải thích: chỉ một dòng có Row Focus Mark tại một thời điểm; hiện ở mọi trạng thái kể cả `Idle` và `Ended`; Status Highlight của dòng vẫn hiện bên trong, không bị thay.
+- Ví dụ: 2 ô đều `Idle`, bấm vào ô 2 → dòng của phiên ô 2 có vòng iris, dòng ô 1 không.
+- Ví dụ: ô 1 đang `Running` và được focus → dòng ô 1 vừa tô nền Running vừa có vòng iris.
+- Ví dụ: bấm dòng ô 1 ở Active Sessions → Row Focus Mark chuyển sang dòng ô 1.
+- Ví dụ âm: chưa ô nào được focus → không dòng nào có Row Focus Mark.
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-05
@@ -1049,7 +1061,7 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Màn hình | Làm gì | SRS-FR |
 | --- | --- | --- |
 | Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing`; Status Highlight của folder; tint riêng của section | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006, SRS-FR-034, SRS-FR-040, SRS-FR-054, SRS-NFR-009 |
-| Cửa sổ chính · Active Sessions | Phiên đang mở trong ô của mọi folder, Status Highlight, dòng phụ "giờ · lý do", bấm dòng để tới ô; tint riêng của section | SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-NFR-009 |
+| Cửa sổ chính · Active Sessions | Phiên đang mở trong ô của mọi folder, Status Highlight, dòng phụ "giờ · lý do", bấm dòng để tới ô, Row Focus Mark của ô đang focus; tint riêng của section | SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-FR-099, SRS-NFR-009 |
 | Cửa sổ chính · Session History Panel | Lịch sử phiên của folder đang chọn, nhãn `Live`, Resume, New Session, xoá một hoặc nhiều phiên, đóng khung | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-054, SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079, SRS-NFR-003 |
 | Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô, ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, Goal Line và sửa Session Goal | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 |
 | Cửa sổ chính · toàn cửa sổ | Phóng to, thu nhỏ, về mặc định cỡ chữ của mọi chữ trong cửa sổ; ẩn/hiện Sidebar bằng Sidebar Toggle hoặc Sidebar shortcut | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071, SRS-FR-088, SRS-FR-089, SRS-FR-090 |
@@ -1145,7 +1157,7 @@ The system shall give the Workspace List section and the Active Sessions section
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-098 (trừ SRS-FR-022, SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-001 đến SRS-FR-099 (trừ SRS-FR-022, SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
 | SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
 | SRS-NFR-001 đến SRS-NFR-009 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
@@ -1252,6 +1264,7 @@ The system shall give the Workspace List section and the Active Sessions section
 | SRS-FR-096 | BR-09 | | Test | Baselined |
 | SRS-FR-097 | BR-09 | | Test | Baselined |
 | SRS-FR-098 | BR-09 | | Test | Baselined |
+| SRS-FR-099 | BR-05 | | Test | Baselined |
 | SRS-NFR-001 | BR-05 | | Test | Baselined |
 | SRS-NFR-002 | BR-05 | | Test | Baselined |
 | SRS-NFR-003 | BR-02 | | Test | Baselined |
@@ -1283,3 +1296,4 @@ The system shall give the Workspace List section and the Active Sessions section
 | v1.5 | 2026-10-19 | PO | CR-005: kéo thả ô thay `Split Down` (SRS-FR-022 xoá); ô tự đóng khi phiên thoát bình thường; mở lại các ô khi mở app; sửa SRS-FR-028, SRS-FR-046, SRS-FR-064; thêm SRS-FR-080 đến SRS-FR-086; theo BRD v2.4 |
 | v1.6 | 2026-10-20 | PO | CR-006: Focus Outline cho ô đang focus; ẩn/hiện Sidebar bằng nút và Cmd+B / Ctrl+B, mở app luôn hiện; thêm SRS-FR-087 đến SRS-FR-090; theo BRD v2.5 |
 | v1.7 | 2026-10-21 | PO | CR-007: Session Goal ghim trên Goal Line, sửa được, giữ giữa các lần mở app; Focus Reminder gửi cùng mỗi prompt, Claude Code nhắc khi lạc đề theo RULE-09; thêm SRS-FR-091 đến SRS-FR-098, A-10, A-11; theo BRD v3.0 |
+| v1.8 | 2026-10-21 | PO | CR-008: Row Focus Mark trên dòng Active Sessions của ô đang focus, ở mọi trạng thái, không thay Status Highlight; thêm SRS-FR-099, Row Focus Mark; theo BRD v3.0 |

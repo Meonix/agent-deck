@@ -4,7 +4,7 @@ slug: agent-deck
 ---
 # Backlog — agent-deck
 
-Nguồn: `SRS.md` Baselined v1.7 (2026-10-21), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22. Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
+Nguồn: `SRS.md` Baselined v1.8 (2026-10-21), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23. Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
 
 | # | Mục | change-id | SRS-ID | Phụ thuộc | Lý do | Trạng thái |
 |---|---|---|---|---|---|---|
@@ -30,3 +30,4 @@ Nguồn: `SRS.md` Baselined v1.7 (2026-10-21), CR-001 thêm mục 9, 10, 11; CR-
 | 20 | Viền nổi bật cho ô đang focus | add-pane-focus-outline | SRS-FR-087 | 2, 9 | Should; CR-006; chỉ thêm FR mới → /dev-feature | archived |
 | 21 | Ẩn/hiện cột trái bằng nút và phím tắt | add-sidebar-toggle | SRS-FR-088, SRS-FR-089, SRS-FR-090 | 1, 12 | Should; CR-006; chỉ thêm FR mới → /dev-feature | archived |
 | 22 | Ghim việc chính của phiên, Claude Code nhắc khi lạc đề | add-session-goal | SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 | 2, 3, 6, 19 | Should; CR-007; phục vụ BO-03; chỉ thêm FR mới → /dev-feature | archived |
+| 23 | Dấu focus trên dòng Active Sessions | add-active-row-focus-mark | SRS-FR-099 | 12, 20 | Should; CR-008; chỉ thêm FR mới → /dev-feature | todo |

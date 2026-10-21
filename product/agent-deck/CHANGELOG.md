@@ -396,3 +396,33 @@ Backlog — thêm (áp sau GATE CR):
 - 22 · Ghim việc chính của phiên, Claude Code nhắc khi lạc đề · add-session-goal · SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 · phụ thuộc 2, 3, 6, 19 · Should; CR-007; chỉ thêm FR mới → /dev-feature.
 
 Việc tiếp theo: /dev-feature add-session-goal (mục 22).
+
+## CR-008 — Dấu focus trên dòng Active Sessions của ô đang focus
+Ngày: 2026-10-21
+Yêu cầu: "thêm vào SRS dấu focus trên dòng Active Sessions của ô đang focus (ring iris, giống Focus Outline của ô). Dấu này hiện ở mọi trạng thái kể cả Idle, và nằm chồng lên màu trạng thái chứ không thay nó. Sau đó sửa ActiveRow để nhận focusedId." — bối cảnh: "nó chỉ hiển thị màu khi agent đang chạy thôi, còn đang idle thì nó không hiện màu".
+Status: Approved (2026-10-21)
+Ảnh hưởng:
+- SRS-FR-087 (archived: add-pane-focus-outline; openspec/specs/pane-layout) chỉ quy định Focus Outline trên ô — giữ chữ.
+- SRS-FR-032 (Status Highlight chỉ tô Running / Needs Approval / Error; Idle, Ended không tô) — giữ chữ; dấu focus nằm chồng lên, không thay màu trạng thái.
+- SRS-FR-037, SRS-FR-051, SRS-NFR-009 — giữ chữ.
+- BR-05 đã có "thấy rõ ô đang focus" → không đổi BRD.
+- Code: src/components/WorkspaceSidebar.tsx (ActiveRow không nhận focusedId), src/App.tsx (truyền panes.focusedId).
+- Thiết kế: design/agent-deck/design.html chưa có dấu focus trên dòng; kiểu dấu đã chốt (ring iris như Focus Outline) nên không cần /ux-design-ui.
+
+Diff đề xuất:
+
+Phiên bản: BRD giữ v3.0. SRS v1.7 → v1.8.
+
+SRS — đổi:
+- Mục 1 Thuật ngữ thêm: "Row Focus Mark — vòng màu iris dày 2px quanh dòng của phiên trong Active Sessions khi ô của phiên đó có Focus Outline".
+- Mục 2.5: thêm SRS-FR-099 ngay sau SRS-FR-087.
+- Mục 7: dòng Active Sessions thêm "Row Focus Mark của ô đang focus" và SRS-FR-099. Mục 11: SRS-FR-001 đến SRS-FR-099. Mục 12 dựng lại bằng grep. Mục 14 dòng v1.8.
+- SRS-FR-032, SRS-FR-037, SRS-FR-051, SRS-FR-087, SRS-NFR-009: không đổi chữ.
+
+SRS — mới (BR-05, Should):
+- SRS-FR-099 — Focused session row mark (Test): "While a pane has the Focus Outline, the system shall show the Row Focus Mark on the row of that pane's session in Active Sessions." Giải thích: chỉ một dòng có Row Focus Mark tại một thời điểm; hiện ở mọi trạng thái kể cả `Idle` và `Ended`; Status Highlight của dòng vẫn hiện bên trong, không bị thay. Ví dụ: 2 ô đều `Idle`, bấm vào ô 2 → dòng của phiên ô 2 có vòng iris, dòng ô 1 không. Ví dụ: ô 1 đang `Running` và được focus → dòng ô 1 vừa tô nền Running vừa có vòng iris. Ví dụ: bấm dòng ô 1 ở Active Sessions → Row Focus Mark chuyển sang dòng ô 1. Ví dụ âm: chưa ô nào được focus → không dòng nào có Row Focus Mark.
+
+Backlog — thêm (áp sau GATE CR):
+- 23 · Dấu focus trên dòng Active Sessions · add-active-row-focus-mark · SRS-FR-099 · phụ thuộc 12, 20 · Should; CR-008; chỉ thêm FR mới → /dev-feature.
+
+Việc tiếp theo: /dev-feature add-active-row-focus-mark (mục 23).
