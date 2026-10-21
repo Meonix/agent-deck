@@ -21,7 +21,7 @@ const ACCEPT_RETRY: Duration = Duration::from_millis(50);
 /// destroy the response before the client reads it, so leftovers are drained.
 const MAX_DRAIN: usize = 1024 * 1024;
 
-const HTTP_EVENTS: [&str; 10] = [
+const POSTED_EVENTS: [&str; 10] = [
     "UserPromptSubmit",
     "PreToolUse",
     "PermissionRequest",
@@ -39,6 +39,11 @@ const HTTP_EVENTS: [&str; 10] = [
 const CURL: &str = "curl.exe";
 #[cfg(not(windows))]
 const CURL: &str = "curl";
+
+#[cfg(windows)]
+const DISCARD: &str = "NUL";
+#[cfg(not(windows))]
+const DISCARD: &str = "/dev/null";
 
 pub trait HookSink: Send + Sync {
     /// The answer, if any, goes back to Claude Code; only a `UserPromptSubmit`
@@ -333,18 +338,27 @@ fn drain(stream: &mut TcpStream) {
 }
 
 /// Inline `--settings` JSON that sends every event the status tracking uses to `url`.
+///
+/// Command hooks, not `http` ones: a session forked from a pane keeps these
+/// settings and can outlive the app, and an `http` hook that finds no listener
+/// shows an error on every tool call. `exit 0` makes a dead or unknown URL a
+/// plain success (`'@-'` is quoted for PowerShell). Only the `UserPromptSubmit`
+/// answer is read, so whatever takes a dead app's port cannot allow a tool.
 pub fn hook_settings(url: &str) -> String {
-    // `SessionStart` runs only command hooks; `'@-'` is quoted for PowerShell.
-    let session_start = json!({
-        "type": "command",
-        "async": true,
-        "command": format!("{CURL} -s -m 3 -X POST --data-binary '@-' {url}"),
-    });
-    let http = json!({"type": "http", "url": url, "timeout": 5});
+    let handler = |event: &str| {
+        let output = if event == "UserPromptSubmit" {
+            String::new()
+        } else {
+            format!("-o {DISCARD} ")
+        };
+        let command = format!("{CURL} -s -m 3 {output}-X POST --data-binary '@-' {url}; exit 0");
+        // `SessionStart` runs only command hooks, and nothing waits on it.
+        let async_ = event == "SessionStart";
+        json!({"type": "command", "command": command, "timeout": 5, "async": async_})
+    };
     let mut hooks = serde_json::Map::new();
-    hooks.insert("SessionStart".into(), json!([{ "hooks": [session_start] }]));
-    for event in HTTP_EVENTS {
-        hooks.insert(event.into(), json!([{ "hooks": [http.clone()] }]));
+    for event in std::iter::once("SessionStart").chain(POSTED_EVENTS) {
+        hooks.insert(event.into(), json!([{ "hooks": [handler(event)] }]));
     }
     json!({ "hooks": hooks }).to_string()
 }
@@ -852,28 +866,130 @@ mod tests {
         expected.sort();
         assert_eq!(names, expected);
 
+        let curl = if cfg!(windows) { "curl.exe" } else { "curl" };
+        let discard = if cfg!(windows) { "NUL" } else { "/dev/null" };
         for event in EVENTS {
             let groups = hooks[event].as_array().expect(event);
             assert_eq!(groups.len(), 1, "{event}");
             let handlers = groups[0]["hooks"].as_array().expect(event);
             assert_eq!(handlers.len(), 1, "{event}");
             let handler = &handlers[0];
-            if event == "SessionStart" {
-                assert_eq!(handler["type"], "command");
-                assert_eq!(handler["async"], true);
-                let command = handler["command"].as_str().unwrap();
-                let curl = if cfg!(windows) { "curl.exe " } else { "curl " };
-                assert_eq!(
-                    command,
-                    format!("{curl}-s -m 3 -X POST --data-binary '@-' {url}")
-                );
+            assert_eq!(handler["type"], "command", "{event}");
+            assert_eq!(handler["timeout"], 5, "{event}");
+            assert_eq!(handler["async"], event == "SessionStart", "{event}");
+            let output = if event == "UserPromptSubmit" {
+                String::new()
             } else {
-                assert_eq!(
-                    *handler,
-                    json!({"type": "http", "url": url, "timeout": 5}),
-                    "{event}"
+                format!("-o {discard} ")
+            };
+            assert_eq!(
+                handler["command"].as_str().unwrap(),
+                format!("{curl} -s -m 3 {output}-X POST --data-binary '@-' {url}; exit 0"),
+                "{event}"
+            );
+        }
+    }
+
+    /// Runs `event`'s handler the way Claude Code runs a command hook.
+    #[cfg(unix)]
+    fn run_hook(settings: &str, event: &str, body: &str) -> std::process::Output {
+        use std::process::{Command, Stdio};
+        let settings: Value = serde_json::from_str(settings).unwrap();
+        let command = settings["hooks"][event][0]["hooks"][0]["command"]
+            .as_str()
+            .expect("command hook");
+        let mut child = Command::new("sh")
+            .args(["-c", command])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child.stdin.take().unwrap().write_all(body.as_bytes()).unwrap();
+        child.wait_with_output().unwrap()
+    }
+
+    /// A forked session keeps the `--settings` of the pane it came from and
+    /// outlives the app (bg sessions run under the Claude Code daemon).
+    #[cfg(unix)]
+    #[test]
+    fn hooks_succeed_silently_once_the_listener_is_gone() {
+        let server = HookServer::start().unwrap();
+        let settings = hook_settings(&server.url_for("gone"));
+        drop(server);
+        for event in EVENTS {
+            let out = run_hook(&settings, event, "{}");
+            assert!(out.status.success(), "{event}: {out:?}");
+            assert!(out.stdout.is_empty(), "{event}: {out:?}");
+            assert!(out.stderr.is_empty(), "{event}: {out:?}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn hooks_succeed_silently_for_an_unknown_token() {
+        let server = HookServer::start().unwrap();
+        let settings = hook_settings(&server.url_for("unregistered"));
+        for event in EVENTS {
+            let out = run_hook(&settings, event, "{}");
+            assert!(out.status.success(), "{event}: {out:?}");
+            assert!(out.stdout.is_empty(), "{event}: {out:?}");
+        }
+    }
+
+    struct Answering(Mutex<Sender<(Value, Instant)>>);
+
+    impl HookSink for Answering {
+        fn hook(&self, event: Value) -> Option<Value> {
+            let _ = self.0.lock().unwrap().send((event, Instant::now()));
+            Some(json!({"answer": 1}))
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn hooks_deliver_events_and_print_only_the_prompt_answer() {
+        let server = HookServer::start().unwrap();
+        let (tx, rx) = mpsc::channel();
+        server.register("t", Arc::new(Answering(Mutex::new(tx))));
+        let settings = hook_settings(&server.url_for("t"));
+
+        let out = run_hook(&settings, "UserPromptSubmit", r#"{"hook_event_name":"UserPromptSubmit"}"#);
+        assert!(out.status.success(), "{out:?}");
+        assert_eq!(String::from_utf8_lossy(&out.stdout), r#"{"answer":1}"#);
+        assert_next_is(&rx, json!({"hook_event_name": "UserPromptSubmit"}));
+
+        let out = run_hook(&settings, "Stop", r#"{"hook_event_name":"Stop"}"#);
+        assert!(out.status.success(), "{out:?}");
+        assert!(out.stdout.is_empty(), "{out:?}");
+        assert_next_is(&rx, json!({"hook_event_name": "Stop"}));
+    }
+
+    /// Whatever now holds a dead app's port cannot decide a tool call: only
+    /// the `UserPromptSubmit` answer is read.
+    #[cfg(unix)]
+    #[test]
+    fn hooks_ignore_answers_to_events_other_than_the_prompt() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                let mut buf = [0u8; 8192];
+                let _ = stream.read(&mut buf);
+                let body = r#"{"decision":"allow"}"#;
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
                 );
             }
+        });
+        let settings = hook_settings(&format!("http://127.0.0.1:{port}/hook/x"));
+        for event in EVENTS.iter().filter(|e| **e != "UserPromptSubmit") {
+            let out = run_hook(&settings, event, "{}");
+            assert!(out.status.success(), "{event}: {out:?}");
+            assert!(out.stdout.is_empty(), "{event}: {out:?}");
         }
     }
 }

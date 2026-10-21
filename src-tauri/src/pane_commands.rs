@@ -953,6 +953,15 @@ mod tests {
 
     /// Waits until the process has printed a full `<...>` record and returns its fields.
     #[cfg(unix)]
+    /// The URL `event`'s command hook posts to.
+    fn hook_url(settings: &serde_json::Value, event: &str) -> String {
+        let command = settings["hooks"][event][0]["hooks"][0]["command"]
+            .as_str()
+            .expect("command hook");
+        let url = command.split_whitespace().find(|w| w.starts_with("http://"));
+        url.expect("hook url").trim_end_matches(';').to_string()
+    }
+
     fn printed_fields(out: &Mutex<Vec<u8>>) -> Vec<String> {
         let end = Instant::now() + Duration::from_secs(3);
         loop {
@@ -1078,10 +1087,7 @@ mod tests {
             ]
         );
         let settings: serde_json::Value = serde_json::from_str(&fields[2]).unwrap();
-        let url = settings["hooks"]["Stop"][0]["hooks"][0]["url"]
-            .as_str()
-            .expect("http hook url")
-            .to_string();
+        let url = hook_url(&settings, "Stop");
         assert!(url.starts_with(&server.url_for("")), "{url}");
         assert!(!url.ends_with("sid-1"), "token must not be the session id");
         assert!(fields[2].contains(&format!("'@-' {url}")), "{}", fields[2]);
@@ -1153,10 +1159,7 @@ mod tests {
             .expect("spawned");
         let fields = printed_fields(&out);
         let settings: serde_json::Value = serde_json::from_str(&fields[0]).unwrap();
-        let url = settings["hooks"]["UserPromptSubmit"][0]["hooks"][0]["url"]
-            .as_str()
-            .expect("http hook url")
-            .to_string();
+        let url = hook_url(&settings, "UserPromptSubmit");
 
         // A resumed pane announces its stored goal.
         assert_eq!(*goals.0.lock().unwrap(), [r#"{"goal":"Sửa lỗi resume"}"#]);
