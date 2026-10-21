@@ -9,6 +9,7 @@ pub mod pane_status;
 pub mod panes;
 pub mod pty;
 mod session_commands;
+pub mod session_goal;
 pub mod session_list;
 pub mod session_title;
 pub mod session_trash;
