@@ -41,7 +41,9 @@ const CURL: &str = "curl.exe";
 const CURL: &str = "curl";
 
 pub trait HookSink: Send + Sync {
-    fn hook(&self, event: Value);
+    /// The answer, if any, goes back to Claude Code; only a `UserPromptSubmit`
+    /// answer is sent (`serve`).
+    fn hook(&self, event: Value) -> Option<Value>;
 }
 
 type Sinks = Arc<Mutex<HashMap<String, Arc<dyn HookSink>>>>;
@@ -154,18 +156,19 @@ fn serve_on_thread(stream: TcpStream, sinks: &Sinks, open: &Arc<AtomicUsize>) {
 fn serve(mut stream: TcpStream, sinks: &Sinks) {
     let _ = stream.set_write_timeout(Some(REQUEST_DEADLINE));
     let deadline = Instant::now() + REQUEST_DEADLINE;
-    let status = match read_hook(&mut stream, sinks, deadline) {
+    let (status, body) = match read_hook(&mut stream, sinks, deadline) {
         // Claude Code sends a pane's next hook only after this answer, so
         // handing the event over first keeps each pane's hooks in order.
         Ok((sink, event)) => {
-            sink.hook(event);
-            200
+            let prompt = event["hook_event_name"] == "UserPromptSubmit";
+            let answer = sink.hook(event);
+            (200, answer.filter(|_| prompt))
         }
-        Err(code) => code,
+        Err(code) => (code, None),
     };
-    // Always an empty body: a `SessionStart` command hook's stdout would be
-    // added to Claude's context.
-    let _ = stream.write_all(response(status).as_bytes());
+    // The body is empty except for a `UserPromptSubmit` answer: a
+    // `SessionStart` command hook's stdout would be added to Claude's context.
+    let _ = stream.write_all(response(status, body).as_bytes());
     let _ = stream.shutdown(Shutdown::Write);
     drain(&mut stream);
 }
@@ -291,7 +294,7 @@ fn content_length(value: &str) -> Result<usize, u16> {
     }
 }
 
-fn response(status: u16) -> String {
+fn response(status: u16, body: Option<Value>) -> String {
     let reason = match status {
         200 => "OK",
         400 => "Bad Request",
@@ -303,7 +306,18 @@ fn response(status: u16) -> String {
         431 => "Request Header Fields Too Large",
         _ => "Error",
     };
-    format!("HTTP/1.1 {status} {reason}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    match body {
+        Some(body) => {
+            let body = body.to_string();
+            format!(
+                "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+        }
+        None => format!(
+            "HTTP/1.1 {status} {reason}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        ),
+    }
 }
 
 fn drain(stream: &mut TcpStream) {
@@ -380,8 +394,9 @@ mod tests {
     struct Recorder(Mutex<Sender<(Value, Instant)>>);
 
     impl HookSink for Recorder {
-        fn hook(&self, event: Value) {
+        fn hook(&self, event: Value) -> Option<Value> {
             let _ = self.0.lock().unwrap().send((event, Instant::now()));
+            None
         }
     }
 
@@ -440,7 +455,7 @@ mod tests {
     }
 
     #[test]
-    fn every_response_is_empty_and_closes() {
+    fn every_error_response_is_empty_and_closes() {
         let server = HookServer::start().unwrap();
         let (sink, _rx) = recorder();
         server.register("t", sink);
@@ -462,6 +477,58 @@ mod tests {
                 head.contains("connection: close"),
                 "{method} {path}: {head}"
             );
+        }
+    }
+
+    struct Answer(Option<Value>);
+
+    impl HookSink for Answer {
+        fn hook(&self, _event: Value) -> Option<Value> {
+            self.0.clone()
+        }
+    }
+
+    fn answered(answer: Option<Value>, event: &str) -> String {
+        let server = HookServer::start().unwrap();
+        server.register("t", Arc::new(Answer(answer)));
+        let body = json!({"hook_event_name": event}).to_string();
+        send(server.port(), "POST", "/hook/t", body.as_bytes())
+    }
+
+    #[test]
+    fn prompt_submit_is_answered_with_the_sinks_json() {
+        let answer = json!({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "Mục tiêu"}});
+        let response = answered(Some(answer.clone()), "UserPromptSubmit");
+        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+        let (head, rest) = response.split_once("\r\n\r\n").expect("full response");
+        let head = head.to_ascii_lowercase();
+        assert!(head.contains("content-type: application/json"), "{head}");
+        assert!(head.contains("connection: close"), "{head}");
+        assert!(
+            head.contains(&format!("content-length: {}", rest.len())),
+            "{head} / {rest}"
+        );
+        assert_eq!(serde_json::from_str::<Value>(rest).unwrap(), answer);
+    }
+
+    #[test]
+    fn prompt_submit_without_an_answer_is_empty() {
+        let response = answered(None, "UserPromptSubmit");
+        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+        let (head, rest) = response.split_once("\r\n\r\n").expect("full response");
+        assert_eq!(rest, "");
+        assert!(head.to_ascii_lowercase().contains("content-length: 0"));
+    }
+
+    /// A `SessionStart` command hook's stdout would be added to Claude's context.
+    #[test]
+    fn other_events_are_empty_even_when_the_sink_answers() {
+        for event in ["SessionStart", "Stop", "PreToolUse"] {
+            let response = answered(Some(json!({"x": 1})), event);
+            assert!(response.starts_with("HTTP/1.1 200"), "{event}: {response}");
+            let (head, rest) = response.split_once("\r\n\r\n").expect("full response");
+            assert_eq!(rest, "", "{event}");
+            assert!(head.to_ascii_lowercase().contains("content-length: 0"));
         }
     }
 
@@ -650,9 +717,10 @@ mod tests {
     fn response_is_sent_after_the_sink_returns() {
         struct Slow(Mutex<Sender<Instant>>);
         impl HookSink for Slow {
-            fn hook(&self, _event: Value) {
+            fn hook(&self, _event: Value) -> Option<Value> {
                 std::thread::sleep(Duration::from_millis(200));
                 let _ = self.0.lock().unwrap().send(Instant::now());
+                None
             }
         }
         let server = HookServer::start().unwrap();
