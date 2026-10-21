@@ -20,13 +20,14 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
     shell: null,
     shellFailed: false,
     prompted: false,
+    goal: null,
     ...over,
   };
 }
 
-function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn() }, focused = true) {
+function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn(), setGoal: vi.fn() }, focused = true) {
   const view = render(
-    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={on.focus} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={on.focus} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={on.setGoal} />,
   );
   return { client, on, view };
 }
@@ -106,7 +107,7 @@ describe("TerminalPane (5.3)", () => {
     const { client, view } = renderPane(entry(adapter));
     await flush();
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
     );
     expect(screen.getByText("Session ended")).toBeInTheDocument();
     expect(screen.getByText("Ended")).toBeInTheDocument();
@@ -141,7 +142,7 @@ describe("TerminalPane (5.3)", () => {
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledWith("p1", "\x1b[M #!");
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
     );
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledTimes(1);
@@ -236,5 +237,83 @@ describe("TerminalPane header in a narrow pane", () => {
       expect(screen.getByRole("button", { name })).toHaveClass("shrink-0");
     }
     expect(screen.getByText("Idle")).toHaveClass("min-w-0", "truncate");
+  });
+});
+
+describe("Goal Line (SRS-FR-092, SRS-FR-093)", () => {
+  const goalGroup = () => screen.queryByRole("group", { name: "Session goal" });
+
+  it("has no Goal Line without a goal", () => {
+    renderPane(entry(fakeAdapter()));
+    expect(goalGroup()).toBeNull();
+  });
+
+  it("shows a short goal whole", () => {
+    renderPane(entry(fakeAdapter(), { goal: "Fix resume" }));
+    expect(goalGroup()).toHaveTextContent("Fix resume");
+    expect(goalGroup()).not.toHaveTextContent("…");
+  });
+
+  it("cuts a long goal to 79 characters and an ellipsis, with the whole goal as title", () => {
+    const goal = "a".repeat(120);
+    renderPane(entry(fakeAdapter(), { goal }));
+    const text = screen.getByTitle(goal);
+    expect(text).toHaveTextContent(`${"a".repeat(79)}…`);
+    expect(text.textContent).toHaveLength(80);
+    expect(screen.getByRole("button", { name: "Edit goal" })).toBeInTheDocument();
+  });
+
+  it("keeps an 80-character goal whole", () => {
+    const goal = "b".repeat(80);
+    renderPane(entry(fakeAdapter(), { goal }));
+    expect(screen.getByTitle(goal).textContent).toBe(goal);
+  });
+
+  it("does not maximize on a double-click on the Goal Line", async () => {
+    const onMaximize = vi.fn();
+    render(
+      <TerminalPane entry={entry(fakeAdapter(), { goal: "Fix resume" })} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={onMaximize} onRestore={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
+    );
+    await userEvent.dblClick(goalGroup()!);
+    expect(onMaximize).not.toHaveBeenCalled();
+  });
+
+  it("edits: Edit goal opens an input holding the goal, Enter saves the trimmed text", async () => {
+    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit goal" }));
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveValue("Old goal");
+    await userEvent.clear(input);
+    await userEvent.type(input, "  New goal  {Enter}");
+    expect(on.setGoal).toHaveBeenCalledWith("p1", "New goal");
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("does not save blank text on Enter", async () => {
+    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit goal" }));
+    await userEvent.clear(screen.getByRole("textbox"));
+    await userEvent.type(screen.getByRole("textbox"), "   {Enter}");
+    expect(on.setGoal).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Escape}");
+    expect(goalGroup()).toHaveTextContent("Old goal");
+  });
+
+  it("restores the old goal on Esc", async () => {
+    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit goal" }));
+    await userEvent.type(screen.getByRole("textbox"), "abc{Escape}");
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(goalGroup()).toHaveTextContent("Old goal");
+    expect(on.setGoal).not.toHaveBeenCalled();
+  });
+
+  it("cancels on blur", async () => {
+    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit goal" }));
+    await userEvent.type(screen.getByRole("textbox"), "abc");
+    await userEvent.tab();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(on.setGoal).not.toHaveBeenCalled();
   });
 });

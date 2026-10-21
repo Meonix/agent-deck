@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
 import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
 import type { MaximizedBadge } from "./statusHighlight";
@@ -40,6 +40,8 @@ export type PaneEntry = {
   shellFailed: boolean;
   /** Resumed, or a prompt was sent: the session has a history to resume. */
   prompted: boolean;
+  /** The Session Goal; null until a prompt sets one (SRS-FR-092). */
+  goal: string | null;
 };
 
 // Like the session's, the shell's adapter outlives a hide: output keeps flowing into it (SRS-FR-057).
@@ -71,6 +73,7 @@ type Props = {
   onToggleShell(paneId: string): void;
   onResizeShell(paneId: string, ratio: number): void;
   onDismissShellFailure(paneId: string): void;
+  onSetGoal(paneId: string, text: string): void;
 };
 
 export function TerminalPane({
@@ -88,8 +91,9 @@ export function TerminalPane({
   onToggleShell,
   onResizeShell,
   onDismissShellFailure,
+  onSetGoal,
 }: Props) {
-  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed } = entry;
+  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, goal } = entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
   const endedRef = useRef(ended);
@@ -233,6 +237,7 @@ export function TerminalPane({
           </button>
         </span>
       </header>
+      {goal !== null && <GoalLine goal={goal} onSave={(text) => onSetGoal(paneId, text)} />}
       <div className="flex-1 min-h-0 min-w-0 flex flex-col">
         {pane.started ? (
           // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
@@ -262,6 +267,62 @@ export function TerminalPane({
       </div>
       {shellFailed && <ShellFailure onDismiss={() => onDismissShellFailure(paneId)} />}
     </section>
+  );
+}
+
+const GOAL_SHOWN = 80;
+
+// Outside the header, which owns double-click and drag, so the row needs no handling of its own (SRS-FR-092).
+function GoalLine({ goal, onSave }: { goal: string; onSave(text: string): void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(goal);
+  const chars = [...goal];
+  const shown = chars.length > GOAL_SHOWN ? `${chars.slice(0, GOAL_SHOWN - 1).join("")}…` : goal;
+
+  return (
+    <div
+      role="group"
+      aria-label="Session goal"
+      className="flex items-center gap-2 px-3 py-1 border-b border-border text-xs text-muted-foreground"
+    >
+      <span aria-hidden="true">📌</span>
+      {editing ? (
+        <input
+          autoFocus
+          aria-label="Goal text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => setEditing(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setEditing(false);
+            else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+              const text = draft.trim();
+              if (text === "") return;
+              onSave(text);
+              setEditing(false);
+            }
+          }}
+          className="min-w-0 flex-1 bg-background text-foreground border border-border rounded px-1"
+        />
+      ) : (
+        <>
+          <span title={goal} className="min-w-0 flex-1 truncate">
+            {shown}
+          </span>
+          <button
+            aria-label="Edit goal"
+            title="Edit goal"
+            onClick={() => {
+              setDraft(goal);
+              setEditing(true);
+            }}
+            className="shrink-0"
+          >
+            ✎
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 

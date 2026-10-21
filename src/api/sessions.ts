@@ -22,11 +22,13 @@ export interface PaneStream {
   onOutput(cb: (bytes: Uint8Array) => void): void;
   onExit(cb: (code: number | null) => void): void;
   onStatus(cb: (status: PaneStatus) => void): void;
+  /** The Session Goal of the pane's session; null when it has none. */
+  onGoal(cb: (goal: string | null) => void): void;
   dispose(): void;
 }
 
-/** A shell sends output and its exit, never a status. */
-export type ShellStream = Omit<PaneStream, "onStatus">;
+/** A shell sends output and its exit, never a status or a goal. */
+export type ShellStream = Omit<PaneStream, "onStatus" | "onGoal">;
 
 /** `command`: what the shell runs in its foreground; null while busy means the name could not be read. */
 export type ShellActivity = { busy: boolean; command: string | null };
@@ -45,6 +47,8 @@ export interface SessionsClient {
   title(paneId: string): Promise<string>;
   recordStatusShown(sessionId: string, state: SessionState, reportedAt: number, shownAt: number): Promise<void>;
   latencyReport(): Promise<LatencyReport>;
+  /** Replaces the pane's goal; the new goal comes back on the stream. Rejects with "not_found" or "not_started". */
+  setGoal(paneId: string, text: string): Promise<void>;
   /** The workspace's Claude Code sessions, newest first; rejects with "folder_missing". */
   list(workspaceId: string): Promise<SessionListing>;
   /**
@@ -99,6 +103,15 @@ function asStatus(message: unknown): PaneStatus | null {
   return valid ? ({ ...(status as PaneStatus), reportedAt } as PaneStatus) : null;
 }
 
+type GoalMessage = { goal: string | null };
+
+function asGoal(message: unknown): GoalMessage | null {
+  const value = typeof message === "string" ? safeParse(message) : message;
+  if (value === null || typeof value !== "object" || !("goal" in value)) return null;
+  const { goal } = value as { goal: unknown };
+  return goal === null || typeof goal === "string" ? { goal } : null;
+}
+
 function safeParse(text: string): unknown {
   try {
     return JSON.parse(text);
@@ -114,7 +127,9 @@ function createStream(channel: Channel<unknown>): PaneStream {
   let pendingExit: ExitMessage | null = null;
   let outputCb: ((bytes: Uint8Array) => void) | null = null;
   let pendingStatus: PaneStatus[] = [];
+  let pendingGoal: GoalMessage[] = [];
   let exitCb: ((code: number | null) => void) | null = null;
+  let goalCb: ((goal: string | null) => void) | null = null;
   let statusCb: ((status: PaneStatus) => void) | null = null;
 
   // The exit waits for queued statuses once a status listener exists: the final status precedes it.
@@ -137,6 +152,12 @@ function createStream(channel: Channel<unknown>): PaneStream {
     if (status) {
       if (statusCb && pendingStatus.length === 0) statusCb(status);
       else pendingStatus.push(status);
+      return;
+    }
+    const goal = asGoal(message);
+    if (goal) {
+      if (goalCb && pendingGoal.length === 0) goalCb(goal.goal);
+      else pendingGoal.push(goal);
       return;
     }
     const exit = asExit(message);
@@ -165,8 +186,16 @@ function createStream(channel: Channel<unknown>): PaneStream {
       queued.forEach(cb);
       deliverExit();
     },
+    onGoal(cb) {
+      goalCb = cb;
+      const queued = pendingGoal;
+      pendingGoal = [];
+      queued.forEach((m) => cb(m.goal));
+    },
     dispose() {
       channel.onmessage = () => {};
+      goalCb = null;
+      pendingGoal = [];
       outputCb = null;
       exitCb = null;
       statusCb = null;
@@ -196,6 +225,7 @@ export const tauriSessionsClient: SessionsClient = {
   recordStatusShown: (sessionId, state, reportedAt, shownAt) =>
     invoke<void>("record_status_shown", { sessionId, state, reportedAt, shownAt }),
   latencyReport: () => invoke<LatencyReport>("status_latency_report"),
+  setGoal: (paneId, text) => invoke<void>("set_session_goal", { paneId, text }),
   list: (workspaceId) => invoke<SessionListing>("list_sessions", { workspaceId }),
   deleteSession: (workspaceId, sessionId, paneId) =>
     invoke<void>("delete_session", { workspaceId, sessionId, paneId: paneId ?? null }),

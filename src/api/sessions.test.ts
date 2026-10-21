@@ -159,3 +159,35 @@ describe("tauriSessionsClient (5.1)", () => {
     ]);
   });
 });
+
+describe("goal messages (SRS-FR-092)", () => {
+  it("queues a goal sent before onGoal, then delivers later ones live, null included", async () => {
+    tauri.invoke.mockImplementation(async () => {
+      send(JSON.stringify({ goal: "Fix resume" }));
+      return opened;
+    });
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen: unknown[] = [];
+    stream.onGoal((g) => seen.push(g));
+    expect(seen).toEqual(["Fix resume"]);
+    send({ goal: null });
+    send({ goal: "Next" });
+    expect(seen).toEqual(["Fix resume", null, "Next"]);
+  });
+
+  it("ignores a goal of the wrong type", async () => {
+    tauri.invoke.mockResolvedValue(opened);
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen: unknown[] = [];
+    stream.onGoal((g) => seen.push(g));
+    send({ goal: 5 });
+    send({ goals: "x" });
+    expect(seen).toEqual([]);
+  });
+
+  it("sets a goal through set_session_goal", async () => {
+    tauri.invoke.mockResolvedValue(undefined);
+    await tauriSessionsClient.setGoal("p1", "New");
+    expect(tauri.invoke).toHaveBeenCalledWith("set_session_goal", { paneId: "p1", text: "New" });
+  });
+});
