@@ -338,3 +338,61 @@ Backlog — thêm (áp sau GATE CR):
 - 21 · Ẩn/hiện cột trái bằng nút và phím tắt · add-sidebar-toggle · SRS-FR-088, SRS-FR-089, SRS-FR-090 · phụ thuộc 1, 12 · Should; CR-006; chỉ thêm FR mới → /dev-feature.
 
 Việc tiếp theo: /dev-feature add-pane-focus-outline (mục 20) → /dev-feature add-sidebar-toggle (mục 21).
+
+## CR-007 — Ghim việc chính của mỗi phiên, Claude tự nhắc khi lạc đề
+Ngày: 2026-10-21
+Yêu cầu: "trên ứng dụng này có cách nào detect được yêu cầu chính của user khi chat với claude không? mục tiêu của tôi là mỗi phiên chat của claude chỉ focus và làm xong một việc sau đó phải qua phiên mới làm việc khác." — PO chốt hướng: "Ghim mục tiêu + để Claude tự phát hiện lạc đề qua ngữ cảnh do hook chèn: tận dụng hook sẵn có, không tốn API", và duyệt mô tả: prompt đầu tiên của phiên là việc chính, hiện một dòng (≤ 80 ký tự) trên tiêu đề ô, sửa bằng nút bút chì; mỗi prompt gửi đi, app chèn cho Claude Code việc chính (≤ ~500 ký tự) và luật ranh giới; việc phục vụ việc chính (sửa bug chặn nó, chạy test, commit, hỏi về code vừa viết) là trong phạm vi, việc tạo ra thay đổi riêng đứng độc lập là lạc đề; lạc đề thì Claude không làm, nói rõ và đề nghị mở phiên mới, PO nói "cứ làm" thì làm tiếp; app không chặn cứng; chỉ phiên mở trong agent-deck; phiên mở lại lấy prompt đầu từ dữ liệu phiên; sau /clear ghim lại theo prompt kế tiếp. Ngoài phạm vi: gọi API phân loại prompt, chặn cứng, nút "Xong → phiên mới".
+Status: Approved (2026-10-21)
+Ảnh hưởng:
+- BO: không khớp BO-01 (không sót phiên chờ) hay BO-02 (mở lại phiên nhanh) → thêm BO-03, BRD lên major. SRS-ID dưới BO-03: SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 (đều mới).
+- SRS-FR-030 (Pane header, archived: session-pane) giữ chữ: Goal Line là dòng riêng dưới tiêu đề, không đổi tiêu đề.
+- SRS-FR-066, SRS-FR-067 (nhấp đúp tiêu đề để phóng to, archived), SRS-FR-080 (kéo tiêu đề, archived) giữ chữ: Goal Line không thuộc tiêu đề ô, nút Edit Goal là một nút nên không kích hoạt phóng to.
+- SRS-NFR-005 (lịch sử phiên chỉ đọc) giữ: Session Goal do app lưu riêng, không ghi vào dữ liệu phiên của Claude Code.
+- SRS-NFR-006 (không sửa cấu hình Claude Code toàn máy) giữ: Focus Reminder đi qua cấu hình hook gắn riêng cho phiên app mở, như tín hiệu trạng thái hiện nay.
+- SRS-NFR-007 / A-07 (dữ liệu ở trên máy): Focus Reminder là chính prompt của người dùng, đi qua Claude Code như phần còn lại của cuộc chat → ghi A-10 để PO xác nhận.
+- Code (cho /dev-feature): src-tauri/src/hooks.rs (`response()` hiện luôn trả body rỗng; test `every_response_is_empty_and_closes`), src-tauri/src/session_title.rs và session_list.rs (đọc prompt đầu từ dữ liệu phiên), src/components/TerminalPane.tsx (tiêu đề ô dòng 178–235), nơi lưu Open Panes (SRS-FR-084).
+- Spec: openspec/specs/session-pane, status-board (hook server), pane-restore, session-resume — chỉ thêm requirement, không sửa requirement cũ → /dev-feature.
+- Thiết kế: design/agent-deck/design.html chưa có Goal Line; PO đã chọn bố cục (dòng riêng dưới tiêu đề, bút chì bên phải) nên không cần /ux-design-ui.
+Trả lời của PO (2026-10-21):
+- BO-03 đo bằng tỉ lệ nhắc lạc đề: ≥ 9/10 prompt lạc đề được Claude nhắc ngay ở lượt trả lời đó, ≤ 1/10 prompt trong phạm vi bị nhắc nhầm, kiểm bằng bộ prompt mẫu, trong 2 tuần dùng thử sau khi có tính năng.
+- Việc chính hiện ở dòng riêng ngay dưới tiêu đề ô, tiêu đề ô giữ nguyên.
+
+Diff đề xuất:
+
+Phiên bản: BRD v2.5 → v3.0 (thêm BO-03, BR-09). SRS v1.6 → v1.7.
+
+BRD:
+- Mục 1 Tóm tắt thêm câu: "Mỗi ô ghim việc chính của phiên, và Claude Code được nhắc để phiên chỉ làm đúng việc đó."
+- Mục 2 thêm gạch: "Một phiên Claude Code dễ bị kéo sang việc thứ hai, thứ ba; ngữ cảnh lẫn lộn và việc chính không xong gọn."
+- Mục 4 thêm BO-03 | Mỗi phiên Claude Code chỉ làm một việc | Tỉ lệ prompt lạc đề được Claude Code nhắc ngay ở lượt trả lời đó; tỉ lệ prompt trong phạm vi bị nhắc nhầm | ≥ 9/10; ≤ 1/10 | Đạt trong 2 tuần dùng thử ngay sau khi có tính năng.
+- Mục 5 Trong phạm vi thêm: "Ghim việc chính của mỗi phiên trên ô, sửa được; nhắc Claude Code giữ phiên trong việc chính." Ngoài phạm vi thêm: "Phân loại prompt bằng dịch vụ AI riêng; chặn cứng prompt lạc đề; nút kết thúc việc để sang phiên mới."
+- Mục 6 thêm BR-09 | Người dùng thấy và sửa được việc chính của mỗi phiên đang mở; khi người dùng gửi một yêu cầu khác việc chính, Claude Code nhắc và đề nghị mở phiên mới thay vì làm luôn, trừ khi người dùng bảo cứ làm | BO-03 | Should.
+- Mục 11 thêm: "BO-03: trong 2 tuần dùng thử sau khi có tính năng, ≥ 9/10 prompt lạc đề được nhắc ngay, ≤ 1/10 prompt trong phạm vi bị nhắc nhầm."
+- Mục 13 log thêm dòng CR-007 (hai câu trả lời ở trên). Mục 14: dòng v3.0.
+
+SRS — đổi:
+- Giả định thêm: A-10 | Focus Reminder gửi qua Claude Code cùng prompt không tính là app gửi dữ liệu phiên ra khỏi máy (A-07, SRS-NFR-007) | PO. A-11 | BO-03 kiểm bằng bộ 10 prompt lạc đề + 10 prompt trong phạm vi gửi vào các phiên có Session Goal khác nhau, đếm số lượt Claude Code nhắc | PO.
+- Thuật ngữ thêm: "Session Goal — việc chính của một phiên: prompt đầu tiên người dùng gửi trong phiên, hoặc câu người dùng sửa lại". "Goal Line — dòng ngay dưới tiêu đề ô, hiện Session Goal rút gọn một dòng ≤ 80 ký tự, có nút Edit Goal (bút chì) ở bên phải". "Focus Reminder — ngữ cảnh app gửi cho Claude Code cùng mỗi prompt: Session Goal (≤ 500 ký tự), RULE-09 và cách xử lý prompt lạc đề". "Off-goal prompt — prompt không thuộc Session Goal theo RULE-09".
+- Mục 2.14 mới "Giữ phiên trong một việc": luồng chính 1. người dùng gửi prompt đầu trong ô → Session Goal, Goal Line hiện → SRS-FR-091, SRS-FR-092. 2. mỗi prompt sau → Claude Code nhận Focus Reminder → SRS-FR-094, SRS-FR-095. A1 người dùng bấm Edit Goal → SRS-FR-093. A2 mở lại app hoặc resume → SRS-FR-096, SRS-FR-097. E1 không gửi được Focus Reminder → SRS-FR-098.
+- Mục 3: App settings thêm dòng "Session Goals | Session Goal của từng phiên theo mã phiên | Không | Giữ lại giữa các lần mở app (SRS-FR-096); không ghi vào dữ liệu phiên của Claude Code (SRS-NFR-005)".
+- Mục 4 thêm RULE-09 | Một prompt thuộc Session Goal khi nó phục vụ việc chính: sửa lỗi đang chặn việc chính, chạy test, commit, hỏi về phần vừa làm cho việc chính; prompt tạo ra một thay đổi riêng đứng độc lập được là Off-goal prompt. | BR-09.
+- Mục 6 thêm dòng: Claude Code (prompt gửi đi) | Nhận Focus Reminder cùng prompt | Mỗi lần người dùng gửi prompt trong ô (SRS-FR-094) | Không nhận được → SRS-FR-098.
+- Mục 7 Pane Grid thêm "Goal Line, sửa Session Goal" và SRS-FR-091 đến SRS-FR-098 (liệt kê đủ). Mục 11: SRS-FR-001 đến SRS-FR-098. Mục 12 dựng lại bằng grep. Mục 14 dòng v1.7.
+- SRS-FR-030, SRS-FR-066, SRS-FR-067, SRS-FR-080, SRS-FR-084, SRS-NFR-005, SRS-NFR-006, SRS-NFR-007: không đổi chữ.
+
+SRS — mới (BR-09, Should):
+- SRS-FR-091 — Pin first prompt as session goal (Test): "When the user sends a prompt in a pane whose session has no Session Goal, the system shall set that prompt as the Session Goal." Giải thích: áp cho phiên mới và cho phiên mới Claude Code tạo sau `/clear`; prompt là lệnh skill (`/dev-bug lỗi X`) thì lấy nguyên câu. Ví dụ: ô mới, gửi "Sửa lỗi resume mất scrollback" → Session Goal là câu đó. Ví dụ âm: gửi tiếp "chạy test" → Session Goal không đổi.
+- SRS-FR-092 — Goal Line (Demo): "While the session in a pane has a Session Goal, the system shall show the Goal Line below the pane header." Giải thích: dài hơn 80 ký tự thì cắt và thêm "…"; di chuột lên thì hiện đủ câu; chưa có Session Goal thì không có Goal Line; nhấp đúp hay kéo Goal Line không phóng to, không kéo ô. Ví dụ: Session Goal 120 ký tự → Goal Line hiện 79 ký tự đầu + "…" và nút bút chì.
+- SRS-FR-093 — Edit session goal (Test): "When the user confirms a new text in Edit Goal, the system shall replace the Session Goal with that text." Giải thích: bấm bút chì → Goal Line thành ô sửa; Enter lưu, Esc huỷ; câu rỗng thì giữ câu cũ; prompt sau dùng câu mới. Ví dụ: sửa thành "Sửa resume mất scrollback trên Windows", Enter → Goal Line hiện câu mới, prompt kế tiếp có Focus Reminder với câu mới. Ví dụ âm: xoá hết chữ rồi Enter → Session Goal giữ câu cũ.
+- SRS-FR-094 — Focus Reminder with each prompt (Test): "When the user sends a prompt in a pane whose session has a Session Goal, the system shall give Claude Code the Focus Reminder with that prompt." Giải thích: Session Goal dài hơn 500 ký tự thì cắt; chỉ cho phiên mở trong ô của agent-deck. Ví dụ: Session Goal "Sửa lỗi resume mất scrollback", gửi "thêm nút export CSV" → Claude Code nhận prompt đó kèm Focus Reminder có câu Session Goal.
+- SRS-FR-095 — Off-goal instruction (Inspection): "The system shall word the Focus Reminder so that Claude Code, for an Off-goal prompt, does not carry it out, says it is a different task and suggests a new session, unless the user tells it to go ahead." Giải thích: app không tự chặn prompt nào; Claude Code tự xét theo RULE-09; hiệu quả đo ở BO-03 (A-11). Ví dụ: Session Goal "Sửa lỗi resume", gửi "thêm nút export CSV" → Claude Code trả lời đây là việc khác và đề nghị mở phiên mới. Ví dụ: gửi tiếp "cứ làm" → Claude Code làm. Ví dụ âm: gửi "commit giúp" → Claude Code commit, không nhắc.
+- SRS-FR-096 — Keep session goal across launches (Test): "The system shall keep the Session Goal of each session between application launches." Ví dụ: sửa Session Goal, thoát app, mở lại → ô mở lại có Goal Line với câu đã sửa. Ví dụ: đóng ô, sau đó Resume phiên đó → Goal Line như trước khi đóng.
+- SRS-FR-097 — Goal of a resumed session without a stored goal (Test): "When the user resumes a session that has no stored Session Goal, the system shall set the first prompt the user sent in that session as its Session Goal." Giải thích: đọc từ lịch sử phiên của Claude Code, không sửa nó (SRS-NFR-005); phiên chưa có prompt nào thì chưa có Session Goal, SRS-FR-091 áp khi gửi prompt. Ví dụ: Resume phiên cũ có prompt đầu "Scaffold Tauri app" → Goal Line "Scaffold Tauri app".
+- SRS-FR-098 — Prompt goes through without reminder (Test): "If the system cannot give Claude Code the Focus Reminder for a prompt, then the system shall let that prompt reach Claude Code unchanged." Ví dụ: hook không trả được Focus Reminder → Claude Code vẫn nhận và làm prompt như khi chưa có tính năng; ô không báo lỗi.
+
+Ngoài phạm vi CR này: phân loại prompt bằng dịch vụ AI riêng; chặn cứng prompt lạc đề; nút "Xong → phiên mới" khi Claude Code xong lượt; nhắc cho phiên mở ngoài agent-deck; hiện Session Goal ở Active Sessions hay Session History Panel.
+
+Backlog — thêm (áp sau GATE CR):
+- 22 · Ghim việc chính của phiên, Claude Code nhắc khi lạc đề · add-session-goal · SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 · phụ thuộc 2, 3, 6, 19 · Should; CR-007; chỉ thêm FR mới → /dev-feature.
+
+Việc tiếp theo: /dev-feature add-session-goal (mục 22).

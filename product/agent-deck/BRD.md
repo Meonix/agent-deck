@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v2.5 (2026-10-20)
+status: Approved v3.0 (2026-10-21)
 ---
 # BRD — agent-deck
 
@@ -13,7 +13,7 @@ status: Approved v2.5 (2026-10-20)
 agent-deck là ứng dụng desktop dùng cá nhân, cài và chạy trên máy (macOS trước, Windows sau).
 Nó gom việc làm với Claude Code về một chỗ: các folder hay làm việc, lịch sử phiên của từng folder,
 nhiều phiên Claude Code tương tác cùng lúc trong một cửa sổ, và dấu báo trạng thái ở cột trái cho
-biết phiên nào đang chạy, phiên nào đang chờ mình duyệt, phiên nào đang lỗi.
+biết phiên nào đang chạy, phiên nào đang chờ mình duyệt, phiên nào đang lỗi. Mỗi ô ghim việc chính của phiên, và Claude Code được nhắc để phiên chỉ làm đúng việc đó.
 
 ## 2. Vấn đề và lý do
 
@@ -22,6 +22,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 - Khi chạy nhiều phiên Claude Code ở nhiều folder, mỗi phiên nằm trong một cửa sổ terminal riêng.
 - Phiên đang chờ duyệt thì đứng im cho tới khi người dùng tình cờ quay lại cửa sổ đó.
 - Lịch sử phiên của từng folder nằm rải rác trên máy, không có chỗ xem lại và mở lại nhanh.
+- Một phiên Claude Code dễ bị kéo sang việc thứ hai, thứ ba; ngữ cảnh lẫn lộn và việc chính không xong gọn.
 
 ## 3. Stakeholder
 
@@ -35,6 +36,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | --- | --- | --- | --- | --- |
 | BO-01 | Không bỏ sót phiên Claude Code đang chờ duyệt hoặc đang lỗi | Thời gian từ lúc một phiên mở trong agent-deck bắt đầu chờ duyệt hoặc gặp lỗi đến lúc phiên đó hiện dấu báo trạng thái trong app (dòng phiên, dòng folder, hoặc badge của ô phóng to) | ≤ 3 giây | Đạt trong 2 tuần dùng thử ngay sau khi có MVP |
 | BO-02 | Quay lại làm tiếp một phiên cũ thật nhanh | Số thao tác từ lúc mở app đến lúc gõ tiếp được vào một phiên cũ bất kỳ | ≤ 3 thao tác | Đạt trong 2 tuần dùng thử ngay sau khi có MVP |
+| BO-03 | Mỗi phiên Claude Code chỉ làm một việc | Tỉ lệ prompt lạc đề được Claude Code nhắc ngay ở lượt trả lời đó; tỉ lệ prompt trong phạm vi bị nhắc nhầm | ≥ 9/10; ≤ 1/10 | Đạt trong 2 tuần dùng thử ngay sau khi có tính năng |
 
 ## 5. Phạm vi
 
@@ -48,6 +50,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 - Một terminal thường (không chạy Claude Code) dưới mỗi phiên, ẩn đi được mà vẫn chạy.
 - Phóng to, thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt.
 - Ẩn/hiện cột trái bằng nút hoặc phím tắt; viền nổi bật cho ô đang focus.
+- Ghim việc chính của mỗi phiên trên ô, sửa được; nhắc Claude Code giữ phiên trong việc chính.
 
 ### Ngoài phạm vi
 
@@ -55,6 +58,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 - Bộ cài đặt, ký số, tự cập nhật, phát hành cho người khác dùng.
 - Linux.
 - Theo dõi trạng thái phiên Claude Code mở ngoài agent-deck (Terminal, VS Code…). Các phiên này vẫn hiện trong lịch sử (BR-02) nhưng không có trạng thái.
+- Phân loại prompt bằng dịch vụ AI riêng; chặn cứng prompt lạc đề; nút kết thúc việc để sang phiên mới.
 
 ## 6. Yêu cầu nghiệp vụ (BR)
 
@@ -68,6 +72,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
 | BR-07 | Từ dấu báo trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
 | BR-08 | Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc bằng cách chuyển chúng vào Thùng rác | BO-02 | Should |
+| BR-09 | Người dùng thấy và sửa được việc chính của mỗi phiên đang mở; khi người dùng gửi một yêu cầu khác việc chính, Claude Code nhắc và đề nghị mở phiên mới thay vì làm luôn, trừ khi người dùng bảo cứ làm | BO-03 | Should |
 
 ## 7. Quy trình và luật nghiệp vụ
 
@@ -111,6 +116,7 @@ Luật nghiệp vụ:
 
 - BO-01: trong 2 tuần dùng thử sau khi có MVP, mọi phiên mở trong agent-deck mà chờ duyệt hoặc lỗi hiện dấu báo trạng thái trong ≤ 3 giây.
 - BO-02: trong 2 tuần dùng thử sau khi có MVP, mở lại bất kỳ phiên cũ nào trong ≤ 3 thao tác (chọn folder, chọn phiên, mở).
+- BO-03: trong 2 tuần dùng thử sau khi có tính năng, ≥ 9/10 prompt lạc đề được nhắc ngay, ≤ 1/10 prompt trong phạm vi bị nhắc nhầm.
 
 ## 12. Câu hỏi mở (Q)
 
@@ -134,6 +140,8 @@ Luật nghiệp vụ:
 | 2026-10-18 | CR-004: nhấp đúp, cỡ chữ, xoá nhiều phiên làm thế nào? | Nhấp đúp tiêu đề ô để phóng to / thu về; Cmd (macOS) / Ctrl (Windows) + − 0 đổi cỡ chữ cả cửa sổ, bước 10%, 50–200%, nhớ giữa các lần mở app; tick nhiều dòng history rồi xoá cùng lúc với một hộp xác nhận |
 | 2026-10-19 | CR-005: mở lại ô, kéo thả ô, `/exit` làm thế nào? | Mở lại app thì resume đúng các phiên đang có ô lúc thoát, đúng vị trí và tỉ lệ, không phóng to, không Pane Shell; kéo tiêu đề ô lên ô khác, thả vào 1 trong 4 vùng trái/phải/trên/dưới, bỏ nút Split; thoát bình thường thì ô đóng, thoát bất thường thì giữ "Session ended" |
 | 2026-10-20 | CR-006: thấy ô đang focus và ẩn cột trái thế nào? | Ô đang focus có vòng iris 2px bên ngoài viền, viền trạng thái giữ bên trong; nút ẩn/hiện cột trái ở giữa theo chiều dọc, phím tắt Cmd+B (macOS) / Ctrl+B (Windows), không dùng Ctrl+H vì trùng ^H của terminal; mở app thì cột trái luôn hiện |
+| 2026-10-21 | CR-007: giữ mỗi phiên trong một việc thế nào? | Prompt đầu là việc chính, hiện ở dòng riêng dưới tiêu đề ô, sửa bằng nút bút chì; mỗi prompt app nhắc Claude Code việc chính và luật ranh giới; lạc đề thì Claude Code không làm, đề nghị mở phiên mới, trừ khi bảo cứ làm; không chặn cứng, không gọi API riêng |
+| 2026-10-21 | CR-007: BO-03 đo bằng gì? | ≥ 9/10 prompt lạc đề được nhắc ngay, ≤ 1/10 prompt trong phạm vi bị nhắc nhầm, kiểm bằng bộ prompt mẫu, trong 2 tuần dùng thử sau khi có tính năng |
 
 ## 14. Duyệt
 
@@ -146,3 +154,4 @@ Luật nghiệp vụ:
 | v2.3 | 2026-10-18 | PO | CR-004: BR-05 thêm phóng/thu cỡ chữ cả cửa sổ; BR-08 xoá một hoặc nhiều phiên cùng lúc |
 | v2.4 | 2026-10-19 | PO | CR-005: BR-03 tự mở lại các ô khi mở app; BR-05 kéo thả ô thay nút chia, ô tự đóng khi phiên thoát bình thường |
 | v2.5 | 2026-10-20 | PO | CR-006: BR-05 thêm thấy rõ ô đang focus, ẩn cột trái để nhường chỗ cho các ô |
+| v3.0 | 2026-10-21 | PO | CR-007: thêm BO-03 (mỗi phiên chỉ làm một việc) và BR-09 (ghim việc chính, Claude Code nhắc khi lạc đề) |
