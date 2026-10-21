@@ -6,6 +6,8 @@ type Props = {
   workspaces: WorkspacesState;
   folderHighlights: Map<string, FolderHighlight>;
   active: ActiveSession[];
+  /** The pane with the Focus Outline; its row gets the Row Focus Mark (SRS-FR-099). */
+  focusedPaneId: string | null;
   onJump(paneId: string): void;
   /** A maximized pane is drawn over the sidebar; keep keyboard focus out of it. */
   covered: boolean;
@@ -13,7 +15,7 @@ type Props = {
   hidden: boolean;
 };
 
-export function WorkspaceSidebar({ workspaces, folderHighlights, active, onJump, covered, hidden }: Props) {
+export function WorkspaceSidebar({ workspaces, folderHighlights, active, focusedPaneId, onJump, covered, hidden }: Props) {
   const { items, selected, select, addFolder, removeFolder } = workspaces;
   return (
     <aside aria-label="Workspaces" hidden={hidden} inert={covered} className="flex flex-col bg-card overflow-auto border-r border-border">
@@ -72,7 +74,7 @@ export function WorkspaceSidebar({ workspaces, folderHighlights, active, onJump,
           {active.length === 0 ? (
             <li className="px-2 py-1 text-sm text-muted-foreground">No active sessions</li>
           ) : (
-            active.map((row) => <ActiveRow key={row.paneId} row={row} onJump={onJump} />)
+            active.map((row) => <ActiveRow key={row.paneId} row={row} focused={row.paneId === focusedPaneId} onJump={onJump} />)
           )}
         </ul>
       </section>
@@ -80,10 +82,15 @@ export function WorkspaceSidebar({ workspaces, folderHighlights, active, onJump,
   );
 }
 
-function ActiveRow({ row, onJump }: { row: ActiveSession; onJump(paneId: string): void }) {
+function ActiveRow({ row, focused, onJump }: { row: ActiveSession; focused: boolean; onJump(paneId: string): void }) {
   const detail = row.state === "Needs Approval" || row.state === "Error";
+  // Inset, so the sidebar's overflow and the next row's fill cannot hide it; it sits over the status fill.
+  const mark = focused ? "ring-2 ring-inset ring-ring" : "";
   return (
-    <li className={`rounded-md px-2 py-1 ${row.highlighted ? tone[row.state].fill : ""}`}>
+    <li
+      aria-current={focused ? "true" : undefined}
+      className={`rounded-md px-2 py-1 ${row.highlighted ? tone[row.state].fill : ""} ${mark}`}
+    >
       <button
         onClick={() => onJump(row.paneId)}
         onKeyDown={(e) => {

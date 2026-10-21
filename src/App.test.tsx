@@ -1937,6 +1937,65 @@ describe("Jump from Active Sessions (2.4)", () => {
 
 });
 
+describe("Row Focus Mark (2.5)", () => {
+  const row = (title: string) =>
+    within(within(sidebar()).getByRole("list", { name: "Active sessions" })).getByText(title).closest("li")!;
+  const marked = () =>
+    within(within(sidebar()).getByRole("list", { name: "Active sessions" }))
+      .queryAllByRole("listitem")
+      .filter((li) => li.getAttribute("aria-current") === "true");
+
+  async function twoIdlePanes() {
+    const sessions = fakeSessions({ titles: ["First", "Second"] });
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await ctx.user.click(newSessionButton());
+    await vi.waitFor(() => expect(panes()).toHaveLength(2));
+    await within(sidebar()).findByText("Second");
+    return ctx;
+  }
+
+  it("marks only the row of the idle pane the user clicks into (SRS-FR-099)", async () => {
+    await twoIdlePanes();
+
+    fireEvent.focus(panes()[1]);
+
+    expect(marked()).toEqual([row("Second")]);
+    expect(row("Second")).toHaveClass("ring-2", "ring-inset", "ring-ring");
+    expect(row("First")).not.toHaveClass("ring-2");
+  });
+
+  it("keeps the Running highlight under the mark (SRS-FR-099)", async () => {
+    const { sessions } = await twoIdlePanes();
+    act(() => sessions.opened[0].stream.status({ state: "Running" }));
+
+    fireEvent.focus(panes()[0]);
+
+    expect(row("First")).toHaveClass("bg-running-bg", "ring-2", "ring-ring");
+    expect(row("First")).toHaveAttribute("aria-current", "true");
+  });
+
+  it("moves the mark to the row the user jumps from (SRS-FR-099)", async () => {
+    const { user } = await twoIdlePanes();
+    fireEvent.focus(panes()[1]);
+
+    await user.click(within(row("First")).getByRole("button"));
+
+    expect(marked()).toEqual([row("First")]);
+  });
+
+  it("marks no row once the focused pane has closed (SRS-FR-099)", async () => {
+    const { sessions } = await twoIdlePanes();
+    fireEvent.focus(panes()[1]);
+
+    act(() => sessions.opened[1].stream.exit(0));
+    await vi.waitFor(() => expect(panes()).toHaveLength(1));
+
+    expect(marked()).toEqual([]);
+    expect(row("First")).not.toHaveClass("ring-2");
+  });
+});
+
 describe("Delete a session (2.2 to 2.4)", () => {
   type Row = { id: string; title: string; lastActivity: number };
 

@@ -201,6 +201,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
         workspaces={workspaces}
         folderHighlights={folderHighlights(panes.entries)}
         active={activeSessions(panes.entries)}
+        focusedPaneId={panes.focusedId}
         onJump={panes.jumpTo}
         covered={panes.maximizedId !== null}
       />
