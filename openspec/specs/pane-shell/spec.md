@@ -117,27 +117,6 @@ When the user closes a pane, the system SHALL end the Pane Shell process of that
 - **WHEN** the pane closes
 - **THEN** the shell process of that pane ends
 
-### Requirement: Confirm closing a pane with a busy shell (SRS-FR-063)
-Traces: SRS-FR-063 ← BR-05 ← BO-01
-
-If the user closes a pane whose Pane Shell is running a command, then the system SHALL ask for confirmation before closing that pane.
-
-#### Scenario: Busy hidden shell asks first
-- **GIVEN** the session is `Idle` and the hidden Pane Shell runs `npm run dev`
-- **WHEN** the user closes the pane
-- **THEN** the dialog "A command is still running in the shell. Close anyway?" appears
-- **AND** choosing Cancel keeps the pane and the shell running
-
-#### Scenario: Shell at its prompt does not ask
-- **GIVEN** the session is `Idle` and the Pane Shell waits at its prompt
-- **WHEN** the user closes the pane
-- **THEN** the pane closes without a dialog
-
-#### Scenario: Busy session and busy shell ask once
-- **GIVEN** the session is `Running` and the Pane Shell runs `npm run dev`
-- **WHEN** the user closes the pane
-- **THEN** exactly one confirmation dialog appears
-
 ### Requirement: Report shell start failure (SRS-FR-065)
 Traces: SRS-FR-065 ← BR-05 ← BO-01
 
@@ -164,4 +143,26 @@ While the session in a pane has exited abnormally, the system SHALL keep that pa
 - **GIVEN** a pane whose Pane Shell runs `npm run dev`
 - **WHEN** the user types `/exit` in Claude Code
 - **THEN** the pane closes and its Pane Shell process has ended (SRS-FR-083)
+
+### Requirement: Warn about a busy shell in the Close Dialog (SRS-FR-063)
+Traces: SRS-FR-063 ← BR-05 ← BO-01
+
+If the user chooses × on a pane whose Pane Shell is running a command, then the system SHALL show the warning "A command is still running in the shell." in the Close Dialog.
+
+#### Scenario: Busy hidden shell warns
+- **GIVEN** the session is `Idle` and the hidden Pane Shell runs `npm run dev`
+- **WHEN** the user presses the pane's close button
+- **THEN** the Close Dialog shows the line "A command is still running in the shell."
+- **AND** choosing Cancel keeps the pane and the shell running
+
+#### Scenario: Shell at its prompt has no warning
+- **GIVEN** the session is `Idle` and the Pane Shell waits at its prompt
+- **WHEN** the user presses the pane's close button
+- **THEN** the Close Dialog is shown without the line "A command is still running in the shell."
+
+#### Scenario: Busy session and busy shell share one dialog
+- **GIVEN** the session is `Running` and the Pane Shell runs `npm run dev`
+- **WHEN** the user presses the pane's close button
+- **THEN** exactly one dialog appears
+- **AND** it shows both "Session is still running." and "A command is still running in the shell."
 
