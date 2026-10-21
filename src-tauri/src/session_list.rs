@@ -305,6 +305,64 @@ pub(crate) fn first_cwd(file: &Path) -> Head {
     }
 }
 
+/// The first thing the user typed in the session, read from the head and never past the
+/// first prompt (SRS-FR-097). Meta records, tool results and local-command output are not prompts.
+pub fn first_prompt(file: &Path) -> Option<String> {
+    let opened = File::open(file).ok()?;
+    for line in BufReader::new(opened).split(b'\n') {
+        let Ok(record) = serde_json::from_slice::<serde_json::Value>(&line.ok()?) else {
+            continue;
+        };
+        if record.get("type").and_then(|t| t.as_str()) != Some("user")
+            || record.get("isMeta").and_then(|m| m.as_bool()) == Some(true)
+        {
+            continue;
+        }
+        let prompt = match record.pointer("/message/content") {
+            Some(serde_json::Value::String(text)) => prompt_text(text),
+            Some(serde_json::Value::Array(parts)) if !is_tool_result(parts) => parts
+                .iter()
+                .find(|p| p.get("type").and_then(|t| t.as_str()) == Some("text"))
+                .and_then(|p| p.get("text")?.as_str())
+                .and_then(prompt_text),
+            _ => None,
+        };
+        if prompt.is_some() {
+            return prompt;
+        }
+    }
+    None
+}
+
+fn is_tool_result(parts: &[serde_json::Value]) -> bool {
+    parts
+        .iter()
+        .any(|p| p.get("type").and_then(|t| t.as_str()) == Some("tool_result"))
+}
+
+/// A slash command is stored as a `<command-name>` wrapper; `/clear` and local-command output
+/// are not something the user asked for.
+fn prompt_text(content: &str) -> Option<String> {
+    let text = content.trim();
+    if text.is_empty() || text.starts_with("<local-command-") {
+        return None;
+    }
+    let Some(name) = tag(text, "command-name") else {
+        return Some(text.to_owned());
+    };
+    let args = tag(text, "command-args").unwrap_or_default();
+    match (name, args) {
+        ("/clear", "") | ("", _) => None,
+        (name, "") => Some(name.to_owned()),
+        (name, args) => Some(format!("{name} {args}")),
+    }
+}
+
+fn tag<'a>(text: &'a str, name: &str) -> Option<&'a str> {
+    let rest = text.split_once(&format!("<{name}>"))?.1;
+    Some(rest.split_once(&format!("</{name}>"))?.0.trim())
+}
+
 fn modified_ms(file: &Path) -> u64 {
     fs::metadata(file)
         .and_then(|m| m.modified())
@@ -740,6 +798,65 @@ mod tests {
         println!("200 sessions scanned in {took:?}");
         assert_eq!(listing.sessions.len(), 200);
         assert!(took < Duration::from_secs(3), "{took:?}");
+    }
+    fn user(content: serde_json::Value) -> String {
+        line(serde_json::json!({"type": "user", "message": {"role": "user", "content": content}}))
+    }
+
+    fn meta(content: serde_json::Value) -> String {
+        line(serde_json::json!({"type": "user", "isMeta": true, "message": {"content": content}}))
+    }
+
+    fn first_prompt_of(text: &str) -> (Option<String>, bool) {
+        let root = TempDir::new().unwrap();
+        let path = write(&root, "p", "s", text);
+        let found = first_prompt(&path);
+        (found, fs::read_to_string(&path).unwrap() == text)
+    }
+
+    #[test]
+    fn first_prompt_skips_meta_and_local_command_records() {
+        let text = line(serde_json::json!({"type": "mode", "mode": "default"}))
+            + &meta(serde_json::json!("<local-command-caveat>Caveat: ...</local-command-caveat>"))
+            + &user(serde_json::json!("<command-name>/clear</command-name>\n<command-message>clear</command-message>\n<command-args></command-args>"))
+            + &user(serde_json::json!("<local-command-stdout></local-command-stdout>"))
+            + &meta(serde_json::json!([{"type": "text", "text": "injected"}]))
+            + &user(serde_json::json!("Scaffold Tauri app"))
+            + &user(serde_json::json!("later"));
+        let (found, unchanged) = first_prompt_of(&text);
+        assert_eq!(found.as_deref(), Some("Scaffold Tauri app"));
+        assert!(unchanged);
+    }
+
+    #[test]
+    fn first_prompt_rebuilds_a_skill_command() {
+        let text = user(serde_json::json!("<command-name>/dev-bug</command-name>\n<command-message>dev-bug</command-message>\n<command-args>lỗi X</command-args>"));
+        assert_eq!(first_prompt_of(&text).0.as_deref(), Some("/dev-bug lỗi X"));
+    }
+
+    #[test]
+    fn first_prompt_of_a_command_without_args_is_the_command() {
+        let text = user(serde_json::json!("<command-name>/dev-bug</command-name><command-message>dev-bug</command-message><command-args></command-args>"));
+        assert_eq!(first_prompt_of(&text).0.as_deref(), Some("/dev-bug"));
+    }
+
+    #[test]
+    fn first_prompt_reads_a_text_part_and_skips_tool_results() {
+        let text = user(serde_json::json!([{"type": "tool_result", "tool_use_id": "t", "content": "x"}]))
+            + &user(serde_json::json!([{"type": "text", "text": "Sửa lỗi resume"}]));
+        assert_eq!(first_prompt_of(&text).0.as_deref(), Some("Sửa lỗi resume"));
+    }
+
+    #[test]
+    fn first_prompt_is_none_without_a_user_prompt() {
+        let text = line(serde_json::json!({"type": "assistant"}))
+            + &user(serde_json::json!("<command-name>/clear</command-name><command-message>clear</command-message><command-args></command-args>"))
+            + "not json\n";
+        let (found, unchanged) = first_prompt_of(&text);
+        assert_eq!(found, None);
+        assert!(unchanged);
+        assert_eq!(first_prompt_of("").0, None);
+        assert_eq!(first_prompt(Path::new("/no/such/file.jsonl")), None);
     }
 }
 
