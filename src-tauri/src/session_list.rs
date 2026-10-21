@@ -340,11 +340,23 @@ fn is_tool_result(parts: &[serde_json::Value]) -> bool {
         .any(|p| p.get("type").and_then(|t| t.as_str()) == Some("tool_result"))
 }
 
-/// A slash command is stored as a `<command-name>` wrapper; `/clear` and local-command output
-/// are not something the user asked for.
+/// Claude Code's own commands that act on the app, not on the task, when typed without arguments.
+/// `/init` is a task and is not listed.
+const LOCAL_COMMANDS: &[&str] = &[
+    "/clear", "/model", "/config", "/help", "/status", "/cost", "/compact", "/resume", "/login",
+    "/logout", "/permissions", "/memory", "/mcp", "/doctor", "/exit", "/quit", "/usage", "/context",
+    "/agents", "/hooks", "/ide", "/vim", "/theme", "/terminal-setup", "/bug", "/release-notes",
+];
+
+/// A slash command is stored as a `<command-name>` wrapper. Local-command and bash-mode output,
+/// and bare built-in commands (see `LOCAL_COMMANDS`), are not something the user asked for.
 fn prompt_text(content: &str) -> Option<String> {
     let text = content.trim();
-    if text.is_empty() || text.starts_with("<local-command-") {
+    if text.is_empty()
+        || ["<local-command-", "<bash-input>", "<bash-stdout>"]
+            .iter()
+            .any(|tag| text.starts_with(tag))
+    {
         return None;
     }
     let Some(name) = tag(text, "command-name") else {
@@ -352,7 +364,8 @@ fn prompt_text(content: &str) -> Option<String> {
     };
     let args = tag(text, "command-args").unwrap_or_default();
     match (name, args) {
-        ("/clear", "") | ("", _) => None,
+        (name, "") if LOCAL_COMMANDS.contains(&name) => None,
+        ("", _) => None,
         (name, "") => Some(name.to_owned()),
         (name, args) => Some(format!("{name} {args}")),
     }
@@ -832,6 +845,26 @@ mod tests {
         let (found, unchanged) = first_prompt_of(&text);
         assert_eq!(found.as_deref(), Some("Scaffold Tauri app"));
         assert!(unchanged);
+    }
+
+    #[test]
+    fn first_prompt_skips_built_in_local_commands_and_bash_mode() {
+        let cmd = |name: &str, args: &str| {
+            user(serde_json::json!(format!(
+                "<command-name>{name}</command-name>\n<command-message>x</command-message>\n<command-args>{args}</command-args>"
+            )))
+        };
+        let text = cmd("/model", "")
+            + &cmd("/config", "")
+            + &cmd("/help", "")
+            + &user(serde_json::json!("<bash-input>ls</bash-input>"))
+            + &user(serde_json::json!("<bash-stdout>a</bash-stdout><bash-stderr></bash-stderr>"))
+            + &cmd("/compact", "")
+            + &cmd("/model", "opus")
+            + &user(serde_json::json!("Sửa lỗi"));
+        assert_eq!(first_prompt_of(&text).0.as_deref(), Some("/model opus"));
+        let text = cmd("/model", "") + &cmd("/init", "") + &user(serde_json::json!("Sửa lỗi"));
+        assert_eq!(first_prompt_of(&text).0.as_deref(), Some("/init"));
     }
 
     #[test]

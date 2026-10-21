@@ -237,7 +237,7 @@ export function TerminalPane({
           </button>
         </span>
       </header>
-      {goal !== null && <GoalLine goal={goal} onSave={(text) => onSetGoal(paneId, text)} />}
+      {goal && <GoalLine goal={goal} onSave={(text) => onSetGoal(paneId, text)} />}
       <div className="flex-1 min-h-0 min-w-0 flex flex-col">
         {pane.started ? (
           // FitAddon sizes from the parent of the terminal and ignores that parent's padding,

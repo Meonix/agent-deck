@@ -14,14 +14,15 @@ use crate::workspace::{
     WorkspaceView,
 };
 
-/// Lock order: `list` before `panes` before `shells` whenever more than one is held.
+/// Lock order: `list` before `panes` before `shells` whenever more than one is held; a pane's
+/// keeper session lock comes after `panes` and before `goals`.
 pub struct AppState {
     pub list: Mutex<WorkspaceList>,
     pub store: WorkspaceStore,
     pub panes: Mutex<PaneRegistry>,
     pub shells: Mutex<ShellRegistry>,
     pub launch: LaunchLookup,
-    /// Session goals, shared by every pane's keeper; no other lock is held while it is used.
+    /// Session goals, shared by every pane's keeper; taken last, after `list`, `panes` and the keeper's session lock.
     pub goals: Arc<Mutex<GoalStore>>,
     /// None when the hook listener could not start; panes then run untracked.
     pub hooks: Option<Arc<HookServer>>,

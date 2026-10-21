@@ -27,16 +27,26 @@ struct Stored {
 pub struct GoalStore {
     dir: PathBuf,
     goals: HashMap<String, String>,
+    /// Set when the existing file could not be read or moved aside: it is never written over.
+    read_only: bool,
 }
 
 impl GoalStore {
-    /// A missing file starts empty; an unreadable one is kept as `.bak` for manual recovery.
+    /// A missing file starts empty; a corrupt one is kept as `.bak` for manual recovery. A file
+    /// that cannot be read or moved aside leaves the store in memory only, so it is not clobbered.
     pub fn load(dir: PathBuf) -> Self {
-        let goals = Self::read(&dir).unwrap_or_else(|e| {
-            crate::diag::error("session_goal", &format!("cannot read {FILE}: {e}"));
-            HashMap::new()
-        });
-        GoalStore { dir, goals }
+        let (goals, read_only) = match Self::read(&dir) {
+            Ok(goals) => (goals, false),
+            Err(e) => {
+                crate::diag::error("session_goal", &format!("cannot read {FILE}: {e}"));
+                (HashMap::new(), true)
+            }
+        };
+        GoalStore {
+            dir,
+            goals,
+            read_only,
+        }
     }
 
     fn read(dir: &Path) -> io::Result<HashMap<String, String>> {
@@ -62,6 +72,9 @@ impl GoalStore {
     /// The goal stays in memory for this run even when the write fails.
     pub fn set(&mut self, session_id: &str, text: &str) {
         self.goals.insert(session_id.to_string(), text.to_string());
+        if self.read_only {
+            return;
+        }
         if let Err(e) = self.save() {
             crate::diag::error("session_goal", &format!("cannot write {FILE}: {e}"));
         }
@@ -123,10 +136,14 @@ impl GoalKeeper {
         }
     }
 
-    /// Follows the event's `session_id`, pins a first prompt (SRS-FR-091) and
+    /// Follows the `session_id` of any event but `SessionEnd` (it may arrive after the next
+    /// session's start), pins a first prompt (SRS-FR-091) and
     /// answers a `UserPromptSubmit` of a session with a goal (SRS-FR-094).
     /// Anything unusable answers `None` so the prompt goes through (SRS-FR-098).
     pub fn hook(&self, event: &Value) -> Option<Value> {
+        if event["hook_event_name"] == "SessionEnd" {
+            return None;
+        }
         let mut session = self.session.lock().ok()?;
         if let Some(id) = event["session_id"].as_str().filter(|id| !id.is_empty())
             && id != *session
@@ -413,6 +430,40 @@ mod tests {
             GoalStore::load(dir.path().to_path_buf()).get("s1").unwrap(),
             "mới"
         );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn unreadable_file_is_never_overwritten() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("session-goals.json");
+        let original = r#"{"version":1,"goals":{"old":"giữ lại"}}"#;
+        fs::write(&file, original).unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).unwrap();
+        if fs::read(&file).is_ok() {
+            return;
+        }
+        let mut store = GoalStore::load(dir.path().to_path_buf());
+        store.set("s1", "mới");
+        assert_eq!(store.get("s1").unwrap(), "mới");
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
+        assert_eq!(fs::read_to_string(&file).unwrap(), original);
+        assert!(!dir.path().join("session-goals.json.tmp").exists());
+    }
+
+    #[test]
+    fn session_end_does_not_switch_the_session() {
+        let f = Fixture::new();
+        f.prompt("s1", "Sửa lỗi resume mất scrollback");
+        f.keeper.hook(&json!({"hook_event_name": "SessionStart", "session_id": "s2"}));
+        f.take();
+        let answer = f.keeper.hook(&json!({"hook_event_name": "SessionEnd", "session_id": "s1"}));
+        assert_eq!(answer, None);
+        assert!(f.take().is_empty());
+        f.keeper.set("mục tiêu mới");
+        assert_eq!(f.goal("s2").unwrap(), "mục tiêu mới");
+        assert_eq!(f.goal("s1").unwrap(), "Sửa lỗi resume mất scrollback");
     }
 
     #[test]

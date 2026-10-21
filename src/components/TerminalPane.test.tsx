@@ -248,6 +248,11 @@ describe("Goal Line (SRS-FR-092, SRS-FR-093)", () => {
     expect(goalGroup()).toBeNull();
   });
 
+  it("has no Goal Line for an empty goal", () => {
+    renderPane(entry(fakeAdapter(), { goal: "" }));
+    expect(goalGroup()).toBeNull();
+  });
+
   it("shows a short goal whole", () => {
     renderPane(entry(fakeAdapter(), { goal: "Fix resume" }));
     expect(goalGroup()).toHaveTextContent("Fix resume");
