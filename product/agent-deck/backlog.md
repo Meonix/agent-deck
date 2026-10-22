@@ -4,7 +4,7 @@ slug: agent-deck
 ---
 # Backlog — agent-deck
 
-Nguồn: `SRS.md` Baselined v1.9 (2026-10-21), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23; CR-009 thêm mục 24. Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
+Nguồn: `SRS.md` Baselined v1.10 (2026-10-22), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23; CR-009 thêm mục 24; CR-010 thêm mục 25. Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
 
 | # | Mục | change-id | SRS-ID | Phụ thuộc | Lý do | Trạng thái |
 |---|---|---|---|---|---|---|
@@ -32,3 +32,4 @@ Nguồn: `SRS.md` Baselined v1.9 (2026-10-21), CR-001 thêm mục 9, 10, 11; CR-
 | 22 | Ghim việc chính của phiên, Claude Code nhắc khi lạc đề | add-session-goal | SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 | 2, 3, 6, 19 | Should; CR-007; phục vụ BO-03; chỉ thêm FR mới → /dev-feature | archived |
 | 23 | Dấu focus trên dòng Active Sessions | add-active-row-focus-mark | SRS-FR-099 | 12, 20 | Should; CR-008; chỉ thêm FR mới → /dev-feature | archived |
 | 24 | Đóng ô hỏi có chuyển phiên vào Thùng rác | update-pane-close-dialog | SRS-FR-027, SRS-FR-029, SRS-FR-063, SRS-FR-100, SRS-FR-101, SRS-FR-102 | 2, 11, 13, 17 | Should; CR-009; đổi hành vi đã archived (SRS-FR-027, SRS-FR-063) → /dev-update | archived |
+| 25 | Bỏ nhắc lạc đề, việc chính thành Target Box chữ đỏ | update-session-target-box | SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 | 22 | Should; CR-010; đổi hành vi đã archived (add-session-goal) → /dev-update | todo |

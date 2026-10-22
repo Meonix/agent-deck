@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.9 (2026-10-21)
+status: Baselined v1.10 (2026-10-22)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -40,8 +40,8 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | A-07 | Ứng dụng không gửi dữ liệu phiên ra khỏi máy | PO |
 | A-08 | Bản đầu được kiểm trên Claude Code 2.1.300, bản đang cài trên máy PO ngày 2026-10-15 | PO |
 | A-09 | BO-02 kiểm bằng kịch bản demo: mở app → chọn folder → chọn phiên → Resume, đếm thao tác trên 5 phiên khác nhau (Q-01) | PO |
-| A-10 | Focus Reminder gửi qua Claude Code cùng prompt không tính là app gửi dữ liệu phiên ra khỏi máy (A-07, SRS-NFR-007) | PO |
-| A-11 | BO-03 kiểm bằng bộ 10 prompt lạc đề + 10 prompt trong phạm vi gửi vào các phiên có Session Goal khác nhau, đếm số lượt Claude Code nhắc | PO |
+| A-10 | Deleted (CR-010) | PO |
+| A-11 | Deleted (CR-010) | PO |
 
 ### Thuật ngữ
 
@@ -76,10 +76,8 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Sidebar | Cột trái chứa Workspace List và Active Sessions |
 | Sidebar Toggle | Nút ở giữa theo chiều dọc, sát mép phải Sidebar (Sidebar ẩn: sát mép trái cửa sổ), bấm để ẩn/hiện Sidebar |
 | Sidebar shortcut | macOS: Cmd+B; Windows: Ctrl+B |
-| Session Goal | Việc chính của một phiên: prompt đầu tiên người dùng gửi trong phiên, hoặc câu người dùng sửa lại |
-| Goal Line | Dòng ngay dưới tiêu đề ô, hiện Session Goal rút gọn một dòng ≤ 80 ký tự, có nút Edit Goal (bút chì) ở bên phải |
-| Focus Reminder | Ngữ cảnh app gửi cho Claude Code cùng mỗi prompt: Session Goal (≤ 500 ký tự), RULE-09 và cách xử lý prompt lạc đề |
-| Off-goal prompt | Prompt không thuộc Session Goal theo RULE-09 |
+| Session Goal | Việc chính của một phiên: prompt đầu tiên người dùng gửi trong phiên, hoặc câu người dùng sửa lại; câu rỗng người dùng để lại cũng là Session Goal |
+| Target Box | Ô chữ đỏ ngay dưới tiêu đề ô, hiện và sửa trực tiếp Session Goal, cao tối đa 3 dòng rồi cuộn |
 
 ## 2. Yêu cầu chức năng
 
@@ -929,60 +927,49 @@ When the application starts, the system shall show the Sidebar.
 - Ưu tiên: Should
 - Nguồn: BR-05
 
-## 2.14 Giữ phiên trong một việc
+## 2.14 Hiện việc chính của phiên
 
-- Luồng chính: 1. Người dùng gửi prompt đầu trong ô → Session Goal, Goal Line hiện → SRS-FR-091, SRS-FR-092. 2. Mỗi prompt sau → Claude Code nhận Focus Reminder → SRS-FR-094, SRS-FR-095.
-- Luồng thay thế: A1 người dùng bấm Edit Goal → SRS-FR-093. A2 mở lại app hoặc Resume → SRS-FR-096, SRS-FR-097
-- Luồng ngoại lệ: E1 không gửi được Focus Reminder → SRS-FR-098
+- Luồng chính: 1. Người dùng gửi prompt đầu trong ô → Session Goal, Target Box hiện câu đó → SRS-FR-091, SRS-FR-092.
+- Luồng thay thế: A1 người dùng sửa trong Target Box → SRS-FR-093. A2 mở lại app hoặc Resume → SRS-FR-096, SRS-FR-097
 
 ### SRS-FR-091 — Pin first prompt as session goal
-When the user sends a prompt in a pane whose session has no Session Goal, the system shall set that prompt as the Session Goal.
-- Giải thích: áp cho phiên mới và cho phiên mới Claude Code tạo sau `/clear`; prompt là lệnh skill (`/dev-bug lỗi X`) thì lấy nguyên câu.
+When the user sends a prompt in a pane whose session has no stored Session Goal, the system shall set that prompt as the Session Goal.
+- Giải thích: áp cho phiên mới và cho phiên mới Claude Code tạo sau `/clear`; lấy nguyên văn, giữ xuống dòng; prompt là lệnh skill (`/dev-bug lỗi X`) thì lấy nguyên câu. Người dùng đã gõ vào Target Box trước prompt đầu, hay đã xoá trống nó, thì phiên đã có Session Goal nên prompt không ghi đè. Sửa ở CR-010: trước là "has no Session Goal".
 - Ví dụ: ô mới, gửi "Sửa lỗi resume mất scrollback" → Session Goal là câu đó.
 - Ví dụ âm: gửi tiếp "chạy test" → Session Goal không đổi.
+- Ví dụ âm: gõ "Sửa resume" vào Target Box rồi gửi "chạy test" → Session Goal vẫn "Sửa resume".
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-09
 
-### SRS-FR-092 — Goal Line
-While the session in a pane has a Session Goal, the system shall show the Goal Line below the pane header.
-- Giải thích: dài hơn 80 ký tự thì cắt và thêm "…"; di chuột lên thì hiện đủ câu; chưa có Session Goal thì không có Goal Line; nhấp đúp hay kéo Goal Line không phóng to, không kéo ô.
-- Ví dụ: Session Goal 120 ký tự → Goal Line hiện 79 ký tự đầu + "…" và nút bút chì.
+### SRS-FR-092 — Target Box
+The system shall show the Target Box below the header of every pane.
+- Giải thích: chữ đỏ; cao theo nội dung, tối đa 3 dòng, dài hơn thì cuộn trong ô; chưa có Session Goal thì ô trống kèm chữ gợi ý mờ; nhấp đúp hay kéo trong Target Box không phóng to, không kéo ô. Sửa ở CR-010: trước là Goal Line một dòng ≤ 80 ký tự, chỉ hiện khi có Session Goal.
+- Ví dụ: prompt đầu 5 dòng → Target Box hiện 3 dòng đầu, cuộn để xem phần còn lại.
+- Ví dụ: ô mới chưa gửi prompt → Target Box trống, có chữ gợi ý.
 - Kiểm chứng: Demo
 - Ưu tiên: Should
 - Nguồn: BR-09
 
 ### SRS-FR-093 — Edit session goal
-When the user confirms a new text in Edit Goal, the system shall replace the Session Goal with that text.
-- Giải thích: bấm bút chì → Goal Line thành ô sửa; Enter lưu, Esc huỷ; câu rỗng thì giữ câu cũ; prompt sau dùng câu mới.
-- Ví dụ: sửa thành "Sửa resume mất scrollback trên Windows", Enter → Goal Line hiện câu mới, prompt kế tiếp có Focus Reminder với câu mới.
-- Ví dụ âm: xoá hết chữ rồi Enter → Session Goal giữ câu cũ.
+When the Target Box loses focus after the user changed its text, the system shall replace the Session Goal with that text.
+- Giải thích: bấm vào Target Box là sửa ngay, không có nút bút chì; Enter xuống dòng; Esc bỏ phần vừa gõ và trả câu cũ; câu rỗng được lưu, ô giữ trống và không tự điền lại. Sửa ở CR-010: trước là sửa qua nút Edit Goal, Enter lưu, câu rỗng giữ câu cũ.
+- Ví dụ: sửa thành "Sửa resume trên Windows", bấm ra ngoài → thoát app, mở lại vẫn thấy câu mới.
+- Ví dụ âm: gõ "abc" rồi Esc → Target Box hiện câu cũ.
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-09
 
-### SRS-FR-094 — Focus Reminder with each prompt
-When the user sends a prompt in a pane whose session has a Session Goal, the system shall give Claude Code the Focus Reminder with that prompt.
-- Giải thích: Session Goal dài hơn 500 ký tự thì cắt; chỉ cho phiên mở trong ô của agent-deck.
-- Ví dụ: Session Goal "Sửa lỗi resume mất scrollback", gửi "thêm nút export CSV" → Claude Code nhận prompt đó kèm Focus Reminder có câu Session Goal.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-09
+### SRS-FR-094 — Focus Reminder with each prompt — Deleted (CR-010)
+App không gửi gì thêm cho Claude Code cùng prompt; người dùng tự đối chiếu việc chính trên Target Box (SRS-FR-092).
 
-### SRS-FR-095 — Off-goal instruction
-The system shall word the Focus Reminder so that Claude Code, for an Off-goal prompt, does not carry it out, says it is a different task and suggests a new session, unless the user tells it to go ahead.
-- Giải thích: app không tự chặn prompt nào; Claude Code tự xét theo RULE-09; hiệu quả đo ở BO-03 (A-11).
-- Ví dụ: Session Goal "Sửa lỗi resume", gửi "thêm nút export CSV" → Claude Code trả lời đây là việc khác và đề nghị mở phiên mới.
-- Ví dụ: gửi tiếp "cứ làm" → Claude Code làm.
-- Ví dụ âm: gửi "commit giúp" → Claude Code commit, không nhắc.
-- Kiểm chứng: Inspection
-- Ưu tiên: Should
-- Nguồn: BR-09
+### SRS-FR-095 — Off-goal instruction — Deleted (CR-010)
+App không ràng buộc Claude Code theo Session Goal.
 
 ### SRS-FR-096 — Keep session goal across launches
 The system shall keep the Session Goal of each session between application launches.
-- Ví dụ: sửa Session Goal, thoát app, mở lại → ô mở lại có Goal Line với câu đã sửa.
-- Ví dụ: đóng ô, sau đó Resume phiên đó → Goal Line như trước khi đóng.
+- Ví dụ: sửa Session Goal, thoát app, mở lại → Target Box của ô mở lại hiện câu đã sửa.
+- Ví dụ: đóng ô, sau đó Resume phiên đó → Target Box như trước khi đóng.
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-09
@@ -990,17 +977,14 @@ The system shall keep the Session Goal of each session between application launc
 ### SRS-FR-097 — Goal of a resumed session without a stored goal
 When the user resumes a session that has no stored Session Goal, the system shall set the first prompt the user sent in that session as its Session Goal.
 - Giải thích: đọc từ lịch sử phiên của Claude Code, không sửa nó (SRS-NFR-005); phiên chưa có prompt nào thì chưa có Session Goal, SRS-FR-091 áp khi gửi prompt.
-- Ví dụ: Resume phiên cũ có prompt đầu "Scaffold Tauri app" → Goal Line "Scaffold Tauri app".
+- Ví dụ: Resume phiên cũ có prompt đầu "Scaffold Tauri app" → Target Box hiện "Scaffold Tauri app".
+- Ví dụ âm: Resume phiên chưa có prompt nào → Target Box trống.
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-09
 
-### SRS-FR-098 — Prompt goes through without reminder
-If the system cannot give Claude Code the Focus Reminder for a prompt, then the system shall let that prompt reach Claude Code unchanged.
-- Ví dụ: hook không trả được Focus Reminder → Claude Code vẫn nhận và làm prompt như khi chưa có tính năng; ô không báo lỗi.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-09
+### SRS-FR-098 — Prompt goes through without reminder — Deleted (CR-010)
+Không còn Focus Reminder (SRS-FR-094); prompt luôn tới Claude Code nguyên vẹn.
 
 ## 3. Dữ liệu
 
@@ -1062,7 +1046,7 @@ Session Selection không được lưu: bỏ khi đổi workspace hay đóng Ses
 | RULE-06 | Phiên ở `Error` khi lượt làm việc bị dừng vì lỗi dịch vụ (hết hạn mức, quá tải, lỗi máy chủ, lỗi đăng nhập) hoặc khi phiên thoát bất thường; một lệnh hay công cụ Claude Code chạy bị lỗi mà lượt làm việc vẫn tiếp tục thì không tính là lỗi. Loại lỗi là lý do hiện ở dòng phụ của dòng phiên (SRS-FR-033). | BR-06 |
 | RULE-07 | Phiên ở `Ended` khi phiên đã thoát bình thường. | BR-06 |
 | RULE-08 | Phiên rời `Error` khi người dùng gửi yêu cầu mới trong phiên đó (sang `Running`) hoặc khi người dùng đóng ô của phiên. | BR-06 |
-| RULE-09 | Một prompt thuộc Session Goal khi nó phục vụ việc chính: sửa lỗi đang chặn việc chính, chạy test, commit, hỏi về phần vừa làm cho việc chính; prompt tạo ra một thay đổi riêng đứng độc lập được là Off-goal prompt. | BR-09 |
+| RULE-09 | Deleted (CR-010) | BR-09 |
 
 ## 5. Trạng thái
 
@@ -1085,7 +1069,6 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Claude Code (phiên tương tác) | Chạy phiên mới hoặc tiếp tục phiên cũ trong một ô; nhận phím, trả nội dung hiển thị | Khi mở ô (SRS-FR-013, SRS-FR-018) | Không khởi động được → SRS-FR-017 |
 | Claude Code (tín hiệu trạng thái) | Sự kiện đổi trạng thái của phiên trong ô | Liên tục khi ô còn mở | Không theo dõi được → SRS-FR-036 |
 | Shell mặc định của hệ điều hành | Nhận phím, trả nội dung hiển thị | Khi mở Pane Shell (SRS-FR-055) | Không khởi động được → SRS-FR-065 |
-| Claude Code (prompt gửi đi) | Nhận Focus Reminder cùng prompt | Mỗi lần người dùng gửi prompt trong ô (SRS-FR-094) | Không nhận được → SRS-FR-098 |
 
 ## 7. Màn hình
 
@@ -1094,7 +1077,7 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing`; Status Highlight của folder; tint riêng của section | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006, SRS-FR-034, SRS-FR-040, SRS-FR-054, SRS-NFR-009 |
 | Cửa sổ chính · Active Sessions | Phiên đang mở trong ô của mọi folder, Status Highlight, dòng phụ "giờ · lý do", bấm dòng để tới ô, Row Focus Mark của ô đang focus; tint riêng của section | SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-FR-099, SRS-NFR-009 |
 | Cửa sổ chính · Session History Panel | Lịch sử phiên của folder đang chọn, nhãn `Live`, Resume, New Session, xoá một hoặc nhiều phiên, đóng khung | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-054, SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079, SRS-NFR-003 |
-| Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô qua Close Dialog (có thể chuyển phiên vào Thùng rác), ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, Goal Line và sửa Session Goal | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098, SRS-FR-100, SRS-FR-101, SRS-FR-102 |
+| Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô qua Close Dialog (có thể chuyển phiên vào Thùng rác), ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, Target Box hiện và sửa Session Goal | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-100, SRS-FR-101, SRS-FR-102 |
 | Cửa sổ chính · toàn cửa sổ | Phóng to, thu nhỏ, về mặc định cỡ chữ của mọi chữ trong cửa sổ; ẩn/hiện Sidebar bằng Sidebar Toggle hoặc Sidebar shortcut | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071, SRS-FR-088, SRS-FR-089, SRS-FR-090 |
 | Status Latency | Xem tỉ lệ đổi trạng thái hiện ≤ 3 giây | SRS-FR-039 |
 
@@ -1188,7 +1171,7 @@ The system shall give the Workspace List section and the Active Sessions section
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-102 (trừ SRS-FR-022, SRS-FR-031 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-001 đến SRS-FR-102 (trừ SRS-FR-022, SRS-FR-031, SRS-FR-094, SRS-FR-095, SRS-FR-098 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
 | SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
 | SRS-NFR-001 đến SRS-NFR-009 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
@@ -1290,11 +1273,11 @@ The system shall give the Workspace List section and the Active Sessions section
 | SRS-FR-091 | BR-09 | | Test | Baselined |
 | SRS-FR-092 | BR-09 | | Demo | Baselined |
 | SRS-FR-093 | BR-09 | | Test | Baselined |
-| SRS-FR-094 | BR-09 | | Test | Baselined |
-| SRS-FR-095 | BR-09 | | Inspection | Baselined |
+| SRS-FR-094 | BR-09 | | Test | Deleted (CR-010) |
+| SRS-FR-095 | BR-09 | | Inspection | Deleted (CR-010) |
 | SRS-FR-096 | BR-09 | | Test | Baselined |
 | SRS-FR-097 | BR-09 | | Test | Baselined |
-| SRS-FR-098 | BR-09 | | Test | Baselined |
+| SRS-FR-098 | BR-09 | | Test | Deleted (CR-010) |
 | SRS-FR-099 | BR-05 | | Test | Baselined |
 | SRS-FR-100 | BR-05 | | Test | Baselined |
 | SRS-FR-101 | BR-08 | | Test | Baselined |
@@ -1332,3 +1315,4 @@ The system shall give the Workspace List section and the Active Sessions section
 | v1.7 | 2026-10-21 | PO | CR-007: Session Goal ghim trên Goal Line, sửa được, giữ giữa các lần mở app; Focus Reminder gửi cùng mỗi prompt, Claude Code nhắc khi lạc đề theo RULE-09; thêm SRS-FR-091 đến SRS-FR-098, A-10, A-11; theo BRD v3.0 |
 | v1.8 | 2026-10-21 | PO | CR-008: Row Focus Mark trên dòng Active Sessions của ô đang focus, ở mọi trạng thái, không thay Status Highlight; thêm SRS-FR-099, Row Focus Mark; theo BRD v3.0 |
 | v1.9 | 2026-10-21 | PO | CR-009: bấm × trên ô luôn hiện Close Dialog (Cancel · Close · Close and move to Trash), cảnh báo bận nằm trong hộp thay hai hộp riêng; `/exit` giữ nguyên; sửa SRS-FR-027, SRS-FR-029, SRS-FR-063; thêm SRS-FR-100 đến SRS-FR-102, Close Dialog; theo BRD v3.1 |
+| v1.10 | 2026-10-22 | PO | CR-010: bỏ Focus Reminder và luật lạc đề (xoá SRS-FR-094, SRS-FR-095, SRS-FR-098, RULE-09, A-10, A-11); Goal Line thành Target Box chữ đỏ, sửa trực tiếp, tối đa 3 dòng rồi cuộn; sửa SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097; theo BRD v4.0 |

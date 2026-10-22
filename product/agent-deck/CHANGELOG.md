@@ -474,3 +474,54 @@ Backlog — thêm (áp sau GATE CR):
 - 24 · Đóng ô hỏi có chuyển phiên vào Thùng rác · update-pane-close-dialog · SRS-FR-027, SRS-FR-029, SRS-FR-063, SRS-FR-100, SRS-FR-101, SRS-FR-102 · phụ thuộc 2, 11, 13, 17 · Should; CR-009; đổi hành vi đã archived (SRS-FR-027, SRS-FR-063) → /dev-update.
 
 Việc tiếp theo: /dev-update update-pane-close-dialog (mục 24).
+
+## CR-010 — Bỏ nhắc lạc đề, việc chính thành ô chữ đỏ sửa trực tiếp
+Ngày: 2026-10-22
+Yêu cầu: "hiện tại tính năng pin target của session tôi thấy đang hoạt động không hợp lý, điều chỉnh giúp tôi. 1. xóa hết tất cả những tính năng tự đoán target của session mà trước đó đã làm trên repo này. 2. thay vào đó tôi muốn có một hộp text có thể edit Text được. edit text này sẽ lấy nội dung chính prompt đầu tiên của tôi điền vào, sau đó tôi có thể tùy ý chỉnh sửa. 3. edit text sẽ có màu đỏ. nói chung là chỉ hiển thị target thôi chứ không ràng buộc agent phải follow theo target của session như trước. toi sẽ tự xem xét target và align." — trước prompt đầu: "bỏ trống cho đến khi user prompt"; chọn kiểu B trên mockup (nhiều dòng, tối đa 3 dòng rồi cuộn); PO duyệt mô tả: "ổn". Mô tả đã duyệt: bỏ Focus Reminder và luật lạc đề, app không chèn gì vào prompt; bỏ Goal Line một dòng và nút bút chì; thay bằng ô target dưới tiêu đề mọi ô, chữ đỏ, tối đa 3 dòng rồi cuộn, trống kèm chữ gợi ý tới khi có prompt đầu, prompt đầu điền nguyên văn (giữ xuống dòng), prompt sau không đổi; bấm vào sửa ngay, Enter xuống dòng, rời ô thì lưu, Esc bỏ phần vừa gõ; gõ target trước prompt đầu thì giữ chữ người dùng; xoá trống thì giữ trống, không tự điền lại; giữ lưu theo mã phiên, /clear thì phiên mới trống, Resume phiên cũ lấy prompt đầu trong lịch sử.
+Status: Approved (2026-10-22)
+Ảnh hưởng:
+- BO: BO-03 đo bằng tỉ lệ Claude Code nhắc lạc đề; bỏ nhắc thì không đo được → đổi BO-03, BRD lên major. SRS-ID dưới BO-03: SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098.
+- BR-09 bỏ vế "Claude Code nhắc và đề nghị mở phiên mới".
+- SRS-FR-094, SRS-FR-095, SRS-FR-098 (archived: add-session-goal) → xoá. RULE-09, A-10, A-11, thuật ngữ "Focus Reminder", "Off-goal prompt", dòng giao diện ngoài "Claude Code (prompt gửi đi)" → xoá.
+- SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097 (archived: add-session-goal) → sửa: Goal Line thành Target Box.
+- SRS-FR-030, SRS-FR-066, SRS-FR-067, SRS-FR-080 (tiêu đề ô, nhấp đúp, kéo) giữ chữ: Target Box nằm ngoài tiêu đề ô như Goal Line trước đây.
+- SRS-NFR-005 giữ: Session Goal vẫn lưu riêng, không ghi vào dữ liệu phiên của Claude Code. SRS-NFR-006, SRS-NFR-007 giữ: app không còn gửi gì thêm cho Claude Code.
+- Code (cho /dev-update): src-tauri/src/session_goal.rs (`focus_reminder`, `reminder_body`, `GoalKeeper::hook` trả body), src-tauri/src/pane_commands.rs, panes.rs, pty/session.rs, commands.rs, lib.rs; src/components/TerminalPane.tsx (`GoalLine`), useSessionPanes.ts, src/api/sessions.ts cùng các test đi kèm.
+- Spec: openspec/specs/session-goal (SRS-FR-091 đến SRS-FR-098) → /dev-update add-session-goal.
+- Thiết kế: PO đã chọn kiểu B trên mockup (nhiều dòng, tối đa 3 dòng rồi cuộn, chữ đỏ) nên không cần /ux-design-ui.
+Trả lời của PO (2026-10-22):
+- BO-03 đổi thành "luôn thấy việc chính của mỗi phiên đang mở", đo bằng số thao tác để thấy việc chính = 0.
+
+Diff đề xuất:
+
+Phiên bản: BRD v3.1 → v4.0 (đổi BO-03, BR-09). SRS v1.9 → v1.10.
+
+BRD:
+- Mục 1 Tóm tắt: "Mỗi ô ghim việc chính của phiên, và Claude Code được nhắc để phiên chỉ làm đúng việc đó." → "Mỗi ô hiện việc chính của phiên bằng chữ đỏ, người dùng tự đối chiếu để phiên chỉ làm đúng việc đó."
+- Mục 2 giữ gạch "Một phiên Claude Code dễ bị kéo sang việc thứ hai…".
+- Mục 4 BO-03: "Mỗi phiên Claude Code chỉ làm một việc | Tỉ lệ prompt lạc đề được Claude Code nhắc…; tỉ lệ… nhắc nhầm | ≥ 9/10; ≤ 1/10 | …" → "Luôn thấy việc chính của mỗi phiên đang mở | Số thao tác để thấy việc chính của một ô đang mở đã có prompt | 0 thao tác | Đạt trong 2 tuần dùng thử ngay sau khi có tính năng".
+- Mục 5 Trong phạm vi: "Ghim việc chính của mỗi phiên trên ô, sửa được; nhắc Claude Code giữ phiên trong việc chính." → "Hiện việc chính của mỗi phiên trên ô, sửa trực tiếp được." Ngoài phạm vi: thêm "nhắc hay ràng buộc Claude Code theo việc chính" vào đầu dòng hiện có.
+- Mục 6 BR-09: "…; khi người dùng gửi một yêu cầu khác việc chính, Claude Code nhắc và đề nghị mở phiên mới thay vì làm luôn, trừ khi người dùng bảo cứ làm" → "Người dùng thấy và sửa được việc chính của mỗi phiên đang mở ngay trên ô; app không ràng buộc Claude Code theo việc chính" | BO-03 | Should.
+- Mục 11 BO-03: → "trong 2 tuần dùng thử sau khi có tính năng, mọi ô đã có prompt đều hiện việc chính mà không cần thao tác nào."
+- Mục 13 log thêm dòng CR-010 (bỏ nhắc lạc đề, ô target chữ đỏ; BO-03 đo bằng số thao tác = 0). Mục 14: dòng v4.0.
+
+SRS:
+- Mục giả định: A-10, A-11 → "Deleted (CR-010)".
+- Thuật ngữ: "Session Goal" giữ, thêm "câu rỗng người dùng để lại cũng là Session Goal". "Goal Line" → "Target Box — ô chữ đỏ ngay dưới tiêu đề ô, hiện và sửa trực tiếp Session Goal, cao tối đa 3 dòng rồi cuộn". Bỏ "Focus Reminder", "Off-goal prompt".
+- Mục 2.14 đổi tên "Hiện việc chính của phiên": luồng chính 1. gửi prompt đầu → Session Goal, Target Box hiện câu đó → SRS-FR-091, SRS-FR-092. Luồng thay thế A1 sửa trong Target Box → SRS-FR-093; A2 mở lại app hoặc Resume → SRS-FR-096, SRS-FR-097. Bỏ luồng 2 và E1.
+- SRS-FR-091: "When the user sends a prompt in a pane whose session has no Session Goal, …" → "When the user sends a prompt in a pane whose session has no stored Session Goal, the system shall set that prompt as the Session Goal." Giải thích thêm: lấy nguyên văn, giữ xuống dòng; người dùng đã gõ vào Target Box trước prompt đầu, hay đã xoá trống nó, thì phiên đã có Session Goal nên prompt không ghi đè. Ví dụ âm mới: gõ "Sửa resume" vào Target Box rồi gửi "chạy test" → Session Goal vẫn "Sửa resume".
+- SRS-FR-092 "Goal Line" → "Target Box": "The system shall show the Target Box below the header of every pane." Giải thích: chữ đỏ; cao theo nội dung tối đa 3 dòng, dài hơn thì cuộn trong ô; chưa có Session Goal thì ô trống kèm chữ gợi ý mờ; nhấp đúp hay kéo trong Target Box không phóng to, không kéo ô. Ví dụ: prompt đầu 5 dòng → Target Box hiện 3 dòng đầu, cuộn xem phần còn lại. Ví dụ: ô mới chưa gửi prompt → Target Box trống, có chữ gợi ý. Kiểm chứng: Demo.
+- SRS-FR-093 "Edit session goal": "When the user confirms a new text in Edit Goal, …" → "When the Target Box loses focus after the user changed its text, the system shall replace the Session Goal with that text." Giải thích: bấm vào Target Box là sửa ngay, không có nút bút chì; Enter xuống dòng; Esc bỏ phần vừa gõ và trả câu cũ; câu rỗng được lưu, ô giữ trống và không tự điền lại. Ví dụ: sửa thành "Sửa resume trên Windows", bấm ra ngoài → thoát app mở lại vẫn thấy câu mới. Ví dụ âm: gõ "abc" rồi Esc → ô hiện câu cũ. Kiểm chứng: Test.
+- SRS-FR-094, SRS-FR-095, SRS-FR-098 → "Deleted (CR-010)", giữ ID, bỏ nội dung.
+- SRS-FR-096, SRS-FR-097: giữ câu EARS; ví dụ đổi "Goal Line" → "Target Box". SRS-FR-097 ví dụ âm: phiên chưa có prompt → Target Box trống.
+- Mục 3 dòng "Session Goals" giữ.
+- RULE-09 → "Deleted (CR-010)".
+- Giao diện ngoài: bỏ dòng "Claude Code (prompt gửi đi) | Nhận Focus Reminder cùng prompt…".
+- Màn hình Pane Grid: "Goal Line và sửa Session Goal" → "Target Box hiện và sửa Session Goal"; bỏ SRS-FR-094, SRS-FR-095, SRS-FR-098 khỏi danh sách.
+- Bảng truy vết: SRS-FR-094, SRS-FR-095, SRS-FR-098 trạng thái "Deleted (CR-010)"; SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097 "Baselined" (đổi theo CR-010).
+- Lịch sử: dòng v1.10 "CR-010: bỏ Focus Reminder và luật lạc đề (xoá SRS-FR-094, SRS-FR-095, SRS-FR-098, RULE-09, A-10, A-11); Goal Line thành Target Box chữ đỏ sửa trực tiếp; theo BRD v4.0".
+
+Backlog — thêm (áp sau GATE CR):
+- 25 · Bỏ nhắc lạc đề, việc chính thành Target Box chữ đỏ · update-session-target-box · SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 · phụ thuộc 22 · Should; CR-010; đổi hành vi đã archived (add-session-goal) → /dev-update.
+
+Việc tiếp theo: /dev-update add-session-goal (mục 25).
