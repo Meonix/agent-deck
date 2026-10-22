@@ -240,85 +240,129 @@ describe("TerminalPane header in a narrow pane", () => {
   });
 });
 
-describe("Goal Line (SRS-FR-092, SRS-FR-093)", () => {
-  const goalGroup = () => screen.queryByRole("group", { name: "Session goal" });
+describe("Target Box (SRS-FR-092)", () => {
+  const box = () => screen.getByRole("textbox", { name: "Session target" });
 
-  it("has no Goal Line without a goal", () => {
+  it("is empty with a placeholder before the session has a goal", () => {
     renderPane(entry(fakeAdapter()));
-    expect(goalGroup()).toBeNull();
+    expect(box()).toHaveValue("");
+    expect(box()).toHaveAttribute("placeholder", "Target — filled from your first prompt");
   });
 
-  it("has no Goal Line for an empty goal", () => {
+  it("is empty with a placeholder for a cleared goal", () => {
     renderPane(entry(fakeAdapter(), { goal: "" }));
-    expect(goalGroup()).toBeNull();
+    expect(box()).toHaveValue("");
   });
 
-  it("shows a short goal whole", () => {
-    renderPane(entry(fakeAdapter(), { goal: "Fix resume" }));
-    expect(goalGroup()).toHaveTextContent("Fix resume");
-    expect(goalGroup()).not.toHaveTextContent("…");
-  });
-
-  it("cuts a long goal to 79 characters and an ellipsis, with the whole goal as title", () => {
-    const goal = "a".repeat(120);
+  it("shows a multi-line goal whole, in red", () => {
+    const goal = "Fix resume\n1. read the log\n2. write a test\n3. fix\n4. ship";
     renderPane(entry(fakeAdapter(), { goal }));
-    const text = screen.getByTitle(goal);
-    expect(text).toHaveTextContent(`${"a".repeat(79)}…`);
-    expect(text.textContent).toHaveLength(80);
-    expect(screen.getByRole("button", { name: "Edit goal" })).toBeInTheDocument();
+    expect(box()).toHaveValue(goal);
+    expect(box()).toHaveClass("text-red-500");
   });
 
-  it("keeps an 80-character goal whole", () => {
-    const goal = "b".repeat(80);
-    renderPane(entry(fakeAdapter(), { goal }));
-    expect(screen.getByTitle(goal).textContent).toBe(goal);
+  it("grows with its text up to 3 lines, then scrolls", () => {
+    const scrollHeight = vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockReturnValue(52);
+    renderPane(entry(fakeAdapter(), { goal: "a\nb\nc\nd\ne" }));
+    expect(box().style.height).toBe("52px");
+    expect(box()).toHaveClass("max-h-[calc(4.25rem+1px)]", "overflow-y-auto", "leading-5", "py-1", "border-b");
+    scrollHeight.mockRestore();
   });
 
-  it("does not maximize on a double-click on the Goal Line", async () => {
+  it("does not maximize on a double-click in the box", async () => {
     const onMaximize = vi.fn();
     render(
       <TerminalPane entry={entry(fakeAdapter(), { goal: "Fix resume" })} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={onMaximize} onRestore={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
     );
-    await userEvent.dblClick(goalGroup()!);
+    await userEvent.dblClick(box());
     expect(onMaximize).not.toHaveBeenCalled();
   });
+});
 
-  it("edits: Edit goal opens an input holding the goal, Enter saves the trimmed text", async () => {
-    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
-    await userEvent.click(screen.getByRole("button", { name: "Edit goal" }));
-    const input = screen.getByRole("textbox");
-    expect(input).toHaveValue("Old goal");
-    await userEvent.clear(input);
-    await userEvent.type(input, "  New goal  {Enter}");
-    expect(on.setGoal).toHaveBeenCalledWith("p1", "New goal");
-    expect(screen.queryByRole("textbox")).toBeNull();
-  });
+describe("Edit in the Target Box (SRS-FR-093)", () => {
+  const box = () => screen.getByRole("textbox", { name: "Session target" });
 
-  it("does not save blank text on Enter", async () => {
+  it("saves the trimmed text when the box loses focus", async () => {
     const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
-    await userEvent.click(screen.getByRole("button", { name: "Edit goal" }));
-    await userEvent.clear(screen.getByRole("textbox"));
-    await userEvent.type(screen.getByRole("textbox"), "   {Enter}");
+    await userEvent.clear(box());
+    await userEvent.type(box(), "  New goal  ");
     expect(on.setGoal).not.toHaveBeenCalled();
-    await userEvent.keyboard("{Escape}");
-    expect(goalGroup()).toHaveTextContent("Old goal");
+    await userEvent.click(document.body);
+    expect(on.setGoal).toHaveBeenCalledExactlyOnceWith("p1", "New goal");
   });
 
-  it("restores the old goal on Esc", async () => {
+  it("does not save when the text did not change", async () => {
     const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
-    await userEvent.click(screen.getByRole("button", { name: "Edit goal" }));
-    await userEvent.type(screen.getByRole("textbox"), "abc{Escape}");
-    expect(screen.queryByRole("textbox")).toBeNull();
-    expect(goalGroup()).toHaveTextContent("Old goal");
+    await userEvent.click(box());
+    await userEvent.click(document.body);
     expect(on.setGoal).not.toHaveBeenCalled();
   });
 
-  it("cancels on blur", async () => {
+  it("saves an empty text", async () => {
     const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
-    await userEvent.click(screen.getByRole("button", { name: "Edit goal" }));
-    await userEvent.type(screen.getByRole("textbox"), "abc");
-    await userEvent.tab();
-    expect(screen.queryByRole("textbox")).toBeNull();
+    await userEvent.clear(box());
+    await userEvent.click(document.body);
+    expect(on.setGoal).toHaveBeenCalledExactlyOnceWith("p1", "");
+  });
+
+  it("saves text typed before the session has a goal", async () => {
+    const { on } = renderPane(entry(fakeAdapter()));
+    await userEvent.type(box(), "Fix resume");
+    await userEvent.click(document.body);
+    expect(on.setGoal).toHaveBeenCalledExactlyOnceWith("p1", "Fix resume");
+  });
+
+  it("Escape brings back the old text and saves nothing", async () => {
+    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
+    await userEvent.type(box(), "abc{Escape}");
+    expect(box()).toHaveValue("Old goal");
+    expect(box()).not.toHaveFocus();
     expect(on.setGoal).not.toHaveBeenCalled();
+  });
+
+  it("Enter adds a line instead of saving", async () => {
+    const { on } = renderPane(entry(fakeAdapter(), { goal: "Fix" }));
+    await userEvent.type(box(), "{Enter}more");
+    expect(box()).toHaveValue("Fix\nmore");
+    expect(box()).toHaveFocus();
+    expect(on.setGoal).not.toHaveBeenCalled();
+  });
+
+  it("shows a new goal from the session while not editing, and keeps a draft while editing", async () => {
+    const e = entry(fakeAdapter(), { goal: null });
+    const { view } = renderPane(e);
+    const rerender = (goal: string) =>
+      view.rerender(
+        <TerminalPane entry={{ ...e, goal }} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
+      );
+    rerender("First prompt");
+    expect(box()).toHaveValue("First prompt");
+    await userEvent.type(box(), " edited");
+    rerender("Other");
+    expect(box()).toHaveValue("First prompt edited");
+  });
+
+  it("does not overwrite a goal that arrives while the box is focused but untouched", async () => {
+    const e = entry(fakeAdapter(), { goal: null });
+    const setGoal = vi.fn();
+    const pane = (goal: string | null) => (
+      <TerminalPane entry={{ ...e, goal }} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={setGoal} />
+    );
+    const view = render(pane(null));
+    await userEvent.click(box());
+    view.rerender(pane("fix X"));
+    await userEvent.click(document.body);
+    expect(setGoal).not.toHaveBeenCalled();
+    expect(box()).toHaveValue("fix X");
+  });
+
+  it("saves an edit made after an Escape that fired no blur", async () => {
+    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old" }));
+    const blur = vi.spyOn(HTMLTextAreaElement.prototype, "blur").mockImplementation(() => {});
+    await userEvent.type(box(), "x{Escape}");
+    blur.mockRestore();
+    await userEvent.type(box(), " new");
+    await userEvent.click(document.body);
+    expect(on.setGoal).toHaveBeenCalledExactlyOnceWith("p1", "Old new");
   });
 });

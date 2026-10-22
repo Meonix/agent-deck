@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
 import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
 import type { MaximizedBadge } from "./statusHighlight";
@@ -237,7 +237,7 @@ export function TerminalPane({
           </button>
         </span>
       </header>
-      {goal && <GoalLine goal={goal} onSave={(text) => onSetGoal(paneId, text)} />}
+      <TargetBox goal={goal} onSave={(text) => onSetGoal(paneId, text)} />
       <div className="flex-1 min-h-0 min-w-0 flex flex-col">
         {pane.started ? (
           // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
@@ -270,59 +270,63 @@ export function TerminalPane({
   );
 }
 
-const GOAL_SHOWN = 80;
+// Outside the header, which owns double-click and drag (SRS-FR-092).
+function TargetBox({ goal, onSave }: { goal: string | null; onSave(text: string): void }) {
+  const [draft, setDraft] = useState(goal ?? "");
+  const box = useRef<HTMLTextAreaElement>(null);
+  // Only a typed change is saved, so a goal that arrives while the box is focused is not overwritten.
+  const edited = useRef(false);
 
-// Outside the header, which owns double-click and drag, so the row needs no handling of its own (SRS-FR-092).
-function GoalLine({ goal, onSave }: { goal: string; onSave(text: string): void }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(goal);
-  const chars = [...goal];
-  const shown = chars.length > GOAL_SHOWN ? `${chars.slice(0, GOAL_SHOWN - 1).join("")}…` : goal;
+  useEffect(() => {
+    if (document.activeElement !== box.current) setDraft(goal ?? "");
+  }, [goal]);
+
+  // Grows with its text, border included; the max-height class caps it at 3 lines, then it scrolls.
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+    };
+    fit();
+    if (typeof ResizeObserver === "undefined") return;
+    let width = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === width) return;
+      width = el.clientWidth;
+      fit();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [draft]);
 
   return (
-    <div
-      role="group"
-      aria-label="Session goal"
-      className="flex items-center gap-2 px-3 py-1 border-b border-border text-xs text-muted-foreground"
-    >
-      <span aria-hidden="true">📌</span>
-      {editing ? (
-        <input
-          autoFocus
-          aria-label="Goal text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => setEditing(false)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setEditing(false);
-            else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-              const text = draft.trim();
-              if (text === "") return;
-              onSave(text);
-              setEditing(false);
-            }
-          }}
-          className="min-w-0 flex-1 bg-background text-foreground border border-border rounded px-1"
-        />
-      ) : (
-        <>
-          <span title={goal} className="min-w-0 flex-1 truncate">
-            {shown}
-          </span>
-          <button
-            aria-label="Edit goal"
-            title="Edit goal"
-            onClick={() => {
-              setDraft(goal);
-              setEditing(true);
-            }}
-            className="shrink-0"
-          >
-            ✎
-          </button>
-        </>
-      )}
-    </div>
+    <textarea
+      ref={box}
+      aria-label="Session target"
+      placeholder="Target — filled from your first prompt"
+      rows={1}
+      value={draft}
+      onChange={(e) => {
+        edited.current = true;
+        setDraft(e.target.value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Escape" || e.nativeEvent.isComposing) return;
+        edited.current = false;
+        setDraft(goal ?? "");
+        e.currentTarget.blur();
+      }}
+      onBlur={() => {
+        if (!edited.current) return setDraft(goal ?? "");
+        edited.current = false;
+        const text = draft.trim();
+        if (text !== (goal ?? "")) onSave(text);
+        setDraft(text);
+      }}
+      className="block w-full resize-none max-h-[calc(4.25rem+1px)] overflow-y-auto px-3 py-1 border-b border-border bg-card text-xs leading-5 text-red-500 placeholder:text-red-500/50 outline-none"
+    />
   );
 }
 

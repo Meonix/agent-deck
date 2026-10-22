@@ -123,11 +123,11 @@ fn is_answer_key(data: &[u8]) -> bool {
 }
 
 impl HookSink for StatusTracker {
-    fn hook(&self, event: Value) -> Option<Value> {
+    fn hook(&self, event: Value) {
         let signal = signal_of(&event, &self.workspace);
         let mut inner = self.inner.lock().unwrap();
         if inner.silent() {
-            return None;
+            return;
         }
         let first = !inner.tracked;
         inner.tracked = true;
@@ -138,7 +138,6 @@ impl HookSink for StatusTracker {
             self.out
                 .send_json(status_json(&inner.machine.current(), true, reported_at));
         }
-        None
     }
 }
 

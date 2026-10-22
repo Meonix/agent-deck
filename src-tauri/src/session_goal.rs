@@ -10,7 +10,6 @@ use serde_json::{Value, json};
 const FILE: &str = "session-goals.json";
 const TMP: &str = "session-goals.json.tmp";
 const BAK: &str = "session-goals.json.bak";
-const REMINDER_GOAL_CHARS: usize = 500;
 
 /// The pane's message stream, as for `StatusOut`: `{"goal": text | null}`.
 pub trait GoalOut: Send + Sync {
@@ -122,12 +121,9 @@ impl GoalKeeper {
         }
     }
 
-    /// Replaces the current session's goal; blank text changes nothing (SRS-FR-093).
+    /// Replaces the current session's goal; an empty text is kept as the goal (SRS-FR-093).
     pub fn set(&self, text: &str) {
         let text = text.trim();
-        if text.is_empty() {
-            return;
-        }
         let Ok(session) = self.session.lock() else {
             return;
         };
@@ -137,33 +133,29 @@ impl GoalKeeper {
     }
 
     /// Follows the `session_id` of any event but `SessionEnd` (it may arrive after the next
-    /// session's start), pins a first prompt (SRS-FR-091) and
-    /// answers a `UserPromptSubmit` of a session with a goal (SRS-FR-094).
-    /// Anything unusable answers `None` so the prompt goes through (SRS-FR-098).
-    pub fn hook(&self, event: &Value) -> Option<Value> {
+    /// session's start) and pins a first prompt (SRS-FR-091).
+    pub fn hook(&self, event: &Value) {
         if event["hook_event_name"] == "SessionEnd" {
-            return None;
+            return;
         }
-        let mut session = self.session.lock().ok()?;
+        let Ok(mut session) = self.session.lock() else {
+            return;
+        };
         if let Some(id) = event["session_id"].as_str().filter(|id| !id.is_empty())
             && id != *session
         {
             *session = id.to_string();
             self.send(self.stored(&session).as_deref());
         }
-        if event["hook_event_name"] != "UserPromptSubmit" {
-            return None;
+        if event["hook_event_name"] != "UserPromptSubmit" || self.stored(&session).is_some() {
+            return;
         }
-        let mut goal = self.stored(&session);
-        if goal.is_none() {
-            let prompt = event["prompt"].as_str()?.trim();
-            if prompt.is_empty() || !self.store_goal(&session, prompt) {
-                return None;
-            }
+        let Some(prompt) = event["prompt"].as_str().map(str::trim) else {
+            return;
+        };
+        if !prompt.is_empty() && self.store_goal(&session, prompt) {
             self.send(Some(prompt));
-            goal = Some(prompt.to_string());
         }
-        goal.map(|goal| reminder_body(&goal))
     }
 
     fn stored(&self, session: &str) -> Option<String> {
@@ -185,73 +177,10 @@ impl GoalKeeper {
     }
 }
 
-/// The text Claude Code gets with each prompt of a session with a goal (SRS-FR-095).
-pub fn focus_reminder(goal: &str) -> String {
-    let goal: String = goal.chars().take(REMINDER_GOAL_CHARS).collect();
-    format!(
-        "agent-deck Session Goal: \"{goal}\". This session is for that one task. \
-A prompt that serves it — fixing a bug that blocks it, running tests, committing, \
-asking about work done for it — is in scope; do it. A prompt that asks for a \
-separate change that could stand on its own is off-goal: do not carry it out; say \
-in one sentence that it is a different task and suggest opening a new session for \
-it. If the user then says to go ahead, do it."
-    )
-}
-
-pub fn reminder_body(goal: &str) -> Value {
-    json!({
-        "hookSpecificOutput": {
-            "hookEventName": "UserPromptSubmit",
-            "additionalContext": focus_reminder(goal),
-        }
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use tempfile::tempdir;
-
-    #[test]
-    fn reminder_names_the_goal_and_the_off_goal_rule() {
-        let text = focus_reminder("Sửa lỗi resume mất scrollback");
-        assert!(text.starts_with(
-            "agent-deck Session Goal: \"Sửa lỗi resume mất scrollback\". This session is for that one task."
-        ));
-        for part in [
-            "fixing a bug that blocks it, running tests, committing",
-            "is in scope; do it",
-            "is off-goal: do not carry it out",
-            "suggest opening a new session",
-            "If the user then says to go ahead, do it.",
-        ] {
-            assert!(text.contains(part), "{part}: {text}");
-        }
-    }
-
-    #[test]
-    fn reminder_keeps_500_characters_of_a_long_goal() {
-        let goal = "Sửa lỗi ".repeat(100);
-        assert!(goal.chars().count() == 800);
-        let text = focus_reminder(&goal);
-        let kept: String = goal.chars().take(500).collect();
-        assert!(text.contains(&format!("\"{kept}\"")));
-        assert!(!text.contains(&goal.chars().take(501).collect::<String>()));
-    }
-
-    #[test]
-    fn reminder_body_is_the_prompt_submit_context() {
-        let body = reminder_body("goal");
-        assert_eq!(
-            body["hookSpecificOutput"]["hookEventName"],
-            "UserPromptSubmit"
-        );
-        assert_eq!(
-            body["hookSpecificOutput"]["additionalContext"],
-            focus_reminder("goal")
-        );
-        assert_eq!(body.as_object().unwrap().len(), 1);
-    }
 
     struct Outbox(Arc<Mutex<Vec<String>>>);
 
@@ -283,7 +212,7 @@ mod tests {
             }
         }
 
-        fn prompt(&self, session: &str, text: &str) -> Option<Value> {
+        fn prompt(&self, session: &str, text: &str) {
             self.keeper.hook(&json!({
                 "hook_event_name": "UserPromptSubmit",
                 "session_id": session,
@@ -306,23 +235,28 @@ mod tests {
     }
 
     #[test]
-    fn first_prompt_is_pinned_sent_and_answered_with_the_reminder() {
+    fn first_prompt_is_pinned_and_sent() {
         let f = Fixture::new();
-        let answer = f.prompt("s1", "Sửa lỗi resume mất scrollback");
+        f.prompt("s1", "Sửa lỗi resume mất scrollback");
         assert_eq!(f.goal("s1").unwrap(), "Sửa lỗi resume mất scrollback");
         assert_eq!(f.take(), [json!({"goal": "Sửa lỗi resume mất scrollback"})]);
-        assert_eq!(answer, Some(reminder_body("Sửa lỗi resume mất scrollback")));
     }
 
     #[test]
-    fn later_prompt_keeps_the_goal_and_still_gets_the_reminder() {
+    fn multi_line_first_prompt_keeps_its_lines() {
+        let f = Fixture::new();
+        f.prompt("s1", "  Sửa resume\n1. đọc log\n2. viết test \n");
+        assert_eq!(f.goal("s1").unwrap(), "Sửa resume\n1. đọc log\n2. viết test");
+    }
+
+    #[test]
+    fn later_prompt_keeps_the_goal() {
         let f = Fixture::new();
         f.prompt("s1", "Sửa lỗi resume mất scrollback");
         f.take();
-        let answer = f.prompt("s1", "chạy test");
+        f.prompt("s1", "chạy test");
         assert_eq!(f.goal("s1").unwrap(), "Sửa lỗi resume mất scrollback");
         assert!(f.take().is_empty());
-        assert_eq!(answer, Some(reminder_body("Sửa lỗi resume mất scrollback")));
     }
 
     #[test]
@@ -330,11 +264,10 @@ mod tests {
         let f = Fixture::new();
         f.prompt("s1", "Sửa lỗi resume mất scrollback");
         f.take();
-        let answer = f.keeper.hook(&json!({
+        f.keeper.hook(&json!({
             "hook_event_name": "SessionStart",
             "session_id": "s2",
         }));
-        assert_eq!(answer, None);
         assert_eq!(f.take(), [json!({"goal": null})]);
         f.prompt("s2", "Thêm nút export CSV");
         assert_eq!(f.take(), [json!({"goal": "Thêm nút export CSV"})]);
@@ -370,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    fn set_replaces_and_sends_and_the_next_reminder_carries_it() {
+    fn set_replaces_and_sends() {
         let f = Fixture::new();
         f.prompt("s1", "cũ");
         f.take();
@@ -379,20 +312,31 @@ mod tests {
             f.take(),
             [json!({"goal": "Sửa resume mất scrollback trên Windows"})]
         );
-        assert_eq!(
-            f.prompt("s1", "x"),
-            Some(reminder_body("Sửa resume mất scrollback trên Windows"))
-        );
+        f.prompt("s1", "x");
+        assert_eq!(f.goal("s1").unwrap(), "Sửa resume mất scrollback trên Windows");
     }
 
     #[test]
-    fn blank_set_changes_nothing() {
+    fn cleared_goal_is_stored_sent_and_not_refilled() {
         let f = Fixture::new();
         f.prompt("s1", "cũ");
         f.take();
         f.keeper.set("  \n ");
+        assert_eq!(f.take(), [json!({"goal": ""})]);
+        assert_eq!(f.goal("s1").unwrap(), "");
+        f.prompt("s1", "chạy test");
         assert!(f.take().is_empty());
-        assert_eq!(f.goal("s1").unwrap(), "cũ");
+        assert_eq!(f.goal("s1").unwrap(), "");
+    }
+
+    #[test]
+    fn goal_typed_before_the_first_prompt_wins() {
+        let f = Fixture::new();
+        f.keeper.set("Sửa resume");
+        f.take();
+        f.prompt("s1", "chạy test");
+        assert!(f.take().is_empty());
+        assert_eq!(f.goal("s1").unwrap(), "Sửa resume");
     }
 
     #[test]
@@ -458,8 +402,7 @@ mod tests {
         f.prompt("s1", "Sửa lỗi resume mất scrollback");
         f.keeper.hook(&json!({"hook_event_name": "SessionStart", "session_id": "s2"}));
         f.take();
-        let answer = f.keeper.hook(&json!({"hook_event_name": "SessionEnd", "session_id": "s1"}));
-        assert_eq!(answer, None);
+        f.keeper.hook(&json!({"hook_event_name": "SessionEnd", "session_id": "s1"}));
         assert!(f.take().is_empty());
         f.keeper.set("mục tiêu mới");
         assert_eq!(f.goal("s2").unwrap(), "mục tiêu mới");
@@ -477,16 +420,16 @@ mod tests {
     }
 
     #[test]
-    fn unusable_payloads_answer_nothing() {
+    fn unusable_payloads_pin_nothing() {
         let f = Fixture::new();
-        assert_eq!(f.keeper.hook(&json!({})), None);
-        assert_eq!(f.keeper.hook(&json!("text")), None);
+        f.keeper.hook(&json!({}));
+        f.keeper.hook(&json!("text"));
         for event in [
             json!({"hook_event_name": "UserPromptSubmit", "session_id": "s1"}),
             json!({"hook_event_name": "UserPromptSubmit", "session_id": "s1", "prompt": "  "}),
             json!({"hook_event_name": "UserPromptSubmit", "session_id": "s1", "prompt": 5}),
         ] {
-            assert_eq!(f.keeper.hook(&event), None, "{event}");
+            f.keeper.hook(&event);
         }
         assert!(f.take().is_empty());
         assert!(f.goal("s1").is_none());
@@ -495,15 +438,13 @@ mod tests {
     #[test]
     fn prompt_without_session_id_uses_the_opened_session() {
         let f = Fixture::new();
-        let answer = f
-            .keeper
+        f.keeper
             .hook(&json!({"hook_event_name": "UserPromptSubmit", "prompt": "việc"}));
         assert_eq!(f.goal("s1").unwrap(), "việc");
-        assert_eq!(answer, Some(reminder_body("việc")));
     }
 
     #[test]
-    fn poisoned_store_answers_nothing() {
+    fn poisoned_store_does_not_panic() {
         let f = Fixture::new();
         let store = f.store.clone();
         let _ = std::thread::spawn(move || {
@@ -511,7 +452,7 @@ mod tests {
             panic!("poison");
         })
         .join();
-        assert_eq!(f.prompt("s1", "việc"), None);
+        f.prompt("s1", "việc");
         f.keeper.set("khác");
         f.keeper.announce();
     }

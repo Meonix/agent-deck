@@ -604,8 +604,7 @@ impl GoalOut for Arc<dyn GoalOut> {
     }
 }
 
-/// The pane's hook sink: the tracker sees the event first, so status timing is as before,
-/// then the keeper may answer a prompt with the Focus Reminder (D2).
+/// The pane's hook sink: the tracker sees the event first, so status timing is as before.
 struct PaneHooks {
     tracker: Arc<StatusTracker>,
     follower: Arc<SessionFollower>,
@@ -613,10 +612,10 @@ struct PaneHooks {
 }
 
 impl HookSink for PaneHooks {
-    fn hook(&self, event: serde_json::Value) -> Option<serde_json::Value> {
+    fn hook(&self, event: serde_json::Value) {
         self.tracker.hook(event.clone());
         self.follower.follow(&event);
-        self.keeper.hook(&event)
+        self.keeper.hook(&event);
     }
 }
 
@@ -1124,10 +1123,10 @@ mod tests {
         }
     }
 
-    /// SRS-FR-094 through the pane's own hook URL, SRS-FR-093 through the process, SRS-FR-096 on a resume.
+    /// SRS-FR-091 through the pane's own hook URL, SRS-FR-093 through the process, SRS-FR-096 on a resume.
     #[cfg(unix)]
     #[test]
-    fn pane_hook_url_answers_prompts_with_the_reminder_and_the_pane_follows_the_goal() {
+    fn pane_hook_url_adds_nothing_to_prompts_and_the_pane_follows_the_goal() {
         use crate::hooks::test_client::post_url;
 
         let bin = tempfile::tempdir().unwrap();
@@ -1168,15 +1167,9 @@ mod tests {
             r#"{"hook_event_name":"UserPromptSubmit","session_id":"sid-1","prompt":"thêm nút export"}"#,
         );
         assert!(response.starts_with("HTTP/1.1 200"), "{response}");
-        assert!(response.contains("Sửa lỗi resume"), "{response}");
-        assert!(response.contains("additionalContext"), "{response}");
+        assert!(response.ends_with("\r\n\r\n"), "{response}");
 
         process.set_goal("Goal mới");
-        let response = post_url(
-            &url,
-            r#"{"hook_event_name":"UserPromptSubmit","session_id":"sid-1","prompt":"x"}"#,
-        );
-        assert!(response.contains("Goal mới"), "{response}");
         assert_eq!(
             goals.0.lock().unwrap().last().unwrap(),
             r#"{"goal":"Goal mới"}"#

@@ -46,9 +46,7 @@ const DISCARD: &str = "NUL";
 const DISCARD: &str = "/dev/null";
 
 pub trait HookSink: Send + Sync {
-    /// The answer, if any, goes back to Claude Code; only a `UserPromptSubmit`
-    /// answer is sent (`serve`).
-    fn hook(&self, event: Value) -> Option<Value>;
+    fn hook(&self, event: Value);
 }
 
 type Sinks = Arc<Mutex<HashMap<String, Arc<dyn HookSink>>>>;
@@ -161,19 +159,18 @@ fn serve_on_thread(stream: TcpStream, sinks: &Sinks, open: &Arc<AtomicUsize>) {
 fn serve(mut stream: TcpStream, sinks: &Sinks) {
     let _ = stream.set_write_timeout(Some(REQUEST_DEADLINE));
     let deadline = Instant::now() + REQUEST_DEADLINE;
-    let (status, body) = match read_hook(&mut stream, sinks, deadline) {
+    let status = match read_hook(&mut stream, sinks, deadline) {
         // Claude Code sends a pane's next hook only after this answer, so
         // handing the event over first keeps each pane's hooks in order.
         Ok((sink, event)) => {
-            let prompt = event["hook_event_name"] == "UserPromptSubmit";
-            let answer = sink.hook(event);
-            (200, answer.filter(|_| prompt))
+            sink.hook(event);
+            200
         }
-        Err(code) => (code, None),
+        Err(code) => code,
     };
-    // The body is empty except for a `UserPromptSubmit` answer: a
-    // `SessionStart` command hook's stdout would be added to Claude's context.
-    let _ = stream.write_all(response(status, body).as_bytes());
+    // Always an empty body: a `SessionStart` command hook's stdout would be
+    // added to Claude's context.
+    let _ = stream.write_all(response(status).as_bytes());
     let _ = stream.shutdown(Shutdown::Write);
     drain(&mut stream);
 }
@@ -299,7 +296,7 @@ fn content_length(value: &str) -> Result<usize, u16> {
     }
 }
 
-fn response(status: u16, body: Option<Value>) -> String {
+fn response(status: u16) -> String {
     let reason = match status {
         200 => "OK",
         400 => "Bad Request",
@@ -311,18 +308,7 @@ fn response(status: u16, body: Option<Value>) -> String {
         431 => "Request Header Fields Too Large",
         _ => "Error",
     };
-    match body {
-        Some(body) => {
-            let body = body.to_string();
-            format!(
-                "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                body.len()
-            )
-        }
-        None => format!(
-            "HTTP/1.1 {status} {reason}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-        ),
-    }
+    format!("HTTP/1.1 {status} {reason}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
 }
 
 fn drain(stream: &mut TcpStream) {
@@ -342,16 +328,11 @@ fn drain(stream: &mut TcpStream) {
 /// Command hooks, not `http` ones: a session forked from a pane keeps these
 /// settings and can outlive the app, and an `http` hook that finds no listener
 /// shows an error on every tool call. `exit 0` makes a dead or unknown URL a
-/// plain success (`'@-'` is quoted for PowerShell). Only the `UserPromptSubmit`
-/// answer is read, so whatever takes a dead app's port cannot allow a tool.
+/// plain success (`'@-'` is quoted for PowerShell). No answer is read, so whatever
+/// takes a dead app's port cannot allow a tool.
 pub fn hook_settings(url: &str) -> String {
     let handler = |event: &str| {
-        let output = if event == "UserPromptSubmit" {
-            String::new()
-        } else {
-            format!("-o {DISCARD} ")
-        };
-        let command = format!("{CURL} -s -m 3 {output}-X POST --data-binary '@-' {url}; exit 0");
+        let command = format!("{CURL} -s -m 3 -o {DISCARD} -X POST --data-binary '@-' {url}; exit 0");
         // `SessionStart` runs only command hooks, and nothing waits on it.
         let async_ = event == "SessionStart";
         json!({"type": "command", "command": command, "timeout": 5, "async": async_})
@@ -408,9 +389,8 @@ mod tests {
     struct Recorder(Mutex<Sender<(Value, Instant)>>);
 
     impl HookSink for Recorder {
-        fn hook(&self, event: Value) -> Option<Value> {
+        fn hook(&self, event: Value) {
             let _ = self.0.lock().unwrap().send((event, Instant::now()));
-            None
         }
     }
 
@@ -469,12 +449,13 @@ mod tests {
     }
 
     #[test]
-    fn every_error_response_is_empty_and_closes() {
+    fn every_response_is_empty_and_closes() {
         let server = HookServer::start().unwrap();
         let (sink, _rx) = recorder();
         server.register("t", sink);
         for (method, path, body) in [
             ("POST", "/hook/t", "{}"),
+            ("POST", "/hook/t", r#"{"hook_event_name":"UserPromptSubmit"}"#),
             ("POST", "/hook/unknown", "{}"),
             ("GET", "/hook/t", ""),
             ("POST", "/hook/t", "not json"),
@@ -491,58 +472,6 @@ mod tests {
                 head.contains("connection: close"),
                 "{method} {path}: {head}"
             );
-        }
-    }
-
-    struct Answer(Option<Value>);
-
-    impl HookSink for Answer {
-        fn hook(&self, _event: Value) -> Option<Value> {
-            self.0.clone()
-        }
-    }
-
-    fn answered(answer: Option<Value>, event: &str) -> String {
-        let server = HookServer::start().unwrap();
-        server.register("t", Arc::new(Answer(answer)));
-        let body = json!({"hook_event_name": event}).to_string();
-        send(server.port(), "POST", "/hook/t", body.as_bytes())
-    }
-
-    #[test]
-    fn prompt_submit_is_answered_with_the_sinks_json() {
-        let answer = json!({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "Mục tiêu"}});
-        let response = answered(Some(answer.clone()), "UserPromptSubmit");
-        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
-        let (head, rest) = response.split_once("\r\n\r\n").expect("full response");
-        let head = head.to_ascii_lowercase();
-        assert!(head.contains("content-type: application/json"), "{head}");
-        assert!(head.contains("connection: close"), "{head}");
-        assert!(
-            head.contains(&format!("content-length: {}", rest.len())),
-            "{head} / {rest}"
-        );
-        assert_eq!(serde_json::from_str::<Value>(rest).unwrap(), answer);
-    }
-
-    #[test]
-    fn prompt_submit_without_an_answer_is_empty() {
-        let response = answered(None, "UserPromptSubmit");
-        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
-        let (head, rest) = response.split_once("\r\n\r\n").expect("full response");
-        assert_eq!(rest, "");
-        assert!(head.to_ascii_lowercase().contains("content-length: 0"));
-    }
-
-    /// A `SessionStart` command hook's stdout would be added to Claude's context.
-    #[test]
-    fn other_events_are_empty_even_when_the_sink_answers() {
-        for event in ["SessionStart", "Stop", "PreToolUse"] {
-            let response = answered(Some(json!({"x": 1})), event);
-            assert!(response.starts_with("HTTP/1.1 200"), "{event}: {response}");
-            let (head, rest) = response.split_once("\r\n\r\n").expect("full response");
-            assert_eq!(rest, "", "{event}");
-            assert!(head.to_ascii_lowercase().contains("content-length: 0"));
         }
     }
 
@@ -731,10 +660,9 @@ mod tests {
     fn response_is_sent_after_the_sink_returns() {
         struct Slow(Mutex<Sender<Instant>>);
         impl HookSink for Slow {
-            fn hook(&self, _event: Value) -> Option<Value> {
+            fn hook(&self, _event: Value) {
                 std::thread::sleep(Duration::from_millis(200));
                 let _ = self.0.lock().unwrap().send(Instant::now());
-                None
             }
         }
         let server = HookServer::start().unwrap();
@@ -877,14 +805,9 @@ mod tests {
             assert_eq!(handler["type"], "command", "{event}");
             assert_eq!(handler["timeout"], 5, "{event}");
             assert_eq!(handler["async"], event == "SessionStart", "{event}");
-            let output = if event == "UserPromptSubmit" {
-                String::new()
-            } else {
-                format!("-o {discard} ")
-            };
             assert_eq!(
                 handler["command"].as_str().unwrap(),
-                format!("{curl} -s -m 3 {output}-X POST --data-binary '@-' {url}; exit 0"),
+                format!("{curl} -s -m 3 -o {discard} -X POST --data-binary '@-' {url}; exit 0"),
                 "{event}"
             );
         }
@@ -937,39 +860,26 @@ mod tests {
         }
     }
 
-    struct Answering(Mutex<Sender<(Value, Instant)>>);
-
-    impl HookSink for Answering {
-        fn hook(&self, event: Value) -> Option<Value> {
-            let _ = self.0.lock().unwrap().send((event, Instant::now()));
-            Some(json!({"answer": 1}))
+    #[cfg(unix)]
+    #[test]
+    fn hooks_deliver_events_and_print_nothing() {
+        let server = HookServer::start().unwrap();
+        let (sink, rx) = recorder();
+        server.register("t", sink);
+        let settings = hook_settings(&server.url_for("t"));
+        for event in ["UserPromptSubmit", "Stop"] {
+            let body = json!({"hook_event_name": event}).to_string();
+            let out = run_hook(&settings, event, &body);
+            assert!(out.status.success(), "{event}: {out:?}");
+            assert!(out.stdout.is_empty(), "{event}: {out:?}");
+            assert_next_is(&rx, json!({"hook_event_name": event}));
         }
     }
 
+    /// Whatever now holds a dead app's port cannot decide a tool call or add to a prompt.
     #[cfg(unix)]
     #[test]
-    fn hooks_deliver_events_and_print_only_the_prompt_answer() {
-        let server = HookServer::start().unwrap();
-        let (tx, rx) = mpsc::channel();
-        server.register("t", Arc::new(Answering(Mutex::new(tx))));
-        let settings = hook_settings(&server.url_for("t"));
-
-        let out = run_hook(&settings, "UserPromptSubmit", r#"{"hook_event_name":"UserPromptSubmit"}"#);
-        assert!(out.status.success(), "{out:?}");
-        assert_eq!(String::from_utf8_lossy(&out.stdout), r#"{"answer":1}"#);
-        assert_next_is(&rx, json!({"hook_event_name": "UserPromptSubmit"}));
-
-        let out = run_hook(&settings, "Stop", r#"{"hook_event_name":"Stop"}"#);
-        assert!(out.status.success(), "{out:?}");
-        assert!(out.stdout.is_empty(), "{out:?}");
-        assert_next_is(&rx, json!({"hook_event_name": "Stop"}));
-    }
-
-    /// Whatever now holds a dead app's port cannot decide a tool call: only
-    /// the `UserPromptSubmit` answer is read.
-    #[cfg(unix)]
-    #[test]
-    fn hooks_ignore_answers_to_events_other_than_the_prompt() {
+    fn hooks_ignore_every_answer() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
         std::thread::spawn(move || {
@@ -986,7 +896,7 @@ mod tests {
             }
         });
         let settings = hook_settings(&format!("http://127.0.0.1:{port}/hook/x"));
-        for event in EVENTS.iter().filter(|e| **e != "UserPromptSubmit") {
+        for event in EVENTS {
             let out = run_hook(&settings, event, "{}");
             assert!(out.status.success(), "{event}: {out:?}");
             assert!(out.stdout.is_empty(), "{event}: {out:?}");
