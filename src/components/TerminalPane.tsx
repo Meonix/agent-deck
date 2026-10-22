@@ -223,7 +223,7 @@ export function TerminalPane({
             aria-label={maximized ? "Restore pane" : "Maximize pane"}
             title={maximized ? "Restore pane" : "Maximize pane"}
             onClick={toggleMaximized}
-            className="shrink-0 text-muted-foreground"
+            className="-my-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             {maximized ? "⤡" : "⤢"}
           </button>
