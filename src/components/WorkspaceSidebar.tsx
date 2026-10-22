@@ -1,3 +1,4 @@
+import type { StashedSession } from "./stash";
 import type { ActiveSession, FolderHighlight } from "./statusHighlight";
 import { StateMarker, tone } from "./statusTone";
 import type { WorkspacesState } from "./useWorkspaces";
@@ -9,13 +10,27 @@ type Props = {
   /** The pane with the Focus Outline; its row gets the Row Focus Mark (SRS-FR-099). */
   focusedPaneId: string | null;
   onJump(paneId: string): void;
+  stashed: StashedSession[];
+  onReopen(row: StashedSession): void;
+  onUnstash(sessionId: string): void;
   /** A maximized pane is drawn over the sidebar; keep keyboard focus out of it. */
   covered: boolean;
   /** SRS-FR-088: kept mounted, so its scroll and state survive a hide. */
   hidden: boolean;
 };
 
-export function WorkspaceSidebar({ workspaces, folderHighlights, active, focusedPaneId, onJump, covered, hidden }: Props) {
+export function WorkspaceSidebar({
+  workspaces,
+  folderHighlights,
+  active,
+  focusedPaneId,
+  onJump,
+  stashed,
+  onReopen,
+  onUnstash,
+  covered,
+  hidden,
+}: Props) {
   const { items, selected, select, addFolder, removeFolder } = workspaces;
   return (
     <aside aria-label="Workspaces" hidden={hidden} inert={covered} className="flex flex-col bg-card overflow-auto border-r border-border">
@@ -64,7 +79,7 @@ export function WorkspaceSidebar({ workspaces, folderHighlights, active, focused
           })}
         </ul>
       </section>
-      <section className="flex-1 bg-section-active border-t border-border pb-2">
+      <section className="bg-section-active border-t border-border pb-2">
         <div className="px-3 pt-3 pb-1">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Active Sessions · {active.length}
@@ -75,6 +90,28 @@ export function WorkspaceSidebar({ workspaces, folderHighlights, active, focused
             <li className="px-2 py-1 text-sm text-muted-foreground">No active sessions</li>
           ) : (
             active.map((row) => <ActiveRow key={row.paneId} row={row} focused={row.paneId === focusedPaneId} onJump={onJump} />)
+          )}
+        </ul>
+      </section>
+      <section className="flex-1 bg-section-stash border-t border-border pb-2">
+        <div className="px-3 pt-3 pb-1">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Stashed Sessions · {stashed.length}
+          </span>
+        </div>
+        <ul aria-label="Stashed sessions" className="px-2 space-y-0.5">
+          {stashed.length === 0 ? (
+            <li className="px-2 py-1 text-sm text-muted-foreground">No stashed sessions</li>
+          ) : (
+            stashed.map((row) => (
+              <StashedRow
+                key={row.sessionId}
+                row={row}
+                workspaceName={items?.find((w) => w.id === row.workspaceId)?.name ?? row.workspaceName}
+                onReopen={onReopen}
+                onUnstash={onUnstash}
+              />
+            ))
           )}
         </ul>
       </section>
@@ -118,6 +155,36 @@ function ActiveRow({ row, focused, onJump }: { row: ActiveSession; focused: bool
           {clock(row.since) + (row.reason ? ` · ${row.reason}` : "")}
         </div>
       )}
+    </li>
+  );
+}
+
+function StashedRow({ row, workspaceName, onReopen, onUnstash }: {
+  row: StashedSession;
+  workspaceName: string;
+  onReopen(row: StashedSession): void;
+  onUnstash(sessionId: string): void;
+}) {
+  return (
+    <li className="group flex items-center gap-1 rounded-md px-2 py-1 hover:bg-muted">
+      <button
+        onClick={() => onReopen(row)}
+        className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="min-w-0 flex-1 truncate">{row.title}</span>
+        <span className="max-w-[45%] shrink-0 truncate rounded border border-border px-1 text-[10px] text-muted-foreground">
+          {workspaceName}
+        </span>
+      </button>
+      {/* Shown on hover, and kept reachable by keyboard (SRS-FR-110). */}
+      <button
+        aria-label={`Remove ${row.title} from stash`}
+        title="Remove from stash"
+        onClick={() => onUnstash(row.sessionId)}
+        className="shrink-0 rounded px-1 text-xs text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+      >
+        ✕
+      </button>
     </li>
   );
 }

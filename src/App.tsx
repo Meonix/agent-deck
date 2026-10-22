@@ -11,6 +11,8 @@ import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
 import { activeSessions, folderHighlights, maximizedBadge } from "./components/statusHighlight";
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useSidebarToggle } from "./components/useSidebarToggle";
+import type { StashedSession } from "./components/stash";
+import { useStash } from "./components/useStash";
 import { useTextZoom } from "./components/useTextZoom";
 import { useWorkspaces } from "./components/useWorkspaces";
 import { mergeSessions, type OpenSession } from "./components/sessionList";
@@ -115,16 +117,22 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     if (closing !== null && closingEntry === undefined) setClosing(null);
   }, [closing, closingEntry]);
   const cancelClose = useCallback(() => setClosing(null), []);
-  // Only the latest × may open the dialog: an older shell answer can come back after a newer click.
+  // Only the latest × or Stash may open its dialog: an older shell answer can come back after a newer click.
   const closeRequests = useRef(0);
-  const requestClose = async (paneId: string) => {
+  /** What the pane's shell runs, null when it runs nothing; undefined once a newer request has started. */
+  const busyShell = async (paneId: string) => {
     const request = ++closeRequests.current;
     const entry = panes.entries.find((e) => e.pane.paneId === paneId);
     // "not_found": the shell is already gone. Any other failure warns, the safer side.
     const activity = entry?.shell
       ? await sessions.shellActivity(paneId).catch((e) => (e === "not_found" ? null : { busy: true, command: null }))
       : null;
-    if (request === closeRequests.current) setClosing({ paneId, shell: activity?.busy ? { command: activity.command } : null });
+    if (request !== closeRequests.current) return undefined;
+    return activity?.busy ? { command: activity.command } : null;
+  };
+  const requestClose = async (paneId: string) => {
+    const shell = await busyShell(paneId);
+    if (shell !== undefined) setClosing({ paneId, shell });
   };
   const closeOnly = (paneId: string) => {
     setClosing(null);
@@ -138,7 +146,57 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     void confirmDelete({ workspaceId: entry.workspaceId, id: sessionId, title: entry.title, paneId, live: !entry.ended });
   };
 
+  const stash = useStash();
+  const [stashing, setStashing] = useState<{ paneId: string; shell: { command: string | null } | null } | null>(null);
+  const stashingEntry = panes.entries.find((e) => e.pane.paneId === stashing?.paneId);
+  useEffect(() => {
+    if (stashing !== null && stashingEntry === undefined) setStashing(null);
+  }, [stashing, stashingEntry]);
+  const cancelStash = useCallback(() => setStashing(null), []);
+  // SRS-FR-104: the row is added only once the pane is closed; a failed close keeps the pane and says why.
+  const stashPane = async (entry: PaneEntry) => {
+    setStashing(null);
+    const { paneId, sessionId } = entry.pane;
+    if (!(await panes.closePane(paneId))) return;
+    stash.add({ sessionId, workspaceId: entry.workspaceId, workspaceName: entry.workspaceName, title: entry.title, stashedAt: Date.now() });
+  };
+  const requestStash = async (paneId: string) => {
+    const shell = await busyShell(paneId);
+    const entry = panes.entries.find((e) => e.pane.paneId === paneId);
+    if (shell === undefined || !entry) return;
+    if (shell || (!entry.ended && isBusy(entry))) setStashing({ paneId, shell });
+    else void stashPane(entry);
+  };
+
   const showToast = useToast();
+  // SRS-FR-108: a Missing folder is refused inside resume, so its row stays like any other failed open.
+  const reopenStashed = (row: StashedSession) => {
+    const workspace = workspaces.items?.find((w) => w.id === row.workspaceId);
+    if (workspace) void panes.resume(workspace, { id: row.sessionId, title: row.title });
+    else showToast("Folder not found");
+  };
+  // SRS-FR-109: whatever opened it, a session running in a pane is no longer put aside.
+  const { remove: unstash } = stash;
+  const runningIds = openSessions.map((o) => o.sessionId).join(",");
+  useEffect(() => {
+    if (runningIds) runningIds.split(",").forEach(unstash);
+  }, [runningIds, unstash]);
+  // SRS-FR-112: once per launch, rows whose history was trashed outside the app go; a folder that cannot answer keeps its rows.
+  const pruned = useRef(false);
+  const { items: stashed, prune } = stash;
+  useEffect(() => {
+    if (pruned.current || !workspaces.items) return;
+    pruned.current = true;
+    const asked = new Set(stashed.map((row) => row.workspaceId));
+    for (const w of workspaces.items) {
+      if (!asked.has(w.id) || w.missing) continue;
+      sessions.list(w.id).then(
+        (listing) => prune(w.id, listing.sessions.map((row) => row.id)),
+        () => {},
+      );
+    }
+  }, [workspaces.items, stashed, sessions, prune]);
+
   const [deleting, setDeleting] = useState<Deleting | null>(null);
   // A second Delete while the first still waits for its session to end would move files Claude Code may still write.
   const inFlight = useRef(new Set<string>());
@@ -165,6 +223,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     }
     // "not_found": nothing of it is on disk, so there is nothing left to keep in the list.
     const gone = error === null || error === "not_found";
+    if (gone) unstash(id);
     // The backend ended a live pane's session before moving anything, so the pane goes unless it ran another session.
     if (paneId && error !== "wrong_pane") await panes.closePane(paneId);
     return gone;
@@ -205,6 +264,9 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
         active={activeSessions(panes.entries)}
         focusedPaneId={panes.focusedId}
         onJump={panes.jumpTo}
+        stashed={stash.items}
+        onReopen={reopenStashed}
+        onUnstash={stash.remove}
         covered={panes.maximizedId !== null}
       />
       {/* After the Sidebar, so Tab reaches its rows first; absolute, so it takes no grid column. */}
@@ -247,6 +309,8 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
                   onFocus={panes.focusPane}
                   onMaximize={panes.maximize}
                   onRestore={panes.restore}
+                  canStash={hasHistory(entry)}
+                  onStash={(paneId) => void requestStash(paneId)}
                   onClose={(paneId) => void requestClose(paneId)}
                   onToggleShell={(paneId) => void panes.toggleShell(paneId)}
                   onResizeShell={panes.resizeShell}
@@ -291,6 +355,15 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           {...deleteManyText(deletingMany)}
           onCancel={cancelDeleteMany}
           onConfirm={() => void confirmDeleteMany(deletingMany)}
+        />
+      )}
+      {stashing && stashingEntry && (
+        <ConfirmDialog
+          title={`Stash “${stashingEntry.title}”?`}
+          detail={closeWarnings(!stashingEntry.ended && isBusy(stashingEntry), stashing.shell)}
+          action="Stash"
+          onConfirm={() => void stashPane(stashingEntry)}
+          onCancel={cancelStash}
         />
       )}
       {closing && closingEntry && (

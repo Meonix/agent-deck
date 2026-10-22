@@ -69,6 +69,9 @@ type Props = {
   onFocus(paneId: string): void;
   onMaximize(paneId: string): void;
   onRestore(): void;
+  /** False while the session has nothing on disk to reopen (SRS-FR-103). */
+  canStash: boolean;
+  onStash(paneId: string): void;
   onClose(paneId: string): void;
   onToggleShell(paneId: string): void;
   onResizeShell(paneId: string, ratio: number): void;
@@ -87,6 +90,8 @@ export function TerminalPane({
   onFocus,
   onMaximize,
   onRestore,
+  canStash,
+  onStash,
   onClose,
   onToggleShell,
   onResizeShell,
@@ -219,6 +224,15 @@ export function TerminalPane({
             </span>
           )}
           <ShellChip shell={shell} onToggle={() => onToggleShell(paneId)} />
+          <button
+            aria-label="Stash session"
+            title="Stash session"
+            disabled={!canStash}
+            onClick={() => onStash(paneId)}
+            className="-my-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            ⤓
+          </button>
           <button
             aria-label={maximized ? "Restore pane" : "Maximize pane"}
             title={maximized ? "Restore pane" : "Maximize pane"}

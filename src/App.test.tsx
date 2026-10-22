@@ -2441,3 +2441,231 @@ describe("Diagnostics report (2.1)", () => {
     expect(diag.report).toHaveBeenLastCalledWith({ terminals: 1, expectedTerminals: 1, titleTimers: 0, livePanes: 0 });
   });
 });
+
+describe("Stashed Sessions (CR-011)", () => {
+  const stashList = () => within(sidebar()).getByRole("list", { name: "Stashed sessions" });
+  const stashRow = (title: string) => within(stashList()).getByText(title).closest("li")!;
+  const stashed = (sessionId: string, title: string, workspaceId = "a", workspaceName = "agent-deck", stashedAt = 1) => ({
+    sessionId,
+    workspaceId,
+    workspaceName,
+    title,
+    stashedAt,
+  });
+  const seed = (...rows: ReturnType<typeof stashed>[]) =>
+    localStorage.setItem("adStashedSessions", JSON.stringify({ version: 1, sessions: rows }));
+  /** A history that still holds these sessions, so the launch check keeps their rows (SRS-FR-112). */
+  const onDisk = (...ids: string[]) =>
+    vi.fn(async () => ({ sessions: ids.map((id) => ({ id, title: id, lastActivity: 1 })), unreadable: 0 }));
+  const stored = () => JSON.parse(localStorage.getItem("adStashedSessions") ?? "null")?.sessions as { sessionId: string }[];
+
+  it("shows No stashed sessions while nothing is stashed (SRS-FR-107)", async () => {
+    setup([ws("a", "agent-deck")]);
+    expect(await within(stashList()).findByText("No stashed sessions")).toBeInTheDocument();
+  });
+
+  it("lists the stashed sessions kept from the last launch, in order, with their folder (SRS-FR-106, SRS-FR-111)", async () => {
+    seed(stashed("s2", "Scaffold Tauri app", "a", "agent-deck", 2), stashed("s1", "Fix login bug", "b", "mokairo", 1));
+    setup([ws("a", "agent-deck"), ws("b", "mokairo")], fakeSessions({ list: onDisk("s1", "s2") }));
+    await folderList().findByText("agent-deck");
+    const rows = within(stashList()).getAllByRole("listitem");
+    expect(rows.map((r) => r.textContent)).toEqual([
+      expect.stringContaining("Scaffold Tauri app"),
+      expect.stringContaining("Fix login bug"),
+    ]);
+    expect(within(stashRow("Fix login bug")).getByText("mokairo")).toBeInTheDocument();
+    expect(within(sidebar()).getByText("Stashed Sessions · 2")).toBeInTheDocument();
+  });
+
+  it("puts Stashed Sessions on its own tint (SRS-NFR-010)", async () => {
+    setup([ws("a", "agent-deck")]);
+    await folderList().findByText("agent-deck");
+    expect(stashList().closest("section")).toHaveClass("bg-section-stash");
+  });
+
+  async function openPane(sessions = fakeSessions({ titles: ["Fix login bug"] }), title = "Fix login bug") {
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await screen.findByRole("region", { name: `agent-deck · ${title}` });
+    return { ...ctx, stream: sessions.opened[0].stream };
+  }
+  const stashButton = () => screen.getByRole("button", { name: "Stash session" });
+
+  it("puts Stash just left of Maximize, before ×, on every pane (SRS-FR-103)", async () => {
+    await openPane();
+    const header = screen.getByRole("region", { name: "agent-deck · Fix login bug" }).querySelector("header")!;
+    const names = within(header)
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("aria-label"))
+      .slice(-3);
+    expect(names).toEqual(["Stash session", "Maximize pane", "Close pane"]);
+    expect(stashButton()).toBeEnabled();
+  });
+
+  it("disables Stash while the session has no history yet (SRS-FR-103)", async () => {
+    const { user, sessions } = await openPane(fakeSessions({ title: vi.fn(() => new Promise<string>(() => {})) }), "(untitled)");
+    expect(stashButton()).toBeDisabled();
+    await user.click(stashButton());
+    expect(sessions.close).not.toHaveBeenCalled();
+    expect(within(stashList()).getByText("No stashed sessions")).toBeInTheDocument();
+  });
+
+  it("closes an idle pane without the Close Dialog and stashes its session (SRS-FR-104)", async () => {
+    const { user, sessions, stream } = await openPane();
+    act(() => stream.status({ state: "Idle" }));
+    await user.click(stashButton());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(screen.queryByRole("region", { name: "agent-deck · Fix login bug" })).not.toBeInTheDocument());
+    expect(sessions.close).toHaveBeenCalledWith("p1");
+    expect(sessions.deleteSession).not.toHaveBeenCalled();
+    expect(within(stashRow("Fix login bug")).getByText("agent-deck")).toBeInTheDocument();
+    expect(stored()).toEqual([expect.objectContaining({ sessionId: "s1", workspaceId: "a", title: "Fix login bug" })]);
+  });
+
+  it("does not stash a pane whose close failed", async () => {
+    const { user } = await openPane(fakeSessions({ titles: ["Fix login bug"], close: vi.fn(async () => Promise.reject("io")) }));
+    await user.click(stashButton());
+    await screen.findByText(/Could not close session/);
+    expect(screen.getByRole("region", { name: "agent-deck · Fix login bug" })).toBeInTheDocument();
+    expect(within(stashList()).getByText("No stashed sessions")).toBeInTheDocument();
+  });
+
+  it("asks before stashing a Running pane; Cancel keeps it, Stash stashes it (SRS-FR-105)", async () => {
+    const { user, sessions, stream } = await openPane();
+    act(() => stream.status({ state: "Running" }));
+    await user.click(stashButton());
+    const dialog = screen.getByRole("dialog", { name: "Stash “Fix login bug”?" });
+    expect(within(dialog).getByText("Session is still running.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(sessions.close).not.toHaveBeenCalled();
+    expect(within(stashList()).getByText("No stashed sessions")).toBeInTheDocument();
+
+    await user.click(stashButton());
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Stash" }));
+    await within(stashList()).findByText("Fix login bug");
+    expect(sessions.close).toHaveBeenCalledWith("p1");
+  });
+
+  it("asks before stashing a pane whose shell runs a command (SRS-FR-105)", async () => {
+    const { user } = await openPane(
+      fakeSessions({ titles: ["Fix login bug"], shellActivity: vi.fn(async () => ({ busy: true, command: "npm run dev" })) }),
+    );
+    await user.click(screen.getByRole("button", { name: "Open shell" }));
+    await user.click(stashButton());
+    const dialog = await screen.findByRole("dialog", { name: "Stash “Fix login bug”?" });
+    expect(within(dialog).getByText("A command is still running in the shell.")).toBeInTheDocument();
+  });
+
+  it("resumes a stashed session in a new pane and drops its row (SRS-FR-108, SRS-FR-109)", async () => {
+    seed(stashed("old-1", "Fix login bug"));
+    const { user, sessions } = setup([ws("a", "agent-deck")], fakeSessions({ titles: ["Fix login bug"], list: onDisk("old-1") }));
+    await user.click(await within(stashList()).findByRole("button", { name: /^Fix login bug/ }));
+    expect(await screen.findByRole("region", { name: "agent-deck · Fix login bug" })).toBeInTheDocument();
+    expect(sessions.open).toHaveBeenCalledWith("a", expect.any(Number), expect.any(Number), "old-1");
+    expect(within(stashList()).getByText("No stashed sessions")).toBeInTheDocument();
+    expect(stored()).toEqual([]);
+  });
+
+  it("refuses a Missing folder with Folder not found and keeps the row (SRS-FR-108)", async () => {
+    seed(stashed("old-1", "Fix login bug", "b", "mokairo"));
+    const { user, sessions } = setup([ws("a", "agent-deck"), ws("b", "mokairo", true)]);
+    await folderList().findByText("mokairo");
+    await user.click(within(stashList()).getByRole("button", { name: /^Fix login bug/ }));
+    expect(await screen.findByText("Folder not found")).toBeInTheDocument();
+    expect(sessions.open).not.toHaveBeenCalled();
+    expect(within(stashList()).getByText("Fix login bug")).toBeInTheDocument();
+  });
+
+  it("refuses a folder no longer in the list with Folder not found and keeps the row", async () => {
+    seed(stashed("old-1", "Fix login bug", "gone", "mokairo"));
+    const { user, sessions } = setup([ws("a", "agent-deck")]);
+    await user.click(await within(stashList()).findByRole("button", { name: /^Fix login bug/ }));
+    expect(await screen.findByText("Folder not found")).toBeInTheDocument();
+    expect(sessions.open).not.toHaveBeenCalled();
+    expect(within(stashRow("Fix login bug")).getByText("mokairo")).toBeInTheDocument();
+  });
+
+  it("keeps the row when Claude Code does not start", async () => {
+    seed(stashed("old-1", "Fix login bug"));
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ started: false, list: onDisk("old-1") }));
+    await user.click(await within(stashList()).findByRole("button", { name: /^Fix login bug/ }));
+    await screen.findByText("Claude Code could not be started");
+    expect(within(stashList()).getByText("Fix login bug")).toBeInTheDocument();
+  });
+
+  it("drops the row when the session is resumed from the Session History Panel (SRS-FR-109)", async () => {
+    seed(stashed("old-1", "Fix login bug"));
+    const list = vi.fn(async () => ({ sessions: [{ id: "old-1", title: "Fix login bug", lastActivity: 1 }], unreadable: 0 }));
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list, titles: ["Fix login bug"] }));
+    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await within(historyPanel()).findByRole("button", { name: /Fix login bug/ }));
+    await user.click(within(historyPanel()).getByRole("button", { name: "Resume" }));
+    await screen.findByRole("region", { name: "agent-deck · Fix login bug" });
+    expect(within(stashList()).getByText("No stashed sessions")).toBeInTheDocument();
+  });
+
+  it("drops the row of a session deleted from the Session History Panel (SRS-FR-112)", async () => {
+    seed(stashed("old-1", "Fix login bug"));
+    let rows = [{ id: "old-1", title: "Fix login bug", lastActivity: 1 }];
+    const sessions = fakeSessions({
+      list: vi.fn(async () => ({ sessions: [...rows], unreadable: 0 })),
+      deleteSession: vi.fn(async () => void (rows = [])),
+    });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await within(historyPanel()).findByRole("button", { name: /Fix login bug/ }));
+    await user.click(within(historyPanel()).getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Move to Trash" }));
+    await within(stashList()).findByText("No stashed sessions");
+  });
+
+  it("keeps the row when the delete fails", async () => {
+    seed(stashed("old-1", "Fix login bug"));
+    const sessions = fakeSessions({
+      list: vi.fn(async () => ({ sessions: [{ id: "old-1", title: "Fix login bug", lastActivity: 1 }], unreadable: 0 })),
+      deleteSession: vi.fn(async () => Promise.reject("locked")),
+    });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await within(historyPanel()).findByRole("button", { name: /Fix login bug/ }));
+    await user.click(within(historyPanel()).getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Move to Trash" }));
+    await screen.findByText("Session could not be deleted");
+    expect(within(stashList()).getByText("Fix login bug")).toBeInTheDocument();
+  });
+
+  it("drops at launch the rows whose history is gone, asking only folders that can answer (SRS-FR-112)", async () => {
+    seed(
+      stashed("gone", "Trashed elsewhere", "a"),
+      stashed("here", "Still on disk", "a"),
+      stashed("far", "In a missing folder", "b", "mokairo"),
+    );
+    const list = vi.fn(async () => ({ sessions: [{ id: "here", title: "Still on disk", lastActivity: 1 }], unreadable: 0 }));
+    setup([ws("a", "agent-deck"), ws("b", "mokairo", true)], fakeSessions({ list }));
+    await vi.waitFor(() => expect(within(stashList()).queryByText("Trashed elsewhere")).not.toBeInTheDocument());
+    expect(within(stashList()).getByText("Still on disk")).toBeInTheDocument();
+    expect(within(stashList()).getByText("In a missing folder")).toBeInTheDocument();
+    expect(list).toHaveBeenCalledWith("a");
+    expect(list).not.toHaveBeenCalledWith("b");
+  });
+
+  it("keeps the rows when the launch listing fails", async () => {
+    seed(stashed("old-1", "Fix login bug"));
+    const list = vi.fn(async () => Promise.reject("io"));
+    setup([ws("a", "agent-deck")], fakeSessions({ list }));
+    await vi.waitFor(() => expect(list).toHaveBeenCalledWith("a"));
+    await act(async () => {});
+    expect(within(stashList()).getByText("Fix login bug")).toBeInTheDocument();
+  });
+
+  it("removes a row with × without opening it or touching its history (SRS-FR-110)", async () => {
+    seed(stashed("s1", "Fix login bug"));
+    const { user, sessions } = setup([ws("a", "agent-deck")], fakeSessions({ list: onDisk("s1") }));
+    await within(stashList()).findByText("Fix login bug");
+    await user.click(within(stashRow("Fix login bug")).getByRole("button", { name: "Remove Fix login bug from stash" }));
+    expect(within(stashList()).getByText("No stashed sessions")).toBeInTheDocument();
+    expect(stored()).toEqual([]);
+    expect(sessions.open).not.toHaveBeenCalled();
+    expect(sessions.deleteSession).not.toHaveBeenCalled();
+  });
+});

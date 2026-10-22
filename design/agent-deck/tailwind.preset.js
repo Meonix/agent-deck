@@ -10,7 +10,7 @@ export default {
         accent: { DEFAULT: 'var(--accent)', foreground: 'var(--accent-foreground)' },
         primary: { DEFAULT: 'var(--primary)', foreground: 'var(--primary-foreground)' },
         input: 'var(--input)',
-        section: { folders: 'var(--section-folders)', active: 'var(--section-active)' },
+        section: { folders: 'var(--section-folders)', active: 'var(--section-active)', stash: 'var(--section-stash)' },
         border: 'var(--border)',
         ring: 'var(--ring)',
         running: {
