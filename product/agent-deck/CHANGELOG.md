@@ -525,3 +525,56 @@ Backlog — thêm (áp sau GATE CR):
 - 25 · Bỏ nhắc lạc đề, việc chính thành Target Box chữ đỏ · update-session-target-box · SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 · phụ thuộc 22 · Should; CR-010; đổi hành vi đã archived (add-session-goal) → /dev-update.
 
 Việc tiếp theo: /dev-update add-session-goal (mục 25).
+
+## CR-011 — Stash phiên đang dở để mở lại sau
+Ngày: 2026-10-22
+Yêu cầu: "hiện tại tôi cần tạo một section bên side bar bên trái. section đó tên là "Stashed Sesion" bạn có thể đặt lại tên cho đúng chính tả hoặc nghe hay hơn. Mục đích của session này là dùng để đánh dấu các session chat có thể được mở lại trong tương lai do hiện tại công việc vẫn con dở và chưa thể xử lý được ngay. tôi muốn có nút stash lại ngay trên window session chat kế bên trái nút phóng to. khi bấm vào thì nó sẽ tự close session và lưu vào stash. nếu user sau đó click vào thì mở lại phiên đó." — tên section chốt: "Stashed Sessions".
+Status: Approved (2026-10-22)
+Trả lời của PO (2026-10-22):
+- Mở lại từ Stashed Sessions → mục rời khỏi stash.
+- Bấm Stash không hỏi, trừ khi ô đang bận (phiên `Running`/`Needs Approval` hoặc Pane Shell đang chạy lệnh) thì hỏi xác nhận.
+- Stashed Sessions giữ lại giữa các lần mở app.
+- Mỗi dòng có nút × để gỡ khỏi stash mà không mở lại, phiên vẫn còn trong lịch sử.
+Ảnh hưởng:
+- BO: không đổi. Stash phục vụ BO-02 (quay lại phiên cũ nhanh: bấm một dòng = 1 thao tác).
+- BR-03 thêm vế để dành phiên đang dở → BRD minor.
+- Chỉ thêm FR/NFR mới, không sửa câu EARS nào đã archived:
+  - SRS-NFR-009 (archived: update-active-sessions, spec status-board) chỉ nói hai section → giữ nguyên, tint section thứ ba đặt ở NFR mới SRS-NFR-010.
+  - SRS-FR-041 (archived: add-pane-maximize) liệt kê vùng bị che; Stashed Sessions nằm trong Sidebar nên vẫn bị che → giữ nguyên câu.
+  - SRS-FR-015, SRS-FR-016, SRS-FR-017, SRS-FR-029, SRS-FR-062, SRS-FR-084 dùng lại, không sửa.
+- Thuật ngữ "Sidebar" (chỉ tài liệu) thêm Stashed Sessions.
+- Code (cho /dev-feature): src/components/WorkspaceSidebar.tsx (section mới), src/components/TerminalPane.tsx (nút Stash cạnh Maximize), useSessionPanes.ts, App.tsx; src-tauri lưu danh sách stash cạnh Open Panes / Session Goals.
+- Thiết kế: dùng tokens có sẵn trong design/agent-deck/tokens.css; không có màn mới.
+
+Diff đề xuất:
+
+Phiên bản: BRD v4.0 → v4.1 (sửa BR-03). SRS v1.10 → v1.11.
+
+BRD:
+- Mục 5 Trong phạm vi: dòng "Xem và mở lại phiên Claude Code đã có trên máy, theo từng folder." → thêm "; để dành phiên đang dở vào danh sách riêng để mở lại sau."
+- Mục 6 BR-03: "Người dùng mở lại một phiên cũ để làm tiếp; các phiên đang mở trong ô lúc thoát app tự mở lại đúng chỗ khi mở app" → thêm "; người dùng để dành một phiên đang dở (đóng ô của nó) vào một danh sách riêng và mở lại từ danh sách đó" | BO-02 | Must (giữ).
+- Mục 13 log thêm dòng CR-011. Mục 14: dòng v4.1.
+
+SRS:
+- Thuật ngữ: "Sidebar" → "Cột trái chứa Workspace List, Active Sessions và Stashed Sessions". Thêm "Stashed Sessions — section trong Sidebar, dưới Active Sessions, liệt kê các phiên người dùng đã để dành". Thêm "Stash Dialog — hộp hiện khi bấm Stash trên ô đang bận, tiêu đề "Stash "<title>"?", hai nút Cancel · Stash, cùng các dòng cảnh báo như Close Dialog".
+- Mục mới 2.15 "Để dành phiên đang dở": luồng chính 1. bấm Stash trên tiêu đề ô → ô đóng, phiên vào Stashed Sessions → SRS-FR-103, SRS-FR-104. 2. bấm dòng trong Stashed Sessions → phiên mở trong ô mới, rời stash → SRS-FR-108, SRS-FR-109. Thay thế: A1 ô đang bận → Stash Dialog → SRS-FR-105; A2 gỡ dòng bằng × → SRS-FR-110; A3 mở lại app → danh sách còn nguyên → SRS-FR-111. Ngoại lệ: E1 workspace `Missing` → SRS-FR-016, dòng ở lại; E2 lịch sử phiên không còn → SRS-FR-112.
+- SRS-FR-103 — Stash button (BR-03, Should, Demo): "The system shall show a Stash button in the header of every pane immediately to the left of the Maximize button." Giải thích: ô chưa có lịch sử phiên trên đĩa (phiên mới chưa gõ gì) → nút bị tắt, vì không có gì để mở lại; Maximized Pane cũng có nút, bên trái nút Restore. Ví dụ: tiêu đề ô "agent-deck · Fix login bug" → thứ tự nút … Stash · Maximize · ×. Ví dụ âm: ô New Session chưa gửi prompt → nút Stash mờ, bấm không có gì xảy ra.
+- SRS-FR-104 — Stash a pane (BR-03, Should, Test): "When the user chooses Stash on a pane that is not busy, the system shall close that pane and add its session to Stashed Sessions." Giải thích: "không bận" = phiên không `Running`/`Needs Approval` và Pane Shell không chạy lệnh; đóng như SRS-FR-029, SRS-FR-062 (kết thúc phiên và shell); không hiện Close Dialog; phiên vẫn còn trong Session History Panel; ô đã đóng không được nhớ theo SRS-FR-084. Ví dụ: ô "Fix login bug" `Idle`, bấm Stash → ô biến mất, Stashed Sessions có dòng "Fix login bug · mokairo". Ví dụ âm: bấm Stash → phiên không bị xoá, vẫn còn trong lịch sử.
+- SRS-FR-105 — Confirm stashing a busy pane (BR-03, Should, Test): "If the user chooses Stash on a pane whose session is `Running` or `Needs Approval` or whose Pane Shell is running a command, then the system shall show the Stash Dialog for that pane before stashing it." Giải thích: dòng cảnh báo giống SRS-FR-027, SRS-FR-063; Cancel → không đổi gì; Stash → như SRS-FR-104. Ví dụ: ô `Running`, bấm Stash → hộp "Stash "Fix login bug"?" có dòng "Session is still running."; chọn Stash → phiên kết thúc, ô đóng, phiên vào Stashed Sessions. Ví dụ âm: chọn Cancel → ô vẫn chạy, Stashed Sessions không đổi.
+- SRS-FR-106 — List stashed sessions (BR-03, Should, Test): "The system shall list in Stashed Sessions every stashed session across all workspaces, with its title and its workspace name, most recently stashed first." Ví dụ: stash "Fix login bug" (mokairo) lúc 14:00 rồi "Scaffold Tauri app" (agent-deck) lúc 14:10 → dòng đầu "Scaffold Tauri app · agent-deck". Ví dụ âm: phiên chưa từng stash → không có trong Stashed Sessions.
+- SRS-FR-107 — Empty stashed sessions (BR-03, Should, Test): "While no session is stashed, the system shall show the message "No stashed sessions" in Stashed Sessions."
+- SRS-FR-108 — Reopen a stashed session (BR-03, Should, Test): "When the user chooses a row in Stashed Sessions, the system shall resume that session in a new pane." Giải thích: resume như SRS-FR-013, đặt ô như SRS-FR-046; workspace `Missing` → từ chối như SRS-FR-016, dòng ở lại; Claude Code không khởi động được → SRS-FR-017. Ví dụ: bấm "Fix login bug · mokairo" → ô mới tiếp tục hội thoại cũ, gõ được ngay (1 thao tác, BO-02). Ví dụ âm: `mokairo` `Missing` → không mở ô, hiện "Folder not found", dòng vẫn ở Stashed Sessions.
+- SRS-FR-109 — Unstash on open (BR-03, Should, Test): "When a stashed session opens in a pane, the system shall remove that session from Stashed Sessions." Giải thích: mở bằng bất kỳ đường nào (dòng stash, Resume trong Session History Panel). Ví dụ: Resume "Fix login bug" từ Session History Panel khi nó đang trong stash → ô mở, dòng biến khỏi Stashed Sessions.
+- SRS-FR-110 — Remove from stash (BR-03, Should, Test): "When the user chooses × on a row in Stashed Sessions, the system shall remove that session from Stashed Sessions without changing its history." Giải thích: × hiện khi rê chuột lên dòng; không hỏi xác nhận; không mở ô. Ví dụ: bấm × trên "Fix login bug" → dòng biến mất, phiên vẫn còn trong Session History Panel. Ví dụ âm: bấm × → không có ô nào mở.
+- SRS-FR-111 — Keep stash across launches (BR-03, Should, Test): "The system shall keep Stashed Sessions and their order between application launches." Ví dụ: stash 2 phiên, thoát app, mở lại → Stashed Sessions vẫn 2 dòng cùng thứ tự.
+- SRS-FR-112 — Drop stashed sessions without history (BR-03, Should, Test): "If the history of a stashed session no longer exists, then the system shall remove that session from Stashed Sessions." Giải thích: phiên bị xoá vào Thùng rác trong app (SRS-FR-047, SRS-FR-073) hay ngoài app. Ví dụ âm: xoá "Fix login bug" trong Session History Panel → dòng biến khỏi Stashed Sessions.
+- SRS-NFR-010 — Stashed Sessions tint (BR-03, Should, Analysis): "The system shall give the Stashed Sessions section a background tint different from the Workspace List and Active Sessions tints, with a contrast ratio of at most 1.25:1 against the sidebar background and a text contrast of at least 4.5:1, in both light and dark themes." Ví dụ: nền 1.10:1, chữ 12:1 → đạt.
+- Mục 3 App settings: thêm dòng "Stashed Sessions | Mã phiên, workspace, thời điểm stash của từng phiên để dành | Không | Giữ lại giữa các lần mở app (SRS-FR-111); không ghi vào dữ liệu phiên của Claude Code (SRS-NFR-005)".
+- Mục 7 Màn hình: thêm dòng "Cửa sổ chính · Stashed Sessions | Phiên để dành của mọi folder, bấm dòng để mở lại, × để gỡ; tint riêng của section | SRS-FR-106, SRS-FR-107, SRS-FR-108, SRS-FR-109, SRS-FR-110, SRS-FR-111, SRS-FR-112, SRS-NFR-010". Dòng Pane Grid thêm "nút Stash, Stash Dialog" và SRS-FR-103, SRS-FR-104, SRS-FR-105.
+- Bảng truy vết: thêm SRS-FR-103 đến SRS-FR-112, SRS-NFR-010, BR-03, "Baselined".
+- Lịch sử: dòng v1.11 "CR-011: Stashed Sessions trong Sidebar, nút Stash trên tiêu đề ô bên trái Maximize, hỏi khi ô bận, mở lại thì rời stash, × để gỡ, giữ giữa các lần mở app; thêm SRS-FR-103 đến SRS-FR-112, SRS-NFR-010; theo BRD v4.1".
+
+Backlog — thêm (áp sau GATE CR):
+- 26 · Để dành phiên đang dở vào Stashed Sessions · add-session-stash · SRS-FR-103, SRS-FR-104, SRS-FR-105, SRS-FR-106, SRS-FR-107, SRS-FR-108, SRS-FR-109, SRS-FR-110, SRS-FR-111, SRS-FR-112, SRS-NFR-010 · phụ thuộc 6, 10, 12, 24 · Should; CR-011; chỉ thêm FR mới → /dev-feature.
+
+Việc tiếp theo: /dev-feature add-session-stash (mục 26).

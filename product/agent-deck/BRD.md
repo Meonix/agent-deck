@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v4.0 (2026-10-22)
+status: Approved v4.1 (2026-10-22)
 ---
 # BRD — agent-deck
 
@@ -43,7 +43,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 ### Trong phạm vi
 
 - Quản lý danh sách folder hay làm việc với AI agent.
-- Xem và mở lại phiên Claude Code đã có trên máy, theo từng folder.
+- Xem và mở lại phiên Claude Code đã có trên máy, theo từng folder; để dành phiên đang dở vào danh sách riêng để mở lại sau.
 - Chạy nhiều phiên Claude Code tương tác cùng lúc, chia ô trong một cửa sổ bằng kéo thả, tự mở lại các ô khi mở lại app.
 - Theo dõi trạng thái từng phiên: đang chạy, cần duyệt, lỗi.
 - Xoá một hoặc nhiều phiên cũ vào Thùng rác.
@@ -66,7 +66,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | --- | --- | --- | --- |
 | BR-01 | Người dùng thêm, bỏ và chọn folder làm việc; danh sách được giữ lại giữa các lần mở app | BO-02 | Must |
 | BR-02 | Người dùng xem danh sách phiên Claude Code đã có trên máy của folder đang chọn, mỗi phiên có tiêu đề và thời điểm hoạt động gần nhất | BO-02 | Must |
-| BR-03 | Người dùng mở lại một phiên cũ để làm tiếp; các phiên đang mở trong ô lúc thoát app tự mở lại đúng chỗ khi mở app | BO-02 | Must |
+| BR-03 | Người dùng mở lại một phiên cũ để làm tiếp; các phiên đang mở trong ô lúc thoát app tự mở lại đúng chỗ khi mở app; người dùng để dành một phiên đang dở (đóng ô của nó) vào một danh sách riêng và mở lại từ danh sách đó | BO-02 | Must |
 | BR-04 | Người dùng bắt đầu một phiên Claude Code mới trong folder đang chọn | BO-02 | Must |
 | BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, kéo thả ô để đặt nó sang trái, phải, trên hoặc dưới một ô khác, ô tự đóng khi phiên thoát bình thường, phóng to một ô ra cả cửa sổ, mở một terminal thường dưới phiên trong cùng ô và ẩn nó đi mà vẫn chạy, phóng to hoặc thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt, thấy rõ ô đang focus, ẩn cột trái để nhường chỗ cho các ô, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
 | BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
@@ -144,6 +144,7 @@ Luật nghiệp vụ:
 | 2026-10-21 | CR-007: BO-03 đo bằng gì? | ≥ 9/10 prompt lạc đề được nhắc ngay, ≤ 1/10 prompt trong phạm vi bị nhắc nhầm, kiểm bằng bộ prompt mẫu, trong 2 tuần dùng thử sau khi có tính năng |
 | 2026-10-22 | CR-010: việc chính hiện và giữ phiên trong một việc thế nào? | Bỏ nhắc lạc đề, app không ràng buộc Claude Code; việc chính là ô chữ đỏ dưới tiêu đề ô, tối đa 3 dòng rồi cuộn, trống tới prompt đầu, sửa trực tiếp; PO tự đối chiếu |
 | 2026-10-22 | CR-010: BO-03 đo bằng gì khi bỏ nhắc? | Đổi BO-03 thành luôn thấy việc chính của mỗi phiên đang mở, số thao tác để thấy = 0 |
+| 2026-10-22 | CR-011: để dành phiên đang dở thế nào? | Nút Stash trên tiêu đề ô, bên trái nút phóng to; bấm thì đóng ô, phiên vào Stashed Sessions ở cột trái; ô bận thì hỏi; bấm dòng để mở lại và dòng rời stash; × để gỡ; giữ giữa các lần mở app |
 
 ## 14. Duyệt
 
@@ -159,3 +160,4 @@ Luật nghiệp vụ:
 | v3.0 | 2026-10-21 | PO | CR-007: thêm BO-03 (mỗi phiên chỉ làm một việc) và BR-09 (ghim việc chính, Claude Code nhắc khi lạc đề) |
 | v3.1 | 2026-10-21 | PO | CR-009: BR-08 thêm xoá phiên ngay lúc đóng ô |
 | v4.0 | 2026-10-22 | PO | CR-010: BO-03 đổi thành luôn thấy việc chính của mỗi phiên; BR-09 bỏ Claude Code nhắc khi lạc đề |
+| v4.1 | 2026-10-22 | PO | CR-011: BR-03 thêm để dành phiên đang dở vào danh sách riêng và mở lại từ đó |

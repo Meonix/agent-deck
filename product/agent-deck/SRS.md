@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.10 (2026-10-22)
+status: Baselined v1.11 (2026-10-22)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -73,7 +73,9 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Focus Outline | Vòng màu iris dày 2px bên ngoài viền của ô đang focus |
 | Row Focus Mark | Vòng màu iris dày 2px quanh dòng của phiên trong Active Sessions khi ô của phiên đó có Focus Outline |
 | Close Dialog | Hộp hiện khi người dùng bấm × trên tiêu đề ô, tiêu đề "Close "<title>"?", ba nút Cancel · Close · Close and move to Trash, cùng các dòng cảnh báo khi ô đang bận |
-| Sidebar | Cột trái chứa Workspace List và Active Sessions |
+| Sidebar | Cột trái chứa Workspace List, Active Sessions và Stashed Sessions |
+| Stashed Sessions | Section trong Sidebar, dưới Active Sessions, liệt kê các phiên người dùng đã để dành |
+| Stash Dialog | Hộp hiện khi người dùng bấm Stash trên ô đang bận, tiêu đề "Stash "<title>"?", hai nút Cancel · Stash, cùng các dòng cảnh báo như Close Dialog |
 | Sidebar Toggle | Nút ở giữa theo chiều dọc, sát mép phải Sidebar (Sidebar ẩn: sát mép trái cửa sổ), bấm để ẩn/hiện Sidebar |
 | Sidebar shortcut | macOS: Cmd+B; Windows: Ctrl+B |
 | Session Goal | Việc chính của một phiên: prompt đầu tiên người dùng gửi trong phiên, hoặc câu người dùng sửa lại; câu rỗng người dùng để lại cũng là Session Goal |
@@ -986,6 +988,95 @@ When the user resumes a session that has no stored Session Goal, the system shal
 ### SRS-FR-098 — Prompt goes through without reminder — Deleted (CR-010)
 Không còn Focus Reminder (SRS-FR-094); prompt luôn tới Claude Code nguyên vẹn.
 
+## 2.15 Để dành phiên đang dở
+
+- Luồng chính: 1. Người dùng bấm Stash trên tiêu đề ô → ô đóng, phiên vào Stashed Sessions → SRS-FR-103, SRS-FR-104, SRS-FR-106. 2. Người dùng bấm một dòng trong Stashed Sessions → phiên mở trong ô mới, dòng rời Stashed Sessions → SRS-FR-108, SRS-FR-109.
+- Luồng thay thế: A1 ô đang bận → Stash Dialog → SRS-FR-105. A2 người dùng gỡ dòng bằng × → SRS-FR-110. A3 mở lại app → danh sách còn nguyên → SRS-FR-111
+- Luồng ngoại lệ: E1 workspace `Missing` → từ chối, dòng ở lại → SRS-FR-016, SRS-FR-108. E2 lịch sử phiên không còn → SRS-FR-112
+
+### SRS-FR-103 — Stash button
+The system shall show a Stash button in the header of every pane immediately to the left of the Maximize button.
+- Giải thích: ô chưa có lịch sử phiên trên đĩa (phiên mới chưa gõ gì) → nút bị tắt, vì không có gì để mở lại; Maximized Pane cũng có nút, bên trái nút Restore.
+- Ví dụ: tiêu đề ô "agent-deck · Fix login bug" → thứ tự nút … Stash · Maximize · ×.
+- Ví dụ âm: ô New Session chưa gửi prompt → nút Stash mờ, bấm không có gì xảy ra.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-104 — Stash a pane
+When the user chooses Stash on a pane that is not busy, the system shall close that pane and add its session to Stashed Sessions.
+- Giải thích: "không bận" = phiên không `Running`/`Needs Approval` và Pane Shell không chạy lệnh; đóng như SRS-FR-029, SRS-FR-062 (kết thúc phiên và shell); không hiện Close Dialog; phiên vẫn còn trong Session History Panel; ô đã đóng không được nhớ theo SRS-FR-084.
+- Ví dụ: ô "Fix login bug" `Idle`, bấm Stash → ô biến mất, Stashed Sessions có dòng "Fix login bug · mokairo".
+- Ví dụ âm: bấm Stash → phiên không bị xoá, vẫn còn trong Session History Panel.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-105 — Confirm stashing a busy pane
+If the user chooses Stash on a pane whose session is `Running` or `Needs Approval` or whose Pane Shell is running a command, then the system shall show the Stash Dialog for that pane before stashing it.
+- Giải thích: dòng cảnh báo giống SRS-FR-027, SRS-FR-063; Cancel → không đổi gì; Stash → như SRS-FR-104.
+- Ví dụ: ô `Running`, bấm Stash → hộp "Stash "Fix login bug"?" có dòng "Session is still running."; chọn Stash → phiên kết thúc, ô đóng, phiên vào Stashed Sessions.
+- Ví dụ âm: chọn Cancel → ô vẫn chạy, Stashed Sessions không đổi.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-106 — List stashed sessions
+The system shall list in Stashed Sessions every stashed session across all workspaces, with its title and its workspace name, most recently stashed first.
+- Ví dụ: stash "Fix login bug" (mokairo) lúc 14:00 rồi "Scaffold Tauri app" (agent-deck) lúc 14:10 → dòng đầu "Scaffold Tauri app · agent-deck", dòng hai "Fix login bug · mokairo".
+- Ví dụ âm: phiên chưa từng stash → không có trong Stashed Sessions.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-107 — Empty stashed sessions
+While no session is stashed, the system shall show the message "No stashed sessions" in Stashed Sessions.
+- Ví dụ âm: mở app, chưa stash phiên nào → Stashed Sessions hiện "No stashed sessions".
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-108 — Reopen a stashed session
+When the user chooses a row in Stashed Sessions, the system shall resume that session in a new pane.
+- Giải thích: resume như SRS-FR-013, đặt ô như SRS-FR-046; workspace `Missing` → từ chối như SRS-FR-016, dòng ở lại; Claude Code không khởi động được → SRS-FR-017.
+- Ví dụ: bấm "Fix login bug · mokairo" → ô mới tiếp tục hội thoại cũ, gõ được ngay (1 thao tác, BO-02).
+- Ví dụ âm: `mokairo` `Missing` → không mở ô, hiện "Folder not found", dòng vẫn ở Stashed Sessions.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-109 — Unstash on open
+When a stashed session opens in a pane, the system shall remove that session from Stashed Sessions.
+- Giải thích: mở bằng bất kỳ đường nào (dòng trong Stashed Sessions, Resume trong Session History Panel).
+- Ví dụ: Resume "Fix login bug" từ Session History Panel khi nó đang trong Stashed Sessions → ô mở, dòng biến khỏi Stashed Sessions.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-110 — Remove from stash
+When the user chooses × on a row in Stashed Sessions, the system shall remove that session from Stashed Sessions without changing its history.
+- Giải thích: × hiện khi rê chuột lên dòng; không hỏi xác nhận; không mở ô.
+- Ví dụ: bấm × trên "Fix login bug" → dòng biến mất, phiên vẫn còn trong Session History Panel.
+- Ví dụ âm: bấm × → không có ô nào mở.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-111 — Keep stash across launches
+The system shall keep Stashed Sessions and their order between application launches.
+- Ví dụ: stash 2 phiên, thoát app, mở lại → Stashed Sessions vẫn 2 dòng cùng thứ tự.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
+### SRS-FR-112 — Drop stashed sessions without history
+If the history of a stashed session no longer exists, then the system shall remove that session from Stashed Sessions.
+- Giải thích: phiên bị xoá vào Thùng rác trong app (SRS-FR-047, SRS-FR-073) hay ngoài app.
+- Ví dụ âm: xoá "Fix login bug" trong Session History Panel → dòng biến khỏi Stashed Sessions.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-03
+
 ## 3. Dữ liệu
 
 ### Workspace
@@ -1029,6 +1120,7 @@ Bản ghi chỉ cần giữ đủ 14 ngày gần nhất cho SRS-FR-039.
 | Text Size | Cỡ chữ của cả cửa sổ | Có | 50%–200%, bước 10%, mặc định 100%; giữ lại giữa các lần mở app (SRS-FR-071) |
 | Open Panes | Phiên của từng ô và bố cục (vị trí, tỉ lệ) | Không | Giữ lại giữa các lần mở app (SRS-FR-084); không gồm phóng to, Pane Shell |
 | Session Goals | Session Goal của từng phiên theo mã phiên | Không | Giữ lại giữa các lần mở app (SRS-FR-096); không ghi vào dữ liệu phiên của Claude Code (SRS-NFR-005) |
+| Stashed Sessions | Mã phiên, workspace, thời điểm stash của từng phiên để dành | Không | Giữ lại giữa các lần mở app (SRS-FR-111); không ghi vào dữ liệu phiên của Claude Code (SRS-NFR-005) |
 
 Trạng thái ẩn của Sidebar không được lưu: mở app thì Sidebar luôn hiện (SRS-FR-090).
 
@@ -1076,8 +1168,9 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | --- | --- | --- |
 | Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing`; Status Highlight của folder; tint riêng của section | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006, SRS-FR-034, SRS-FR-040, SRS-FR-054, SRS-NFR-009 |
 | Cửa sổ chính · Active Sessions | Phiên đang mở trong ô của mọi folder, Status Highlight, dòng phụ "giờ · lý do", bấm dòng để tới ô, Row Focus Mark của ô đang focus; tint riêng của section | SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-FR-099, SRS-NFR-009 |
+| Cửa sổ chính · Stashed Sessions | Phiên để dành của mọi folder, bấm dòng để mở lại, × để gỡ; tint riêng của section | SRS-FR-106, SRS-FR-107, SRS-FR-108, SRS-FR-109, SRS-FR-110, SRS-FR-111, SRS-FR-112, SRS-NFR-010 |
 | Cửa sổ chính · Session History Panel | Lịch sử phiên của folder đang chọn, nhãn `Live`, Resume, New Session, xoá một hoặc nhiều phiên, đóng khung | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-054, SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079, SRS-NFR-003 |
-| Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô qua Close Dialog (có thể chuyển phiên vào Thùng rác), ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, Target Box hiện và sửa Session Goal | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-100, SRS-FR-101, SRS-FR-102 |
+| Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô qua Close Dialog (có thể chuyển phiên vào Thùng rác), ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, Target Box hiện và sửa Session Goal, nút Stash và Stash Dialog | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-100, SRS-FR-101, SRS-FR-102, SRS-FR-103, SRS-FR-104, SRS-FR-105 |
 | Cửa sổ chính · toàn cửa sổ | Phóng to, thu nhỏ, về mặc định cỡ chữ của mọi chữ trong cửa sổ; ẩn/hiện Sidebar bằng Sidebar Toggle hoặc Sidebar shortcut | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071, SRS-FR-088, SRS-FR-089, SRS-FR-090 |
 | Status Latency | Xem tỉ lệ đổi trạng thái hiện ≤ 3 giây | SRS-FR-039 |
 
@@ -1161,6 +1254,15 @@ The system shall give the Workspace List section and the Active Sessions section
 - Ưu tiên: Should
 - Nguồn: BR-06
 
+### SRS-NFR-010 — Stashed Sessions tint
+The system shall give the Stashed Sessions section a background tint different from the Workspace List and Active Sessions tints, with a contrast ratio of at most 1.25:1 against the sidebar background and a text contrast of at least 4.5:1, in both light and dark themes.
+- Giải thích: như SRS-NFR-009, cho section thứ ba của Sidebar.
+- Ví dụ: nền Stashed Sessions 1.10:1 so với nền cột trái, khác tint Folders và Active Sessions, chữ 12:1 → đạt.
+- Ví dụ âm: nền Stashed Sessions trùng tint Active Sessions → không đạt.
+- Kiểm chứng: Analysis
+- Ưu tiên: Should
+- Nguồn: BR-03
+
 ## 10. Ràng buộc thiết kế
 
 - Ứng dụng desktop cài trên máy, không phải trang web (BRD mục 8).
@@ -1171,9 +1273,9 @@ The system shall give the Workspace List section and the Active Sessions section
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-102 (trừ SRS-FR-022, SRS-FR-031, SRS-FR-094, SRS-FR-095, SRS-FR-098 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-001 đến SRS-FR-112 (trừ SRS-FR-022, SRS-FR-031, SRS-FR-094, SRS-FR-095, SRS-FR-098 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
 | SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
-| SRS-NFR-001 đến SRS-NFR-009 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
+| SRS-NFR-001 đến SRS-NFR-010 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
 ## 12. Bảng truy vết
 
@@ -1282,6 +1384,16 @@ The system shall give the Workspace List section and the Active Sessions section
 | SRS-FR-100 | BR-05 | | Test | Baselined |
 | SRS-FR-101 | BR-08 | | Test | Baselined |
 | SRS-FR-102 | BR-08 | | Test | Baselined |
+| SRS-FR-103 | BR-03 | | Demo | Baselined |
+| SRS-FR-104 | BR-03 | | Test | Baselined |
+| SRS-FR-105 | BR-03 | | Test | Baselined |
+| SRS-FR-106 | BR-03 | | Test | Baselined |
+| SRS-FR-107 | BR-03 | | Test | Baselined |
+| SRS-FR-108 | BR-03 | | Test | Baselined |
+| SRS-FR-109 | BR-03 | | Test | Baselined |
+| SRS-FR-110 | BR-03 | | Test | Baselined |
+| SRS-FR-111 | BR-03 | | Test | Baselined |
+| SRS-FR-112 | BR-03 | | Test | Baselined |
 | SRS-NFR-001 | BR-05 | | Test | Baselined |
 | SRS-NFR-002 | BR-05 | | Test | Baselined |
 | SRS-NFR-003 | BR-02 | | Test | Baselined |
@@ -1291,6 +1403,7 @@ The system shall give the Workspace List section and the Active Sessions section
 | SRS-NFR-007 | BRD mục 8 (ràng buộc) | | Inspection | Baselined |
 | SRS-NFR-008 | BR-06 | | Inspection | Baselined |
 | SRS-NFR-009 | BR-06 | | Analysis | Baselined |
+| SRS-NFR-010 | BR-03 | | Analysis | Baselined |
 ## 13. Câu hỏi mở
 
 | ID | Câu hỏi | Người trả lời | Trạng thái | Chặn gate |
@@ -1316,3 +1429,4 @@ The system shall give the Workspace List section and the Active Sessions section
 | v1.8 | 2026-10-21 | PO | CR-008: Row Focus Mark trên dòng Active Sessions của ô đang focus, ở mọi trạng thái, không thay Status Highlight; thêm SRS-FR-099, Row Focus Mark; theo BRD v3.0 |
 | v1.9 | 2026-10-21 | PO | CR-009: bấm × trên ô luôn hiện Close Dialog (Cancel · Close · Close and move to Trash), cảnh báo bận nằm trong hộp thay hai hộp riêng; `/exit` giữ nguyên; sửa SRS-FR-027, SRS-FR-029, SRS-FR-063; thêm SRS-FR-100 đến SRS-FR-102, Close Dialog; theo BRD v3.1 |
 | v1.10 | 2026-10-22 | PO | CR-010: bỏ Focus Reminder và luật lạc đề (xoá SRS-FR-094, SRS-FR-095, SRS-FR-098, RULE-09, A-10, A-11); Goal Line thành Target Box chữ đỏ, sửa trực tiếp, tối đa 3 dòng rồi cuộn; sửa SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097; theo BRD v4.0 |
+| v1.11 | 2026-10-22 | PO | CR-011: Stashed Sessions trong Sidebar, nút Stash trên tiêu đề ô bên trái Maximize, Stash Dialog khi ô bận, mở lại thì rời stash, × để gỡ, giữ giữa các lần mở app; thêm SRS-FR-103 đến SRS-FR-112, SRS-NFR-010, Stashed Sessions, Stash Dialog; theo BRD v4.1 |
