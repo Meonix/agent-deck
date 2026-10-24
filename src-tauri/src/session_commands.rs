@@ -28,6 +28,7 @@ pub async fn delete_session(
 ) -> Result<(), String> {
     let workspace = present_workspace(&app, &workspace_id)?;
     let projects = projects_dir(&app)?;
+    let deleted = session_id.clone();
     let process = match pane_id {
         Some(pane) => app
             .state::<AppState>()
@@ -48,7 +49,14 @@ pub async fn delete_session(
     .map_err(|e| match e {
         DeleteError::NotFound => "not_found".to_string(),
         DeleteError::Failed(e) => e.to_string(),
-    })
+    })?;
+    // Only once the files are in the Trash (SRS-FR-129).
+    app.state::<AppState>()
+        .progress
+        .lock()
+        .unwrap()
+        .remove(&deleted);
+    Ok(())
 }
 
 fn present_workspace(app: &AppHandle, workspace_id: &str) -> Result<WorkspaceView, String> {

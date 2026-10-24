@@ -51,6 +51,9 @@ pub trait PaneProcess: Send {
     }
     /// Replaces the session goal of a pane that tracks one; others ignore it.
     fn set_goal(&mut self, _text: &str) {}
+    /// Progress Tracking of a pane that runs Claude Code; others ignore it.
+    fn set_progress_tracking(&mut self, _on: bool) {}
+    fn set_progress_collapsed(&mut self, _collapsed: bool) {}
     /// The session Claude Code now reports, when it moved off the one the pane was
     /// opened with (`/clear` starts a new one).
     fn session(&self) -> Option<String> {

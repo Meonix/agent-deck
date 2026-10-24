@@ -15,11 +15,16 @@ use crate::hooks::{HookServer, HookSink, hook_settings};
 use crate::launcher::{find_claude, login_shell_path_with, session_env};
 use crate::pane_status::{StatusOut, StatusTracker, exit_json, now_ms};
 use crate::panes::{OpenError, PaneId, SessionId, Spawner, Start, close_in_parallel, resume_id};
+use crate::progress_keeper::{
+    ProgressDeps, ProgressKeeper, ProgressOut, ProjectsHistory, ThreadRunner,
+};
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
 use crate::session_goal::{GoalKeeper, GoalOut, GoalStore};
 use crate::session_list::first_prompt;
+use crate::session_progress::Checkpoint;
 use crate::session_title::{UNTITLED, find_session_file, session_title};
 use crate::shell::{Activity, ShellError, ShellProcess, ShellSpawner, spawn_shell};
+use crate::summarizer::{ClaudeSummarizer, Summarizer, SummaryError};
 use crate::workspace::{DiskProbe, WorkspaceId};
 
 /// Upper bound on waiting for panes to close when the app quits.
@@ -104,6 +109,30 @@ pub fn set_session_goal(
 ) -> Result<(), String> {
     let mut panes = state.panes.lock().unwrap();
     panes.set_goal(&PaneId(pane_id), &text).map_err(io_error)
+}
+
+#[tauri::command]
+pub fn set_progress_tracking(
+    pane_id: String,
+    on: bool,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut panes = state.panes.lock().unwrap();
+    panes
+        .set_progress_tracking(&PaneId(pane_id), on)
+        .map_err(io_error)
+}
+
+#[tauri::command]
+pub fn set_progress_collapsed(
+    pane_id: String,
+    collapsed: bool,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut panes = state.panes.lock().unwrap();
+    panes
+        .set_progress_collapsed(&PaneId(pane_id), collapsed)
+        .map_err(io_error)
 }
 
 #[tauri::command]
@@ -273,6 +302,20 @@ fn open_blocking(
     if let Start::Resume(session) = &start {
         pin_first_prompt(app, &state, &session.0);
     }
+    let goals = state.goals.clone();
+    let progress = ProgressDeps {
+        store: state.progress.clone(),
+        summarizer: state.summarizer.clone(),
+        history: Arc::new(ProjectsHistory(
+            app.path()
+                .home_dir()
+                .unwrap_or_default()
+                .join(".claude")
+                .join("projects"),
+        )),
+        goal: Arc::new(move |session: &str| goals.lock().ok()?.get(session)),
+        runner: Arc::new(ThreadRunner),
+    };
     let opened = {
         // Holding `list` keeps the workspace from being removed until the pane is registered.
         let list = state.list.lock().unwrap();
@@ -296,6 +339,8 @@ fn open_blocking(
             hooks: state.hooks.clone(),
             goals: state.goals.clone(),
             goal_out: Arc::new(ChannelGoal(output.clone())),
+            progress,
+            progress_out: Arc::new(ChannelProgress(output.clone())),
             session_out: Arc::new(ChannelStatus(output.clone())),
         };
         let sink = ChannelSink {
@@ -378,6 +423,30 @@ impl LaunchLookup {
     }
 }
 
+/// Summaries run the `claude` the lookup found, waiting for it on the run's own thread.
+pub struct LookupSummarizer {
+    pub launch: Arc<LaunchLookup>,
+    /// The app data folder, so a run reads no workspace's CLAUDE.md.
+    pub cwd: PathBuf,
+}
+
+impl Summarizer for LookupSummarizer {
+    fn summarize(&self, prompt: &str) -> Result<Vec<Checkpoint>, SummaryError> {
+        let launch = self.launch.get();
+        let program = launch
+            .claude
+            .clone()
+            .ok_or_else(|| SummaryError::Spawn("claude was not found".into()))?;
+        std::fs::create_dir_all(&self.cwd).map_err(|e| SummaryError::Spawn(e.to_string()))?;
+        ClaudeSummarizer {
+            program,
+            env: session_env(&inherited_env(), &launch.path),
+            cwd: self.cwd.clone(),
+        }
+        .summarize(prompt)
+    }
+}
+
 fn resolve_launch() -> Launch {
     launch_for(login_shell_path_with(user_shell().as_deref(), &env_path()))
 }
@@ -448,6 +517,8 @@ struct PtySpawner<'a> {
     hooks: Option<Arc<HookServer>>,
     goals: Arc<Mutex<GoalStore>>,
     goal_out: Arc<dyn GoalOut>,
+    progress: ProgressDeps,
+    progress_out: Arc<dyn ProgressOut>,
     session_out: Arc<dyn StatusOut>,
 }
 
@@ -466,6 +537,12 @@ impl Spawner for PtySpawner<'_> {
             session_id.0.clone(),
             Box::new(self.goal_out.clone()),
         ));
+        let progress = Arc::new(ProgressKeeper::new(
+            self.progress.clone(),
+            session_id.0.clone(),
+            !resume,
+            Box::new(self.progress_out.clone()),
+        ));
         let follower = Arc::new(SessionFollower::new(
             session_id.0.clone(),
             self.session_out.clone(),
@@ -477,6 +554,7 @@ impl Spawner for PtySpawner<'_> {
                 tracker: self.tracker.clone(),
                 follower: follower.clone(),
                 keeper: keeper.clone(),
+                progress: progress.clone(),
             };
             server.register(&token, Arc::new(sink));
             args.push("--settings".into());
@@ -499,11 +577,13 @@ impl Spawner for PtySpawner<'_> {
                 if resume {
                     keeper.announce();
                 }
+                progress.announce();
                 Some(Box::new(TrackedProcess {
                     inner: QueuedProcess::new(Box::new(session), Some(killer)),
                     tracker: self.tracker.clone(),
                     follower,
                     keeper,
+                    progress,
                     hook,
                 }))
             }
@@ -604,11 +684,26 @@ impl GoalOut for Arc<dyn GoalOut> {
     }
 }
 
+struct ChannelProgress(Channel<InvokeResponseBody>);
+
+impl ProgressOut for ChannelProgress {
+    fn send_json(&self, json: String) {
+        let _ = self.0.send(InvokeResponseBody::Json(json));
+    }
+}
+
+impl ProgressOut for Arc<dyn ProgressOut> {
+    fn send_json(&self, json: String) {
+        (**self).send_json(json);
+    }
+}
+
 /// The pane's hook sink: the tracker sees the event first, so status timing is as before.
 struct PaneHooks {
     tracker: Arc<StatusTracker>,
     follower: Arc<SessionFollower>,
     keeper: Arc<GoalKeeper>,
+    progress: Arc<ProgressKeeper>,
 }
 
 impl HookSink for PaneHooks {
@@ -616,6 +711,7 @@ impl HookSink for PaneHooks {
         self.tracker.hook(event.clone());
         self.follower.follow(&event);
         self.keeper.hook(&event);
+        self.progress.hook(&event);
     }
 }
 
@@ -664,6 +760,7 @@ struct TrackedProcess {
     /// Same follower as the pane's hook sink; it tells the registry the live session.
     follower: Arc<SessionFollower>,
     keeper: Arc<GoalKeeper>,
+    progress: Arc<ProgressKeeper>,
     /// None when the pane was spawned without a listener.
     hook: Option<(Arc<HookServer>, String)>,
 }
@@ -698,6 +795,14 @@ impl PaneProcess for TrackedProcess {
 
     fn set_goal(&mut self, text: &str) {
         self.keeper.set(text);
+    }
+
+    fn set_progress_tracking(&mut self, on: bool) {
+        self.progress.set_tracking(on);
+    }
+
+    fn set_progress_collapsed(&mut self, collapsed: bool) {
+        self.progress.set_collapsed(collapsed);
     }
 
     fn session(&self) -> Option<String> {
@@ -930,7 +1035,35 @@ mod tests {
             hooks,
             goals: Arc::new(Mutex::new(GoalStore::load(dir))),
             goal_out: Arc::new(goal_out),
+            progress: progress_deps(&std::env::temp_dir().join("agent-deck-no-progress")),
+            progress_out: Arc::new(Outbox::default()),
             session_out: Arc::new(Outbox::default()),
+        }
+    }
+
+    struct NoSummary;
+
+    impl Summarizer for NoSummary {
+        fn summarize(&self, _prompt: &str) -> Result<Vec<Checkpoint>, SummaryError> {
+            Err(SummaryError::Spawn("test".into()))
+        }
+    }
+
+    impl ProgressOut for Outbox {
+        fn send_json(&self, json: String) {
+            self.0.lock().unwrap().push(json);
+        }
+    }
+
+    fn progress_deps(dir: &Path) -> ProgressDeps {
+        ProgressDeps {
+            store: Arc::new(Mutex::new(crate::session_progress::ProgressStore::load(
+                dir.to_path_buf(),
+            ))),
+            summarizer: Arc::new(NoSummary),
+            history: Arc::new(ProjectsHistory(PathBuf::new())),
+            goal: Arc::new(|_: &str| None),
+            runner: Arc::new(ThreadRunner),
         }
     }
 
@@ -1180,6 +1313,58 @@ mod tests {
         process.close();
     }
 
+    /// SRS-NFR-011: tracking changes nothing in how the pane's Claude Code is started.
+    #[cfg(unix)]
+    #[test]
+    fn pty_spawner_runs_claude_with_the_same_args_whether_tracked_or_not() {
+        use crate::session_progress::{ProgressRecord, Tracking};
+
+        let bin = tempfile::tempdir().unwrap();
+        let cwd = tempfile::tempdir().unwrap();
+        let launch = fake_claude(bin.path(), r#"printf '<%s|%s|%s>' "$#" "$1" "$2""#, 0);
+        let mut runs = Vec::new();
+        for tracked in [true, false] {
+            let data = tempfile::tempdir().unwrap();
+            let mut spawner = spawner(&launch, vec![], tracker(&Outbox::default()), None);
+            spawner.progress = progress_deps(data.path());
+            if tracked {
+                spawner.progress.store.lock().unwrap().set(
+                    "sid-1",
+                    ProgressRecord {
+                        tracking: Tracking::On,
+                        checkpoints: vec![],
+                        collapsed: false,
+                        offset: 0,
+                    },
+                );
+            }
+            let progress = Outbox::default();
+            spawner.progress_out = Arc::new(progress.clone());
+            let out = Arc::new(Mutex::new(Vec::new()));
+            let (tx, rx) = mpsc::channel();
+            let mut process = spawner
+                .spawn(
+                    cwd.path(),
+                    &SessionId("sid-1".into()),
+                    true,
+                    Box::new(ExitSink(out.clone(), Mutex::new(tx))),
+                )
+                .expect("spawned");
+            runs.push(printed_fields(&out));
+            let sent: serde_json::Value =
+                serde_json::from_str(&progress.0.lock().unwrap()[0]).unwrap();
+            assert_eq!(
+                sent["progress"]["tracking"],
+                if tracked { "on" } else { "off" }
+            );
+            process.write(b"\n").unwrap();
+            assert_eq!(rx.recv_timeout(Duration::from_secs(3)).unwrap(), Some(0));
+            process.close();
+        }
+        assert_eq!(runs[0], ["2", "--resume", "sid-1"]);
+        assert_eq!(runs[0], runs[1]);
+    }
+
     #[test]
     fn pty_spawner_drops_the_token_when_claude_fails_to_start() {
         let dir = tempfile::tempdir().unwrap();
@@ -1259,6 +1444,12 @@ mod tests {
                     std::env::temp_dir().join("agent-deck-no-goals"),
                 ))),
                 "s".into(),
+                Box::new(Outbox::default()),
+            )),
+            progress: Arc::new(ProgressKeeper::new(
+                progress_deps(&std::env::temp_dir().join("agent-deck-no-progress")),
+                "s".into(),
+                true,
                 Box::new(Outbox::default()),
             )),
             hook: None,

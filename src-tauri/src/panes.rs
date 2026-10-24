@@ -174,6 +174,16 @@ impl PaneRegistry {
         Ok(())
     }
 
+    pub fn set_progress_tracking(&mut self, pane: &PaneId, on: bool) -> io::Result<()> {
+        self.process(pane)?.set_progress_tracking(on);
+        Ok(())
+    }
+
+    pub fn set_progress_collapsed(&mut self, pane: &PaneId, collapsed: bool) -> io::Result<()> {
+        self.process(pane)?.set_progress_collapsed(collapsed);
+        Ok(())
+    }
+
     /// Forgets the pane and hands back its process, so the caller can close it
     /// (which may block) outside any lock around the registry.
     pub fn take(&mut self, pane: &PaneId) -> Option<Box<dyn PaneProcess>> {

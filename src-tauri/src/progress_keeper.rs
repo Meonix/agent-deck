@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
@@ -26,6 +26,17 @@ impl History for ProjectsHistory {
     fn read(&self, session: &str) -> Option<Vec<u8>> {
         let file = crate::session_title::find_session_file(&self.0, session)?;
         std::fs::read(file).ok()
+    }
+}
+
+/// Drops the records of sessions whose history file is gone (SRS-FR-129). An unreadable
+/// projects folder drops nothing.
+pub fn prune_without_history(store: &Mutex<ProgressStore>, projects: &Path) {
+    if std::fs::read_dir(projects).is_err() {
+        return;
+    }
+    if let Ok(mut store) = store.lock() {
+        store.prune_missing(|id| crate::session_title::find_session_file(projects, id).is_some());
     }
 }
 
@@ -961,6 +972,23 @@ mod tests {
         f.run_queued();
         assert!(f.take().is_empty());
         assert_eq!(f.record("s1").unwrap().checkpoints.len(), 1);
+    }
+
+    #[test]
+    fn prune_drops_records_without_a_history_file_only() {
+        let f = Fixture::new(true);
+        let projects = tempdir().unwrap();
+        std::fs::create_dir(projects.path().join("-w")).unwrap();
+        std::fs::write(projects.path().join("-w").join("s1.jsonl"), "").unwrap();
+        f.seed("s1", Tracking::On, vec![], 0);
+        f.seed("s2", Tracking::On, vec![], 0);
+
+        prune_without_history(&f.store, &projects.path().join("missing"));
+        assert!(f.record("s2").is_some());
+
+        prune_without_history(&f.store, projects.path());
+        assert!(f.record("s1").is_some());
+        assert!(f.record("s2").is_none());
     }
 
     #[test]
