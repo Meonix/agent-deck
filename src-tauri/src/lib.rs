@@ -14,6 +14,7 @@ pub mod session_list;
 pub mod session_progress;
 pub mod session_title;
 pub mod session_trash;
+pub mod summarizer;
 pub mod shell;
 pub mod status;
 pub mod status_latency;

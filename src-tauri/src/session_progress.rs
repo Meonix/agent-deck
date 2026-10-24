@@ -165,7 +165,6 @@ pub struct Chunk {
 }
 
 /// History records after `offset` as compact text lines (SRS-FR-124). Only whole lines are read.
-/// History records after `offset` as compact text lines (SRS-FR-124). Only whole lines are read.
 /// Nothing condensed gives no chunk, and the caller keeps its old offset.
 pub fn condense(bytes: &[u8], offset: u64) -> Vec<Chunk> {
     let now = Local::now().format("%H:%M").to_string();
