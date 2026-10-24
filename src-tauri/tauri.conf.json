@@ -13,6 +13,8 @@
     "windows": [
       {
         "title": "agent-deck",
+        "theme": "Dark",
+        "backgroundColor": "#18191b",
         "width": 1440,
         "height": 900,
         "minWidth": 1024,
