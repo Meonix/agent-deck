@@ -15,6 +15,15 @@ export type PaneStatus = {
 
 export type LatencyReport = { within: number; total: number };
 
+export type Checkpoint = { summary: string; result: string; done: boolean; startedAt: string };
+export type PaneProgress = {
+  tracking: "unset" | "on" | "off";
+  checkpoints: Checkpoint[];
+  collapsed: boolean;
+  updating: boolean;
+  failed: boolean;
+};
+
 export type SessionRow = { id: string; title: string; lastActivity: number };
 export type SessionListing = { sessions: SessionRow[]; unreadable: number };
 
@@ -24,13 +33,15 @@ export interface PaneStream {
   onStatus(cb: (status: PaneStatus) => void): void;
   /** The Session Goal of the pane's session; null when it has none. */
   onGoal(cb: (goal: string | null) => void): void;
+  /** The pane's progress tracking state and checkpoints; sent again on every change. */
+  onProgress(cb: (progress: PaneProgress) => void): void;
   /** The session Claude Code moved the pane to, as after `/clear`. */
   onSession(cb: (sessionId: string) => void): void;
   dispose(): void;
 }
 
 /** A shell sends output and its exit, never a status or a goal. */
-export type ShellStream = Omit<PaneStream, "onStatus" | "onGoal" | "onSession">;
+export type ShellStream = Omit<PaneStream, "onStatus" | "onGoal" | "onProgress" | "onSession">;
 
 /** `command`: what the shell runs in its foreground; null while busy means the name could not be read. */
 export type ShellActivity = { busy: boolean; command: string | null };
@@ -51,6 +62,10 @@ export interface SessionsClient {
   latencyReport(): Promise<LatencyReport>;
   /** Replaces the pane's goal; the new goal comes back on the stream. Rejects with "not_found" or "not_started". */
   setGoal(paneId: string, text: string): Promise<void>;
+  /** Turns progress tracking on or off; the new state comes back on the stream. */
+  setProgressTracking(paneId: string, on: boolean): Promise<void>;
+  /** Remembers whether the strip is collapsed; the new state comes back on the stream. */
+  setProgressCollapsed(paneId: string, collapsed: boolean): Promise<void>;
   /** The workspace's Claude Code sessions, newest first; rejects with "folder_missing". */
   list(workspaceId: string): Promise<SessionListing>;
   /**
@@ -121,6 +136,28 @@ function asGoal(message: unknown): GoalMessage | null {
   return goal === null || typeof goal === "string" ? { goal } : null;
 }
 
+function isCheckpoint(value: unknown): value is Checkpoint {
+  if (value === null || typeof value !== "object") return false;
+  const c = value as Record<string, unknown>;
+  return typeof c.summary === "string" && typeof c.result === "string" && typeof c.done === "boolean" && typeof c.startedAt === "string";
+}
+
+function asProgress(message: unknown): PaneProgress | null {
+  const value = typeof message === "string" ? safeParse(message) : message;
+  if (value === null || typeof value !== "object" || !("progress" in value)) return null;
+  const { progress } = value as { progress: unknown };
+  if (progress === null || typeof progress !== "object") return null;
+  const p = progress as Record<string, unknown>;
+  const valid =
+    (p.tracking === "unset" || p.tracking === "on" || p.tracking === "off") &&
+    Array.isArray(p.checkpoints) &&
+    p.checkpoints.every(isCheckpoint) &&
+    typeof p.collapsed === "boolean" &&
+    typeof p.updating === "boolean" &&
+    typeof p.failed === "boolean";
+  return valid ? (progress as PaneProgress) : null;
+}
+
 function safeParse(text: string): unknown {
   try {
     return JSON.parse(text);
@@ -138,6 +175,8 @@ function createStream(channel: Channel<unknown>): PaneStream {
   let pendingStatus: PaneStatus[] = [];
   let pendingGoal: GoalMessage[] = [];
   let exitCb: ((code: number | null) => void) | null = null;
+  let pendingProgress: PaneProgress[] = [];
+  let progressCb: ((progress: PaneProgress) => void) | null = null;
   let goalCb: ((goal: string | null) => void) | null = null;
   let pendingSession: string[] = [];
   let sessionCb: ((sessionId: string) => void) | null = null;
@@ -169,6 +208,12 @@ function createStream(channel: Channel<unknown>): PaneStream {
     if (goal) {
       if (goalCb && pendingGoal.length === 0) goalCb(goal.goal);
       else pendingGoal.push(goal);
+      return;
+    }
+    const progress = asProgress(message);
+    if (progress) {
+      if (progressCb && pendingProgress.length === 0) progressCb(progress);
+      else pendingProgress.push(progress);
       return;
     }
     const session = asSession(message);
@@ -209,6 +254,12 @@ function createStream(channel: Channel<unknown>): PaneStream {
       pendingGoal = [];
       queued.forEach((m) => cb(m.goal));
     },
+    onProgress(cb) {
+      progressCb = cb;
+      const queued = pendingProgress;
+      pendingProgress = [];
+      queued.forEach(cb);
+    },
     onSession(cb) {
       sessionCb = cb;
       const queued = pendingSession;
@@ -219,6 +270,8 @@ function createStream(channel: Channel<unknown>): PaneStream {
       channel.onmessage = () => {};
       goalCb = null;
       pendingGoal = [];
+      progressCb = null;
+      pendingProgress = [];
       sessionCb = null;
       pendingSession = [];
       outputCb = null;
@@ -251,6 +304,8 @@ export const tauriSessionsClient: SessionsClient = {
     invoke<void>("record_status_shown", { sessionId, state, reportedAt, shownAt }),
   latencyReport: () => invoke<LatencyReport>("status_latency_report"),
   setGoal: (paneId, text) => invoke<void>("set_session_goal", { paneId, text }),
+  setProgressTracking: (paneId, on) => invoke<void>("set_progress_tracking", { paneId, on }),
+  setProgressCollapsed: (paneId, collapsed) => invoke<void>("set_progress_collapsed", { paneId, collapsed }),
   list: (workspaceId) => invoke<SessionListing>("list_sessions", { workspaceId }),
   deleteSession: (workspaceId, sessionId, paneId) =>
     invoke<void>("delete_session", { workspaceId, sessionId, paneId: paneId ?? null }),

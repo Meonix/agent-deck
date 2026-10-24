@@ -207,3 +207,48 @@ describe("goal messages (SRS-FR-092)", () => {
     expect(tauri.invoke).toHaveBeenCalledWith("set_session_goal", { paneId: "p1", text: "New" });
   });
 });
+
+describe("progress messages", () => {
+  const progress = {
+    tracking: "on",
+    checkpoints: [{ summary: "Read the log", result: "", done: false, startedAt: "09:12" }],
+    collapsed: false,
+    updating: true,
+    failed: false,
+  };
+
+  it("queues progress sent before onProgress, then delivers later ones live", async () => {
+    tauri.invoke.mockImplementation(async () => {
+      send(JSON.stringify({ progress }));
+      return opened;
+    });
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen: unknown[] = [];
+    stream.onProgress((p) => seen.push(p));
+    expect(seen).toEqual([progress]);
+    send({ progress: { ...progress, tracking: "off" } });
+    expect(seen).toHaveLength(2);
+  });
+
+  it("ignores a progress of the wrong shape", async () => {
+    tauri.invoke.mockResolvedValue(opened);
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen: unknown[] = [];
+    stream.onProgress((p) => seen.push(p));
+    send({ progress: null });
+    send({ progress: { ...progress, tracking: "maybe" } });
+    send({ progress: { ...progress, checkpoints: [{ summary: 1 }] } });
+    send({ progress: { ...progress, collapsed: "no" } });
+    expect(seen).toEqual([]);
+  });
+
+  it("sets tracking and collapsed through their commands", async () => {
+    tauri.invoke.mockResolvedValue(undefined);
+    await tauriSessionsClient.setProgressTracking("p1", true);
+    await tauriSessionsClient.setProgressCollapsed("p1", false);
+    expect(tauri.invoke.mock.calls).toEqual([
+      ["set_progress_tracking", { paneId: "p1", on: true }],
+      ["set_progress_collapsed", { paneId: "p1", collapsed: false }],
+    ]);
+  });
+});

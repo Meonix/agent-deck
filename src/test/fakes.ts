@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { OpenedPane, PaneStatus, PaneStream, SessionsClient } from "../api/sessions";
+import type { OpenedPane, PaneProgress, PaneStatus, PaneStream, SessionsClient } from "../api/sessions";
 import type { TerminalAdapter, TerminalSize } from "../components/TerminalPane";
 
 export type FakeAdapter = TerminalAdapter & {
@@ -51,6 +51,7 @@ export type FakeStream = PaneStream & {
   exit(code: number | null): void;
   status(status: Partial<PaneStatus> & { state: PaneStatus["state"] }): void;
   goal(goal: string | null): void;
+  progress(progress: PaneProgress): void;
   session(id: string): void;
 };
 
@@ -59,12 +60,14 @@ export function fakeStream(): FakeStream {
   let exitCb: ((code: number | null) => void) | null = null;
   let statusCb: ((status: PaneStatus) => void) | null = null;
   let goalCb: ((goal: string | null) => void) | null = null;
+  let progressCb: ((progress: PaneProgress) => void) | null = null;
   let sessionCb: ((id: string) => void) | null = null;
   return {
     onOutput: (cb) => void (outputCb = cb),
     onExit: (cb) => void (exitCb = cb),
     onStatus: (cb) => void (statusCb = cb),
     onGoal: (cb) => void (goalCb = cb),
+    onProgress: (cb) => void (progressCb = cb),
     onSession: (cb) => void (sessionCb = cb),
     dispose: vi.fn(() => {
       sessionCb = null;
@@ -72,10 +75,12 @@ export function fakeStream(): FakeStream {
       exitCb = null;
       statusCb = null;
       goalCb = null;
+      progressCb = null;
     }),
     emit: (text) => outputCb?.(new TextEncoder().encode(text)),
     exit: (code) => exitCb?.(code),
     goal: (goal) => goalCb?.(goal),
+    progress: (progress) => progressCb?.(progress),
     session: (id) => sessionCb?.(id),
     status: (status) => statusCb?.({ since: Date.now(), reason: null, tracked: true, reportedAt: null, ...status }),
   };
@@ -107,6 +112,8 @@ export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean
     recordStatusShown: vi.fn(async () => {}),
     latencyReport: vi.fn(async () => ({ within: 0, total: 0 })),
     setGoal: vi.fn(async () => {}),
+    setProgressTracking: vi.fn(async () => {}),
+    setProgressCollapsed: vi.fn(async () => {}),
     list: vi.fn(async () => ({ sessions: [], unreadable: 0 })),
     deleteSession: vi.fn(async () => {}),
     openShell: vi.fn(async (paneId: string) => {
