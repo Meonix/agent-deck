@@ -4,6 +4,7 @@ use std::fmt;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
@@ -70,6 +71,16 @@ impl ClaudeSummarizer {
 
 impl Summarizer for ClaudeSummarizer {
     fn summarize(&self, prompt: &str) -> Result<Vec<Checkpoint>, SummaryError> {
+        self.summarize_with(prompt, DEADLINE)
+    }
+}
+
+impl ClaudeSummarizer {
+    fn summarize_with(
+        &self,
+        prompt: &str,
+        deadline: Duration,
+    ) -> Result<Vec<Checkpoint>, SummaryError> {
         let mut child = Command::new(&self.program)
             .args(self.args())
             .env_clear()
@@ -94,17 +105,27 @@ impl Summarizer for ClaudeSummarizer {
         let status = loop {
             match child.try_wait() {
                 Ok(Some(status)) => break status,
-                Ok(None) if start.elapsed() >= DEADLINE => {
+                Ok(None) if start.elapsed() >= deadline => {
                     let _ = child.kill();
                     let _ = child.wait();
                     return Err(SummaryError::Timeout);
                 }
                 Ok(None) => std::thread::sleep(Duration::from_millis(50)),
-                Err(e) => return Err(SummaryError::Spawn(e.to_string())),
+                Err(e) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(SummaryError::Spawn(e.to_string()));
+                }
             }
         };
-        let stdout = stdout.join().unwrap_or_default();
-        let stderr = stderr.join().unwrap_or_default();
+        // A grandchild can keep the pipes open after claude exits, so the drain is bounded too.
+        let left = |start: Instant| deadline.saturating_sub(start.elapsed());
+        let (Ok(stdout), Ok(stderr)) = (
+            stdout.recv_timeout(left(start)),
+            stderr.recv_timeout(left(start)),
+        ) else {
+            return Err(SummaryError::Timeout);
+        };
         if !status.success() {
             crate::diag::error("summarizer", &format!("claude stderr: {}", stderr.trim()));
             return Err(SummaryError::Exit(status.code()));
@@ -113,12 +134,14 @@ impl Summarizer for ClaudeSummarizer {
     }
 }
 
-fn drain<R: Read + Send + 'static>(mut pipe: R) -> std::thread::JoinHandle<String> {
+fn drain<R: Read + Send + 'static>(mut pipe: R) -> mpsc::Receiver<String> {
+    let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         let mut buf = Vec::new();
         let _ = pipe.read_to_end(&mut buf);
-        String::from_utf8_lossy(&buf).into_owned()
-    })
+        let _ = tx.send(String::from_utf8_lossy(&buf).into_owned());
+    });
+    rx
 }
 
 #[derive(Deserialize)]
@@ -370,6 +393,32 @@ mod tests {
             missing.summarize("p"),
             Err(SummaryError::Spawn(_))
         ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn slow_child_times_out_at_the_deadline() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = script(dir.path(), "sleep 5");
+        let start = Instant::now();
+        let got = s.summarize_with("p", Duration::from_millis(200));
+        assert_eq!(got, Err(SummaryError::Timeout));
+        assert!(start.elapsed() < Duration::from_secs(3));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn grandchild_holding_the_pipes_cannot_hang_summarize() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = script(
+            dir.path(),
+            r#"cat >/dev/null; sleep 5 &
+echo '{"is_error":false,"structured_output":{"checkpoints":[]}}'"#,
+        );
+        let start = Instant::now();
+        let got = s.summarize_with("p", Duration::from_millis(500));
+        assert_eq!(got, Err(SummaryError::Timeout));
+        assert!(start.elapsed() < Duration::from_secs(3));
     }
 
     #[test]
