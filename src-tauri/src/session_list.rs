@@ -350,7 +350,7 @@ const LOCAL_COMMANDS: &[&str] = &[
 
 /// A slash command is stored as a `<command-name>` wrapper. Local-command and bash-mode output,
 /// and bare built-in commands (see `LOCAL_COMMANDS`), are not something the user asked for.
-fn prompt_text(content: &str) -> Option<String> {
+pub(crate) fn prompt_text(content: &str) -> Option<String> {
     let text = content.trim();
     if text.is_empty()
         || ["<local-command-", "<bash-input>", "<bash-stdout>"]
