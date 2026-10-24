@@ -6,6 +6,7 @@ mod latency_commands;
 pub mod launcher;
 mod pane_commands;
 pub mod pane_status;
+pub mod progress_keeper;
 pub mod panes;
 pub mod pty;
 mod session_commands;
