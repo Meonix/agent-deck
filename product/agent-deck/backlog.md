@@ -4,7 +4,7 @@ slug: agent-deck
 ---
 # Backlog — agent-deck
 
-Nguồn: `SRS.md` Baselined v1.11 (2026-10-22), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23; CR-009 thêm mục 24; CR-010 thêm mục 25; CR-011 thêm mục 26. Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
+Nguồn: `SRS.md` Baselined v1.11 (2026-10-22), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23; CR-009 thêm mục 24; CR-010 thêm mục 25; CR-011 thêm mục 26; CR-012 thêm mục 27, 28. Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
 
 | # | Mục | change-id | SRS-ID | Phụ thuộc | Lý do | Trạng thái |
 |---|---|---|---|---|---|---|
@@ -34,3 +34,5 @@ Nguồn: `SRS.md` Baselined v1.11 (2026-10-22), CR-001 thêm mục 9, 10, 11; CR
 | 24 | Đóng ô hỏi có chuyển phiên vào Thùng rác | update-pane-close-dialog | SRS-FR-027, SRS-FR-029, SRS-FR-063, SRS-FR-100, SRS-FR-101, SRS-FR-102 | 2, 11, 13, 17 | Should; CR-009; đổi hành vi đã archived (SRS-FR-027, SRS-FR-063) → /dev-update | archived |
 | 25 | Bỏ nhắc lạc đề, việc chính thành Target Box chữ đỏ | update-session-target-box | SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098 | 22 | Should; CR-010; đổi hành vi đã archived (add-session-goal) → /dev-update | archived |
 | 26 | Để dành phiên đang dở vào Stashed Sessions | add-session-stash | SRS-FR-103, SRS-FR-104, SRS-FR-105, SRS-FR-106, SRS-FR-107, SRS-FR-108, SRS-FR-109, SRS-FR-110, SRS-FR-111, SRS-FR-112, SRS-NFR-010 | 6, 10, 12, 24 | Should; CR-011; chỉ thêm FR mới → /dev-feature | archived |
+| 27 | Cho phép tóm tắt tiến độ đi qua Claude Code | update-session-data-boundary | SRS-NFR-007 | 5 | Should; CR-012; đổi câu SRS-NFR-007 đã archived → /dev-update; chỉ spec | todo |
+| 28 | Theo dõi tiến độ phiên bằng check point | add-session-progress | SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131, SRS-NFR-011, SRS-NFR-012, SRS-NFR-013 | 3, 19, 25, 26, 27 | Should; CR-012; phục vụ BO-04; chỉ thêm FR mới → /dev-feature | todo |

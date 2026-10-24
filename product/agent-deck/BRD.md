@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v4.1 (2026-10-22)
+status: Approved v5.0 (2026-10-25)
 ---
 # BRD — agent-deck
 
@@ -13,7 +13,7 @@ status: Approved v4.1 (2026-10-22)
 agent-deck là ứng dụng desktop dùng cá nhân, cài và chạy trên máy (macOS trước, Windows sau).
 Nó gom việc làm với Claude Code về một chỗ: các folder hay làm việc, lịch sử phiên của từng folder,
 nhiều phiên Claude Code tương tác cùng lúc trong một cửa sổ, và dấu báo trạng thái ở cột trái cho
-biết phiên nào đang chạy, phiên nào đang chờ mình duyệt, phiên nào đang lỗi. Mỗi ô hiện việc chính của phiên bằng chữ đỏ, người dùng tự đối chiếu để phiên chỉ làm đúng việc đó.
+biết phiên nào đang chạy, phiên nào đang chờ mình duyệt, phiên nào đang lỗi. Mỗi ô hiện việc chính của phiên bằng chữ đỏ, người dùng tự đối chiếu để phiên chỉ làm đúng việc đó. Với phiên người dùng bật theo dõi, ô hiện danh sách các việc lớn phiên đã làm và đang làm, để quay lại phiên dài là nắm ngay tiến độ.
 
 ## 2. Vấn đề và lý do
 
@@ -23,6 +23,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 - Phiên đang chờ duyệt thì đứng im cho tới khi người dùng tình cờ quay lại cửa sổ đó.
 - Lịch sử phiên của từng folder nằm rải rác trên máy, không có chỗ xem lại và mở lại nhanh.
 - Một phiên Claude Code dễ bị kéo sang việc thứ hai, thứ ba; ngữ cảnh lẫn lộn và việc chính không xong gọn.
+- Phiên chạy dài, quay lại sau vài giờ thì không nhớ phiên đã làm những gì và đang dừng ở đâu; đọc lại log tool thì quá dài.
 
 ## 3. Stakeholder
 
@@ -37,6 +38,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BO-01 | Không bỏ sót phiên Claude Code đang chờ duyệt hoặc đang lỗi | Thời gian từ lúc một phiên mở trong agent-deck bắt đầu chờ duyệt hoặc gặp lỗi đến lúc phiên đó hiện dấu báo trạng thái trong app (dòng phiên, dòng folder, hoặc badge của ô phóng to) | ≤ 3 giây | Đạt trong 2 tuần dùng thử ngay sau khi có MVP |
 | BO-02 | Quay lại làm tiếp một phiên cũ thật nhanh | Số thao tác từ lúc mở app đến lúc gõ tiếp được vào một phiên cũ bất kỳ | ≤ 3 thao tác | Đạt trong 2 tuần dùng thử ngay sau khi có MVP |
 | BO-03 | Luôn thấy việc chính của mỗi phiên đang mở | Số thao tác để thấy việc chính của một ô đang mở đã có prompt | 0 thao tác | Đạt trong 2 tuần dùng thử ngay sau khi có tính năng |
+| BO-04 | Nắm lại tiến độ một phiên dài mà không phải đọc log | Số phiên đã bật theo dõi có danh sách check point không thiếu việc lớn nào và không tách thừa, trên 10 phiên PO kiểm | ≥ 8/10 | Đạt trong 2 tuần dùng thử ngay sau khi có tính năng |
 
 ## 5. Phạm vi
 
@@ -51,6 +53,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 - Phóng to, thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt.
 - Ẩn/hiện cột trái bằng nút hoặc phím tắt; viền nổi bật cho ô đang focus.
 - Hiện việc chính của mỗi phiên trên ô, sửa trực tiếp được.
+- Theo dõi tiến độ từng phiên bằng danh sách việc lớn đã làm và đang làm, bật hay tắt theo phiên.
 
 ### Ngoài phạm vi
 
@@ -73,6 +76,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BR-07 | Từ dấu báo trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
 | BR-08 | Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc, hoặc xoá phiên ngay lúc đóng ô của nó, bằng cách chuyển chúng vào Thùng rác | BO-02 | Should |
 | BR-09 | Người dùng thấy và sửa được việc chính của mỗi phiên đang mở ngay trên ô; app không ràng buộc Claude Code theo việc chính | BO-03 | Should |
+| BR-10 | Người dùng chọn theo dõi tiến độ cho từng phiên; khi bật, ô hiện danh sách các việc lớn phiên đã làm và đang làm, tự cập nhật sau mỗi lượt làm việc của Claude Code, chỉ để đọc; app không thêm gì vào phiên Claude Code | BO-04 | Should |
 
 ## 7. Quy trình và luật nghiệp vụ
 
@@ -97,6 +101,7 @@ Luật nghiệp vụ:
 - Bản đầu dùng hằng ngày trên macOS; phải build ra được bản chạy trên Windows.
 - Không sửa dữ liệu phiên của Claude Code trên máy; chỉ được chuyển cả một phiên vào Thùng rác khi người dùng chọn xoá phiên đó (BR-08).
 - Không thay đổi cấu hình Claude Code dùng chung toàn máy của người dùng.
+- Tóm tắt tiến độ dùng model rẻ của Claude qua login Claude Code sẵn có trên máy, không cần khoá API riêng; chỉ chạy cho phiên người dùng đã bật theo dõi.
 
 ## 9. Giả định (A)
 
@@ -117,6 +122,7 @@ Luật nghiệp vụ:
 - BO-01: trong 2 tuần dùng thử sau khi có MVP, mọi phiên mở trong agent-deck mà chờ duyệt hoặc lỗi hiện dấu báo trạng thái trong ≤ 3 giây.
 - BO-02: trong 2 tuần dùng thử sau khi có MVP, mở lại bất kỳ phiên cũ nào trong ≤ 3 thao tác (chọn folder, chọn phiên, mở).
 - BO-03: trong 2 tuần dùng thử sau khi có tính năng, mọi ô đã có prompt đều hiện việc chính mà không cần thao tác nào.
+- BO-04: trong 2 tuần dùng thử sau khi có tính năng, PO kiểm 10 phiên đã bật theo dõi, ≥ 8 phiên có danh sách check point không thiếu việc lớn và không tách thừa.
 
 ## 12. Câu hỏi mở (Q)
 
@@ -145,6 +151,8 @@ Luật nghiệp vụ:
 | 2026-10-22 | CR-010: việc chính hiện và giữ phiên trong một việc thế nào? | Bỏ nhắc lạc đề, app không ràng buộc Claude Code; việc chính là ô chữ đỏ dưới tiêu đề ô, tối đa 3 dòng rồi cuộn, trống tới prompt đầu, sửa trực tiếp; PO tự đối chiếu |
 | 2026-10-22 | CR-010: BO-03 đo bằng gì khi bỏ nhắc? | Đổi BO-03 thành luôn thấy việc chính của mỗi phiên đang mở, số thao tác để thấy = 0 |
 | 2026-10-22 | CR-011: để dành phiên đang dở thế nào? | Nút Stash trên tiêu đề ô, bên trái nút phóng to; bấm thì đóng ô, phiên vào Stashed Sessions ở cột trái; ô bận thì hỏi; bấm dòng để mở lại và dòng rời stash; × để gỡ; giữ giữa các lần mở app |
+| 2026-10-25 | CR-012: theo dõi tiến độ phiên thế nào? | Hỏi bật khi mở phiên mới, nút trên tiêu đề ô để bật lại giữa chừng; dải Tiến độ chỉ đọc dưới Target Box, ✓ xanh xong, ● vàng đang làm, thu gọn được; việc lặt vặt gộp vào việc đang làm; Claude Haiku tóm tắt qua login Claude Code sau mỗi lượt; không đụng phiên chính |
+| 2026-10-25 | CR-012: BO-04 đo bằng gì? | PO kiểm 10 phiên đã bật theo dõi, ≥ 8 phiên có danh sách không thiếu việc lớn và không tách thừa, trong 2 tuần dùng thử sau khi có tính năng |
 
 ## 14. Duyệt
 
@@ -161,3 +169,4 @@ Luật nghiệp vụ:
 | v3.1 | 2026-10-21 | PO | CR-009: BR-08 thêm xoá phiên ngay lúc đóng ô |
 | v4.0 | 2026-10-22 | PO | CR-010: BO-03 đổi thành luôn thấy việc chính của mỗi phiên; BR-09 bỏ Claude Code nhắc khi lạc đề |
 | v4.1 | 2026-10-22 | PO | CR-011: BR-03 thêm để dành phiên đang dở vào danh sách riêng và mở lại từ đó |
+| v5.0 | 2026-10-25 | PO | CR-012: thêm BO-04 (nắm lại tiến độ phiên dài) và BR-10 (theo dõi tiến độ theo phiên); ràng buộc tóm tắt qua login Claude Code |
