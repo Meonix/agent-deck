@@ -28,13 +28,13 @@ pub fn trash_session(
     trash.trash(&file).map_err(DeleteError::Failed)?;
     // Without its .jsonl the session is gone from Claude Code and from the list, so a left-over folder is only logged.
     let folder = file.with_extension("");
-    if folder.is_dir() {
-        if let Err(e) = trash.trash(&folder) {
-            crate::diag::warn(
-                "session_trash",
-                &format!("session folder {} stayed: {e}", folder.display()),
-            );
-        }
+    if folder.is_dir()
+        && let Err(e) = trash.trash(&folder)
+    {
+        crate::diag::warn(
+            "session_trash",
+            &format!("session folder {} stayed: {e}", folder.display()),
+        );
     }
     Ok(())
 }
