@@ -50,6 +50,10 @@ export type SessionPanes = PanesState & {
   dismissShellFailure(paneId: string): void;
   /** Asks for a new Session Goal; the pane shows it once the backend echoes it, and keeps the old one on failure. */
   setGoal(paneId: string, text: string): void;
+  /** Turns progress tracking on or off; the pane shows the new state once the backend echoes it. */
+  setProgressTracking(paneId: string, on: boolean): void;
+  /** Collapses or expands the Progress Strip; the pane follows the backend's echo. */
+  setProgressCollapsed(paneId: string, collapsed: boolean): void;
   /** Once per launch: resumes the panes remembered from the last one (SRS-FR-085, SRS-FR-086). */
   reopenPanes(workspaces: Workspace[]): Promise<void>;
   /** Counts for the diagnostic report. */
@@ -206,6 +210,7 @@ export function useSessionPanes(
         shellFailed: false,
         prompted: resumed !== undefined,
         goal: null,
+        progress: null,
       };
       return entry;
     },
@@ -225,6 +230,7 @@ export function useSessionPanes(
         update(pane.paneId, (e) => ({ status: next, prompted: e.prompted || prompted }));
       });
       stream.onGoal((goal) => update(pane.paneId, () => ({ goal })));
+      stream.onProgress((progress) => update(pane.paneId, () => ({ progress })));
       // After `/clear` the pane holds a new session; reopening must resume that one (SRS-FR-084).
       stream.onSession((sessionId) => update(pane.paneId, (e) => ({ pane: { ...e.pane, sessionId } })));
       // SRS-FR-083: a normal exit takes its pane along; any other exit, or a failed close, leaves
@@ -487,6 +493,15 @@ export function useSessionPanes(
 
   const setGoal = useCallback((paneId: string, text: string) => client.setGoal(paneId, text).catch(() => {}), [client]);
 
+  const setProgressTracking = useCallback(
+    (paneId: string, on: boolean) => client.setProgressTracking(paneId, on).catch(() => {}),
+    [client],
+  );
+  const setProgressCollapsed = useCallback(
+    (paneId: string, collapsed: boolean) => client.setProgressCollapsed(paneId, collapsed).catch(() => {}),
+    [client],
+  );
+
   return {
     ...layout,
     newSession,
@@ -502,6 +517,8 @@ export function useSessionPanes(
     resizeShell,
     dismissShellFailure,
     setGoal,
+    setProgressTracking,
+    setProgressCollapsed,
     reopenPanes,
     diagnostics,
   };

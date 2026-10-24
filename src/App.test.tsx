@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { PaneProgress } from "./api/sessions";
 import type { Workspace, WorkspacesClient } from "./api/workspaces";
 import type { ZoomClient } from "./api/zoom";
 import App from "./App";
@@ -2667,5 +2668,77 @@ describe("Stashed Sessions (CR-011)", () => {
     expect(stored()).toEqual([]);
     expect(sessions.open).not.toHaveBeenCalled();
     expect(sessions.deleteSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("Progress tracking (SRS-FR-113, SRS-FR-130)", () => {
+  const state = (over: Partial<PaneProgress> = {}): PaneProgress => ({
+    tracking: "unset",
+    checkpoints: [],
+    collapsed: false,
+    updating: false,
+    failed: false,
+    ...over,
+  });
+  const PROMPT = "Track progress for this session?";
+
+  async function started() {
+    const { user, sessions } = setup([ws("a", "agent-deck")]);
+    await selectAndStart(user, "agent-deck");
+    await screen.findByTestId("pane-grid");
+    return { user, sessions, stream: sessions.opened[0].stream };
+  }
+
+  it("shows nothing about progress before the first message", async () => {
+    await started();
+    expect(screen.queryByText(PROMPT)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Track progress" })).not.toBeInTheDocument();
+  });
+
+  it("asks on a new session, and Track calls the client", async () => {
+    const { user, sessions, stream } = await started();
+    act(() => stream.progress(state()));
+    await user.click(screen.getByRole("button", { name: "Track" }));
+    expect(sessions.setProgressTracking).toHaveBeenCalledExactlyOnceWith("p1", true);
+  });
+
+  it("No calls the client with false", async () => {
+    const { user, sessions, stream } = await started();
+    act(() => stream.progress(state()));
+    await user.click(screen.getByRole("button", { name: "No" }));
+    expect(sessions.setProgressTracking).toHaveBeenCalledExactlyOnceWith("p1", false);
+  });
+
+  it("does not ask on a resumed session that is off", async () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const list = vi.fn(async () => ({ sessions: [{ id, title: "Scaffold", lastActivity: 1 }], unreadable: 0 }));
+    const { user, sessions } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
+    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await within(historyPanel()).findByRole("button", { name: /Scaffold/ }));
+    await user.click(within(historyPanel()).getByRole("button", { name: "Resume" }));
+    await screen.findByTestId("pane-grid");
+    act(() => sessions.opened[0].stream.progress(state({ tracking: "off" })));
+    expect(screen.queryByText(PROMPT)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Track progress" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("the header button toggles tracking through the client", async () => {
+    const { user, sessions, stream } = await started();
+    act(() => stream.progress(state({ tracking: "on" })));
+    await user.click(screen.getByRole("button", { name: "Track progress" }));
+    expect(sessions.setProgressTracking).toHaveBeenLastCalledWith("p1", false);
+  });
+
+  it("shows the strip from the stream and passes the collapsed state through", async () => {
+    const { user, sessions, stream } = await started();
+    const checkpoints = [{ summary: "Read the log", result: "", done: false, startedAt: "09:12" }];
+    act(() => stream.progress(state({ tracking: "on", checkpoints })));
+    expect(screen.getByText("Progress · 0/1")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Collapse progress" }));
+    expect(sessions.setProgressCollapsed).toHaveBeenCalledExactlyOnceWith("p1", true);
+    act(() => stream.progress(state({ tracking: "on", checkpoints, collapsed: true })));
+    expect(screen.getByText("Progress · 0/1 · Read the log")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Expand progress" }));
+    expect(sessions.setProgressCollapsed).toHaveBeenLastCalledWith("p1", false);
   });
 });

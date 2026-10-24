@@ -20,6 +20,7 @@ function e(id: string, workspaceId: string, status: Partial<PaneStatus>, session
     shellFailed: false,
     prompted: false,
     goal: null,
+    progress: null,
   };
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
+import type { OpenedPane, PaneProgress, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
+import { ProgressStrip, TrackingPrompt } from "./PaneProgress";
 import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
 import type { MaximizedBadge } from "./statusHighlight";
 import { StateMarker, tone } from "./statusTone";
@@ -42,6 +43,8 @@ export type PaneEntry = {
   prompted: boolean;
   /** The Session Goal; null until a prompt sets one (SRS-FR-092). */
   goal: string | null;
+  /** Progress tracking state and checkpoints; null until the first message. */
+  progress: PaneProgress | null;
 };
 
 // Like the session's, the shell's adapter outlives a hide: output keeps flowing into it (SRS-FR-057).
@@ -77,6 +80,8 @@ type Props = {
   onResizeShell(paneId: string, ratio: number): void;
   onDismissShellFailure(paneId: string): void;
   onSetGoal(paneId: string, text: string): void;
+  onSetTracking(paneId: string, on: boolean): void;
+  onSetCollapsed(paneId: string, collapsed: boolean): void;
 };
 
 export function TerminalPane({
@@ -97,8 +102,10 @@ export function TerminalPane({
   onResizeShell,
   onDismissShellFailure,
   onSetGoal,
+  onSetTracking,
+  onSetCollapsed,
 }: Props) {
-  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, goal } = entry;
+  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, goal, progress } = entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
   const endedRef = useRef(ended);
@@ -224,6 +231,17 @@ export function TerminalPane({
             </span>
           )}
           <ShellChip shell={shell} onToggle={() => onToggleShell(paneId)} />
+          {progress && (
+            <button
+              aria-label="Track progress"
+              title="Track progress"
+              aria-pressed={progress.tracking === "on"}
+              onClick={() => onSetTracking(paneId, progress.tracking !== "on")}
+              className={`-my-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sm hover:bg-muted hover:text-foreground ${progress.tracking === "on" ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              ☰
+            </button>
+          )}
           <button
             aria-label="Stash session"
             title="Stash session"
@@ -252,6 +270,10 @@ export function TerminalPane({
         </span>
       </header>
       <TargetBox goal={goal} onSave={(text) => onSetGoal(paneId, text)} />
+      {progress?.tracking === "unset" && <TrackingPrompt onAnswer={(on) => onSetTracking(paneId, on)} />}
+      {progress?.tracking === "on" && progress.checkpoints.length > 0 && (
+        <ProgressStrip progress={progress} onSetCollapsed={(collapsed) => onSetCollapsed(paneId, collapsed)} />
+      )}
       <div className="flex-1 min-h-0 min-w-0 flex flex-col">
         {pane.started ? (
           // FitAddon sizes from the parent of the terminal and ignores that parent's padding,

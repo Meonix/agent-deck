@@ -1,7 +1,8 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeAdapter, fakeSessions, fakeStream, type FakeAdapter } from "../test/fakes";
+import type { PaneProgress } from "../api/sessions";
 import { TerminalPane, UNTITLED, type PaneEntry } from "./TerminalPane";
 
 function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): PaneEntry {
@@ -21,13 +22,14 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
     shellFailed: false,
     prompted: false,
     goal: null,
+    progress: null,
     ...over,
   };
 }
 
-function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn(), setGoal: vi.fn() }, focused = true) {
+function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn(), setGoal: vi.fn(), setTracking: vi.fn(), setCollapsed: vi.fn() }, focused = true) {
   const view = render(
-    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={on.focus} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={on.setGoal} />,
+    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={on.focus} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={on.setGoal} onSetTracking={on.setTracking} onSetCollapsed={on.setCollapsed} />,
   );
   return { client, on, view };
 }
@@ -107,7 +109,7 @@ describe("TerminalPane (5.3)", () => {
     const { client, view } = renderPane(entry(adapter));
     await flush();
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} onSetTracking={vi.fn()} onSetCollapsed={vi.fn()} />,
     );
     expect(screen.getByText("Session ended")).toBeInTheDocument();
     expect(screen.getByText("Ended")).toBeInTheDocument();
@@ -142,7 +144,7 @@ describe("TerminalPane (5.3)", () => {
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledWith("p1", "\x1b[M #!");
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} onSetTracking={vi.fn()} onSetCollapsed={vi.fn()} />,
     );
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledTimes(1);
@@ -272,7 +274,7 @@ describe("Target Box (SRS-FR-092)", () => {
   it("does not maximize on a double-click in the box", async () => {
     const onMaximize = vi.fn();
     render(
-      <TerminalPane entry={entry(fakeAdapter(), { goal: "Fix resume" })} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={onMaximize} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
+      <TerminalPane entry={entry(fakeAdapter(), { goal: "Fix resume" })} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={onMaximize} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} onSetTracking={vi.fn()} onSetCollapsed={vi.fn()} />,
     );
     await userEvent.dblClick(box());
     expect(onMaximize).not.toHaveBeenCalled();
@@ -333,7 +335,7 @@ describe("Edit in the Target Box (SRS-FR-093)", () => {
     const { view } = renderPane(e);
     const rerender = (goal: string) =>
       view.rerender(
-        <TerminalPane entry={{ ...e, goal }} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
+        <TerminalPane entry={{ ...e, goal }} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} onSetTracking={vi.fn()} onSetCollapsed={vi.fn()} />,
       );
     rerender("First prompt");
     expect(box()).toHaveValue("First prompt");
@@ -346,7 +348,7 @@ describe("Edit in the Target Box (SRS-FR-093)", () => {
     const e = entry(fakeAdapter(), { goal: null });
     const setGoal = vi.fn();
     const pane = (goal: string | null) => (
-      <TerminalPane entry={{ ...e, goal }} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={setGoal} />
+      <TerminalPane entry={{ ...e, goal }} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={setGoal} onSetTracking={vi.fn()} onSetCollapsed={vi.fn()} />
     );
     const view = render(pane(null));
     await userEvent.click(box());
@@ -364,5 +366,161 @@ describe("Edit in the Target Box (SRS-FR-093)", () => {
     await userEvent.type(box(), " new");
     await userEvent.click(document.body);
     expect(on.setGoal).toHaveBeenCalledExactlyOnceWith("p1", "Old new");
+  });
+});
+
+function progress(over: Partial<PaneProgress> = {}): PaneProgress {
+  return { tracking: "on", checkpoints: [], collapsed: false, updating: false, failed: false, ...over };
+}
+
+const cp = (summary: string, done: boolean, result = "", startedAt = "09:00") => ({ summary, result, done, startedAt });
+
+describe("Tracking button and prompt (SRS-FR-113 to SRS-FR-116)", () => {
+  const button = () => screen.getByRole("button", { name: "Track progress" });
+
+  it("renders nothing about progress while the state is unknown", () => {
+    renderPane(entry(fakeAdapter()));
+    expect(screen.queryByText("Track progress for this session?")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Progress" })).toBeNull();
+  });
+
+  it("puts the Tracking button right before Stash, pressed only while on", () => {
+    renderPane(entry(fakeAdapter(), { progress: progress({ tracking: "on" }) }));
+    expect(button()).toHaveAttribute("aria-pressed", "true");
+    expect(button()).toHaveAttribute("title", "Track progress");
+    expect(button().nextElementSibling).toBe(screen.getByRole("button", { name: "Stash session" }));
+  });
+
+  it("turns tracking off from an on button and on from an off one", async () => {
+    const { on, view } = renderPane(entry(fakeAdapter(), { progress: progress({ tracking: "on" }) }));
+    await userEvent.click(button());
+    expect(on.setTracking).toHaveBeenLastCalledWith("p1", false);
+    view.unmount();
+    const off = renderPane(entry(fakeAdapter(), { progress: progress({ tracking: "off" }) }));
+    expect(button()).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(button());
+    expect(off.on.setTracking).toHaveBeenLastCalledWith("p1", true);
+  });
+
+  it("does not maximize on a double-click of the button", async () => {
+    const onMaximize = vi.fn();
+    render(
+      <TerminalPane entry={entry(fakeAdapter(), { progress: progress() })} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={onMaximize} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} onSetTracking={vi.fn()} onSetCollapsed={vi.fn()} />,
+    );
+    await userEvent.dblClick(button());
+    expect(onMaximize).not.toHaveBeenCalled();
+  });
+
+  it("asks while unset, and Track and No answer it", async () => {
+    const { on, view } = renderPane(entry(fakeAdapter(), { progress: progress({ tracking: "unset" }) }));
+    expect(screen.getByText("Track progress for this session?")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Track" }));
+    expect(on.setTracking).toHaveBeenLastCalledWith("p1", true);
+    await userEvent.click(screen.getByRole("button", { name: "No" }));
+    expect(on.setTracking).toHaveBeenLastCalledWith("p1", false);
+    view.unmount();
+  });
+
+  it("does not ask once tracking is on or off", () => {
+    for (const tracking of ["on", "off"] as const) {
+      const { view } = renderPane(entry(fakeAdapter(), { progress: progress({ tracking }) }));
+      expect(screen.queryByText("Track progress for this session?")).toBeNull();
+      view.unmount();
+    }
+  });
+
+  it("keeps focus in the terminal when a prompt button is pressed", () => {
+    renderPane(entry(fakeAdapter(), { progress: progress({ tracking: "unset" }) }));
+    const notPrevented = fireEvent.mouseDown(screen.getByRole("button", { name: "Track" }));
+    expect(notPrevented).toBe(false);
+  });
+});
+
+describe("Progress Strip (SRS-FR-118 to SRS-FR-123, SRS-FR-128)", () => {
+  const region = () => screen.getByRole("region", { name: "Progress" });
+  const three = [cp("Read the log", true, "found it", "09:01"), cp("Write a test", false, "", "09:05"), cp("Fix it", false, "", "09:09")];
+
+  it("is absent with no checkpoints, while off, and while unset", () => {
+    for (const p of [progress(), progress({ tracking: "off", checkpoints: three }), progress({ tracking: "unset", checkpoints: three })]) {
+      const { view } = renderPane(entry(fakeAdapter(), { progress: p }));
+      expect(screen.queryByRole("region", { name: "Progress" })).toBeNull();
+      view.unmount();
+    }
+  });
+
+  it("shows the count and a row per checkpoint with mark, summary, result and time", () => {
+    renderPane(entry(fakeAdapter(), { progress: progress({ checkpoints: three }) }));
+    expect(within(region()).getByText("Progress · 1/3")).toBeInTheDocument();
+    const rows = within(screen.getByRole("list", { name: "Checkpoints" })).getAllByRole("listitem");
+    expect(rows).toHaveLength(3);
+    expect(within(rows[0]).getByText("✓")).toHaveClass("text-running");
+    expect(within(rows[0]).getByText("Read the log")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("found it")).toHaveClass("text-muted-foreground");
+    expect(within(rows[0]).getByText("09:01")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("●")).toHaveClass("text-approval");
+    expect(within(rows[1]).queryByText("found it")).toBeNull();
+  });
+
+  it("is read-only", () => {
+    renderPane(entry(fakeAdapter(), { progress: progress({ checkpoints: three }) }));
+    expect(within(region()).queryAllByRole("textbox")).toHaveLength(0);
+    expect(region().querySelector("[contenteditable], input, textarea")).toBeNull();
+  });
+
+  it("caps the list at four rows and scrolls past them", () => {
+    renderPane(entry(fakeAdapter(), { progress: progress({ checkpoints: three }) }));
+    const list = screen.getByRole("list", { name: "Checkpoints" });
+    expect(list).toHaveClass("overflow-y-auto");
+    expect(list.style.maxHeight).toBe("6rem");
+    expect(within(list).getAllByRole("listitem")[0].style.height).toBe("1.5rem");
+  });
+
+  it("scrolls the last not-done row into view after each change", () => {
+    const scrolled: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
+      scrolled.push(`${this.textContent}|${JSON.stringify(arg)}`);
+    };
+    try {
+      const e = entry(fakeAdapter(), { progress: progress({ checkpoints: three }) });
+      const { view } = renderPane(e);
+      expect(scrolled).toHaveLength(1);
+      expect(scrolled[0]).toContain("Fix it");
+      expect(scrolled[0]).toContain('{"block":"nearest"}');
+      view.rerender(
+        <TerminalPane entry={{ ...e, progress: progress({ checkpoints: [...three, cp("Ship", false)] }) }} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} onSetTracking={vi.fn()} onSetCollapsed={vi.fn()} />,
+      );
+      expect(scrolled).toHaveLength(2);
+      expect(scrolled[1]).toContain("Ship");
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it("shows an updating dot and a failure note", () => {
+    const { view } = renderPane(entry(fakeAdapter(), { progress: progress({ checkpoints: three, updating: true }) }));
+    expect(within(region()).getByLabelText("Updating")).toBeInTheDocument();
+    expect(within(region()).queryByText("Couldn't update")).toBeNull();
+    view.unmount();
+    renderPane(entry(fakeAdapter(), { progress: progress({ checkpoints: three, failed: true }) }));
+    expect(within(region()).getByText("Couldn't update")).toBeInTheDocument();
+    expect(within(region()).queryByLabelText("Updating")).toBeNull();
+  });
+
+  it("collapses to one line with the last not-done summary", async () => {
+    const { on } = renderPane(entry(fakeAdapter(), { progress: progress({ checkpoints: three }) }));
+    await userEvent.click(screen.getByRole("button", { name: "Collapse progress" }));
+    expect(on.setCollapsed).toHaveBeenCalledExactlyOnceWith("p1", true);
+  });
+
+  it("renders the collapsed line without the list, and omits the tail when all are done", async () => {
+    const { on, view } = renderPane(entry(fakeAdapter(), { progress: progress({ checkpoints: three, collapsed: true }) }));
+    expect(within(region()).getByText("Progress · 1/3 · Fix it")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Checkpoints" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Expand progress" }));
+    expect(on.setCollapsed).toHaveBeenCalledExactlyOnceWith("p1", false);
+    view.unmount();
+    renderPane(entry(fakeAdapter(), { progress: progress({ checkpoints: [cp("a", true)], collapsed: true }) }));
+    expect(within(region()).getByText("Progress · 1/1")).toBeInTheDocument();
   });
 });
