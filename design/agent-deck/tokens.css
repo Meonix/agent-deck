@@ -1,4 +1,4 @@
-/* Nguồn: https://cdn.jsdelivr.net/npm/@radix-ui/colors@3.0.0/{slate,slate-dark,iris,iris-dark,green,green-dark,amber,amber-dark,red,red-dark,sky,sky-dark,sand,sand-dark,plum,plum-dark}.css
+/* Nguồn: https://cdn.jsdelivr.net/npm/@radix-ui/colors@3.0.0/{slate,slate-dark,iris,iris-dark,green,green-dark,amber,amber-dark,red,red-dark,sky,sky-dark,sand,sand-dark,plum,plum-dark,teal,teal-dark}.css
    App mới, chưa có màu thương hiệu: xám slate + nhấn iris (chốt ngày 2026-10-16).
    Màu trạng thái dành riêng: green = Running, amber = Needs Approval, red = Error.
    Độ tương phản đo bằng script WCAG trong TOKENS.md mục 5. */
@@ -37,7 +37,7 @@
   --section-folders: #e1f6fd;        /* sky-3 · 1.06:1 so với --card · --foreground 14.67 AA · --muted-foreground 5.32 AA */
   --section-active: #f1f0ef;         /* sand-3 · 1.08:1 so với --card · --foreground 14.40 AA · --muted-foreground 5.22 AA */
   /* CR-011 · SRS-NFR-010: tint section Stashed Sessions */
-  --section-stash: #fff7c2;          /* amber-3 · 1.03:1 so với --card · --foreground 15.09 AA · --muted-foreground 5.47 AA */
+  --section-stash: #e0f8f3;          /* teal-3 · 1.06:1 so với --card · --foreground 14.74 AA · --muted-foreground 5.34 AA */
 
   --radius: 10px;                    /* bo góc kiểu Linear/Raycast (references #1, #3) */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
@@ -76,5 +76,5 @@
 
   --section-folders: #112840;        /* sky-dark-3 · 1.17:1 so với --card · --foreground 12.91 AA · --muted-foreground 7.20 AA */
   --section-active: #222221;         /* sand-dark-3 · 1.10:1 so với --card · --foreground 13.72 AA · --muted-foreground 7.65 AA */
-  --section-stash: #302008;          /* amber-dark-3 · 1.12:1 so với --card · --foreground 13.54 AA · --muted-foreground 7.55 AA */
+  --section-stash: #0d2d2a;          /* teal-dark-3 · 1.19:1 so với --card · --foreground 12.69 AA · --muted-foreground 7.07 AA */
 }
