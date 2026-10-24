@@ -165,12 +165,56 @@ pub struct Chunk {
 }
 
 /// History records after `offset` as compact text lines (SRS-FR-124). Only whole lines are read.
+/// History records after `offset` as compact text lines (SRS-FR-124). Only whole lines are read.
 /// Nothing condensed gives no chunk, and the caller keeps its old offset.
 pub fn condense(bytes: &[u8], offset: u64) -> Vec<Chunk> {
-    condense_at(bytes, offset, &Local)
+    let now = Local::now().format("%H:%M").to_string();
+    condense_at(bytes, offset, &Local, &now)
 }
 
-fn condense_at<Tz: TimeZone>(bytes: &[u8], offset: u64, tz: &Tz) -> Vec<Chunk>
+/// A chunk being filled: `end` is where a run that stops after it resumes.
+#[derive(Default)]
+struct Pending {
+    text: String,
+    chars: usize,
+    first_time: Option<String>,
+    end: usize,
+}
+
+impl Pending {
+    fn fits(&self, line_chars: usize) -> bool {
+        self.chars + 1 + line_chars <= CHUNK_CHARS
+    }
+
+    fn push(&mut self, line: &str, line_chars: usize, time: Option<&str>) {
+        if !self.text.is_empty() {
+            self.text.push('\n');
+            self.chars += 1;
+        }
+        self.text.push_str(line);
+        self.chars += line_chars;
+        if self.first_time.is_none() {
+            self.first_time = time.map(str::to_string);
+        }
+    }
+
+    fn flush(&mut self, now: &str, out: &mut Vec<Chunk>) {
+        if self.text.is_empty() {
+            return;
+        }
+        let done = std::mem::take(self);
+        out.push(Chunk {
+            text: done.text,
+            end_offset: done.end as u64,
+            first_time: done.first_time.unwrap_or_else(|| now.to_string()),
+        });
+        self.end = done.end;
+    }
+}
+
+/// A record's lines stay in one chunk when they fit in one; a larger record is split by line and
+/// every piece but the last ends before the record, so a failed run re-reads it.
+fn condense_at<Tz: TimeZone>(bytes: &[u8], offset: u64, tz: &Tz, now: &str) -> Vec<Chunk>
 where
     Tz::Offset: std::fmt::Display,
 {
@@ -179,7 +223,10 @@ where
         return Vec::new();
     };
     let mut chunks = Vec::new();
-    let mut current: Option<(String, usize, String)> = None;
+    let mut cur = Pending {
+        end: start,
+        ..Pending::default()
+    };
     let mut pos = start;
     for raw in rest.split_inclusive(|&b| b == b'\n') {
         if raw.last() != Some(&b'\n') {
@@ -189,40 +236,36 @@ where
         let Ok(record) = serde_json::from_slice::<Value>(raw) else {
             continue;
         };
-        let time = record["timestamp"]
-            .as_str()
-            .and_then(|ts| hhmm(ts, tz))
-            .unwrap_or_default();
-        for text in record_lines(&record) {
-            let line = format!("[{time}] {}", truncate(&text, CHUNK_CHARS - 10));
-            let line_chars = line.chars().count();
-            match &mut current {
-                Some((buf, end, _)) if buf.chars().count() + 1 + line_chars <= CHUNK_CHARS => {
-                    buf.push('\n');
-                    buf.push_str(&line);
-                    *end = pos;
-                }
-                _ => {
-                    if let Some((text, end, first)) = current.take() {
-                        chunks.push(chunk(text, end, first));
-                    }
-                    current = Some((line, pos, time.clone()));
-                }
-            }
+        let time = record["timestamp"].as_str().and_then(|ts| hhmm(ts, tz));
+        let lines: Vec<(String, usize)> = record_lines(&record)
+            .iter()
+            .map(|text| {
+                let text = truncate(text, CHUNK_CHARS - 10);
+                let line = match &time {
+                    Some(t) => format!("[{t}] {text}"),
+                    None => text,
+                };
+                let chars = line.chars().count();
+                (line, chars)
+            })
+            .collect();
+        if lines.is_empty() {
+            continue;
         }
+        let record_chars = lines.iter().map(|(_, c)| c).sum::<usize>() + lines.len() - 1;
+        if record_chars <= CHUNK_CHARS && !cur.fits(record_chars) {
+            cur.flush(now, &mut chunks);
+        }
+        for (line, chars) in &lines {
+            if !cur.fits(*chars) {
+                cur.flush(now, &mut chunks);
+            }
+            cur.push(line, *chars, time.as_deref());
+        }
+        cur.end = pos;
     }
-    if let Some((text, end, first)) = current {
-        chunks.push(chunk(text, end, first));
-    }
+    cur.flush(now, &mut chunks);
     chunks
-}
-
-fn chunk(text: String, end: usize, first_time: String) -> Chunk {
-    Chunk {
-        text,
-        end_offset: end as u64,
-        first_time,
-    }
 }
 
 fn hhmm<Tz: TimeZone>(ts: &str, tz: &Tz) -> Option<String>
@@ -337,25 +380,21 @@ pub fn merge(
 ) -> Vec<Checkpoint> {
     let mut merged: Vec<Checkpoint> = old.to_vec();
     for (i, p) in proposed.into_iter().enumerate() {
-        match merged.get_mut(i).filter(|_| i < old.len()) {
-            Some(kept) => {
-                if !p.summary.trim().is_empty() {
-                    kept.summary = p.summary;
-                    kept.result = p.result;
-                }
-                kept.done = kept.done || p.done;
-            }
-            None => {
-                if p.summary.trim().is_empty() {
-                    continue;
-                }
-                let started_at = if valid_time(&p.started_at) {
-                    p.started_at
-                } else {
-                    fallback_time.to_string()
-                };
-                merged.push(Checkpoint { started_at, ..p });
-            }
+        if p.summary.trim().is_empty() {
+            continue;
+        }
+        if i < old.len() {
+            let kept = &mut merged[i];
+            kept.summary = p.summary;
+            kept.result = p.result;
+            kept.done = kept.done || p.done;
+        } else {
+            let started_at = if valid_time(&p.started_at) {
+                p.started_at
+            } else {
+                fallback_time.to_string()
+            };
+            merged.push(Checkpoint { started_at, ..p });
         }
     }
     merged
@@ -491,10 +530,11 @@ mod tests {
         line(json!({"type": "assistant", "timestamp": ts, "message": {"content": parts}}))
     }
 
+    const NOW: &str = "13:37";
     const UTC: FixedOffset = FixedOffset::east_opt(0).unwrap();
 
     fn condense_utc(text: &str, offset: u64) -> Vec<Chunk> {
-        condense_at(text.as_bytes(), offset, &UTC)
+        condense_at(text.as_bytes(), offset, &UTC, NOW)
     }
 
     #[test]
@@ -605,7 +645,7 @@ mod tests {
     fn times_are_converted_to_the_given_zone() {
         let history = user("2026-10-25T23:30:00Z", json!("late"));
         let plus7 = FixedOffset::east_opt(7 * 3600).unwrap();
-        let chunks = condense_at(history.as_bytes(), 0, &plus7);
+        let chunks = condense_at(history.as_bytes(), 0, &plus7, NOW);
         assert_eq!(chunks[0].text, "[06:30] user: late");
     }
 
@@ -636,6 +676,49 @@ mod tests {
         assert_eq!(chunks[0].first_time, "09:00");
         let total: usize = chunks.iter().map(|c| c.text.matches("user:").count()).sum();
         assert_eq!(total, 10);
+    }
+
+    #[test]
+    fn a_record_straddling_the_limit_moves_whole_to_the_next_chunk() {
+        let first = user("2026-10-25T09:00:00Z", json!("p".repeat(38_500)));
+        let tools: Vec<Value> = (0..20)
+            .map(|i| json!({"type": "tool_use", "name": "Bash", "input": {"command": format!("{i}{}", "c".repeat(100))}}))
+            .collect();
+        let big = assistant("2026-10-25T09:01:00Z", json!(tools));
+        let history = format!("{first}{big}");
+        let chunks = condense_utc(&history, 0);
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].end_offset, first.len() as u64);
+        assert_eq!(chunks[1].end_offset, history.len() as u64);
+        assert_eq!(chunks[1].text.lines().count(), 20);
+    }
+
+    #[test]
+    fn a_record_larger_than_the_limit_is_split_and_reread_until_its_last_piece() {
+        let first = user("2026-10-25T09:00:00Z", json!("one"));
+        let tools: Vec<Value> = (0..5)
+            .map(|_| json!({"type": "text", "text": "t".repeat(15_000)}))
+            .collect();
+        let big = assistant("2026-10-25T09:01:00Z", json!(tools));
+        let history = format!("{first}{big}");
+        let chunks = condense_utc(&history, 0);
+        assert!(chunks.len() >= 2);
+        let last = chunks.len() - 1;
+        for c in &chunks[..last] {
+            assert_eq!(c.end_offset, first.len() as u64);
+        }
+        assert_eq!(chunks[last].end_offset, history.len() as u64);
+        assert!(chunks.iter().all(|c| c.text.chars().count() <= 40_000));
+    }
+
+    #[test]
+    fn first_time_comes_from_the_first_timed_line_else_now() {
+        let untimed = line(json!({"type": "user", "message": {"content": "no clock"}}));
+        let timed = user("2026-10-25T09:20:00Z", json!("clock"));
+        let chunks = condense_utc(&format!("{untimed}{timed}"), 0);
+        assert_eq!(chunks[0].first_time, "09:20");
+        let chunks = condense_utc(&untimed, 0);
+        assert_eq!(chunks[0].first_time, NOW);
     }
 
     // S3: merge
@@ -684,14 +767,14 @@ mod tests {
     }
 
     #[test]
-    fn empty_summaries_are_dropped_and_do_not_wipe_old_ones() {
+    fn blank_summary_ignores_the_proposed_item_entirely() {
         let old = [cp("a", "r", false, "09:00")];
         let merged = merge(
             &old,
             vec![cp("  ", "x", true, "09:00"), cp("", "", false, "10:00")],
             "12:00",
         );
-        assert_eq!(merged, [cp("a", "r", true, "09:00")]);
+        assert_eq!(merged, old);
     }
 
     #[test]
