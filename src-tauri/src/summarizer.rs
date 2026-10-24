@@ -222,9 +222,12 @@ Rules:\n\
 - A checkpoint is one major piece of work serving the goal. Small steps for the work in progress \
 (reading files, running commands or tests, fixing small mistakes of that same work) belong to the \
 checkpoint in progress. Work clearly different from the work in progress is a new checkpoint.\n\
-- Mark a checkpoint done only when the text shows its work finished: the assistant said it is \
-done, it was committed, or its checks passed. Moving to other work without such a sign leaves it \
-not done.\n\
+- Mark a checkpoint done only when the text shows its work finished: for a question, an \
+investigation or an explanation, the assistant delivered the answer; for a change, the assistant \
+said it is done, it was committed, or its checks passed. Moving to other work without such a sign \
+leaves it not done.\n\
+- Update done and result of current checkpoints too when the new text shows they finished. done \
+must agree with result: a result saying the work is done or answered means done is true.\n\
 - Return the full list: every current checkpoint first, in the same order, then any new ones. \
 Never mark a done checkpoint as not done.\n\
 - Write summary and result in the language the user writes in. summary at most 80 characters, \
@@ -349,6 +352,8 @@ mod tests {
         assert!(p.contains(r#""started_at":"09:00""#));
         assert!(p.contains("A checkpoint is one major piece of work serving the goal."));
         assert!(p.contains("Mark a checkpoint done only when the text shows its work finished"));
+        assert!(p.contains("the assistant delivered the answer"));
+        assert!(p.contains("Update done and result of current checkpoints too"));
         assert!(p.contains("at most 80 characters"));
         assert!(p.trim_end().ends_with("[09:10] user: hi"));
         assert!(prompt(None, &[], "x").contains("(none)"));
