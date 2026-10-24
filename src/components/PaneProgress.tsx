@@ -31,15 +31,22 @@ export function TrackingPrompt({ onAnswer }: { onAnswer(on: boolean): void }) {
 
 export function ProgressStrip({ progress, onSetCollapsed }: { progress: PaneProgress; onSetCollapsed(collapsed: boolean): void }) {
   const { checkpoints, collapsed, updating, failed } = progress;
+  const list = useRef<HTMLUListElement>(null);
   const lastOpen = useRef<HTMLLIElement>(null);
   const done = checkpoints.filter((c) => c.done).length;
   const open = checkpoints.filter((c) => !c.done);
   const head = `Progress · ${done}/${checkpoints.length}`;
 
   // After every change, so the newest unfinished checkpoint stays visible in the 4-row window (SRS-FR-121).
+  // Scrolls the list itself: scrollIntoView would also move the pane around it. Expanding remounts the list at the top.
   useEffect(() => {
-    lastOpen.current?.scrollIntoView?.({ block: "nearest" });
-  }, [checkpoints]);
+    const ul = list.current;
+    const row = lastOpen.current;
+    if (!ul || !row) return;
+    const bottom = row.offsetTop + row.offsetHeight;
+    if (row.offsetTop < ul.scrollTop) ul.scrollTop = row.offsetTop;
+    else if (bottom > ul.scrollTop + ul.clientHeight) ul.scrollTop = bottom - ul.clientHeight;
+  }, [checkpoints, collapsed]);
 
   return (
     <div role="region" aria-label="Progress" className="border-b border-border bg-card text-xs">
@@ -60,9 +67,10 @@ export function ProgressStrip({ progress, onSetCollapsed }: { progress: PaneProg
       </div>
       {!collapsed && (
         <ul
+          ref={list}
           aria-label="Checkpoints"
-          className="overflow-y-auto border-t border-border"
-          style={{ maxHeight: `${MAX_ROWS * ROW_REM}rem` }}
+          className="relative overflow-y-auto border-t border-border"
+          style={{ maxHeight: `calc(${MAX_ROWS * ROW_REM}rem + 1px)` }}
         >
           {checkpoints.map((c, i) => (
             <li

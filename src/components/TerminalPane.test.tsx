@@ -471,29 +471,89 @@ describe("Progress Strip (SRS-FR-118 to SRS-FR-123, SRS-FR-128)", () => {
     renderPane(entry(fakeAdapter(), { progress: progress({ checkpoints: three }) }));
     const list = screen.getByRole("list", { name: "Checkpoints" });
     expect(list).toHaveClass("overflow-y-auto");
-    expect(list.style.maxHeight).toBe("6rem");
+    expect(list.style.maxHeight).toBe("calc(1px + 6rem)");
     expect(within(list).getAllByRole("listitem")[0].style.height).toBe("1.5rem");
   });
 
-  it("scrolls the last not-done row into view after each change", () => {
-    const scrolled: string[] = [];
-    const original = Element.prototype.scrollIntoView;
-    Element.prototype.scrollIntoView = function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
-      scrolled.push(`${this.textContent}|${JSON.stringify(arg)}`);
+  // jsdom has no layout: rows are 24px tall inside a 96px window, and scrollTop is recorded.
+  function stubLayout() {
+    const top = new WeakMap<Element, number>();
+    const sets: number[] = [];
+    const rowIndex = (el: Element) => Array.from(el.parentElement?.children ?? []).indexOf(el);
+    const protos: [string, PropertyDescriptor][] = [
+      ["offsetTop", { configurable: true, get(this: HTMLElement) { return this.tagName === "LI" ? rowIndex(this) * 24 : 0; } }],
+      ["offsetHeight", { configurable: true, get(this: HTMLElement) { return this.tagName === "LI" ? 24 : 0; } }],
+      ["clientHeight", { configurable: true, get(this: HTMLElement) { return this.tagName === "UL" ? 96 : 0; } }],
+      [
+        "scrollTop",
+        {
+          configurable: true,
+          get(this: Element) { return top.get(this) ?? 0; },
+          set(this: Element, v: number) { top.set(this, v); sets.push(v); },
+        },
+      ],
+    ];
+    const saved = protos.map(([k]) => [k, Object.getOwnPropertyDescriptor(HTMLElement.prototype, k) ?? Object.getOwnPropertyDescriptor(Element.prototype, k)] as const);
+    protos.forEach(([k, d]) => Object.defineProperty(HTMLElement.prototype, k, d));
+    const scrollIntoView = vi.fn();
+    const originalSiv = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoView;
+    return {
+      sets,
+      scrollIntoView,
+      restore() {
+        saved.forEach(([k, d]) => (d ? Object.defineProperty(HTMLElement.prototype, k, d) : delete (HTMLElement.prototype as unknown as Record<string, unknown>)[k]));
+        Element.prototype.scrollIntoView = originalSiv;
+      },
     };
+  }
+
+  const paneFor = (e: PaneEntry) => (
+    <TerminalPane entry={e} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} onSetTracking={vi.fn()} onSetCollapsed={vi.fn()} />
+  );
+  const many = (n: number) => Array.from({ length: n }, (_, i) => cp(`step ${i}`, i < n - 1, "", "09:00"));
+
+  it("keeps the last not-done row visible inside the list after each change, without scrollIntoView", () => {
+    const layout = stubLayout();
     try {
-      const e = entry(fakeAdapter(), { progress: progress({ checkpoints: three }) });
+      const e = entry(fakeAdapter(), { progress: progress({ checkpoints: many(6) }) });
       const { view } = renderPane(e);
-      expect(scrolled).toHaveLength(1);
-      expect(scrolled[0]).toContain("Fix it");
-      expect(scrolled[0]).toContain('{"block":"nearest"}');
-      view.rerender(
-        <TerminalPane entry={{ ...e, progress: progress({ checkpoints: [...three, cp("Ship", false)] }) }} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} onSetTracking={vi.fn()} onSetCollapsed={vi.fn()} />,
-      );
-      expect(scrolled).toHaveLength(2);
-      expect(scrolled[1]).toContain("Ship");
+      expect(layout.sets).toEqual([48]);
+      view.rerender(paneFor({ ...e, progress: progress({ checkpoints: many(7) }) }));
+      expect(layout.sets).toEqual([48, 72]);
+      expect(layout.scrollIntoView).not.toHaveBeenCalled();
     } finally {
-      Element.prototype.scrollIntoView = original;
+      layout.restore();
+    }
+  });
+
+  it("scrolls up when the not-done row is above the window, and leaves a visible row alone", () => {
+    const layout = stubLayout();
+    try {
+      const e = entry(fakeAdapter(), { progress: progress({ checkpoints: [cp("open", false), ...many(6).slice(0, 5)] }) });
+      const { view } = renderPane(e);
+      expect(layout.sets).toEqual([]);
+      const list = screen.getByRole("list", { name: "Checkpoints" });
+      list.scrollTop = 120;
+      view.rerender(paneFor({ ...e, progress: progress({ checkpoints: [cp("open", false), ...many(6).slice(0, 5)] }) }));
+      expect(layout.sets).toEqual([120, 0]);
+    } finally {
+      layout.restore();
+    }
+  });
+
+  it("scrolls the list again after a collapse and expand", () => {
+    const layout = stubLayout();
+    try {
+      const cps = many(10);
+      const e = entry(fakeAdapter(), { progress: progress({ checkpoints: cps }) });
+      const { view } = renderPane(e);
+      expect(layout.sets).toEqual([144]);
+      view.rerender(paneFor({ ...e, progress: progress({ checkpoints: cps, collapsed: true }) }));
+      view.rerender(paneFor({ ...e, progress: progress({ checkpoints: cps, collapsed: false }) }));
+      expect(layout.sets).toEqual([144, 144]);
+    } finally {
+      layout.restore();
     }
   });
 
