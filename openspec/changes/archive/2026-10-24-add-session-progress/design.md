@@ -70,6 +70,7 @@ outputs are left out. Only whole lines are consumed; a trailing partial line sta
 into chunks of at most 40 000 characters, each with the offset it ends at.
 
 **D5 — `summarizer.rs`: the Claude Code run.**
+(As built: `summarize` returns the parsed `Vec<Checkpoint>`, not the raw `result` string.)
 Trait `Summarizer { fn summarize(&self, prompt: &str) -> Result<String, SummaryError> }` so the keeper is tested
 with a fake. `ClaudeSummarizer` spawns the `claude` from `LaunchLookup` with
 `-p --model haiku --safe-mode --no-session-persistence --tools "" --output-format json --json-schema <schema>
