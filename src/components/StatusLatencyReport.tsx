@@ -1,6 +1,8 @@
+import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { LatencyReport, SessionsClient } from "../api/sessions";
 import { formatShare } from "./latencyReport";
+import { ICON } from "./icon";
 
 type Props = { client: SessionsClient; onClose(): void };
 
@@ -50,16 +52,16 @@ export function StatusLatencyReport({ client, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="status-latency-title"
-        className="w-full max-w-xl rounded-lg border border-border bg-card p-6 space-y-5"
+        className="w-full max-w-xl rounded-lg border border-border bg-card p-6 space-y-5 shadow-2xl"
       >
         <div className="flex items-center justify-between">
-          <h1 id="status-latency-title" className="text-lg font-medium text-foreground">
+          <h1 id="status-latency-title" className="text-lg font-semibold text-foreground">
             Status Latency
           </h1>
           <span className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">Last 14 days</span>
-            <button ref={close} aria-label="Close report" onClick={onClose} className="text-xs text-muted-foreground">
-              ✕
+            <span className="font-mono text-[11px] text-muted-foreground">Last 14 days</span>
+            <button ref={close} aria-label="Close report" onClick={onClose} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+              <X {...ICON} />
             </button>
           </span>
         </div>

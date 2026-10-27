@@ -66,7 +66,8 @@ describe("Pane Shell chip and toggle (3.1)", () => {
     const { user, sessions, adapters } = await openPane();
     expect(chip()).toHaveAccessibleName("Open shell");
     expect(chip()).toHaveClass("border-border", "text-muted-foreground");
-    expect(chip()).toHaveTextContent(">_Shell");
+    expect(chip()).toHaveTextContent(/^Shell$/);
+    expect(chip().querySelector("svg")).not.toBeNull();
     expect(shellArea()).toBeNull();
 
     await openShell(user);

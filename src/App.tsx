@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, Gauge } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SessionsClient } from "./api/sessions";
 import type { WorkspacesClient } from "./api/workspaces";
@@ -16,6 +17,7 @@ import { useStash } from "./components/useStash";
 import { useTextZoom } from "./components/useTextZoom";
 import { useWorkspaces } from "./components/useWorkspaces";
 import { mergeSessions, type OpenSession } from "./components/sessionList";
+import { ICON_SM } from "./components/icon";
 import { useMinuteClock, useSessionList } from "./components/useSessionList";
 import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
 import { countTerminals, type DiagClient } from "./diagnostics";
@@ -41,11 +43,12 @@ function App(deps: Deps) {
     <div className="h-screen relative flex flex-col bg-background text-foreground font-sans">
       <ToastProvider>
         <div className="h-9 flex items-center justify-between px-4 border-b border-border bg-card">
-          <span className="text-sm font-medium text-foreground">agent-deck</span>
+          <span className="text-sm font-semibold text-foreground">agent-deck</span>
           <button
             onClick={() => setReportOpen(true)}
-            className="text-xs text-muted-foreground border border-border rounded-md px-2 py-0.5"
+            className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground bg-muted border border-border rounded-md px-2 py-0.5 hover:text-foreground hover:border-muted-foreground transition-colors"
           >
+            <Gauge {...ICON_SM} />
             Status Latency
           </button>
         </div>
@@ -443,7 +446,7 @@ function CenteredState({ title, hint, action, disabled = false, onAction }: Cent
         <button
           onClick={onAction}
           disabled={disabled}
-          className="mt-2 text-sm bg-primary text-primary-foreground rounded-md px-3 py-1.5 disabled:opacity-50"
+          className="mt-2 text-sm font-medium bg-primary text-primary-foreground rounded-md px-3 py-1.5 hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {action}
         </button>
@@ -467,9 +470,9 @@ function SidebarToggle({ shown, covered, onToggle }: { shown: boolean; covered: 
       inert={covered}
       aria-label={shown ? "Hide sidebar" : "Show sidebar"}
       aria-expanded={shown}
-      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 w-4 flex items-center justify-center rounded-md border border-border bg-card text-xs text-muted-foreground hover:text-foreground ${shown ? "left-[260px] -translate-x-1/2" : "left-0 rounded-l-none border-l-0"}`}
+      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 w-4 flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${shown ? "left-[260px] -translate-x-1/2" : "left-0 rounded-l-none border-l-0"}`}
     >
-      {shown ? "‹" : "›"}
+      {shown ? <ChevronLeft {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}
     </button>
   );
 }

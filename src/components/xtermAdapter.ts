@@ -12,6 +12,18 @@ function isTextKey(ev: KeyboardEvent): boolean {
   return [...ev.key].length > 1 && !/^[A-Z][A-Za-z0-9]*$/.test(ev.key);
 }
 
+const ANSI = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"] as const;
+
+// xterm's theme keys are `red` / `brightRed`; the tokens are `--ansi-red` / `--ansi-bright-red`.
+function ansiTheme(token: (name: string) => string | undefined): Record<string, string | undefined> {
+  return Object.fromEntries(
+    ANSI.flatMap((c) => [
+      [c, token(`--ansi-${c}`)],
+      [`bright${c[0].toUpperCase()}${c.slice(1)}`, token(`--ansi-bright-${c}`)],
+    ]),
+  );
+}
+
 // Kept apart from TerminalPane so tests, which use a fake adapter, never load xterm.
 export function createXtermAdapter(): TerminalAdapter {
   // xterm draws on a canvas, which cannot resolve CSS variables, so read their values now.
@@ -26,7 +38,8 @@ export function createXtermAdapter(): TerminalAdapter {
       foreground: token("--foreground"),
       cursor: token("--foreground"),
       cursorAccent: token("--background"),
-      selectionBackground: token("--ring"),
+      selectionBackground: token("--selection"),
+      ...ansiTheme(token),
     },
   });
   const fitAddon = new FitAddon();

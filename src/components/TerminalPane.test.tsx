@@ -232,6 +232,33 @@ describe("TerminalPane (5.3)", () => {
   });
 });
 
+describe("TerminalPane attention and dimming (app-theme)", () => {
+  const classes = (state: PaneEntry["status"]["state"], focused: boolean, maximized = false) => {
+    const status = { state, since: 1, reason: null, tracked: true, reportedAt: null };
+    const view = render(
+      <TerminalPane entry={entry(fakeAdapter(), { status })} client={fakeSessions()} focused={focused} maximized={maximized} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} onSetTracking={vi.fn()} onSetCollapsed={vi.fn()} />,
+    );
+    const cls = screen.getByRole("region").className.split(/\s+/);
+    view.unmount();
+    return cls;
+  };
+
+  it("adds the glow to a Needs Approval pane and doubles the Error border", () => {
+    expect(classes("Needs Approval", false)).toEqual(expect.arrayContaining(["border-2", "after:shadow-approval-glow"]));
+    expect(classes("Error", false)).toEqual(expect.arrayContaining(["border-error", "border-2"]));
+    expect(classes("Running", false)).not.toContain("after:shadow-approval-glow");
+  });
+
+  it("dims a pane that is neither focused, maximized, Needs Approval nor Error", () => {
+    expect(classes("Running", false)).toContain("opacity-pane-dim");
+    expect(classes("Idle", false)).toContain("opacity-pane-dim");
+    expect(classes("Running", true)).not.toContain("opacity-pane-dim");
+    expect(classes("Needs Approval", false)).not.toContain("opacity-pane-dim");
+    expect(classes("Error", false)).not.toContain("opacity-pane-dim");
+    expect(classes("Running", false, true)).not.toContain("opacity-pane-dim");
+  });
+});
+
 describe("TerminalPane header in a narrow pane", () => {
   it("never shrinks the buttons and lets the chip truncate first", () => {
     renderPane(entry(fakeAdapter()));
@@ -260,7 +287,7 @@ describe("Target Box (SRS-FR-092)", () => {
     const goal = "Fix resume\n1. read the log\n2. write a test\n3. fix\n4. ship";
     renderPane(entry(fakeAdapter(), { goal }));
     expect(box()).toHaveValue(goal);
-    expect(box()).toHaveClass("text-red-500");
+    expect(box()).toHaveClass("text-goal");
   });
 
   it("grows with its text up to 3 lines, then scrolls", () => {

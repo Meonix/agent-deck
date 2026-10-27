@@ -1,7 +1,11 @@
+import { Folder, X } from "lucide-react";
+import { ICON, ICON_SM } from "./icon";
 import type { StashedSession } from "./stash";
 import type { ActiveSession, FolderHighlight } from "./statusHighlight";
 import { StateMarker, tone } from "./statusTone";
 import type { WorkspacesState } from "./useWorkspaces";
+
+const SECTION_LABEL = "font-mono text-[11px] font-medium text-muted-foreground before:content-['//_'] before:opacity-60";
 
 type Props = {
   workspaces: WorkspacesState;
@@ -36,8 +40,8 @@ export function WorkspaceSidebar({
     <aside aria-label="Workspaces" hidden={hidden} inert={covered} className="flex flex-col bg-card overflow-auto border-r border-border">
       <section className="bg-section-folders pb-2">
         <div className="px-3 pt-3 pb-1 flex items-center justify-between">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Folders</span>
-          <button onClick={() => void addFolder()} className="text-xs text-foreground border border-border rounded-md px-2 py-0.5">
+          <span className={SECTION_LABEL}>Folders</span>
+          <button onClick={() => void addFolder()} className="font-mono text-[11px] text-foreground bg-muted border border-border rounded-md px-2 py-0.5 hover:border-muted-foreground transition-colors">
             + Add Folder
           </button>
         </div>
@@ -54,8 +58,11 @@ export function WorkspaceSidebar({
                   onClick={() => select(w.id)}
                   className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
                 >
-                  <span className={`truncate ${w.missing ? "line-through text-muted-foreground" : ""}`}>{w.name}</span>
-                  {w.missing && <span className="text-xs text-error-foreground">Missing</span>}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Folder {...ICON} className="shrink-0 opacity-70" />
+                    <span className={`truncate ${w.missing ? "line-through text-muted-foreground" : ""}`}>{w.name}</span>
+                  </span>
+                  {w.missing && <span className="font-mono text-[11px] text-error-foreground">Missing</span>}
                   {highlight && (
                     <span
                       role="img"
@@ -70,7 +77,7 @@ export function WorkspaceSidebar({
                 <button
                   aria-label={`Remove ${w.name}`}
                   onClick={() => void removeFolder(w.id)}
-                  className="shrink-0 text-xs text-muted-foreground border border-border rounded px-1.5"
+                  className="shrink-0 font-mono text-[11px] text-muted-foreground border border-border rounded-md px-1.5 hover:text-foreground hover:border-muted-foreground transition-colors"
                 >
                   Remove
                 </button>
@@ -81,7 +88,7 @@ export function WorkspaceSidebar({
       </section>
       <section className="bg-section-active border-t border-border pb-2">
         <div className="px-3 pt-3 pb-1">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <span className={SECTION_LABEL}>
             Active Sessions · {active.length}
           </span>
         </div>
@@ -95,7 +102,7 @@ export function WorkspaceSidebar({
       </section>
       <section className="flex-1 bg-section-stash border-t border-border pb-2">
         <div className="px-3 pt-3 pb-1">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <span className={SECTION_LABEL}>
             Stashed Sessions · {stashed.length}
           </span>
         </div>
@@ -146,7 +153,7 @@ function ActiveRow({ row, focused, onJump }: { row: ActiveSession; focused: bool
           )}
         </span>
         <span className="min-w-0 flex-1 truncate">{row.title}</span>
-        <span className="max-w-[45%] shrink-0 truncate rounded border border-border px-1 text-[10px] text-muted-foreground">
+        <span className="max-w-[45%] shrink-0 truncate rounded-md border border-border px-1 font-mono text-[10px] text-muted-foreground">
           {row.workspaceName}
         </span>
       </button>
@@ -166,13 +173,13 @@ function StashedRow({ row, workspaceName, onReopen, onUnstash }: {
   onUnstash(sessionId: string): void;
 }) {
   return (
-    <li className="group flex items-center gap-1 rounded-md px-2 py-1 hover:bg-muted">
+    <li className="group flex items-center gap-1 rounded-md px-2 py-1 hover:bg-muted transition-colors">
       <button
         onClick={() => onReopen(row)}
         className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="min-w-0 flex-1 truncate">{row.title}</span>
-        <span className="max-w-[45%] shrink-0 truncate rounded border border-border px-1 text-[10px] text-muted-foreground">
+        <span className="max-w-[45%] shrink-0 truncate rounded-md border border-border px-1 font-mono text-[10px] text-muted-foreground">
           {workspaceName}
         </span>
       </button>
@@ -181,9 +188,9 @@ function StashedRow({ row, workspaceName, onReopen, onUnstash }: {
         aria-label={`Remove ${row.title} from stash`}
         title="Remove from stash"
         onClick={() => onUnstash(row.sessionId)}
-        className="shrink-0 rounded px-1 text-xs text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+        className="shrink-0 rounded-md p-0.5 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
       >
-        ✕
+        <X {...ICON_SM} />
       </button>
     </li>
   );

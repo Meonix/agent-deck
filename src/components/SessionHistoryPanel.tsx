@@ -1,4 +1,6 @@
+import { X } from "lucide-react";
 import { useState } from "react";
+import { ICON } from "./icon";
 import { formatWhen, type ListedSession, mergeSessions, type OpenSession } from "./sessionList";
 import type { SessionListState } from "./useSessionList";
 
@@ -28,24 +30,24 @@ type Props = {
 /** The selected folder's sessions, between the left column and the panes (SRS-FR-007, SRS-FR-054). */
 export function SessionHistoryPanel({ workspaceName, covered, onNewSession, onClose, ...list }: Props) {
   return (
-    <div className="min-h-0 p-2 pr-0">
+    <div className="min-h-0 border-r border-border">
       <section
         aria-label="Session history"
         inert={covered}
-        className="h-full overflow-auto rounded-lg border border-border bg-background"
+        className="h-full overflow-auto bg-background"
       >
-        <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2">
-          <h2 className="truncate text-sm font-medium text-foreground">{workspaceName}</h2>
+        <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-border bg-card">
+          <h2 className="truncate font-mono text-xs font-medium text-foreground">{workspaceName}</h2>
           <span className="flex shrink-0 items-center gap-1.5">
-            <button onClick={onNewSession} className="text-xs bg-primary text-primary-foreground rounded-md px-2 py-1">
+            <button onClick={onNewSession} className="font-mono text-[11px] bg-primary text-primary-foreground rounded-md px-2 py-1 hover:opacity-90 transition-opacity">
               New Session
             </button>
             <button
               aria-label="Close session history"
               onClick={onClose}
-              className="text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
-              ✕
+              <X {...ICON} />
             </button>
           </span>
         </div>
@@ -76,8 +78,8 @@ function SessionList({ sessions: state, openSessions, now, onResume, onDelete, s
         <ul aria-label="Loading sessions" className="px-2 space-y-1.5 pt-1">
           {[1, 2, 3, 4].map((i) => (
             <li key={i} className="rounded-md px-2 py-1.5 space-y-1.5">
-              <div className="h-3 w-3/4 rounded bg-muted animate-pulse" />
-              <div className="h-2.5 w-1/3 rounded bg-muted animate-pulse" />
+              <div className="h-3 w-3/4 rounded-md bg-muted animate-pulse" />
+              <div className="h-2.5 w-1/3 rounded-md bg-muted animate-pulse" />
             </li>
           ))}
         </ul>
@@ -112,14 +114,14 @@ function SessionList({ sessions: state, openSessions, now, onResume, onDelete, s
             <div className="sticky bottom-0 px-4 py-2 flex justify-end gap-1 border-t border-border bg-background">
               <button
                 onClick={() => onSelect(rows.map((r) => r.id))}
-                className="text-xs text-foreground border border-border rounded px-1.5"
+                className="font-mono text-[11px] text-foreground bg-muted border border-border rounded-md px-1.5 hover:border-muted-foreground transition-colors"
               >
                 Select all
               </button>
               <button
                 disabled={deletingSelection}
                 onClick={() => onDeleteSelected(workspaceId, ticked)}
-                className="text-xs text-muted-foreground border border-border rounded px-1.5 disabled:opacity-50"
+                className="font-mono text-[11px] text-muted-foreground border border-border rounded-md px-1.5 hover:text-foreground hover:border-muted-foreground transition-colors disabled:opacity-50"
               >
                 Delete selected ({ticked.length})
               </button>
@@ -147,7 +149,7 @@ function SessionRows({ workspaceId, rows, now, onResume, onDelete, ticked, onTic
   return (
     <ul aria-label="Session history" className="px-2 space-y-0.5">
       {rows.map((row) => (
-        <li key={row.id} className={`rounded-md px-2 py-1.5 ${row === picked ? "bg-muted" : ""}`}>
+        <li key={row.id} className={`rounded-md px-2 py-1.5 transition-colors ${row === picked ? "bg-muted" : "hover:bg-muted/60"}`}>
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -163,7 +165,7 @@ function SessionRows({ workspaceId, rows, now, onResume, onDelete, ticked, onTic
             >
               <span className="truncate">{row.title}</span>
               {row.live ? (
-                <span className="shrink-0 text-[10px] uppercase font-medium text-accent-foreground bg-accent rounded px-1">
+                <span className="shrink-0 font-mono text-[10px] font-medium text-accent-foreground bg-accent rounded-md px-1">
                   Live
                 </span>
               ) : (
@@ -175,13 +177,13 @@ function SessionRows({ workspaceId, rows, now, onResume, onDelete, ticked, onTic
             <div className="mt-1 flex justify-end gap-1">
               <button
                 onClick={() => onResume(workspaceId, { id: row.id, title: row.title })}
-                className="text-xs text-foreground border border-border rounded px-1.5"
+                className="font-mono text-[11px] text-foreground bg-muted border border-border rounded-md px-1.5 hover:border-muted-foreground transition-colors"
               >
                 Resume
               </button>
               <button
                 onClick={() => onDelete(workspaceId, { id: row.id, title: row.title })}
-                className="text-xs text-muted-foreground border border-border rounded px-1.5"
+                className="font-mono text-[11px] text-muted-foreground border border-border rounded-md px-1.5 hover:text-foreground hover:border-muted-foreground transition-colors"
               >
                 Delete
               </button>

@@ -1,9 +1,15 @@
+import { Archive, ListChecks, Maximize2, Minimize2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { OpenedPane, PaneProgress, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
+import { ICON } from "./icon";
 import { ProgressStrip, TrackingPrompt } from "./PaneProgress";
 import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
 import type { MaximizedBadge } from "./statusHighlight";
 import { StateMarker, tone } from "./statusTone";
+
+const ICON_BTN_BASE =
+  "-my-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md hover:bg-muted hover:text-foreground transition-colors";
+const ICON_BTN = `${ICON_BTN_BASE} text-muted-foreground`;
 
 export type TerminalSize = { cols: number; rows: number };
 
@@ -180,6 +186,13 @@ export function TerminalPane({
   const quiet =
     !pane.started || endedBadge || !status.tracked || status.state === "Idle" || status.state === "Ended";
   const border = quiet ? "border-border" : tone[status.state].ring;
+  const attention = !quiet && (status.state === "Needs Approval" || status.state === "Error");
+  // On an overlay: an inset shadow on the section itself is hidden under its opaque children.
+  const glow =
+    !quiet && status.state === "Needs Approval"
+      ? "after:pointer-events-none after:absolute after:inset-0 after:z-10 after:shadow-approval-glow"
+      : "";
+  const dim = focused || maximized || attention ? "" : "opacity-pane-dim";
   // A box-shadow outside the status border, so focus never hides the state colour (SRS-FR-087).
   const outline = focused ? "ring-2 ring-ring ring-offset-1 ring-offset-background" : "";
   const toggleMaximized = () => (maximized ? onRestore() : onMaximize(paneId));
@@ -189,7 +202,7 @@ export function TerminalPane({
     <section
       aria-label={`${workspaceName} · ${title}`}
       onFocus={() => onFocus(paneId)}
-      className={`flex flex-col min-h-0 min-w-0 rounded-lg border ${border} ${!quiet && status.state === "Needs Approval" ? "border-2" : ""} ${outline} bg-background overflow-hidden`}
+      className={`relative flex flex-col min-h-0 min-w-0 rounded-lg border ${border} ${attention ? "border-2" : ""} ${glow} ${outline} ${dim} bg-background overflow-hidden transition-opacity`}
     >
       <header
         data-drag-handle
@@ -202,7 +215,7 @@ export function TerminalPane({
         onDoubleClick={(e) => {
           if (headerPressed.current && !onButton(e.target)) toggleMaximized();
         }}
-        className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-card select-none"
+        className="flex items-center justify-between px-3 py-1 border-b border-border bg-card font-mono select-none"
       >
         <span className="min-w-0 text-xs text-foreground truncate">
           <span className="text-muted-foreground">{workspaceName} ·</span> {title}
@@ -237,9 +250,9 @@ export function TerminalPane({
               title="Track progress"
               aria-pressed={progress.tracking === "on"}
               onClick={() => onSetTracking(paneId, progress.tracking !== "on")}
-              className={`-my-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sm hover:bg-muted hover:text-foreground ${progress.tracking === "on" ? "text-foreground" : "text-muted-foreground"}`}
+              className={`${ICON_BTN_BASE} ${progress.tracking === "on" ? "text-foreground" : "text-muted-foreground"}`}
             >
-              ☰
+              <ListChecks {...ICON} />
             </button>
           )}
           <button
@@ -247,25 +260,25 @@ export function TerminalPane({
             title="Stash session"
             disabled={!canStash}
             onClick={() => onStash(paneId)}
-            className="-my-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+            className={`${ICON_BTN} disabled:opacity-40 disabled:hover:bg-transparent`}
           >
-            ⤓
+            <Archive {...ICON} />
           </button>
           <button
             aria-label={maximized ? "Restore pane" : "Maximize pane"}
             title={maximized ? "Restore pane" : "Maximize pane"}
             onClick={toggleMaximized}
-            className="-my-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            className={ICON_BTN}
           >
-            {maximized ? "⤡" : "⤢"}
+            {maximized ? <Minimize2 {...ICON} /> : <Maximize2 {...ICON} />}
           </button>
           <button
             aria-label="Close pane"
             title="Close pane"
             onClick={() => onClose(paneId)}
-            className="-my-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            className={ICON_BTN}
           >
-            ✕
+            <X {...ICON} />
           </button>
         </span>
       </header>
@@ -361,7 +374,7 @@ function TargetBox({ goal, onSave }: { goal: string | null; onSave(text: string)
         if (text !== (goal ?? "")) onSave(text);
         setDraft(text);
       }}
-      className="block w-full resize-none max-h-[calc(4.25rem+1px)] overflow-y-auto px-3 py-1 border-b border-border bg-card text-xs leading-5 text-red-500 placeholder:text-red-500/50 outline-none"
+      className="block w-full resize-none max-h-[calc(4.25rem+1px)] overflow-y-auto px-3 py-1 border-b border-border bg-card font-mono text-xs leading-5 text-goal placeholder:text-goal/50 outline-none"
     />
   );
 }

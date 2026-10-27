@@ -2,3 +2,7 @@
 @import "../design/agent-deck/tokens.css";
 @config "../design/agent-deck/tailwind.preset.js";
 @source "./";
+
+@theme {
+  --default-transition-duration: var(--duration);
+}

@@ -3,7 +3,7 @@ import type { SessionState } from "../api/sessions";
 // Class names are written out in full so Tailwind can see them.
 export const tone: Record<SessionState, { dot: string; chip: string; text: string; edge: string; ring: string; fill: string }> = {
   "Needs Approval": {
-    dot: "bg-approval",
+    dot: "bg-approval shadow-[0_0_6px_var(--approval)]",
     chip: "bg-approval-bg text-approval-foreground border-approval-border",
     text: "text-approval-foreground",
     edge: "border-l-approval",
@@ -19,7 +19,7 @@ export const tone: Record<SessionState, { dot: string; chip: string; text: strin
     fill: "bg-running-bg",
   },
   Error: {
-    dot: "bg-error",
+    dot: "bg-error shadow-[0_0_6px_var(--error)]",
     chip: "bg-error-bg text-error-foreground border-error-border",
     text: "text-error-foreground",
     edge: "border-l-error",

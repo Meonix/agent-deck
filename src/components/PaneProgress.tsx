@@ -1,5 +1,7 @@
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { PaneProgress } from "../api/sessions";
+import { ICON_SM } from "./icon";
 
 const ROW_REM = 1.5;
 const MAX_ROWS = 4;
@@ -60,9 +62,9 @@ export function ProgressStrip({ progress, onSetCollapsed }: { progress: PaneProg
           aria-label={collapsed ? "Expand progress" : "Collapse progress"}
           onMouseDown={keepFocus}
           onClick={() => onSetCollapsed(!collapsed)}
-          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
-          {collapsed ? "▸" : "▾"}
+          {collapsed ? <ChevronRight {...ICON_SM} /> : <ChevronDown {...ICON_SM} />}
         </button>
       </div>
       {!collapsed && (

@@ -137,7 +137,7 @@ export function PaneGrid({ layout, panes, maximizedId, onResize, onMove }: Props
               key={id}
               data-pane-id={id}
               inert={covered}
-              className={`absolute flex flex-col min-h-0 min-w-0 p-1 [&>*]:flex-1 ${covered ? "invisible" : ""} ${drag?.active && drag.id === id ? "opacity-50" : ""}`}
+              className={`absolute flex flex-col min-h-0 min-w-0 p-0.5 [&>*]:flex-1 ${covered ? "invisible" : ""} ${drag?.active && drag.id === id ? "opacity-50" : ""}`}
               style={{
                 left: `${r.x * 100}%`,
                 top: `${r.y * 100}%`,

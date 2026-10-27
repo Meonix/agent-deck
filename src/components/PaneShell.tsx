@@ -1,4 +1,6 @@
+import { SquareTerminal, X } from "lucide-react";
 import { type PointerEvent, useEffect, useRef } from "react";
+import { ICON_SM } from "./icon";
 import type { SessionsClient } from "../api/sessions";
 import type { ShellEntry, TerminalSize } from "./TerminalPane";
 
@@ -6,7 +8,7 @@ import type { ShellEntry, TerminalSize } from "./TerminalPane";
 export const SHELL_OPEN_SIZE: TerminalSize = { cols: 80, rows: 24 };
 const MIN_HEIGHT = 80;
 
-const CHIP = "inline-flex min-w-0 max-w-[150px] items-center gap-1 rounded-md border px-1.5 text-[11px]";
+const CHIP = "inline-flex min-w-0 max-w-[150px] items-center gap-1 rounded-md border px-1.5 text-[11px] transition-colors";
 
 export function ShellChip({ shell, onToggle }: { shell: ShellEntry | null; onToggle(): void }) {
   const label = shell === null ? "Open shell" : shell.visible ? "Hide shell" : "Show shell";
@@ -31,7 +33,8 @@ export function ShellChip({ shell, onToggle }: { shell: ShellEntry | null; onTog
       onClick={onToggle}
       className={`${CHIP} ${shell ? "border-ring bg-accent text-accent-foreground" : "border-border text-muted-foreground"}`}
     >
-      <span className="font-mono">&gt;_</span>Shell
+      <SquareTerminal {...ICON_SM} />
+      Shell
     </button>
   );
 }
@@ -143,8 +146,8 @@ export function ShellFailure({ onDismiss }: { onDismiss(): void }) {
   return (
     <div className="mx-2 mb-2 flex items-center justify-between rounded-md border border-error-border bg-error-bg px-3 py-1.5 text-xs text-error-foreground">
       <span>Shell could not start</span>
-      <button aria-label="Dismiss" title="Dismiss" onClick={onDismiss}>
-        ✕
+      <button aria-label="Dismiss" title="Dismiss" onClick={onDismiss} className="rounded-sm p-0.5 hover:bg-error-border/40">
+        <X {...ICON_SM} />
       </button>
     </div>
   );

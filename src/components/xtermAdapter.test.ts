@@ -7,7 +7,9 @@ const xterm = vi.hoisted(() => {
     data = new Set<Listener>();
     binary = new Set<Listener>();
     keyHandler: ((ev: KeyboardEvent) => boolean) | null = null;
-    constructor() {
+    options: Record<string, unknown>;
+    constructor(options: Record<string, unknown> = {}) {
+      this.options = options;
       FakeTerminal.last = this;
     }
     loadAddon() {}
@@ -55,6 +57,39 @@ describe("createXtermAdapter (fix round 1)", () => {
     stopBinary();
     expect(term.data.size).toBe(0);
     expect(term.binary.size).toBe(0);
+  });
+});
+
+describe("createXtermAdapter theme", () => {
+  it("takes its font and colours from the design tokens on the root element", () => {
+    const root = document.documentElement.style;
+    root.setProperty("--font-mono", "Test Mono");
+    root.setProperty("--background", "#000001");
+    root.setProperty("--foreground", "#000002");
+    createXtermAdapter();
+    const { fontFamily, theme } = xterm.FakeTerminal.last.options as {
+      fontFamily: string;
+      theme: Record<string, string>;
+    };
+    expect(fontFamily).toBe("Test Mono");
+    expect(theme).toMatchObject({
+      background: "#000001",
+      foreground: "#000002",
+      cursor: "#000002",
+      cursorAccent: "#000001",
+    });
+  });
+
+  it("takes the selection and the 16 ANSI colours from their tokens", () => {
+    const root = document.documentElement.style;
+    root.setProperty("--selection", "#000004");
+    root.setProperty("--ansi-red", "#000005");
+    root.setProperty("--ansi-bright-cyan", "#000006");
+    createXtermAdapter();
+    const { theme } = xterm.FakeTerminal.last.options as { theme: Record<string, string> };
+    expect(theme.selectionBackground).toBe("#000004");
+    expect(theme.red).toBe("#000005");
+    expect(theme.brightCyan).toBe("#000006");
   });
 });
 

@@ -24,7 +24,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {toast && (
         <div
           role="alert"
-          className="absolute z-20 bottom-4 left-1/2 -translate-x-1/2 rounded-md border border-error-border bg-error-bg text-error-foreground text-sm px-4 py-2"
+          className="absolute z-20 bottom-4 left-1/2 -translate-x-1/2 rounded-md border border-error-border bg-error-bg text-error-foreground text-sm px-4 py-2 shadow-xl"
         >
           {toast}
         </div>

@@ -44,22 +44,22 @@ export function ConfirmDialog({ title, detail, action, extra, onCancel, onConfir
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
-        className="w-96 rounded-lg border border-border bg-card p-5 space-y-4"
+        className="w-96 rounded-lg border border-border bg-card p-5 space-y-4 shadow-2xl"
       >
-        <div id="confirm-dialog-title" className="text-base font-medium text-foreground">
+        <div id="confirm-dialog-title" className="text-base font-semibold text-foreground">
           {title}
         </div>
         {detail && <div className="text-sm text-muted-foreground">{detail}</div>}
         <div className="flex justify-end gap-2">
-          <button ref={cancel} onClick={onCancel} className="text-sm text-foreground border border-border rounded-md px-3 py-1.5">
+          <button ref={cancel} onClick={onCancel} className="text-sm text-foreground bg-muted border border-border rounded-md px-3 py-1.5 hover:border-muted-foreground transition-colors">
             Cancel
           </button>
           {extra && (
-            <button onClick={extra.onChoose} className="text-sm text-foreground border border-border rounded-md px-3 py-1.5">
+            <button onClick={extra.onChoose} className="text-sm text-foreground bg-muted border border-border rounded-md px-3 py-1.5 hover:border-muted-foreground transition-colors">
               {extra.label}
             </button>
           )}
-          <button onClick={onConfirm} className="text-sm bg-error text-black rounded-md px-3 py-1.5">
+          <button onClick={onConfirm} className="text-sm font-medium bg-error text-error-solid rounded-md px-3 py-1.5 hover:opacity-90 transition-opacity">
             {action}
           </button>
         </div>
