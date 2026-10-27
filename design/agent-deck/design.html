@@ -4351,4 +4351,277 @@ Session ended</pre>
       
     </div></div>
 </section>
+
+<!-- ═══════════ Visual Overhaul · Signal Deck (2026-10-27) — bản đã chốt v1 Quầng sáng + trạng thái ═══════════ -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Mọi màu lấy từ tokens.css. Lớp .sd giới hạn phạm vi để không đụng các section CR cũ phía trên. */
+.sd.frame { width: 1280px; height: 800px; background: var(--background); color: var(--foreground); font: 13px/1.45 var(--font-sans); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #8884; position: relative; }
+.sd.narrow { width: 900px; height: 700px; }
+.sd .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sd .ico.sm { width: 13px; height: 13px; }
+.sd .ib { background: none; border: 0; color: var(--muted-foreground); width: 24px; height: 24px; border-radius: var(--radius); display: grid; place-items: center; transition: background var(--duration), color var(--duration); }
+.sd .ib:hover { background: var(--muted); color: var(--foreground); }
+.sd .top { height: 34px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--card); border-bottom: 1px solid var(--border); flex: none; }
+.sd .top b { font-weight: 600; } .sd .grow { flex: 1; }
+.sd .btn { font: 500 11.5px var(--font-mono); color: var(--foreground); background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); padding: 3px 9px; display: inline-flex; gap: 6px; align-items: center; transition: border-color var(--duration); }
+.sd .btn:hover { border-color: var(--muted-foreground); }
+.sd .btn.pri { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
+.sd .btn.danger { background: var(--error); color: var(--error-solid-foreground); border-color: transparent; }
+.sd .btn:disabled { opacity: .5; }
+.sd .body { flex: 1; display: grid; grid-template-columns: 260px 280px 1fr; min-height: 0; }
+.sd .body.nohist { grid-template-columns: 260px 1fr; }
+.sd.narrow .body { grid-template-columns: 220px 240px 1fr; }
+.sd .side { background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.sd .sec { padding: 8px 6px 10px; } .sd .sec + .sec { border-top: 1px solid var(--border); }
+.sd .sec.f { background: var(--section-folders); } .sd .sec.a { background: var(--section-active); flex: 1; } .sd .sec.s { background: var(--section-stash); }
+.sd .sh { display: flex; align-items: center; gap: 6px; padding: 2px 6px 6px; color: var(--muted-foreground); font: 500 11px var(--font-mono); }
+.sd .sh::before { content: "//"; opacity: .55; }
+.sd .cnt { background: var(--muted); border-radius: var(--radius); padding: 0 5px; font-size: 10.5px; }
+.sd .row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: var(--radius); transition: background var(--duration); }
+.sd .row:hover { background: var(--muted); }
+.sd .row .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd .row .sub { display: block; font-size: 11px; }
+.sd .row .ico { color: var(--muted-foreground); }
+.sd .row.sel { background: var(--accent); color: var(--accent-foreground); } .sd .row.sel .ico { color: inherit; }
+.sd .row.ap { background: var(--approval-bg); } .sd .row.ap .sub { color: var(--approval-foreground); }
+.sd .row.er { background: var(--error-bg); } .sd .row.er .sub { color: var(--error-foreground); }
+.sd .row.sel.ap, .sd .row.sel.er { color: inherit; box-shadow: 0 0 0 1px var(--ring); }
+.sd .row.fo { box-shadow: inset 0 0 0 2px var(--ring); }
+.sd .empty-line { padding: 4px 8px; color: var(--muted-foreground); font-size: 12px; }
+.sd .mk { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.sd .mk.run { background: var(--running); } .sd .mk.ap { background: var(--approval); box-shadow: 0 0 8px var(--approval); } .sd .mk.er { background: var(--error); box-shadow: 0 0 8px var(--error); }
+.sd .badge { font: 600 10.5px var(--font-mono); border-radius: var(--radius); padding: 0 6px; line-height: 17px; white-space: nowrap; }
+.sd .badge.ap { background: var(--approval); color: #000; } .sd .badge.er { background: var(--error); color: var(--error-solid-foreground); }
+.sd .chip { font: 10.5px var(--font-mono); color: var(--muted-foreground); border: 1px solid var(--border); border-radius: var(--radius); padding: 0 5px; line-height: 16px; white-space: nowrap; }
+.sd .miss { font: 10.5px var(--font-mono); color: var(--error-foreground); }
+.sd .hist { background: var(--background); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.sd .hh { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; border-bottom: 1px solid var(--border); background: var(--card); }
+.sd .hh .n { flex: 1; font: 500 12px var(--font-mono); display: flex; gap: 6px; align-items: center; min-width: 0; }
+.sd .hg { padding: 10px 12px 3px; color: var(--muted-foreground); font: 500 10.5px var(--font-mono); }
+.sd .hr { margin: 0 6px; padding: 6px 8px; border-radius: var(--radius); display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; }
+.sd .hr .m { font-size: 11px; color: var(--muted-foreground); }
+.sd .hr.pk { background: var(--muted); }
+.sd .hr .acts { grid-column: 1 / -1; display: flex; gap: 6px; margin-top: 5px; }
+.sd .live { font: 600 10px var(--font-mono); color: var(--accent-foreground); background: var(--accent); border-radius: var(--radius); padding: 0 5px; line-height: 16px; }
+.sd .skel { margin: 6px 14px; } .sd .skel i { display: block; height: 10px; border-radius: var(--radius); background: var(--muted); animation: sdpulse 1.4s ease-in-out infinite; }
+.sd .skel i + i { width: 35%; height: 8px; margin-top: 6px; }
+@keyframes sdpulse { 50% { opacity: .45; } }
+.sd .notice { margin: 8px; padding: 6px 10px; border: 1px solid var(--error-border); background: var(--error-bg); color: var(--error-foreground); border-radius: var(--radius); font-size: 12px; }
+.sd .grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px; background: var(--border); min-height: 0; }
+.sd .grid.g6 { grid-template-columns: 1fr 1fr 1fr; }
+.sd .pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--background); position: relative; transition: opacity var(--duration); }
+.sd .pane:not(.fo):not(.ap):not(.er) { opacity: var(--pane-dim); }
+.sd .pane.ap { box-shadow: inset 0 0 0 2px var(--approval), var(--approval-glow); }
+.sd .pane.er { box-shadow: inset 0 0 0 2px var(--error); }
+.sd .pane.fo { outline: 2px solid var(--ring); outline-offset: -2px; z-index: 1; }
+.sd .ph { display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 4px 0 10px; background: var(--card); border-bottom: 1px solid var(--border); font: 11.5px var(--font-mono); flex: none; }
+.sd .ph .t { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sd .ph .sep { width: 1px; height: 14px; background: var(--border); }
+.sd .pchip { font: 10.5px var(--font-mono); color: var(--muted-foreground); border: 1px solid var(--border); border-radius: var(--radius); padding: 0 5px; line-height: 16px; white-space: nowrap; }
+.sd .sc { font: 11px var(--font-mono); display: inline-flex; gap: 5px; align-items: center; border: 1px solid var(--border); color: var(--muted-foreground); border-radius: var(--radius); padding: 0 6px; line-height: 18px; white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.sd .sc.on { background: var(--accent); border-color: var(--ring); color: var(--accent-foreground); }
+.sd .sc.bg { border-color: var(--primary); color: var(--accent-foreground); }
+.sd .sc.bg::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex: none; }
+.sd .goal { padding: 4px 10px; font: 11.5px var(--font-mono); color: var(--goal); background: var(--card); border-bottom: 1px solid var(--border); display: flex; gap: 6px; align-items: center; }
+.sd .goal.empty { opacity: .5; }
+.sd .prog { padding: 2px 10px 4px; background: var(--card); border-bottom: 1px solid var(--border); font-size: 12px; }
+.sd .cp { display: flex; gap: 8px; align-items: center; line-height: 1.5rem; } .sd .cp.d { color: var(--muted-foreground); }
+.sd .ok { color: var(--running); } .sd .now { color: var(--approval); }
+.sd .term { flex: 1; padding: 8px 12px; font: 12px/1.6 var(--font-mono); white-space: pre; overflow: hidden; color: var(--foreground); }
+.sd .k { color: var(--muted-foreground); } .sd .g { color: var(--ansi-green); } .sd .y { color: var(--ansi-yellow); } .sd .r { color: var(--ansi-red); } .sd .b { color: var(--ansi-blue); } .sd .m { color: var(--ansi-magenta); }
+.sd .box { display: inline-block; border: 1px solid var(--approval); border-radius: var(--radius); padding: 4px 8px; }
+.sd .shell { height: 30%; border-top: 1px solid var(--border); background: var(--card); position: relative; display: flex; flex-direction: column; }
+.sd .shell::before { content: ""; position: absolute; top: -3px; left: 50%; transform: translateX(-50%); width: 32px; height: 5px; border-radius: 999px; background: var(--border); }
+.sd .strip { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 10px; font-size: 12px; border-top: 1px solid var(--border); background: var(--card); color: var(--muted-foreground); }
+.sd .strip.er { background: var(--error-bg); color: var(--error-foreground); border-top-color: var(--error-border); }
+.sd .center { flex: 1; display: grid; place-items: center; text-align: center; background: var(--background); }
+.sd .center .h { font-weight: 600; font-size: 14px; } .sd .center .s { color: var(--muted-foreground); margin: 4px 0 12px; }
+.sd .overlay { position: absolute; inset: 0; background: rgb(0 0 0 / .55); display: grid; place-items: center; z-index: 20; }
+.sd .dialog { width: 400px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: 0 24px 60px -12px rgb(0 0 0 / .5); }
+.sd .dialog .dt { font-size: 14px; font-weight: 600; }
+.sd .dialog p { color: var(--muted-foreground); margin: 8px 0 0; font-size: 13px; }
+.sd .dialog .rb { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.sd .toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; background: var(--error-bg); color: var(--error-foreground); border: 1px solid var(--error-border); border-radius: var(--radius); padding: 7px 12px; font-size: 13px; z-index: 15; box-shadow: 0 16px 40px -10px rgb(0 0 0 / .5); }
+.sd .maxwrap { flex: 1; display: flex; min-height: 0; padding: 0; }
+.sd .maxwrap .pane { flex: 1; opacity: 1 !important; }
+.sdnote { font: 13px Inter, system-ui, sans-serif; color: #333; max-width: 1280px; margin: 4px 0 10px; }
+</style>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="sd-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="sd-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="sd-max" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+  <symbol id="sd-min" viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></symbol>
+  <symbol id="sd-term" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6M12 19h8"/></symbol>
+  <symbol id="sd-arch" viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/></symbol>
+  <symbol id="sd-fold" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="sd-list" viewBox="0 0 24 24"><path d="m3 7 2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8"/></symbol>
+  <symbol id="sd-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></symbol>
+  <symbol id="sd-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="sd-panel" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></symbol>
+  <symbol id="sd-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+  <symbol id="sd-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+</defs></svg>
+
+<h1 id="overhaul" class="w-full text-lg font-semibold text-gray-800 mt-10">Visual Overhaul · Signal Deck · đã chốt: bản v1 Quầng sáng</h1>
+<p class="sdnote w-full">Bố cục giữ nguyên. Token: <code>tokens.css</code> (2026-10-27). Icon Lucide, font Inter + JetBrains Mono. Ô Needs Approval: viền 2px <code>--approval</code> (FR-087) + <code>--approval-glow</code>; ô Error viền 2px <code>--error</code>; ô thường mờ <code>--pane-dim</code>; Focus Outline 2px <code>--ring</code> iris.</p>
+
+<section id="overhaul-final"><h2 class="text-sm font-semibold text-gray-800">Bản chốt · Web 1280×800 · dark</h2><div class="sd frame dark" data-sd="final"></div></section>
+<section id="overhaul-final-light"><h2 class="text-sm font-semibold text-gray-800">Bản chốt · Web 1280×800 · light</h2><div class="sd frame" data-sd="final"></div></section>
+<section id="overhaul-empty-no-folders"><h2 class="text-sm font-semibold text-gray-800">Empty · chưa có folder · 1280×800 · dark</h2><div class="sd frame dark" data-sd="noFolders"></div></section>
+<section id="overhaul-empty-no-sessions"><h2 class="text-sm font-semibold text-gray-800">Empty · folder chưa có phiên, chưa ô nào mở · 1280×800 · dark</h2><div class="sd frame dark" data-sd="noSessions"></div></section>
+<section id="overhaul-loading"><h2 class="text-sm font-semibold text-gray-800">Loading · danh sách phiên đang tải · 1280×800 · dark</h2><div class="sd frame dark" data-sd="loading"></div></section>
+<section id="overhaul-error"><h2 class="text-sm font-semibold text-gray-800">Error · Missing, phiên không đọc được, Claude Code không chạy, shell lỗi, Status unavailable, toast xoá lỗi · 1280×800 · dark</h2><div class="sd frame dark" data-sd="error"></div></section>
+<section id="overhaul-close-confirm"><h2 class="text-sm font-semibold text-gray-800">Hộp xác nhận đóng ô khi shell bận · 1280×800 · dark</h2><div class="sd frame dark" data-sd="dialog"></div></section>
+<section id="overhaul-maximized"><h2 class="text-sm font-semibold text-gray-800">Ô phóng to · badge "2 need you" màu Error · 1280×800 · dark</h2><div class="sd frame dark" data-sd="maximized"></div></section>
+<section id="overhaul-dense-data"><h2 class="text-sm font-semibold text-gray-800">Dense Data · 6 ô, 7 phiên ở 3 folder · 1280×800 · dark</h2><div class="sd frame dark" data-sd="dense"></div></section>
+<section id="overhaul-narrow"><h2 class="text-sm font-semibold text-gray-800">Cửa sổ hẹp · 900×700 · khung lịch sử mở · light</h2><div class="sd frame narrow" data-sd="final"></div></section>
+<p class="sdnote w-full">Không vẽ No permission: app một người dùng, không có phân quyền (giống CR-003).</p>
+
+<template id="sd-app">
+  <div class="top"><button class="ib"><svg class="ico"><use href="#sd-panel"/></svg></button><b>agent-deck</b><span class="grow"></span><button class="btn"><svg class="ico sm"><use href="#sd-gauge"/></svg>Status Latency</button></div>
+  <div class="body">
+    <aside class="side">
+      <div class="sec f" data-slot="folders">
+        <div class="sh">Folders<span class="grow"></span><button class="ib"><svg class="ico sm"><use href="#sd-plus"/></svg></button></div>
+        <div class="row ap"><svg class="ico"><use href="#sd-fold"/></svg><span class="t">agent-deck</span><span class="badge ap">1</span></div>
+        <div class="row sel er"><svg class="ico"><use href="#sd-fold"/></svg><span class="t">lumen-api</span><span class="badge er">1</span></div>
+        <div class="row"><svg class="ico"><use href="#sd-fold"/></svg><span class="t">blog</span></div>
+      </div>
+      <div class="sec a" data-slot="active">
+        <div class="sh">Active Sessions <span class="cnt">4</span></div>
+        <div class="row er"><span class="mk er"></span><span class="t">Fix login redirect loop<span class="sub">10:38 · API Error 529</span></span><span class="chip">lumen-api</span></div>
+        <div class="row ap"><span class="mk ap"></span><span class="t">Refactor pane grid<span class="sub">10:42 · Bash: npm run build</span></span><span class="chip">agent-deck</span></div>
+        <div class="row fo"><span class="mk run"></span><span class="t">Write release notes</span><span class="chip">blog</span></div>
+        <div class="row"><span class="mk run"></span><span class="t">Add rate limiter</span><span class="chip">lumen-api</span></div>
+      </div>
+      <div class="sec s" data-slot="stash">
+        <div class="sh">Stashed Sessions <span class="cnt">2</span></div>
+        <div class="row"><svg class="ico"><use href="#sd-arch"/></svg><span class="t">Spike: xterm webgl</span><span class="chip">agent-deck</span></div>
+        <div class="row"><svg class="ico"><use href="#sd-arch"/></svg><span class="t">Draft API docs</span><span class="chip">lumen-api</span></div>
+      </div>
+    </aside>
+    <section class="hist" data-slot="hist">
+      <div class="hh"><span class="n"><svg class="ico sm"><use href="#sd-fold"/></svg>lumen-api</span><button class="btn pri"><svg class="ico sm"><use href="#sd-plus"/></svg>New Session</button><button class="ib"><svg class="ico"><use href="#sd-x"/></svg></button></div>
+      <div data-slot="hlist">
+        <div class="hg">Today</div>
+        <div class="hr"><span>Fix login redirect loop</span><span class="live">Live</span><span class="m">10:12 · 42 messages</span></div>
+        <div class="hr"><span>Add rate limiter</span><span class="live">Live</span><span class="m">09:30 · 18 messages</span></div>
+        <div class="hr pk"><span>Migrate to Postgres 16</span><span></span><span class="m">08:05 · 96 messages</span><div class="acts"><button class="btn pri"><svg class="ico sm"><use href="#sd-play"/></svg>Resume</button><button class="btn"><svg class="ico sm"><use href="#sd-trash"/></svg>Delete</button></div></div>
+        <div class="hg">Yesterday</div>
+        <div class="hr"><span>Audit auth middleware</span><span></span><span class="m">17:40 · 31 messages</span></div>
+        <div class="hr"><span>Seed script for staging</span><span></span><span class="m">14:02 · 12 messages</span></div>
+      </div>
+    </section>
+    <main class="grid" data-slot="grid">
+      <div class="pane ap">
+        <div class="ph"><span class="mk ap"></span><span class="t">Refactor pane grid</span><span class="pchip">agent-deck</span><span class="grow"></span><button class="ib"><svg class="ico"><use href="#sd-list"/></svg></button><span class="sc"><svg class="ico sm"><use href="#sd-term"/></svg>Shell</span><span class="sep"></span><button class="ib"><svg class="ico"><use href="#sd-arch"/></svg></button><button class="ib"><svg class="ico"><use href="#sd-max"/></svg></button><button class="ib"><svg class="ico"><use href="#sd-x"/></svg></button></div>
+        <div class="goal"><svg class="ico sm"><use href="#sd-target"/></svg>Split PaneGrid into layout + drag-drop, no behaviour change</div>
+        <div class="prog"><div class="cp d"><span class="ok">✓</span>Read PaneGrid and drop-zone code</div><div class="cp d"><span class="ok">✓</span>Extract useDragDrop hook</div><div class="cp"><span class="now">●</span>Run build and fix type errors</div></div>
+<div class="term"><span class="k">⏺</span> Extracted <span class="b">useDragDrop</span> into its own module.
+<span class="box"><span class="y">Bash command</span>
+  npm run build
+<span class="k">Do you want to proceed?</span>
+<span class="y">❯ 1. Yes</span>   2. No</span></div>
+      </div>
+      <div class="pane fo">
+        <div class="ph"><span class="mk run"></span><span class="t">Write release notes</span><span class="pchip">blog</span><span class="grow"></span><button class="ib"><svg class="ico"><use href="#sd-list"/></svg></button><span class="sc on"><svg class="ico sm"><use href="#sd-term"/></svg>Shell</span><span class="sep"></span><button class="ib"><svg class="ico"><use href="#sd-arch"/></svg></button><button class="ib"><svg class="ico"><use href="#sd-max"/></svg></button><button class="ib"><svg class="ico"><use href="#sd-x"/></svg></button></div>
+        <div class="goal empty"><svg class="ico sm"><use href="#sd-target"/></svg>Pin this session's main task…</div>
+<div class="term"><span class="k">&gt;</span> draft notes for v0.4 from the changelog
+<span class="k">⏺</span> Reading <span class="b">CHANGELOG.md</span> (412 lines)
+<span class="k">⏺</span> Writing <span class="b">posts/v0-4.md</span> <span class="m">✻ Thinking… (12s)</span></div>
+        <div class="shell"><div class="term"><span class="g">~/blog</span> <span class="b">main</span> $ npm run dev
+<span class="k">  ➜  Local:</span> http://localhost:5173/</div></div>
+      </div>
+      <div class="pane er">
+        <div class="ph"><span class="mk er"></span><span class="t">Fix login redirect loop</span><span class="pchip">lumen-api</span><span class="grow"></span><button class="ib"><svg class="ico"><use href="#sd-list"/></svg></button><span class="sc bg">pnpm test --watch</span><span class="sep"></span><button class="ib"><svg class="ico"><use href="#sd-arch"/></svg></button><button class="ib"><svg class="ico"><use href="#sd-max"/></svg></button><button class="ib"><svg class="ico"><use href="#sd-x"/></svg></button></div>
+        <div class="goal"><svg class="ico sm"><use href="#sd-target"/></svg>Stop the /login → /auth/callback redirect loop</div>
+<div class="term"><span class="k">⏺</span> Found it: <span class="b">refreshToken()</span> redirects before clearing the cookie.
+<span class="r">  ⎿  API Error: 529 {"type":"overloaded_error"}</span>
+<span class="k">     Retrying in 8s… (attempt 3/10)</span></div>
+      </div>
+      <div class="pane">
+        <div class="ph"><span class="mk run"></span><span class="t">Add rate limiter</span><span class="pchip">lumen-api</span><span class="grow"></span><button class="ib"><svg class="ico"><use href="#sd-list"/></svg></button><span class="sc"><svg class="ico sm"><use href="#sd-term"/></svg>Shell</span><span class="sep"></span><button class="ib"><svg class="ico"><use href="#sd-arch"/></svg></button><button class="ib"><svg class="ico"><use href="#sd-max"/></svg></button><button class="ib"><svg class="ico"><use href="#sd-x"/></svg></button></div>
+        <div class="goal"><svg class="ico sm"><use href="#sd-target"/></svg>Token-bucket limiter on /v1/* with Redis</div>
+<div class="term"><span class="k">⏺</span> Update(<span class="b">src/middleware/rateLimit.ts</span>)
+<span class="g">  + if (bucket.remaining &lt; 0) return res.status(429).end()</span>
+<span class="r">  - // TODO: rate limit</span>
+<span class="k">⏺</span> Writing tests <span class="m">✻ Working… (34s)</span></div>
+      </div>
+    </main>
+  </div>
+</template>
+
+<script>
+(() => {
+  const tpl = document.getElementById("sd-app");
+  const I = (id, sm) => `<svg class="ico${sm ? " sm" : ""}"><use href="#sd-${id}"/></svg>`;
+  const head = (mk, title, folder, extra = "") =>
+    `<div class="ph"><span class="mk ${mk}"></span><span class="t">${title}</span><span class="pchip">${folder}</span>${extra}<span class="grow"></span><button class="ib">${I("list")}</button><span class="sc">${I("term", 1)}Shell</span><span class="sep"></span><button class="ib">${I("arch")}</button><button class="ib">${I("max")}</button><button class="ib">${I("x")}</button></div>`;
+  const center = (h, s, btn, dis) => `<div class="center"><div><div class="h">${h}</div><div class="s">${s}</div><button class="btn pri"${dis ? " disabled" : ""}>${I("plus", 1)}${btn}</button></div></div>`;
+  const patch = {
+    final() {},
+    noFolders(f) {
+      f.querySelector('[data-slot="folders"]').innerHTML = `<div class="sh">Folders<span class="grow"></span><button class="ib">${I("plus", 1)}</button></div><div class="empty-line">No folders yet</div>`;
+      f.querySelector('[data-slot="active"]').innerHTML = `<div class="sh">Active Sessions <span class="cnt">0</span></div><div class="empty-line">No active sessions</div>`;
+      f.querySelector('[data-slot="stash"]').innerHTML = `<div class="sh">Stashed Sessions <span class="cnt">0</span></div><div class="empty-line">No stashed sessions</div>`;
+      f.querySelector('[data-slot="hist"]').remove();
+      f.querySelector(".body").classList.add("nohist");
+      f.querySelector('[data-slot="grid"]').outerHTML = center("No folders yet", "Add a folder you work in with Claude Code.", "Add Folder");
+    },
+    noSessions(f) {
+      f.querySelector('[data-slot="folders"]').innerHTML = `<div class="sh">Folders<span class="grow"></span><button class="ib">${I("plus", 1)}</button></div><div class="row sel">${I("fold")}<span class="t">new-project</span></div>`;
+      f.querySelector('[data-slot="active"]').innerHTML = `<div class="sh">Active Sessions <span class="cnt">0</span></div><div class="empty-line">No active sessions</div>`;
+      f.querySelector('[data-slot="stash"]').innerHTML = `<div class="sh">Stashed Sessions <span class="cnt">0</span></div><div class="empty-line">No stashed sessions</div>`;
+      f.querySelector(".hh .n").innerHTML = `${I("fold", 1)}new-project`;
+      f.querySelector('[data-slot="hlist"]').innerHTML = `<div class="empty-line" style="padding:12px 14px">No sessions yet</div>`;
+      f.querySelector('[data-slot="grid"]').outerHTML = center("No open sessions", "Resume a session from its history, or start a new one.", "New Session");
+    },
+    loading(f) {
+      f.querySelector('[data-slot="hlist"]').innerHTML = `<div class="hg">Loading sessions</div>` + `<div class="skel"><i></i><i></i></div>`.repeat(6);
+    },
+    error(f) {
+      f.querySelector('[data-slot="folders"]').insertAdjacentHTML("beforeend", `<div class="row">${I("fold")}<span class="t" style="color:var(--muted-foreground)">dotfiles</span><span class="miss">Missing</span></div>`);
+      f.querySelector('[data-slot="hlist"]').insertAdjacentHTML("afterbegin", `<div class="notice">2 sessions could not be read</div>`);
+      const panes = f.querySelectorAll(".pane");
+      panes[0].className = "pane fo";
+      panes[0].innerHTML = head("run", "Spike: webgl renderer", "agent-deck") + `<div class="term">Claude Code could not be started\n\n<span class="k">Check that Claude Code is installed and on your PATH.</span></div>`;
+      panes[1].className = "pane";
+      panes[1].innerHTML = head("run", "Write release notes", "blog", `<span class="pchip">Status unavailable</span>`) + `<div class="term"><span class="k">⏺</span> Writing <span class="b">posts/v0-4.md</span></div><div class="shell" style="height:auto"><div class="strip er">${I("x", 1)}<span class="grow">Shell could not start</span><button class="ib">${I("x", 1)}</button></div></div>`;
+      panes[3].innerHTML = head("run", "Add rate limiter", "lumen-api") + `<div class="term"><span class="k">⏺</span> Done. All 14 tests pass.</div><div class="strip">Session ended</div>`;
+      f.insertAdjacentHTML("beforeend", `<div class="toast">Session could not be deleted</div>`);
+    },
+    dialog(f) {
+      f.insertAdjacentHTML("beforeend", `<div class="overlay"><div class="dialog" role="dialog"><div class="dt">Close “Fix login redirect loop”?</div><p>Session is still running.</p><p>A command is still running in the shell.</p><p><span style="font-family:var(--font-mono)">pnpm test --watch</span> will be stopped.</p><div class="rb"><button class="btn">Cancel</button><button class="btn">Close</button><button class="btn danger">Close and move to Trash</button></div></div></div>`);
+    },
+    maximized(f) {
+      const pane = f.querySelectorAll(".pane")[1];
+      pane.querySelector(".ph .grow").insertAdjacentHTML("afterend", `<span class="badge er">2 need you</span>`);
+      pane.querySelectorAll(".ph .ib")[2].innerHTML = I("min");
+      f.querySelector(".body").outerHTML = `<div class="maxwrap"></div>`;
+      f.querySelector(".maxwrap").appendChild(pane);
+    },
+    dense(f) {
+      f.querySelector('[data-slot="active"]').innerHTML = `<div class="sh">Active Sessions <span class="cnt">7</span></div>
+        <div class="row er"><span class="mk er"></span><span class="t">Fix login redirect loop<span class="sub">10:38 · API Error 529</span></span><span class="chip">lumen-api</span></div>
+        <div class="row ap"><span class="mk ap"></span><span class="t">Refactor pane grid<span class="sub">10:42 · Bash: npm run build</span></span><span class="chip">agent-deck</span></div>
+        <div class="row ap"><span class="mk ap"></span><span class="t">Migrate posts to MDX<span class="sub">10:44 · Edit: astro.config.mjs</span></span><span class="chip">blog</span></div>
+        <div class="row fo"><span class="mk run"></span><span class="t">Write release notes</span><span class="chip">blog</span></div>
+        <div class="row"><span class="mk run"></span><span class="t">Add rate limiter</span><span class="chip">lumen-api</span></div>
+        <div class="row"><span class="mk run"></span><span class="t">Speed up xterm resize with a very long session title</span><span class="chip">agent-deck</span></div>
+        <div class="row"><span class="mk run"></span><span class="t">Seed staging data</span><span class="chip">lumen-api</span></div>`;
+      const g = f.querySelector('[data-slot="grid"]');
+      g.classList.add("g6");
+      g.insertAdjacentHTML("beforeend",
+        `<div class="pane ap">${head("ap", "Migrate posts to MDX", "blog")}<div class="goal">${I("target", 1)}Move all posts to MDX without breaking URLs</div><div class="term"><span class="box"><span class="y">Edit file</span>\n  astro.config.mjs\n<span class="y">❯ 1. Yes</span>  2. No</span></div></div>` +
+        `<div class="pane">${head("run", "Speed up xterm resize with a very long session title", "agent-deck")}<div class="term"><span class="k">⏺</span> Profiling fit() calls…</div></div>`);
+    },
+  };
+  document.querySelectorAll("[data-sd]").forEach((f) => {
+    f.appendChild(tpl.content.cloneNode(true));
+    patch[f.dataset.sd](f);
+  });
+})();
+</script>
 </body></html>

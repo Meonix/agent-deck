@@ -30,12 +30,20 @@ export default {
           bg: 'var(--error-bg)',
           border: 'var(--error-border)',
           foreground: 'var(--error-foreground)',
+          solid: 'var(--error-solid-foreground)',
         },
+        goal: 'var(--goal)',
+      },
+      boxShadow: {
+        'approval-glow': 'var(--approval-glow)',
+      },
+      opacity: {
+        'pane-dim': 'var(--pane-dim)',
       },
       borderRadius: {
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'var(--radius)',
+        sm: 'calc(var(--radius) - 2px)',
       },
       fontFamily: {
         sans: 'var(--font-sans)',

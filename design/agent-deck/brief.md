@@ -77,3 +77,26 @@ Màn hình: Cửa sổ chính · Pane Grid (SRS mục 7), không thêm màn mớ
 - Màu: bản 1 · Viền iris (`design.html#cr003-v1-iris`, light `#cr003-v1-iris-light`). Chưa mở: viền `--border`, chữ `--muted-foreground`. Đang hiện: nền `--accent`, viền `--ring`, chữ `--accent-foreground`. Ẩn đang chạy: viền + chấm `--primary`, chữ `--accent-foreground`. Khu shell nền `--card`, tay nắm `--border`. Không thêm token.
 - Hộp xác nhận đóng ô khi shell bận: mẫu hộp xoá phiên CR-001, nút "Close" nền `--error`. "Shell could not start": dải `--error-*` ở đáy ô, có ✕.
 - Trạng thái: `#cr003-states-not-opened`, `-hidden-at-prompt`, `-close-confirm`, `-shell-failed`, `-session-ended`, `-maximized`, `-dense-data`, `-narrow`. Không vẽ Loading (shell mở ngay, SRS không có trạng thái chờ) và No permission (app một người dùng).
+
+## Phạm vi Visual Overhaul · Signal Deck (2026-10-27)
+
+Nguồn: brainstorm v1 đã chốt (`brainstorm/visual-overhaul/index.html`, hướng B), không có CR — chỉ đổi visual, SRS không đổi. Màn hình: mọi vùng của Cửa sổ chính trong SRS mục 7 (Workspace List, Active Sessions, Stashed Sessions, Session History Panel, Pane Grid, ô phóng to, Pane Shell, Target Box, Progress Strip, Close/Stash/Delete Dialog, Toast) và Status Latency.
+
+- Bố cục giữ nguyên, nên bỏ bước wireframe; đi thẳng token → bản màu → trạng thái.
+- Cảm giác đổi: từ "thoáng, thẻ nổi kiểu Linear/Raycast" sang "terminal là trung tâm, tín hiệu sáng kiểu cmux/Ghostty". Thay mục Cảm giác ở trên cho mọi việc từ nay.
+- Đặc điểm: nền gần đen; trạng thái theo cặp đặc + nền nhạt (Primer); Inter cho UI, JetBrains Mono cho header ô và tiêu đề section; bo 4px; ô sát nhau ngăn vạch mảnh; ô không focus mờ; quầng vàng trong ô Needs Approval; marker phát sáng; icon Lucide thay ký tự unicode; hover + transition mọi nút; bảng màu ANSI cho xterm.
+- Ràng buộc SRS giữ nguyên: Focus Outline 2px iris; viền Needs Approval 2px vàng (FR-087), quầng chỉ thêm vào; Target Box chữ đỏ (FR-092); ✓ xanh · ● vàng (FR-119); 3 tint section khác nhau, ≤1.25:1 với nền cột trái, chữ ≥4.5:1 cả light/dark (NFR-009, NFR-010); thứ tự Stash · Maximize · × (FR-103); nhãn tiếng Anh (NFR-008).
+- Số đo đầu vào (dev-enhance GATE 1): tint dark của demo 1.02–1.03 so với nền cột trái, gần như không phân biệt → tăng; ô mờ 62% hạ chữ terminal light còn 4.38, chữ muted ~2.6 → thử ~75% và đo lại.
+
+## Đã chốt cho Visual Overhaul · Signal Deck (2026-10-27)
+
+- Bố cục: giữ nguyên, không vẽ wireframe.
+- Màu: bản v1 · Quầng sáng (`design.html#overhaul-final`, light `#overhaul-final-light`). Nền gray trung tính (bỏ slate), nhấn iris giữ nguyên. Tint section: Folders sky-3, Active Sessions plum-3 (thay sand-3), Stashed teal-3.
+- Ô: dính nhau, ngăn vạch 1px `--border`, bo `--radius` 4px. Needs Approval: viền 2px `--approval` + `--approval-glow`. Error: viền 2px `--error`. Ô không focus, không Needs Approval/Error: `opacity: var(--pane-dim)` (dark 0.75, light 0.9). Focus Outline 2px `--ring`.
+- Chữ: Inter (UI), JetBrains Mono (header ô, tiêu đề section dạng `// Folders`, chip, nút, Target Box, terminal). Font đóng gói vào app, không tải CDN.
+- Icon: Lucide nét 1.75 thay mọi ký tự unicode (✕ ⤓ ⤢ ⤡ ☰ ▸ ▾ ‹ › >_ +). ✓ / ● của Progress Strip giữ ký tự theo FR-119.
+- Màu cứng thay bằng token: Target Box `--goal`, chữ nút xoá `--error-solid-foreground`. Marker Needs Approval / Error có bóng sáng 8px.
+- Nút: hover nền `--muted`, transition `--duration` 120ms. xterm đọc 16 màu `--ansi-*`.
+- Giữ amber-9 cho viền vàng ở light dù chỉ 1.50:1 so với `--card` (đã có từ CR-001, user duyệt token 2026-10-27).
+- Trạng thái: `#overhaul-empty-no-folders`, `-empty-no-sessions`, `-loading`, `-error`, `-close-confirm`, `-maximized`, `-dense-data`, `-narrow`. Không vẽ No permission (app một người dùng).
+- Ngoài phạm vi (lỗi hành vi, đi /dev-bug): Toast luôn mang màu Error; terminal không đổi theme khi đổi sáng/tối.

@@ -52,3 +52,18 @@ Chụp bằng Playwright ngày 2026-10-17, viewport 1440×900; hai ảnh VS Code
 | 18 | Tabby | https://tabby.sh | `refs/cr003-tabby.png` | Hai shell chia cạnh nhau trong một cửa sổ, vách ngăn chỉ là một đường mảnh 1px, không thanh kéo to — vách kéo giữa Claude Code và Pane Shell nên mảnh như vậy |
 
 Đã thử nhưng bỏ: https://zed.dev/docs/terminal và https://www.jetbrains.com/help/idea/terminal-emulator.html (chỉ có chữ, không có ảnh panel), https://www.waveterm.dev và https://www.warp.dev/terminal (phần đầu trang chỉ là hero, không thấy giao diện).
+
+## Visual Overhaul · Signal Deck (2026-10-27)
+
+Không chụp được trang — Playwright bị chặn quyền chạy, headless Brave treo; đọc bằng WebFetch, không xem được hình. Cột ảnh để trống.
+
+| # | Nguồn | Link | Ảnh | Lấy gì |
+| --- | --- | --- | --- | --- |
+| 19 | cmux | https://github.com/manaflow-ai/cmux | | Pane cần người có vòng sáng, tab sidebar sáng lên kèm badge chưa đọc — mẫu cho quầng vàng ô Needs Approval |
+| 20 | Ghostty config | https://ghostty.org/docs/config/reference | | `unfocused-split-opacity` (0.15–1) + `unfocused-split-fill` làm mờ ô không focus; `split-divider-color` vạch mảnh; `palette` 0–15 cho ANSI |
+| 21 | GitHub Primer · Color | https://primer.style/product/primitives/color/ | | Trạng thái theo cặp emphasis (đặc) + muted (nền nhạt); viền muted có alpha — mẫu cho marker đặc + dòng tô nhạt |
+| 22 | Linear redesign | https://linear.app/now/how-we-redesigned-the-linear-ui | | Giảm màu xanh ở chrome cho trung tính (lý do bỏ slate lấy gray); Inter cho UI |
+| 23 | Vercel Geist · Colors | https://vercel.com/geist/colors | | Phân vai theo bậc: nền 100–300, viền 400–600, chữ 900–1000 — khớp quy ước bậc Radix |
+| 24 | Lucide | https://lucide.dev/license | | Bộ icon thay ký tự unicode; ISC (icon gốc Feather: MIT) |
+| 25 | JetBrains Mono | https://github.com/JetBrains/JetBrainsMono | | Font mono cho terminal, header ô, tiêu đề section; OFL-1.1, 8 weight |
+| 26 | Inter | https://github.com/rsms/inter | | Font UI; OFL-1.1, có bản variable |

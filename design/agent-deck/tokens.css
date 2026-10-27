@@ -1,80 +1,106 @@
-/* Nguồn: https://cdn.jsdelivr.net/npm/@radix-ui/colors@3.0.0/{slate,slate-dark,iris,iris-dark,green,green-dark,amber,amber-dark,red,red-dark,sky,sky-dark,sand,sand-dark,plum,plum-dark,teal,teal-dark}.css
-   App mới, chưa có màu thương hiệu: xám slate + nhấn iris (chốt ngày 2026-10-16).
+/* Nguồn: https://cdn.jsdelivr.net/npm/@radix-ui/colors@3.0.0/{gray,gray-dark,iris,iris-dark,green,green-dark,amber,amber-dark,red,red-dark,sky,sky-dark,plum,plum-dark,teal,teal-dark,blue,blue-dark,cyan,cyan-dark}.css
+   Visual Overhaul · Signal Deck (2026-10-27): xám trung tính gray thay slate, nhấn iris giữ nguyên (SRS Focus Outline iris).
    Màu trạng thái dành riêng: green = Running, amber = Needs Approval, red = Error.
    Độ tương phản đo bằng script WCAG trong TOKENS.md mục 5. */
 
 :root {
-  --background: #fcfcfd;             /* slate-1 */
-  --foreground: #1c2024;             /* slate-12 · 15.98 AA trên --background */
-  --card: #f9f9fb;                   /* slate-2 */
-  --card-foreground: #1c2024;        /* slate-12 · 15.58 AA trên --card */
-  --muted: #f0f0f3;                  /* slate-3 */
-  --muted-foreground: #60646c;       /* slate-11 · 5.22 AA trên --muted, 5.79 AA trên --background */
+  --background: #fcfcfc;             /* gray-1 */
+  --foreground: #202020;             /* gray-12 · 15.88 AA trên --background */
+  --card: #f9f9f9;                   /* gray-2 — cột trái, header ô */
+  --card-foreground: #202020;        /* gray-12 */
+  --muted: #f0f0f0;                  /* gray-3 */
+  --muted-foreground: #646464;       /* gray-11 · 5.19 AA trên --muted, 5.62 AA trên --card */
   --accent: #f0f1fe;                 /* iris-3 — nền mục đang chọn */
   --accent-foreground: #5753c6;      /* iris-11 · 5.41 AA trên --accent */
-  --input: #e8e8ec;                  /* slate-4 */
-  --border: #d9d9e0;                 /* slate-6 */
-  --ring: #9b9ef0;                   /* iris-8 */
+  --input: #e8e8e8;                  /* gray-4 */
+  --border: #d9d9d9;                 /* gray-6 */
+  --ring: #5b5bd6;                   /* iris-9 — Focus Outline · 5.10 trên --card (≥3) */
   --primary: #5b5bd6;                /* iris-9 */
   --primary-foreground: #ffffff;     /* 5.37 AA trên --primary */
+  --selection: #dadcff;              /* iris-5 — vùng chọn trong terminal · --foreground 12.15 AA */
 
-  --running: #30a46c;                /* green-9 — chấm, viền trái thẻ; không đặt chữ trắng lên (3.16 AA-large) */
+  --running: #30a46c;                /* green-9 — chấm, marker · 3.00 trên --card */
   --running-bg: #e6f6eb;             /* green-3 */
   --running-border: #adddc0;         /* green-6 */
   --running-foreground: #193b2d;     /* green-12 · 11.00 AA trên --running-bg (green-11 chỉ 4.21) */
 
-  --approval: #ffc53d;               /* amber-9 — chấm, viền trái thẻ */
+  --approval: #ffc53d;               /* amber-9 — viền 2px FR-087, marker · 1.50 trên --card (dưới 3, xem GATE 2) */
   --approval-bg: #fff7c2;            /* amber-3 */
   --approval-border: #f3d673;        /* amber-6 */
   --approval-foreground: #4f3422;    /* amber-12 · 10.47 AA trên --approval-bg (amber-11 chỉ 4.25) */
 
-  --error: #e5484d;                  /* red-9 — chấm, viền trái thẻ; không đặt chữ trắng lên (3.91 AA-large) */
+  --error: #e5484d;                  /* red-9 — nền nút xoá, marker · 3.72 trên --card */
   --error-bg: #feebec;               /* red-3 */
   --error-border: #fdbdbe;           /* red-6 */
   --error-foreground: #641723;       /* red-12 · 10.84 AA trên --error-bg */
+  --error-solid-foreground: #000000; /* chữ trên nền --error · 5.37 AA (trắng chỉ 3.91) */
 
-  /* CR-002 · SRS-NFR-009: tint hai section cột trái, đo so với --card (nền cột trái) */
-  --section-folders: #e1f6fd;        /* sky-3 · 1.06:1 so với --card · --foreground 14.67 AA · --muted-foreground 5.32 AA */
-  --section-active: #f1f0ef;         /* sand-3 · 1.08:1 so với --card · --foreground 14.40 AA · --muted-foreground 5.22 AA */
-  /* CR-011 · SRS-NFR-010: tint section Stashed Sessions */
-  --section-stash: #e0f8f3;          /* teal-3 · 1.06:1 so với --card · --foreground 14.74 AA · --muted-foreground 5.34 AA */
+  --goal: #ce2c31;                   /* red-11 — Target Box chữ đỏ FR-092 · 4.95 AA trên --card */
 
-  --radius: 10px;                    /* bo góc kiểu Linear/Raycast (references #1, #3) */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  /* SRS-NFR-009/010: tint ba section, đo so với --card (nền cột trái) */
+  --section-folders: #e1f6fd;        /* sky-3 · 1.06:1 · --foreground 14.59 · --muted-foreground 5.30 */
+  --section-active: #fbebfb;         /* plum-3 · 1.09:1 · --foreground 14.26 · --muted-foreground 5.18 */
+  --section-stash: #e0f8f3;          /* teal-3 · 1.06:1 · --foreground 14.66 · --muted-foreground 5.32 */
+
+  /* Ô không focus mờ đi; 0.9 giữ --muted-foreground ở 4.62 trên --background (0.75 chỉ còn 3.36) */
+  --pane-dim: 0.9;
+  --approval-glow: inset 0 0 36px -12px rgb(255 197 61 / 0.55); /* amber-9 */
+
+  /* Bảng màu ANSI cho xterm — bản thường bậc 11 (≥4.49 trên --background), bản sáng bậc 12 */
+  --ansi-black: #202020;  --ansi-red: #ce2c31;  --ansi-green: #218358;  --ansi-yellow: #ab6400;
+  --ansi-blue: #0d74ce;   --ansi-magenta: #953ea3; --ansi-cyan: #107d98; --ansi-white: #8d8d8d;
+  --ansi-bright-black: #646464; --ansi-bright-red: #641723; --ansi-bright-green: #193b2d; --ansi-bright-yellow: #4f3422;
+  --ansi-bright-blue: #113264;  --ansi-bright-magenta: #53195d; --ansi-bright-cyan: #0d3c48; --ansi-bright-white: #bbbbbb;
+
+  --radius: 4px;                     /* Signal Deck: góc nhỏ, mật độ cao */
+  --duration: 120ms;                 /* hover / transition mọi nút */
+  --font-sans: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 }
 
 .dark {
-  --background: #111113;             /* slate-dark-1 */
-  --foreground: #edeef0;             /* slate-dark-12 · 16.25 AA */
-  --card: #18191b;                   /* slate-dark-2 */
-  --card-foreground: #edeef0;        /* slate-dark-12 · 15.15 AA trên --card */
-  --muted: #212225;                  /* slate-dark-3 */
-  --muted-foreground: #b0b4ba;       /* slate-dark-11 · 7.64 AA trên --muted, 9.06 AA trên --background */
+  --background: #111111;             /* gray-dark-1 — nền terminal, lưới ô */
+  --foreground: #eeeeee;             /* gray-dark-12 · 16.28 AA */
+  --card: #191919;                   /* gray-dark-2 */
+  --card-foreground: #eeeeee;        /* gray-dark-12 */
+  --muted: #222222;                  /* gray-dark-3 */
+  --muted-foreground: #b4b4b4;       /* gray-dark-11 · 7.67 AA trên --muted, 8.48 AA trên --card */
   --accent: #202248;                 /* iris-dark-3 */
   --accent-foreground: #b1a9ff;      /* iris-dark-11 · 7.22 AA trên --accent */
-  --input: #272a2d;                  /* slate-dark-4 */
-  --border: #363a3f;                 /* slate-dark-6 */
-  --ring: #5958b1;                   /* iris-dark-8 */
+  --input: #2a2a2a;                  /* gray-dark-4 */
+  --border: #3a3a3a;                 /* gray-dark-6 */
+  --ring: #5b5bd6;                   /* iris-dark-9 — Focus Outline · 3.28 trên --card, 3.52 trên --background */
   --primary: #5b5bd6;                /* iris-dark-9 */
   --primary-foreground: #ffffff;     /* 5.37 AA trên --primary */
+  --selection: #303374;              /* iris-dark-5 · --foreground 9.78 AA */
 
-  --running: #30a46c;                /* green-dark-9 */
+  --running: #30a46c;                /* green-dark-9 · 5.57 trên --card */
   --running-bg: #132d21;             /* green-dark-3 */
   --running-border: #20573e;         /* green-dark-6 */
   --running-foreground: #3dd68c;     /* green-dark-11 · 7.86 AA trên --running-bg */
 
-  --approval: #ffc53d;               /* amber-dark-9 */
+  --approval: #ffc53d;               /* amber-dark-9 · 11.14 trên --card */
   --approval-bg: #302008;            /* amber-dark-3 */
   --approval-border: #5c3d05;        /* amber-dark-6 */
   --approval-foreground: #ffca16;    /* amber-dark-11 · 10.26 AA trên --approval-bg */
 
-  --error: #e5484d;                  /* red-dark-9 */
+  --error: #e5484d;                  /* red-dark-9 · 4.49 trên --card */
   --error-bg: #3b1219;               /* red-dark-3 */
   --error-border: #72232d;           /* red-dark-6 */
   --error-foreground: #ff9592;       /* red-dark-11 · 7.75 AA trên --error-bg */
+  --error-solid-foreground: #000000; /* 5.37 AA trên --error */
 
-  --section-folders: #112840;        /* sky-dark-3 · 1.17:1 so với --card · --foreground 12.91 AA · --muted-foreground 7.20 AA */
-  --section-active: #222221;         /* sand-dark-3 · 1.10:1 so với --card · --foreground 13.72 AA · --muted-foreground 7.65 AA */
-  --section-stash: #0d2d2a;          /* teal-dark-3 · 1.19:1 so với --card · --foreground 12.69 AA · --muted-foreground 7.07 AA */
+  --goal: #ff9592;                   /* red-dark-11 · 8.34 AA trên --card (red-9 chỉ 4.49) */
+
+  --section-folders: #112840;        /* sky-dark-3 · 1.17:1 · --foreground 12.92 · --muted-foreground 7.23 */
+  --section-active: #351a35;         /* plum-dark-3 · 1.13:1 · --foreground 13.40 · --muted-foreground 7.50 */
+  --section-stash: #0d2d2a;          /* teal-dark-3 · 1.19:1 · --foreground 12.69 · --muted-foreground 7.10 */
+
+  --pane-dim: 0.75;                  /* --foreground 9.42, --muted-foreground 5.54 trên --background */
+  --approval-glow: inset 0 0 40px -10px rgb(255 197 61 / 0.45); /* amber-dark-9 */
+
+  --ansi-black: #222222;  --ansi-red: #ff9592;  --ansi-green: #3dd68c;  --ansi-yellow: #ffca16;
+  --ansi-blue: #70b8ff;   --ansi-magenta: #e796f3; --ansi-cyan: #4ccce6; --ansi-white: #b4b4b4;
+  --ansi-bright-black: #7b7b7b; --ansi-bright-red: #ffd1d9; --ansi-bright-green: #b1f1cb; --ansi-bright-yellow: #ffe7b3;
+  --ansi-bright-blue: #c2e6ff;  --ansi-bright-magenta: #f4d4f4; --ansi-bright-cyan: #b6ecf7; --ansi-bright-white: #eeeeee;
 }
