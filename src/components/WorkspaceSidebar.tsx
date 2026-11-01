@@ -1,4 +1,4 @@
-import { Folder, X } from "lucide-react";
+import { Folder, Plus, X } from "lucide-react";
 import { ICON, ICON_SM } from "./icon";
 import type { StashedSession } from "./stash";
 import type { ActiveSession, FolderHighlight } from "./statusHighlight";
@@ -39,10 +39,15 @@ export function WorkspaceSidebar({
   return (
     <aside aria-label="Workspaces" hidden={hidden} inert={covered} className="flex flex-col bg-card overflow-auto border-r border-border">
       <section className="bg-section-folders pb-2">
-        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+        <div className="px-3 pt-3 pb-1.5 flex items-center justify-between">
           <span className={SECTION_LABEL}>Folders</span>
-          <button onClick={() => void addFolder()} className="font-mono text-[11px] text-foreground bg-muted border border-border rounded-md px-2 py-0.5 hover:border-muted-foreground transition-colors">
-            + Add Folder
+          <button
+            aria-label="+ Add Folder"
+            title="+ Add Folder"
+            onClick={() => void addFolder()}
+            className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <Plus {...ICON} />
           </button>
         </div>
         <ul aria-label="Folders" className="px-2 space-y-0.5">
@@ -52,7 +57,7 @@ export function WorkspaceSidebar({
               <li
                 key={w.id}
                 aria-current={w.id === selected?.id ? "true" : undefined}
-                className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm ${folderLook(highlight, w.id === selected?.id)}`}
+                className={`group flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${folderLook(highlight, w.id === selected?.id)}`}
               >
                 <button
                   onClick={() => select(w.id)}
@@ -74,12 +79,14 @@ export function WorkspaceSidebar({
                     </span>
                   )}
                 </button>
+                {/* Shown on hover, and kept reachable by keyboard like the stash ×. */}
                 <button
                   aria-label={`Remove ${w.name}`}
+                  title={`Remove ${w.name}`}
                   onClick={() => void removeFolder(w.id)}
-                  className="shrink-0 font-mono text-[11px] text-muted-foreground border border-border rounded-md px-1.5 hover:text-foreground hover:border-muted-foreground transition-colors"
+                  className="shrink-0 rounded-md p-0.5 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 transition-opacity"
                 >
-                  Remove
+                  <X {...ICON_SM} />
                 </button>
               </li>
             );
@@ -87,7 +94,7 @@ export function WorkspaceSidebar({
         </ul>
       </section>
       <section className="bg-section-active border-t border-border pb-2">
-        <div className="px-3 pt-3 pb-1">
+        <div className="px-3 pt-3 pb-1.5">
           <span className={SECTION_LABEL}>
             Active Sessions · {active.length}
           </span>
@@ -101,7 +108,7 @@ export function WorkspaceSidebar({
         </ul>
       </section>
       <section className="flex-1 bg-section-stash border-t border-border pb-2">
-        <div className="px-3 pt-3 pb-1">
+        <div className="px-3 pt-3 pb-1.5">
           <span className={SECTION_LABEL}>
             Stashed Sessions · {stashed.length}
           </span>
@@ -129,7 +136,7 @@ export function WorkspaceSidebar({
 function ActiveRow({ row, focused, onJump }: { row: ActiveSession; focused: boolean; onJump(paneId: string): void }) {
   const detail = row.state === "Needs Approval" || row.state === "Error";
   // Inset, so the sidebar's overflow and the next row's fill cannot hide it; it sits over the status fill.
-  const mark = focused ? "ring-2 ring-inset ring-ring" : "";
+  const mark = focused ? "ring-2 ring-inset ring-row-focus" : "";
   return (
     <li
       aria-current={focused ? "true" : undefined}
@@ -204,5 +211,5 @@ function clock(ms: number): string {
 // A highlighted folder keeps its status colour; the ring marks it selected instead of the accent fill.
 function folderLook(highlight: FolderHighlight | undefined, selected: boolean): string {
   if (highlight) return `${tone[highlight.state].fill} text-foreground ${selected ? "ring-1 ring-ring font-medium" : ""}`;
-  return selected ? "bg-accent text-accent-foreground font-medium" : "text-foreground";
+  return selected ? "bg-accent text-accent-foreground font-medium" : "text-foreground hover:bg-muted";
 }

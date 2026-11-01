@@ -199,6 +199,32 @@ describe("robustness (fix round 1)", () => {
     expect(folders().getByText("alpha").closest("li")).toHaveAttribute("aria-current", "true");
   });
 
+  it("keeps Remove in the tab order right after its folder row", async () => {
+    const user = userEvent.setup();
+    renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
+    await folders().findByText("beta");
+    // Title bar "Status Latency", "+ Add Folder", the alpha row, then its Remove.
+    for (let i = 0; i < 4; i++) await user.tab();
+    expect(screen.getByRole("button", { name: "Remove alpha" })).toHaveFocus();
+  });
+
+  it("reveals Remove only on row hover or keyboard focus", async () => {
+    renderSidebar(fakeClient([ws("a", "alpha")]));
+    await folders().findByText("alpha");
+    const remove = screen.getByRole("button", { name: "Remove alpha" });
+    expect(remove).toHaveClass("opacity-0", "group-hover:opacity-100", "focus-visible:opacity-100");
+    expect(remove).toHaveAttribute("title", "Remove alpha");
+    expect(remove.closest("li")).toHaveClass("group");
+  });
+
+  it("keeps the three section titles", async () => {
+    renderSidebar(fakeClient([ws("a", "alpha")]));
+    await folders().findByText("alpha");
+    expect(screen.getByText("Folders")).toBeInTheDocument();
+    expect(screen.getByText("Active Sessions · 0")).toBeInTheDocument();
+    expect(screen.getByText("Stashed Sessions · 0")).toBeInTheDocument();
+  });
+
   it("gives each Remove button a distinct name and exposes Missing", async () => {
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta", true)]));
     await folders().findByText("beta");

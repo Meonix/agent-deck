@@ -15,6 +15,7 @@
   --input: #e8e8e8;                  /* gray-4 */
   --border: #d9d9d9;                 /* gray-6 */
   --ring: #5b5bd6;                   /* iris-9 — Focus Outline · 5.10 trên --card (≥3) */
+  --row-focus: #5b5bd6;              /* iris-9 — Row Focus Mark · ≥3: section-active 4.79, running-bg 4.79, approval-bg 4.94, error-bg 4.68 */
   --primary: #5b5bd6;                /* iris-9 */
   --primary-foreground: #ffffff;     /* 5.37 AA trên --primary */
   --selection: #dadcff;              /* iris-5 — vùng chọn trong terminal · --foreground 12.15 AA */
@@ -39,7 +40,7 @@
 
   /* SRS-NFR-009/010: tint ba section, đo so với --card (nền cột trái) */
   --section-folders: #e1f6fd;        /* sky-3 · 1.06:1 · --foreground 14.59 · --muted-foreground 5.30 */
-  --section-active: #fbebfb;         /* plum-3 · 1.09:1 · --foreground 14.26 · --muted-foreground 5.18 */
+  --section-active: #edf2fe;         /* indigo-3 · 1.06:1 · --foreground 14.53 · --muted-foreground 5.28 (Sidebar Refresh: thay plum-3) */
   --section-stash: #e0f8f3;          /* teal-3 · 1.06:1 · --foreground 14.66 · --muted-foreground 5.32 */
 
   /* Ô không focus mờ đi; 0.9 giữ --muted-foreground ở 4.62 trên --background (0.75 chỉ còn 3.36) */
@@ -70,6 +71,7 @@
   --input: #2a2a2a;                  /* gray-dark-4 */
   --border: #3a3a3a;                 /* gray-dark-6 */
   --ring: #5b5bd6;                   /* iris-dark-9 — Focus Outline · 3.28 trên --card, 3.52 trên --background */
+  --row-focus: #6e6ade;              /* iris-dark-10 — Row Focus Mark · ≥3: section-active 3.44, running-bg 3.35, approval-bg 3.58, error-bg 3.71 (iris-9 chỉ ~2.8) */
   --primary: #5b5bd6;                /* iris-dark-9 */
   --primary-foreground: #ffffff;     /* 5.37 AA trên --primary */
   --selection: #303374;              /* iris-dark-5 · --foreground 9.78 AA */
@@ -93,7 +95,7 @@
   --goal: #ff9592;                   /* red-dark-11 · 8.34 AA trên --card (red-9 chỉ 4.49) */
 
   --section-folders: #112840;        /* sky-dark-3 · 1.17:1 · --foreground 12.92 · --muted-foreground 7.23 */
-  --section-active: #351a35;         /* plum-dark-3 · 1.13:1 · --foreground 13.40 · --muted-foreground 7.50 */
+  --section-active: #182449;         /* indigo-dark-3 · 1.16:1 · --foreground 13.05 · --muted-foreground 7.30 */
   --section-stash: #0d2d2a;          /* teal-dark-3 · 1.19:1 · --foreground 12.69 · --muted-foreground 7.10 */
 
   --pane-dim: 0.75;                  /* --foreground 9.42, --muted-foreground 5.54 trên --background */

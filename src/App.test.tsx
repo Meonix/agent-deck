@@ -1993,7 +1993,7 @@ describe("Row Focus Mark (2.5)", () => {
     fireEvent.focus(panes()[1]);
 
     expect(marked()).toEqual([row("Second")]);
-    expect(row("Second")).toHaveClass("ring-2", "ring-inset", "ring-ring");
+    expect(row("Second")).toHaveClass("ring-2", "ring-inset", "ring-row-focus");
     expect(row("First")).not.toHaveClass("ring-2");
   });
 
@@ -2003,7 +2003,7 @@ describe("Row Focus Mark (2.5)", () => {
 
     fireEvent.focus(panes()[0]);
 
-    expect(row("First")).toHaveClass("bg-running-bg", "ring-2", "ring-ring");
+    expect(row("First")).toHaveClass("bg-running-bg", "ring-2", "ring-row-focus");
     expect(row("First")).toHaveAttribute("aria-current", "true");
   });
 

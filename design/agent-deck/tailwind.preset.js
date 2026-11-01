@@ -13,6 +13,7 @@ export default {
         section: { folders: 'var(--section-folders)', active: 'var(--section-active)', stash: 'var(--section-stash)' },
         border: 'var(--border)',
         ring: 'var(--ring)',
+        'row-focus': 'var(--row-focus)',
         running: {
           DEFAULT: 'var(--running)',
           bg: 'var(--running-bg)',
