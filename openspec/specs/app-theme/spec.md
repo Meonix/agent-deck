@@ -34,6 +34,11 @@ Every control that shows only an icon SHALL keep an accessible name and a toolti
 - **WHEN** a screen reader reads a pane header
 - **THEN** it announces "Track progress", "Stash session", "Maximize pane" or "Restore pane", and "Close pane"
 
+#### Scenario: Sidebar folder buttons
+- **GIVEN** the Workspace List contains `alpha`
+- **WHEN** a screen reader reads the Folders section
+- **THEN** it announces "+ Add Folder" for the add button and "Remove alpha" for the remove button of `alpha`
+
 ### Requirement: Terminal colours follow the theme tokens
 The system SHALL create each terminal with its font, background, foreground, cursor, selection and 16 ANSI colours taken from the theme tokens active at creation.
 
