@@ -67,3 +67,18 @@ Không chụp được trang — Playwright bị chặn quyền chạy, headless
 | 24 | Lucide | https://lucide.dev/license | | Bộ icon thay ký tự unicode; ISC (icon gốc Feather: MIT) |
 | 25 | JetBrains Mono | https://github.com/JetBrains/JetBrainsMono | | Font mono cho terminal, header ô, tiêu đề section; OFL-1.1, 8 weight |
 | 26 | Inter | https://github.com/rsms/inter | | Font UI; OFL-1.1, có bản variable |
+
+## Sidebar Refresh (2026-11-02) — phối màu và bố cục cột trái
+
+Chụp bằng Playwright ngày 2026-11-02, viewport 1440×900, cắt sát cột trái của ảnh app trên trang. Ảnh trong `refs/sidebar/`.
+
+| # | Nguồn | Link | Ảnh | Lấy gì |
+| --- | --- | --- | --- | --- |
+| 19 | Linear | https://linear.app | `refs/sidebar/linear-sidebar.png` | Tiêu đề nhóm nhỏ, mờ, có ▾ ("Workspace", "Favorites"); hành động header chỉ là icon (tìm, soạn) ở góc phải; mục đang chọn nền xám nhạt bo góc, không viền |
+| 20 | Conductor | https://www.conductor.build | `refs/sidebar/conductor-sidebar.png` | Mục đang mở có vạch màu 2px ở mép trái thay vì tô cả dòng; thời gian canh phải mờ; tiêu đề nhóm "Pinned" / "My workspaces" nhỏ, xám |
+| 21 | Paradev (superset.sh) | https://superset.sh | `refs/sidebar/superset-sidebar.png` | Nhóm in hoa nhỏ có số đếm canh phải và ▸ thu gọn; dòng đang chọn nền ấm + vạch cam mép trái; chấm trạng thái màu trước tên |
+| 22 | cmux | https://www.cmux.dev | `refs/sidebar/cmux-sidebar.png` | Badge số tròn màu nhấn trước tên khi agent chờ người; nút + và chuông ở thanh trên cùng dạng icon; nền cột một màu, phân dòng bằng khoảng trắng |
+| 23 | T3 Code | https://t3.codes | `refs/sidebar/t3-sidebar.png` | Một nền cột liền, các nhóm "Working 1 ›" / "Settled 43 ›" tách bằng chữ + số, không khối màu; dòng hai tầng: project nhỏ + giờ phải, tiêu đề đậm, nhánh mờ; nhóm đang chạy nổi bằng thẻ nền nhẹ |
+| 24 | Cursor | https://cursor.com | `refs/sidebar/cursor-agents-list.png` | Header cột chỉ có một icon + ở góc phải; dòng đang chọn là pill nền xám bo lớn; chấm đỏ nhỏ trên avatar báo cần chú ý |
+
+Đã thử nhưng bỏ: https://arc.net (trang chia tay, không thấy sidebar), https://culturedcode.com/things/ (chỉ có icon app), https://zed.dev/agentic, https://www.warp.dev/agents, https://www.raycast.com/notes (phần đầu trang không có cột trái), https://openai.com/codex/ (trang trắng).

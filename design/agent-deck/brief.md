@@ -100,3 +100,25 @@ Nguồn: brainstorm v1 đã chốt (`brainstorm/visual-overhaul/index.html`, hư
 - Giữ amber-9 cho viền vàng ở light dù chỉ 1.50:1 so với `--card` (đã có từ CR-001, user duyệt token 2026-10-27).
 - Trạng thái: `#overhaul-empty-no-folders`, `-empty-no-sessions`, `-loading`, `-error`, `-close-confirm`, `-maximized`, `-dense-data`, `-narrow`. Không vẽ No permission (app một người dùng).
 - Ngoài phạm vi (lỗi hành vi, đi /dev-bug): Toast luôn mang màu Error; terminal không đổi theme khi đổi sáng/tối.
+
+## Phạm vi Sidebar Refresh (2026-11-01)
+
+Không có CR — chỉ đổi visual và bố cục bên trong cột trái, SRS không đổi. Màn hình: Cửa sổ chính · cột trái (Workspace List, Active Sessions, Stashed Sessions — SRS mục 7).
+
+- Người dùng: như trên — một lập trình viên, cũng là PO, chạy song song nhiều phiên Claude Code.
+- Điều user thấy chưa đẹp: (1) ba tint sky / plum / teal lệch nhau, đọc như ba khối rời; (2) nút chữ thô — "+ Add Folder", "Remove" dạng chữ có viền, nặng và chiếm chỗ.
+- Giá trị cốt lõi:
+  1. Cột trái đọc như một khối liền mạch, ba section vẫn phân biệt được (giữ SRS-NFR-009/010: ba tint nền khác nhau, ≤ 1.25:1 so với nền cột trái, chữ ≥ 4.5:1, cả light/dark).
+  2. Thao tác phụ (thêm / bỏ folder, gỡ stash) nhẹ đi — icon, hiện khi cần, không tranh chỗ với tên.
+  3. Status Highlight vẫn nổi nhất cột (BO-01) — màu trang trí không được lấn màu trạng thái.
+- Giữ nguyên: thứ tự Folders → Active → Stashed; Row Focus Mark (FR-099); nhãn `Missing`; Status Highlight + badge của folder và dòng Active; dòng phụ "giờ · lý do"; × gỡ stash đi được bằng bàn phím (FR-110); nhãn tiếng Anh (NFR-008); Signal Deck: Inter + JetBrains Mono, bo 4px, Lucide.
+- Màn hình vẽ: chỉ cột trái (kèm mép vùng ô để thấy tổng thể).
+
+## Đã chốt cho Sidebar Refresh (2026-11-02)
+
+- Bố cục: wireframe A · Khối tint, header gọn. Giữ ba khối nền phủ hết bề ngang, ngăn bằng viền 1px `--border`. Header mỗi section: `// Label` mono 11px `--muted-foreground` + số đếm (opacity 60%). "+ Add Folder" thành nút icon Lucide `plus` 20×20 ở góc phải header Folders (title "Add Folder"). "Remove" folder và gỡ stash thành icon `x` 12px, chỉ hiện khi rê chuột hoặc focus bàn phím (FR-110).
+- Màu: v1 · Cùng dải lạnh (`sidebar/design.html#final`). `--section-active` đổi plum-3 → indigo-3 (light `#edf2fe`, 1.06:1, chữ 14.53 · dark `#182449`, 1.16:1, chữ 13.05). Folders sky-3, Stashed teal-3 giữ nguyên. Đạt SRS-NFR-009/010.
+- Token mới `--row-focus` cho Row Focus Mark (FR-099): light iris-9 `#5b5bd6`, dark iris-10 `#6e6ade` (≥ 3.35:1 trên ba tint và nền trạng thái; iris-9 dark chỉ 2.8). Focus Outline của ô giữ `--ring`.
+- Chưa ghi vào `tokens.css` dùng chung (file này app import trực tiếp) — chép khi làm code.
+- Trạng thái: `sidebar/design.html#empty-no-folders`, `#empty-no-sessions`, `#loading` (3 thanh xương, ẩn số đếm), `#error`, `#dense-data`, `#narrow`. Không vẽ No permission (app một người dùng).
+- Chữ đề xuất ngoài SRS: "No folders" — cần PO xác nhận khi làm code ("No stashed sessions" đã có sẵn trong code).
