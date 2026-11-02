@@ -191,8 +191,7 @@ describe("robustness (fix round 1)", () => {
     const user = userEvent.setup();
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
     await folders().findByText("beta");
-    // Title bar "Status Latency", then "+ Add Folder", then the first row.
-    await user.tab();
+    // Title bar "Status Latency", then the first row; "+ Add Folder" sits at the sidebar foot.
     await user.tab();
     await user.tab();
     await user.keyboard("{Enter}");
@@ -203,9 +202,26 @@ describe("robustness (fix round 1)", () => {
     const user = userEvent.setup();
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
     await folders().findByText("beta");
-    // Title bar "Status Latency", "+ Add Folder", the alpha row, then its Remove.
-    for (let i = 0; i < 4; i++) await user.tab();
+    // Title bar "Status Latency", the alpha row, then its Remove.
+    for (let i = 0; i < 3; i++) await user.tab();
     expect(screen.getByRole("button", { name: "Remove alpha" })).toHaveFocus();
+  });
+
+  it("puts + Add Folder after every list row in the tab order", async () => {
+    const user = userEvent.setup();
+    renderSidebar(fakeClient([ws("a", "alpha")]));
+    await folders().findByText("alpha");
+    // Title bar "Status Latency", the alpha row, its Remove, then the sidebar foot.
+    for (let i = 0; i < 4; i++) await user.tab();
+    expect(screen.getByRole("button", { name: "+ Add Folder" })).toHaveFocus();
+  });
+
+  it("marks the selected folder with the focus bar", async () => {
+    renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
+    await folders().findByText("beta");
+    await userEvent.setup().click(folders().getByText("beta"));
+    expect(folders().getByText("beta").closest("li")).toHaveClass("border-l-row-focus");
+    expect(folders().getByText("alpha").closest("li")).toHaveClass("border-l-transparent");
   });
 
   it("reveals Remove only on row hover or keyboard focus", async () => {
@@ -215,6 +231,26 @@ describe("robustness (fix round 1)", () => {
     expect(remove).toHaveClass("opacity-0", "group-hover:opacity-100", "focus-visible:opacity-100");
     expect(remove).toHaveAttribute("title", "Remove alpha");
     expect(remove.closest("li")).toHaveClass("group");
+  });
+
+  it("keeps Add Folder inside the Workspaces sidebar", async () => {
+    renderSidebar(fakeClient([ws("a", "alpha")]));
+    await folders().findByText("alpha");
+    const sidebar = screen.getByRole("complementary", { name: "Workspaces" });
+    expect(within(sidebar).getByRole("button", { name: "+ Add Folder" })).toBeInTheDocument();
+  });
+
+  it("keeps the sidebar list scroll position across hide and show (SRS-FR-088)", async () => {
+    const user = userEvent.setup();
+    renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
+    await folders().findByText("beta");
+    const sidebar = screen.getByRole("complementary", { name: "Workspaces" });
+    const scroller = sidebar.classList.contains("overflow-auto") ? sidebar : (sidebar.querySelector(".overflow-auto") as HTMLElement);
+    scroller.scrollTop = 120;
+    await user.click(screen.getByRole("button", { name: "Hide sidebar" }));
+    await user.click(screen.getByRole("button", { name: "Show sidebar" }));
+    expect(scroller.isConnected).toBe(true);
+    expect(scroller.scrollTop).toBe(120);
   });
 
   it("keeps the three section titles", async () => {

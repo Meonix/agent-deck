@@ -5,7 +5,9 @@ import type { ActiveSession, FolderHighlight } from "./statusHighlight";
 import { StateMarker, tone } from "./statusTone";
 import type { WorkspacesState } from "./useWorkspaces";
 
-const SECTION_LABEL = "font-mono text-[11px] font-medium text-muted-foreground before:content-['//_'] before:opacity-60";
+const SECTION_LABEL = "font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-section-label";
+const SECTION_HEAD = "px-3 pt-3.5 pb-1.5";
+const CHIP = "max-w-[45%] shrink-0 truncate font-mono text-[10px] text-muted-foreground";
 
 type Props = {
   workspaces: WorkspacesState;
@@ -37,98 +39,104 @@ export function WorkspaceSidebar({
 }: Props) {
   const { items, selected, select, addFolder, removeFolder } = workspaces;
   return (
-    <aside aria-label="Workspaces" hidden={hidden} inert={covered} className="flex flex-col bg-card overflow-auto border-r border-border">
-      <section className="bg-section-folders pb-2">
-        <div className="px-3 pt-3 pb-1.5 flex items-center justify-between">
-          <span className={SECTION_LABEL}>Folders</span>
-          <button
-            aria-label="+ Add Folder"
-            title="+ Add Folder"
-            onClick={() => void addFolder()}
-            className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <Plus {...ICON} />
-          </button>
-        </div>
-        <ul aria-label="Folders" className="px-2 space-y-0.5">
-          {(items ?? []).map((w) => {
-            const highlight = folderHighlights.get(w.id);
-            return (
-              <li
-                key={w.id}
-                aria-current={w.id === selected?.id ? "true" : undefined}
-                className={`group flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${folderLook(highlight, w.id === selected?.id)}`}
-              >
-                <button
-                  onClick={() => select(w.id)}
-                  className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+    <aside aria-label="Workspaces" hidden={hidden} inert={covered} className="flex min-h-0 flex-col bg-card border-r border-border">
+      {/* SRS-FR-088: this list area keeps its scroll position while the sidebar is hidden. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+        <section className="bg-section-folders pb-2">
+          <div className={SECTION_HEAD}>
+            <span className={SECTION_LABEL}>Folders</span>
+          </div>
+          <ul aria-label="Folders">
+            {(items ?? []).map((w) => {
+              const highlight = folderHighlights.get(w.id);
+              return (
+                <li
+                  key={w.id}
+                  aria-current={w.id === selected?.id ? "true" : undefined}
+                  className={`group flex items-center justify-between gap-2 border-l-2 py-1.5 pl-[10px] pr-3 text-sm transition-colors ${folderLook(highlight, w.id === selected?.id)}`}
                 >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <Folder {...ICON} className="shrink-0 opacity-70" />
-                    <span className={`truncate ${w.missing ? "line-through text-muted-foreground" : ""}`}>{w.name}</span>
-                  </span>
-                  {w.missing && <span className="font-mono text-[11px] text-error-foreground">Missing</span>}
-                  {highlight && (
-                    <span
-                      role="img"
-                      aria-label={`${highlight.count} ${highlight.state}`}
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 text-[11px] ${tone[highlight.state].chip}`}
-                    >
-                      <StateMarker state={highlight.state} />
-                      {highlight.count}
+                  <button
+                    onClick={() => select(w.id)}
+                    className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Folder {...ICON} className="shrink-0 opacity-70" />
+                      <span className={`truncate ${w.missing ? "line-through text-muted-foreground" : ""}`}>{w.name}</span>
                     </span>
-                  )}
-                </button>
-                {/* Shown on hover, and kept reachable by keyboard like the stash ×. */}
-                <button
-                  aria-label={`Remove ${w.name}`}
-                  title={`Remove ${w.name}`}
-                  onClick={() => void removeFolder(w.id)}
-                  className="shrink-0 rounded-md p-0.5 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 transition-opacity"
-                >
-                  <X {...ICON_SM} />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-      <section className="bg-section-active border-t border-border pb-2">
-        <div className="px-3 pt-3 pb-1.5">
-          <span className={SECTION_LABEL}>
-            Active Sessions · {active.length}
-          </span>
-        </div>
-        <ul aria-label="Active sessions" className="px-2 space-y-0.5">
-          {active.length === 0 ? (
-            <li className="px-2 py-1 text-sm text-muted-foreground">No active sessions</li>
-          ) : (
-            active.map((row) => <ActiveRow key={row.paneId} row={row} focused={row.paneId === focusedPaneId} onJump={onJump} />)
-          )}
-        </ul>
-      </section>
-      <section className="flex-1 bg-section-stash border-t border-border pb-2">
-        <div className="px-3 pt-3 pb-1.5">
-          <span className={SECTION_LABEL}>
-            Stashed Sessions · {stashed.length}
-          </span>
-        </div>
-        <ul aria-label="Stashed sessions" className="px-2 space-y-0.5">
-          {stashed.length === 0 ? (
-            <li className="px-2 py-1 text-sm text-muted-foreground">No stashed sessions</li>
-          ) : (
-            stashed.map((row) => (
-              <StashedRow
-                key={row.sessionId}
-                row={row}
-                workspaceName={items?.find((w) => w.id === row.workspaceId)?.name ?? row.workspaceName}
-                onReopen={onReopen}
-                onUnstash={onUnstash}
-              />
-            ))
-          )}
-        </ul>
-      </section>
+                    {w.missing && <span className="font-mono text-[11px] text-error-foreground">Missing</span>}
+                    {highlight && (
+                      <span
+                        role="img"
+                        aria-label={`${highlight.count} ${highlight.state}`}
+                        className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 text-[11px] ${tone[highlight.state].chip}`}
+                      >
+                        <StateMarker state={highlight.state} />
+                        {highlight.count}
+                      </span>
+                    )}
+                  </button>
+                  {/* Shown on hover, and kept reachable by keyboard like the stash ×. */}
+                  <button
+                    aria-label={`Remove ${w.name}`}
+                    title={`Remove ${w.name}`}
+                    onClick={() => void removeFolder(w.id)}
+                    className="shrink-0 rounded-md p-0.5 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X {...ICON_SM} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+        <section className="bg-section-active pb-2">
+          <div className={SECTION_HEAD}>
+            <span className={SECTION_LABEL}>
+              Active Sessions · {active.length}
+            </span>
+          </div>
+          <ul aria-label="Active sessions">
+            {active.length === 0 ? (
+              <li className="px-3 py-1 text-sm text-muted-foreground">No active sessions</li>
+            ) : (
+              active.map((row) => <ActiveRow key={row.paneId} row={row} focused={row.paneId === focusedPaneId} onJump={onJump} />)
+            )}
+          </ul>
+        </section>
+        <section className="flex-1 bg-section-stash pb-2">
+          <div className={SECTION_HEAD}>
+            <span className={SECTION_LABEL}>
+              Stashed Sessions · {stashed.length}
+            </span>
+          </div>
+          <ul aria-label="Stashed sessions">
+            {stashed.length === 0 ? (
+              <li className="px-3 py-1 text-sm text-muted-foreground">No stashed sessions</li>
+            ) : (
+              stashed.map((row) => (
+                <StashedRow
+                  key={row.sessionId}
+                  row={row}
+                  workspaceName={items?.find((w) => w.id === row.workspaceId)?.name ?? row.workspaceName}
+                  onReopen={onReopen}
+                  onUnstash={onUnstash}
+                />
+              ))
+            )}
+          </ul>
+        </section>
+      </div>
+      <div className="shrink-0 border-t border-border bg-card px-2 py-1.5">
+        <button
+          aria-label="+ Add Folder"
+          title="+ Add Folder"
+          onClick={() => void addFolder()}
+          className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 font-mono text-[11px] text-muted-foreground hover:bg-section-active hover:text-foreground transition-colors"
+        >
+          <Plus {...ICON} />
+          Add Folder
+        </button>
+      </div>
     </aside>
   );
 }
@@ -140,7 +148,7 @@ function ActiveRow({ row, focused, onJump }: { row: ActiveSession; focused: bool
   return (
     <li
       aria-current={focused ? "true" : undefined}
-      className={`rounded-md px-2 py-1 ${row.highlighted ? tone[row.state].fill : ""} ${mark}`}
+      className={`py-1 pl-3 pr-3 ${row.highlighted ? tone[row.state].fill : ""} ${mark}`}
     >
       <button
         onClick={() => onJump(row.paneId)}
@@ -160,7 +168,7 @@ function ActiveRow({ row, focused, onJump }: { row: ActiveSession; focused: bool
           )}
         </span>
         <span className="min-w-0 flex-1 truncate">{row.title}</span>
-        <span className="max-w-[45%] shrink-0 truncate rounded-md border border-border px-1 font-mono text-[10px] text-muted-foreground">
+        <span className={CHIP}>
           {row.workspaceName}
         </span>
       </button>
@@ -180,13 +188,13 @@ function StashedRow({ row, workspaceName, onReopen, onUnstash }: {
   onUnstash(sessionId: string): void;
 }) {
   return (
-    <li className="group flex items-center gap-1 rounded-md px-2 py-1 hover:bg-muted transition-colors">
+    <li className="group flex items-center gap-1 py-1 pl-3 pr-3 hover:bg-section-hover transition-colors">
       <button
         onClick={() => onReopen(row)}
         className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="min-w-0 flex-1 truncate">{row.title}</span>
-        <span className="max-w-[45%] shrink-0 truncate rounded-md border border-border px-1 font-mono text-[10px] text-muted-foreground">
+        <span className={CHIP}>
           {workspaceName}
         </span>
       </button>
@@ -208,8 +216,9 @@ function clock(ms: number): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-// A highlighted folder keeps its status colour; the ring marks it selected instead of the accent fill.
+// A highlighted folder keeps its status colour; the left bar marks it selected instead of the accent fill.
 function folderLook(highlight: FolderHighlight | undefined, selected: boolean): string {
-  if (highlight) return `${tone[highlight.state].fill} text-foreground ${selected ? "ring-1 ring-ring font-medium" : ""}`;
-  return selected ? "bg-accent text-accent-foreground font-medium" : "text-foreground hover:bg-muted";
+  const bar = selected ? "border-l-row-focus font-medium" : "border-l-transparent";
+  if (highlight) return `${tone[highlight.state].fill} text-foreground ${bar}`;
+  return selected ? `${bar} bg-accent text-accent-foreground` : `${bar} text-foreground hover:bg-section-hover`;
 }

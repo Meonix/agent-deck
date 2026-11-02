@@ -15,7 +15,7 @@
   --input: #e8e8e8;                  /* gray-4 */
   --border: #d9d9d9;                 /* gray-6 */
   --ring: #5b5bd6;                   /* iris-9 — Focus Outline · 5.10 trên --card (≥3) */
-  --row-focus: #5b5bd6;              /* iris-9 — Row Focus Mark · ≥3: section-active 4.79, running-bg 4.79, approval-bg 4.94, error-bg 4.68 */
+  --row-focus: #5b5bd6;              /* iris-9 — Row Focus Mark · ≥3: section-active 4.18, running-bg 4.79, approval-bg 4.94, error-bg 4.68 */
   --primary: #5b5bd6;                /* iris-9 */
   --primary-foreground: #ffffff;     /* 5.37 AA trên --primary */
   --selection: #dadcff;              /* iris-5 — vùng chọn trong terminal · --foreground 12.15 AA */
@@ -38,10 +38,12 @@
 
   --goal: #ce2c31;                   /* red-11 — Target Box chữ đỏ FR-092 · 4.95 AA trên --card */
 
-  /* SRS-NFR-009/010: tint ba section, đo so với --card (nền cột trái) */
-  --section-folders: #e1f6fd;        /* sky-3 · 1.06:1 · --foreground 14.59 · --muted-foreground 5.30 */
-  --section-active: #edf2fe;         /* indigo-3 · 1.06:1 · --foreground 14.53 · --muted-foreground 5.28 (Sidebar Refresh: thay plum-3) */
-  --section-stash: #e0f8f3;          /* teal-3 · 1.06:1 · --foreground 14.66 · --muted-foreground 5.32 */
+  /* SRS-NFR-009/010: tint ba section, đo so với --card (nền cột trái). Sidebar Refresh vòng 2: bộ thép "Сталь" user chọn, không phải thang Radix */
+  --section-folders: #e7edf2;         /* thép (palette "Сталь" #E7EDF2) · 1.12:1 · --foreground 13.81 · --muted-foreground 5.01 · nhãn 8.13 */
+  --section-active: #dde4eb;          /* thép, pha #B7C6D3 + #E7EDF2 · 1.22:1 · --foreground 12.70 · --muted-foreground 4.61 · nhãn 7.48 */
+  --section-stash: #f0f3f6;           /* thép, pha #E7EDF2 + #F9F9F9 · 1.06:1 · --foreground 14.63 · --muted-foreground 5.31 · nhãn 8.61 */
+  --section-label: #33475a;           /* palette "Сталь" #33475A — tiêu đề section in hoa */
+  --section-hover: #fbfcfd;           /* dòng sidebar khi rê chuột · --foreground 15.86 · --muted-foreground 5.76 (tối hơn tint thì chữ phụ < 4.5) */
 
   /* Ô không focus mờ đi; 0.9 giữ --muted-foreground ở 4.62 trên --background (0.75 chỉ còn 3.36) */
   --pane-dim: 0.9;
@@ -71,7 +73,7 @@
   --input: #2a2a2a;                  /* gray-dark-4 */
   --border: #3a3a3a;                 /* gray-dark-6 */
   --ring: #5b5bd6;                   /* iris-dark-9 — Focus Outline · 3.28 trên --card, 3.52 trên --background */
-  --row-focus: #6e6ade;              /* iris-dark-10 — Row Focus Mark · ≥3: section-active 3.44, running-bg 3.35, approval-bg 3.58, error-bg 3.71 (iris-9 chỉ ~2.8) */
+  --row-focus: #6e6ade;              /* iris-dark-10 — Row Focus Mark · ≥3: section-active 3.24, running-bg 3.35, approval-bg 3.58, error-bg 3.71 (iris-9 chỉ ~2.8) */
   --primary: #5b5bd6;                /* iris-dark-9 */
   --primary-foreground: #ffffff;     /* 5.37 AA trên --primary */
   --selection: #303374;              /* iris-dark-5 · --foreground 9.78 AA */
@@ -94,9 +96,11 @@
 
   --goal: #ff9592;                   /* red-dark-11 · 8.34 AA trên --card (red-9 chỉ 4.49) */
 
-  --section-folders: #112840;        /* sky-dark-3 · 1.17:1 · --foreground 12.92 · --muted-foreground 7.23 */
-  --section-active: #182449;         /* indigo-dark-3 · 1.16:1 · --foreground 13.05 · --muted-foreground 7.30 */
-  --section-stash: #0d2d2a;          /* teal-dark-3 · 1.19:1 · --foreground 12.69 · --muted-foreground 7.10 */
+  --section-folders: #18212a;         /* thép, pha #1F2C38 + #10161C · 1.08:1 · --foreground 14.03 · --muted-foreground 7.85 · nhãn 5.51 */
+  --section-active: #1f2c38;          /* palette "Сталь" #1F2C38 · 1.24:1 · --foreground 12.27 · --muted-foreground 6.86 · nhãn 4.81 · --row-focus 3.24 */
+  --section-stash: #10161c;           /* palette "Сталь" #10161C · 1.04:1 · --foreground 15.69 · --muted-foreground 8.78 · nhãn 6.16 */
+  --section-label: #8199ae;           /* palette "Сталь" #8199AE */
+  --section-hover: #2a3b4c;           /* thép, pha #1F2C38 + #33475A · --foreground 9.90 · --muted-foreground 5.54 */
 
   --pane-dim: 0.75;                  /* --foreground 9.42, --muted-foreground 5.54 trên --background */
   --approval-glow: inset 0 0 40px -10px rgb(255 197 61 / 0.45); /* amber-dark-9 */
