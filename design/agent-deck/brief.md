@@ -122,3 +122,22 @@ Không có CR — chỉ đổi visual và bố cục bên trong cột trái, SRS
 - Chưa ghi vào `tokens.css` dùng chung (file này app import trực tiếp) — chép khi làm code.
 - Trạng thái: `sidebar/design.html#empty-no-folders`, `#empty-no-sessions`, `#loading` (3 thanh xương, ẩn số đếm), `#error`, `#dense-data`, `#narrow`. Không vẽ No permission (app một người dùng).
 - Chữ đề xuất ngoài SRS: "No folders" — cần PO xác nhận khi làm code ("No stashed sessions" đã có sẵn trong code).
+
+## Sidebar Refresh vòng 2 · bố cục C (2026-11-02)
+
+Bản A đã lên code (commit 60c9f40) nhưng user thấy "y như cũ" — chỉ đổi một tint và hai nút. Vòng 2 lấy wireframe C: dòng tràn hết bề ngang, folder đang chọn có vạch 2px mép trái, header in hoa giãn chữ, bỏ viền giữa section, "+ Add Folder" xuống thanh đáy cột.
+
+Giới hạn SRS giữ nguyên trong C: Sidebar Toggle vẫn ở giữa mép phải (SRS định nghĩa vị trí, nên thanh đáy chỉ có Add Folder); Row Focus Mark vẫn là vòng iris 2px quanh dòng (định nghĩa SRS), không đổi thành vạch; dòng phụ giữ dạng "giờ · lý do"; tint ba section dark không lên được bậc 4 (1.36–1.41 > 1.25, NFR-009/010).
+
+## Đã chốt cho Sidebar Refresh vòng 2 (2026-11-02)
+
+- Bố cục: C (`sidebar/design.html#final`). Dòng tràn hết bề ngang (vạch trái 2px trong suốt giữ chỗ); header in hoa mono 10px giãn chữ 0.08em; không viền giữa section; chip folder không viền; "+ Add Folder" là thanh ghim đáy cột (tên trợ năng giữ "+ Add Folder"); Sidebar Toggle giữ chỗ.
+- Màu: s1 Thép, từ palette "Сталь" user gửi. Token đổi/mới:
+  - `--section-folders` dark #18212A (1.08:1) · light #E7EDF2 (1.12:1)
+  - `--section-active` dark #1F2C38 (1.24:1) · light #DDE4EB (1.22:1)
+  - `--section-stash` dark #10161C (1.04:1) · light #F0F3F6 (1.06:1)
+  - mới `--section-label` dark #8199AE (≥ 4.81 trên ba nền) · light #33475A (≥ 7.48)
+  - mới `--section-hover` dark #2A3B4C (chữ 9.90, chữ phụ 5.54) · light #FBFCFD (chữ phụ 5.76) — light sáng lên vì tối xuống thì chữ phụ < 4.5
+  - Folder đang chọn: vạch 2px `--row-focus` + nền `--accent`; Row Focus Mark giữ vòng iris (≥ 3.24 trên #1F2C38).
+- Không phải thang Radix: hex lấy từ palette user, độ sáng pha giữa hai bậc của palette để nằm dưới trần SRS 1.25.
+- Trạng thái: `#empty-no-folders`, `#empty-no-sessions`, `#error`, `#dense-data`, `#narrow`. Không vẽ Loading, No permission.

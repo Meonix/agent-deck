@@ -82,3 +82,16 @@ Chụp bằng Playwright ngày 2026-11-02, viewport 1440×900, cắt sát cột 
 | 24 | Cursor | https://cursor.com | `refs/sidebar/cursor-agents-list.png` | Header cột chỉ có một icon + ở góc phải; dòng đang chọn là pill nền xám bo lớn; chấm đỏ nhỏ trên avatar báo cần chú ý |
 
 Đã thử nhưng bỏ: https://arc.net (trang chia tay, không thấy sidebar), https://culturedcode.com/things/ (chỉ có icon app), https://zed.dev/agentic, https://www.warp.dev/agents, https://www.raycast.com/notes (phần đầu trang không có cột trái), https://openai.com/codex/ (trang trắng).
+
+## Sidebar Refresh vòng 2 · bảng màu (2026-11-02)
+
+Duyệt bằng agent-browser (`ab`, Brave) ngày 2026-11-02. Hex đọc từ trang/raw file, không chép tay. Ảnh trong `refs/sidebar/palettes/`.
+
+| # | Nguồn | Link | Ảnh | Lấy gì |
+| --- | --- | --- | --- | --- |
+| 25 | Rosé Pine palette | https://rosepinetheme.com/palette/ | `refs/sidebar/palettes/rose-pine-palette.png` | Gold #f6c177, Love #eb6f92, Rose #ebbcba trên nền base #191724 — màu ấm dịu trên nền gần đen; bỏ vì Love/Rose quá gần đỏ Error |
+| 26 | Kanagawa | https://github.com/rebelot/kanagawa.nvim (lua/kanagawa/colors.lua) | — (đọc file) | boatYellow2 #C0A36E, sakuraPink #D27E99, oldWhite #C8C093; nền "winter*" là nền màu tối dùng cho diff — đúng kiểu tint section |
+| 27 | Gruvbox | https://github.com/ellisonleao/gruvbox.nvim (lua/gruvbox.lua) | — (đọc file) | neutral_yellow #d79921, neutral_orange #d65d0e, dark4 #7c6f64 — đất son / cam cháy / nâu đá |
+| 28 | Color Hunt · Dark Warm | https://colorhunt.co/palettes/dark-warm | `refs/sidebar/palettes/colorhunt-dark-warm.png` | Bộ "cà phê" #D5CEA3 · #A56F63 · #DCA06D và nhiều bộ đỏ–hồng–nâu trên nền tối |
+
+| 29 | Palette "Сталь" (Holst), ảnh user gửi trong chat 2026-11-02 | — (ảnh trong chat, reference-only) | — | 7 bậc thép: #10161C · #1F2C38 · #33475A · #4E6A83 · #8199AE · #B7C6D3 · #E7EDF2. User chốt dùng bộ này cho tint section (thay sky / indigo / teal) |
