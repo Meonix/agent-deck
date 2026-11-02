@@ -8,6 +8,7 @@ import type { WorkspacesState } from "./useWorkspaces";
 const SECTION_LABEL = "font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-section-label";
 const SECTION_HEAD = "px-3 pt-3.5 pb-1.5";
 const CHIP = "max-w-[45%] shrink-0 truncate font-mono text-[10px] text-muted-foreground";
+const ROW = "py-1 pl-3 pr-3";
 
 type Props = {
   workspaces: WorkspacesState;
@@ -148,7 +149,7 @@ function ActiveRow({ row, focused, onJump }: { row: ActiveSession; focused: bool
   return (
     <li
       aria-current={focused ? "true" : undefined}
-      className={`py-1 pl-3 pr-3 ${row.highlighted ? tone[row.state].fill : ""} ${mark}`}
+      className={`${ROW} ${row.highlighted ? tone[row.state].fill : ""} ${mark}`}
     >
       <button
         onClick={() => onJump(row.paneId)}
@@ -188,7 +189,7 @@ function StashedRow({ row, workspaceName, onReopen, onUnstash }: {
   onUnstash(sessionId: string): void;
 }) {
   return (
-    <li className="group flex items-center gap-1 py-1 pl-3 pr-3 hover:bg-section-hover transition-colors">
+    <li className={`group flex items-center gap-1 ${ROW} hover:bg-section-hover transition-colors`}>
       <button
         onClick={() => onReopen(row)}
         className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
