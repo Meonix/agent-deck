@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Gauge } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SessionsClient } from "./api/sessions";
 import type { WorkspacesClient } from "./api/workspaces";
@@ -9,7 +9,7 @@ import { PaneGrid } from "./components/PaneGrid";
 import { TerminalPane, UNTITLED, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
 import { ToastProvider, useToast } from "./components/Toast";
 import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
-import { activeSessions, folderHighlights, maximizedBadge } from "./components/statusHighlight";
+import { activeSessions, folderHighlights, maximizedBadge, statusSummary } from "./components/statusHighlight";
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useSidebarToggle } from "./components/useSidebarToggle";
 import type { StashedSession } from "./components/stash";
@@ -18,6 +18,8 @@ import { useTextZoom } from "./components/useTextZoom";
 import { useWorkspaces } from "./components/useWorkspaces";
 import { mergeSessions, type OpenSession } from "./components/sessionList";
 import { ICON_SM } from "./components/icon";
+import { StatusSummary } from "./components/StatusSummary";
+import { useSummaryMode } from "./components/useSummaryMode";
 import { useMinuteClock, useSessionList } from "./components/useSessionList";
 import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
 import { countTerminals, type DiagClient } from "./diagnostics";
@@ -36,31 +38,23 @@ const REPORT_MS = 60_000;
 
 function App(deps: Deps) {
   const [reportOpen, setReportOpen] = useState(false);
+  const openReport = useCallback(() => setReportOpen(true), []);
   const closeReport = useCallback(() => setReportOpen(false), []);
   const textSize = useTextZoom(deps.zoom, deps.mac ?? false);
   const sidebar = useSidebarToggle(deps.mac ?? false);
   return (
     <div className="h-screen relative flex flex-col bg-background text-foreground font-sans">
       <ToastProvider>
-        <div className="h-9 flex items-center justify-between px-4 border-b border-border bg-card">
-          <span className="text-sm font-semibold text-foreground">agent-deck</span>
-          <button
-            onClick={() => setReportOpen(true)}
-            className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground bg-muted border border-border rounded-md px-2 py-0.5 hover:text-foreground hover:border-muted-foreground transition-colors"
-          >
-            <Gauge {...ICON_SM} />
-            Status Latency
-          </button>
-        </div>
-        <Workbench {...deps} textSize={textSize} sidebar={sidebar} />
+        <Workbench {...deps} textSize={textSize} sidebar={sidebar} onOpenLatency={openReport} />
         {reportOpen && <StatusLatencyReport client={deps.sessions} onClose={closeReport} />}
       </ToastProvider>
     </div>
   );
 }
 
-function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag, textSize, sidebar }: Deps & {
+function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag, textSize, sidebar, onOpenLatency }: Deps & {
   textSize: number;
+  onOpenLatency(): void;
   sidebar: { shown: boolean; toggle(): void };
 }) {
   const terminals = useMemo(() => countTerminals(makeTerminal), [makeTerminal]);
@@ -74,6 +68,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     () => void refresh().catch(() => {}),
     paneArea,
   );
+  const summaryMode = useSummaryMode(paneArea, panes.maximizedId !== null);
   const { diagnostics } = panes;
   const { reopenPanes } = panes;
   useEffect(() => {
@@ -259,6 +254,15 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   };
 
   return (
+    <div className="flex-1 min-h-0 flex flex-col">
+      {summaryMode !== "hidden" && (
+        <StatusSummary
+          summary={statusSummary(panes.entries)}
+          mode={summaryMode}
+          onGoTo={panes.jumpTo}
+          onOpenLatency={onOpenLatency}
+        />
+      )}
     <div className={`flex-1 min-h-0 relative grid ${gridColumns(sidebar.shown, historyShown)}`}>
       <WorkspaceSidebar
         hidden={!sidebar.shown}
@@ -385,6 +389,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           onCancel={cancelClose}
         />
       )}
+    </div>
     </div>
   );
 }
