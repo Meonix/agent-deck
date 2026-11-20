@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { summaryMode, useSummaryMode } from "./useSummaryMode";
+import { focusReducer, initialFocusState, summaryMode, useSummaryMode, type FocusState } from "./useSummaryMode";
 
 describe("summaryMode", () => {
   const table: [boolean, boolean, boolean, string][] = [
@@ -16,6 +16,95 @@ describe("summaryMode", () => {
 
   it.each(table)("maximized %s, focusInPanes %s, narrow %s -> %s", (maximized, focusInPanes, narrow, expected) => {
     expect(summaryMode({ maximized, focusInPanes, narrow })).toBe(expected);
+  });
+});
+
+describe("focusReducer", () => {
+  const held: FocusState = { ...initialFocusState, held: true };
+
+  it("focusin sets focusInPanes", () => {
+    expect(
+      focusReducer(initialFocusState, {
+        type: "focusin",
+        inPanes: true,
+        inModal: false,
+      }).focusInPanes,
+    ).toBe(true);
+  });
+
+  it("focusin inside a modal is ignored", () => {
+    const state = { ...initialFocusState, focusInPanes: true };
+    expect(focusReducer(state, { type: "focusin", inPanes: false, inModal: true })).toBe(state);
+  });
+
+  it("focusin while held is recorded as pending, not applied", () => {
+    expect(focusReducer(held, { type: "focusin", inPanes: true, inModal: false })).toEqual({ ...held, pending: true });
+  });
+
+  it("a primary pointerdown holds and remembers whether it hit the panes", () => {
+    const state = focusReducer(initialFocusState, {
+      type: "pointerdown",
+      primary: true,
+      inPanes: true,
+    });
+    expect(state).toMatchObject({ held: true, pressInPanes: true });
+  });
+
+  it("a non-primary pointerdown changes nothing", () => {
+    expect(
+      focusReducer(initialFocusState, {
+        type: "pointerdown",
+        primary: false,
+        inPanes: true,
+      }),
+    ).toBe(initialFocusState);
+  });
+
+  it("pointerend releases the hold but keeps pending for the flush", () => {
+    expect(focusReducer({ ...held, pending: true }, { type: "pointerend" })).toMatchObject({
+      held: false,
+      pending: true,
+    });
+  });
+
+  it("flush applies pending and clears the press", () => {
+    const state = { ...initialFocusState, pending: true, pressInPanes: true };
+    expect(focusReducer(state, { type: "flush" })).toEqual({
+      ...initialFocusState,
+      focusInPanes: true,
+    });
+  });
+
+  it("flush without pending keeps focusInPanes", () => {
+    const state = { ...initialFocusState, focusInPanes: true };
+    expect(focusReducer(state, { type: "flush" })).toBe(state);
+  });
+
+  it("body re-check follows where focus ended", () => {
+    const state = { ...initialFocusState, focusInPanes: true };
+    expect(focusReducer(state, { type: "body", inPanes: false }).focusInPanes).toBe(false);
+  });
+
+  it("body re-check after a press inside the panes keeps them focused (SRS-FR-137)", () => {
+    const state = {
+      ...initialFocusState,
+      focusInPanes: true,
+      held: true,
+      pressInPanes: true,
+    };
+    const next = focusReducer(state, { type: "body", inPanes: false });
+    expect(focusReducer({ ...next, held: false }, { type: "flush" }).focusInPanes).toBe(true);
+  });
+
+  it("body re-check after a press outside the panes expands", () => {
+    const state = {
+      ...initialFocusState,
+      focusInPanes: true,
+      held: true,
+      pressInPanes: false,
+    };
+    const next = focusReducer(state, { type: "body", inPanes: false });
+    expect(focusReducer({ ...next, held: false }, { type: "flush" }).focusInPanes).toBe(false);
   });
 });
 
@@ -206,6 +295,21 @@ describe("useSummaryMode", () => {
         vi.runAllTimers();
       });
       expect(result.current).toBe("expanded");
+    });
+
+    it("stays collapsed when focus falls to body after a primary press inside the pane area (SRS-FR-137)", () => {
+      const { inside, result } = setup();
+      const header = document.createElement("div");
+      document.body.firstElementChild!.append(header);
+      act(() => inside.focus());
+      act(() => {
+        header.dispatchEvent(new MouseEvent("pointerdown", { button: 0 }));
+        inside.blur();
+        vi.runAllTimers();
+        document.dispatchEvent(new Event("pointerup"));
+        vi.runAllTimers();
+      });
+      expect(result.current).toBe("collapsed");
     });
   });
 
