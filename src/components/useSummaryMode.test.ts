@@ -84,6 +84,19 @@ describe("useSummaryMode", () => {
       expect(result.current).toBe("expanded");
     });
 
+    it("lets a later keyboard focus win over the held value", () => {
+      const { inside, outside, result } = setup();
+      act(() => inside.focus());
+      act(() => {
+        document.dispatchEvent(new Event("pointerdown"));
+        outside.focus();
+        document.dispatchEvent(new Event("pointerup"));
+        inside.focus();
+        vi.runAllTimers();
+      });
+      expect(result.current).toBe("collapsed");
+    });
+
     it("keeps expanded until the click is over when focus enters a pane", () => {
       const { inside, result } = setup();
       act(() => {

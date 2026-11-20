@@ -23,7 +23,11 @@ export function useSummaryMode(paneArea: RefObject<HTMLElement | null>, maximize
     const onFocusIn = (event: FocusEvent) => {
       const inPanes = event.target instanceof Node && !!paneArea.current?.contains(event.target);
       if (pointerDown.current) pending = inPanes;
-      else setFocusInPanes(inPanes);
+      else {
+        pending = null;
+        clearTimeout(timer);
+        setFocusInPanes(inPanes);
+      }
     };
     // A mode change under a held pointer moves the button before mouse-up and the click is lost,
     // so it waits until the click has been dispatched.
