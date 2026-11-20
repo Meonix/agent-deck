@@ -13,6 +13,13 @@ type Props = {
 export function ConfirmDialog({ title, detail, action, extra, onCancel, onConfirm }: Props) {
   const dialog = useRef<HTMLDivElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
+  // Focus returns to where it was, so closing the dialog does not strand it on body (SRS-FR-137).
+  useEffect(() => {
+    const opener = document.activeElement;
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
+  }, []);
   useEffect(() => {
     cancel.current?.focus();
     // Capture phase on the document, so neither Escape nor Tab reaches the terminal

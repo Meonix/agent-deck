@@ -2843,6 +2843,32 @@ describe("Status Summary (3.1)", () => {
     expect(summary()).toHaveAttribute("data-mode", "expanded");
   });
 
+  it("stays collapsed behind a confirm dialog and returns focus to the pane on Cancel (SRS-FR-137)", async () => {
+    const { user } = await openPanes(1);
+    await user.click(within(panes()[0]).getByRole("button", { name: "Close pane" }));
+    expect(summary()).toHaveAttribute("data-mode", "collapsed");
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    expect(summary()).toHaveAttribute("data-mode", "collapsed");
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(panes()[0]).toContainElement(document.activeElement as HTMLElement);
+    expect(summary()).toHaveAttribute("data-mode", "collapsed");
+  });
+
+  it("makes the summary inert while a confirm dialog is open", async () => {
+    const { user, sessions } = await openPanes(1);
+    act(() => sessions.opened[0].stream.status({ state: "Needs Approval", since, reason: "Edit a" }));
+    const goTo = within(summary()).getByRole("button", { name: "Go to First" });
+    expect(goTo.closest("[inert]")).toBeNull();
+    await user.click(within(panes()[0]).getByRole("button", { name: "Close pane" }));
+    expect(goTo.closest("[inert]")).not.toBeNull();
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(goTo.closest("[inert]")).toBeNull();
+  });
+
   it("is collapsed in a narrow window (SRS-FR-138)", () => {
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: true,

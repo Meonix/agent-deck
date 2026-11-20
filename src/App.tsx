@@ -253,8 +253,12 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     if (kept.length > 0) showToast(`${targets.length - kept.length} of ${targets.length} sessions deleted`);
   };
 
+  const modalOpen = !!(deleting || deletingMany || (stashing && stashingEntry) || (closing && closingEntry));
+
   return (
     <div className="flex-1 min-h-0 flex flex-col">
+      {/* Go to and Status Latency must not be reachable behind a modal dialog. */}
+      <div inert={modalOpen} className="shrink-0">
       {summaryMode === "hidden" ? (
         <LatencyBar onOpenLatency={onOpenLatency} />
       ) : (
@@ -265,6 +269,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           onOpenLatency={onOpenLatency}
         />
       )}
+      </div>
     <div className={`flex-1 min-h-0 relative grid gap-gap px-gap pb-gap ${gridColumns(sidebar.shown, historyShown)}`}>
       <WorkspaceSidebar
         hidden={!sidebar.shown}
