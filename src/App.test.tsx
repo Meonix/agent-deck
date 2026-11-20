@@ -2765,9 +2765,12 @@ describe("Status Summary (3.1)", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it("says Agent Deck · No sessions running with no pane open (SRS-FR-135)", () => {
+  it("says Agent Deck, with No sessions running apart from it, with no pane open (SRS-FR-135)", () => {
     setup([ws("a", "agent-deck")]);
-    expect(within(summary()).getByText("Agent Deck · No sessions running")).toBeInTheDocument();
+    expect(within(summary()).getByRole("heading")).toHaveTextContent(/^Agent Deck$/);
+    const note = within(summary()).getByText("No sessions running");
+    expect(note).toBeInTheDocument();
+    expect(within(summary()).getByRole("heading")).not.toContainElement(note);
   });
 
   it("counts the sessions that need the user, zero counts left out (SRS-FR-132, SRS-FR-133, SRS-FR-140)", async () => {

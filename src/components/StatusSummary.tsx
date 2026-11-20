@@ -13,7 +13,7 @@ type Props = {
 
 function headlineText({ headline, need }: Summary): string {
   if (headline === "need") return `${need} need you`;
-  return headline === "clear" ? "All clear" : "Agent Deck · No sessions running";
+  return headline === "clear" ? "All clear" : "Agent Deck";
 }
 
 /** SRS-FR-133: only the states with sessions get a chip. */
@@ -38,6 +38,9 @@ export function StatusSummary({ summary, mode, onGoTo, onOpenLatency }: Props) {
         <h1 className={`${expanded ? "text-[40px] leading-none font-light" : "truncate text-[17px] font-normal"} font-sans text-foreground`}>
           {headlineText(summary)}
         </h1>
+        {summary.headline === "idle" && (
+          <p className={`text-muted-foreground ${expanded ? "-mt-2 text-[15px]" : "shrink-0 text-xs"}`}>No sessions running</p>
+        )}
         <ul className="flex items-center gap-2">
           {chips(summary).map(({ count, label, state }) => (
             <li
