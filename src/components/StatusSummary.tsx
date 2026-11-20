@@ -1,6 +1,7 @@
-import { ArrowRight, Gauge, Hand, Play, TriangleAlert, type LucideIcon } from "lucide-react";
+import { ArrowRight, Gauge } from "lucide-react";
 import { ICON, ICON_SM } from "./icon";
-import type { StatusSummary as Summary } from "./statusHighlight";
+import type { HighlightState, StatusSummary as Summary } from "./statusHighlight";
+import { RoundMark } from "./statusTone";
 import type { SummaryMode } from "./useSummaryMode";
 
 type Props = {
@@ -17,17 +18,16 @@ function headlineText({ headline, need }: Summary): string {
 
 /** SRS-FR-133: only the states with sessions get a chip. */
 function chips({ approval, error, running }: Summary) {
-  const all: { count: number; label: string; Icon: LucideIcon; mark: string; chip: string }[] = [
-    { count: approval, label: "need approval", Icon: Hand, mark: "bg-approval", chip: "bg-approval-bg text-approval-foreground border-approval-border" },
-    { count: error, label: "error", Icon: TriangleAlert, mark: "bg-error", chip: "bg-error-bg text-error-foreground border-error-border" },
-    { count: running, label: "running", Icon: Play, mark: "bg-running", chip: "bg-running-bg text-running-foreground border-running-border" },
+  const all: { count: number; label: string; state: HighlightState }[] = [
+    { count: approval, label: "need approval", state: "Needs Approval" },
+    { count: error, label: "error", state: "Error" },
+    { count: running, label: "running", state: "Running" },
   ];
   return all.filter((c) => c.count > 0);
 }
 
 export function StatusSummary({ summary, mode, onGoTo, onOpenLatency }: Props) {
   const expanded = mode === "expanded";
-  const mark = expanded ? "size-6" : "size-4";
   return (
     <section
       aria-label="Status Summary"
@@ -39,14 +39,12 @@ export function StatusSummary({ summary, mode, onGoTo, onOpenLatency }: Props) {
           {headlineText(summary)}
         </h1>
         <ul className="flex items-center gap-2">
-          {chips(summary).map(({ count, label, Icon, mark: markColor, chip }) => (
+          {chips(summary).map(({ count, label, state }) => (
             <li
               key={label}
-              className={`inline-flex items-center gap-2 rounded-full border text-sm ${expanded ? "py-1 pl-1 pr-3" : "py-0.5 pl-0.5 pr-2 text-xs"} ${chip}`}
+              className={`inline-flex items-center gap-2 rounded-full bg-surface text-foreground ${expanded ? "h-9 pl-1.5 pr-3.5 text-[13px]" : "h-7 pl-0.5 pr-2.5 text-xs"}`}
             >
-              <span className={`inline-flex ${mark} items-center justify-center rounded-full text-black ${markColor}`}>
-                <Icon {...(expanded ? ICON : ICON_SM)} color="#000" />
-              </span>
+              <RoundMark mark={{ kind: "state", state }} small />
               <span>{`${count} ${label}`}</span>
             </li>
           ))}
@@ -70,7 +68,7 @@ function LatencyButton({ onOpen, className }: { onOpen(): void; className: strin
   return (
     <button
       onClick={onOpen}
-      className={`inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-muted-foreground bg-muted border border-border rounded-md px-2 py-0.5 hover:text-foreground hover:border-muted-foreground transition-colors ${className}`}
+      className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-surface px-3 text-[11px] text-muted-foreground hover:text-foreground transition-colors ${className}`}
     >
       <Gauge {...ICON_SM} />
       Status Latency

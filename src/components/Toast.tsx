@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { RoundMark } from "./statusTone";
 
 const TOAST_MS = 4000;
 
@@ -24,8 +25,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {toast && (
         <div
           role="alert"
-          className="absolute z-20 bottom-4 left-1/2 -translate-x-1/2 rounded-md border border-error-border bg-error-bg text-error-foreground text-sm px-4 py-2 shadow-xl"
+          className="absolute z-20 bottom-6 left-1/2 -translate-x-1/2 flex h-11 items-center gap-2 rounded-full bg-foreground pl-2 pr-4 text-[13px] text-background shadow-oneui"
         >
+          <RoundMark mark={{ kind: "state", state: "Error" }} />
           {toast}
         </div>
       )}

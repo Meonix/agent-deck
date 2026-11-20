@@ -611,3 +611,23 @@ describe("Progress Strip (SRS-FR-118 to SRS-FR-123, SRS-FR-128)", () => {
     expect(within(region()).getByText("Progress · 1/1")).toBeInTheDocument();
   });
 });
+
+describe("TerminalPane header (One UI)", () => {
+  const header = () => screen.getByRole("region").querySelector("header")!;
+  const mark = () => header().querySelector("[aria-hidden='true'].rounded-full")!;
+
+  it("sets the header text in the UI font, not the terminal one (Fonts work offline)", () => {
+    renderPane(entry(fakeAdapter()));
+    expect(header()).toHaveClass("font-sans");
+    expect(header()).not.toHaveClass("font-mono");
+  });
+
+  it("leads the title with the round mark of the pane's state", () => {
+    const status = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked, reportedAt: null });
+    const { view } = renderPane(entry(fakeAdapter(), { status: status("Needs Approval") }));
+    expect(mark()).toHaveClass("bg-approval");
+    view.unmount();
+    renderPane(entry(fakeAdapter(), { graceOver: true, status: status("Running", false) }));
+    expect(mark()).toHaveClass("bg-muted-foreground");
+  });
+});

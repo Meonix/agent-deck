@@ -412,7 +412,7 @@ describe("Pane state (4.2 to 4.4)", () => {
         "Close",
         "Close and move to Trash",
       ]);
-      expect(within(dialog()).getByRole("button", { name: "Close and move to Trash" })).toHaveClass("bg-error");
+      expect(within(dialog()).getByRole("button", { name: "Close and move to Trash" })).toHaveClass("text-error-foreground");
       expect(dialog()).not.toHaveTextContent("still running");
       expect(within(dialog()).getByRole("button", { name: "Cancel" })).toHaveFocus();
       expect(sessions.close).not.toHaveBeenCalled();

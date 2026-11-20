@@ -5,10 +5,10 @@ import { ICON } from "./icon";
 import { ProgressStrip, TrackingPrompt } from "./PaneProgress";
 import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
 import type { MaximizedBadge } from "./statusHighlight";
-import { StateMarker, tone } from "./statusTone";
+import { type Mark, RoundMark, tone } from "./statusTone";
 
 const ICON_BTN_BASE =
-  "-my-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md hover:bg-muted hover:text-foreground transition-colors";
+  "inline-flex size-7 shrink-0 items-center justify-center rounded-full hover:bg-muted hover:text-foreground transition-colors";
 const ICON_BTN = `${ICON_BTN_BASE} text-muted-foreground`;
 
 export type TerminalSize = { cols: number; rows: number };
@@ -185,6 +185,8 @@ export function TerminalPane({
         : null;
   const quiet =
     !pane.started || endedBadge || !status.tracked || status.state === "Idle" || status.state === "Ended";
+  const mark: Mark =
+    badge === "Status unavailable" ? { kind: "unavailable" } : quiet ? { kind: "history" } : { kind: "state", state: status.state };
   const border = quiet ? "border-border" : tone[status.state].ring;
   const attention = !quiet && (status.state === "Needs Approval" || status.state === "Error");
   // On an overlay: an inset shadow on the section itself is hidden under its opaque children.
@@ -215,31 +217,31 @@ export function TerminalPane({
         onDoubleClick={(e) => {
           if (headerPressed.current && !onButton(e.target)) toggleMaximized();
         }}
-        className="flex items-center justify-between px-3 py-1 border-b border-border bg-card font-mono select-none"
+        className="flex h-11 shrink-0 items-center justify-between gap-2 pl-3 pr-2 font-sans select-none"
       >
-        <span className="min-w-0 text-xs text-foreground truncate">
-          <span className="text-muted-foreground">{workspaceName} ·</span> {title}
+        <span className="flex min-w-0 items-center gap-2">
+          <RoundMark mark={mark} small />
+          <span className="min-w-0 truncate text-[13px] font-medium text-foreground">
+            <span className="font-normal text-muted-foreground">{workspaceName} ·</span> {title}
+          </span>
         </span>
-        <span className="flex min-w-0 items-center gap-2 text-xs whitespace-nowrap">
+        <span className="flex min-w-0 items-center gap-1 text-[11px] whitespace-nowrap">
           {othersBadge && (
             <button
               aria-label={`${othersBadge.count} ${othersBadge.count === 1 ? "session needs" : "sessions need"} you`}
               onClick={() => onBadge(othersBadge.paneId)}
-              className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 font-medium ${tone[othersBadge.state].chip}`}
+              className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border pl-0.5 pr-3 font-medium ${tone[othersBadge.state].chip}`}
             >
-              <StateMarker state={othersBadge.state} />
+              <RoundMark mark={{ kind: "state", state: othersBadge.state }} small />
               {othersBadge.count} need you
             </button>
           )}
           {badge ? (
-            <span className="min-w-0 shrink-[10] truncate border border-border rounded-md px-1.5 text-muted-foreground">
+            <span className="min-w-0 shrink-[10] truncate border border-border rounded-full px-2 text-muted-foreground">
               {badge}
             </span>
           ) : (
-            <span className={`min-w-0 shrink-[10] truncate border rounded-md px-1.5 ${tone[status.state].chip}`}>
-              <span className="mr-1 align-middle">
-                <StateMarker state={status.state} />
-              </span>
+            <span className={`min-w-0 shrink-[10] truncate border rounded-full px-2 ${tone[status.state].chip}`}>
               {status.state}
             </span>
           )}
@@ -291,17 +293,17 @@ export function TerminalPane({
         {pane.started ? (
           // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
           // so the padding sits on a wrapper and xterm gets an unpadded container.
-          <div className="flex-1 min-h-0 min-w-0 flex p-1">
+          <div className="flex-1 min-h-0 min-w-0 flex mx-2 mb-2 rounded-[16px] bg-term p-2">
             <div ref={body} data-pane-body={paneId} className="flex-1 min-h-0 min-w-0" />
           </div>
         ) : (
-          <div className="flex-1 p-3 font-mono text-xs leading-5 text-foreground">
+          <div className="flex-1 mx-2 mb-2 rounded-[16px] bg-term p-3 font-mono text-xs leading-5 text-foreground">
             <div>Claude Code could not be started</div>
             <div className="mt-5">Check that Claude Code is installed and on your PATH.</div>
           </div>
         )}
         {ended && (
-          <div className="border-t border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">Session ended</div>
+          <div className="mx-2 mb-2 rounded-row bg-muted px-3 py-1.5 text-xs text-muted-foreground">Session ended</div>
         )}
         {shell && (
           <ShellArea

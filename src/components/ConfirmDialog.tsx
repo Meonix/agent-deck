@@ -38,32 +38,43 @@ export function ConfirmDialog({ title, detail, action, extra, onCancel, onConfir
     };
   }, [onCancel]);
   return (
-    <div className="absolute inset-0 z-10 bg-black/50 flex items-center justify-center">
+    // One UI sheet: near the bottom, over the blurred, dimmed window.
+    <div className="absolute inset-0 z-10 flex items-end justify-center bg-dim pb-16 backdrop-blur-oneui">
       <div
         ref={dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
-        className="w-96 rounded-lg border border-border bg-card p-5 space-y-4 shadow-2xl"
+        className="flex w-[520px] max-w-[calc(100%-2rem)] flex-col gap-2 rounded-card bg-surface p-6 shadow-oneui"
       >
-        <div id="confirm-dialog-title" className="text-base font-semibold text-foreground">
+        <div id="confirm-dialog-title" className="text-[17px] font-semibold text-foreground">
           {title}
         </div>
-        {detail && <div className="text-sm text-muted-foreground">{detail}</div>}
-        <div className="flex justify-end gap-2">
-          <button ref={cancel} onClick={onCancel} className="text-sm text-foreground bg-muted border border-border rounded-md px-3 py-1.5 hover:border-muted-foreground transition-colors">
+        {detail && <div className="text-[13px] text-muted-foreground">{detail}</div>}
+        <div className="-mx-2 mt-3 flex items-center">
+          <button ref={cancel} onClick={onCancel} className={`${CHOICE} text-foreground`}>
             Cancel
           </button>
           {extra && (
-            <button onClick={extra.onChoose} className="text-sm text-foreground bg-muted border border-border rounded-md px-3 py-1.5 hover:border-muted-foreground transition-colors">
-              {extra.label}
-            </button>
+            <>
+              <Rule />
+              <button onClick={extra.onChoose} className={`${CHOICE} text-accent-foreground`}>
+                {extra.label}
+              </button>
+            </>
           )}
-          <button onClick={onConfirm} className="text-sm font-medium bg-error text-error-solid rounded-md px-3 py-1.5 hover:opacity-90 transition-opacity">
+          <Rule />
+          <button onClick={onConfirm} className={`${CHOICE} text-error-foreground`}>
             {action}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+const CHOICE = "h-10 flex-1 whitespace-nowrap rounded-full px-2 text-[14px] font-semibold hover:bg-muted transition-colors";
+
+function Rule() {
+  return <span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />;
 }
