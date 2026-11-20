@@ -112,6 +112,103 @@ describe("useSummaryMode", () => {
     });
   });
 
+  describe("pointer hold release and body focus", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    function setup() {
+      const area = document.createElement("div");
+      const inside = document.createElement("textarea");
+      const outside = document.createElement("button");
+      area.append(inside);
+      document.body.append(area, outside);
+      return { inside, outside, ...renderHook(() => useSummaryMode({ current: area }, false)) };
+    }
+
+    it("does not hold for a non-primary button (SRS-FR-137)", () => {
+      const { inside, outside, result } = setup();
+      act(() => inside.focus());
+      act(() => {
+        document.dispatchEvent(new MouseEvent("pointerdown", { button: 2 }));
+        outside.focus();
+      });
+      expect(result.current).toBe("expanded");
+    });
+
+    it("releases the hold on window blur (SRS-FR-137)", () => {
+      const { inside, outside, result } = setup();
+      act(() => inside.focus());
+      act(() => {
+        document.dispatchEvent(new MouseEvent("pointerdown", { button: 0 }));
+        outside.focus();
+      });
+      expect(result.current).toBe("collapsed");
+      act(() => {
+        window.dispatchEvent(new Event("blur"));
+        vi.runAllTimers();
+      });
+      expect(result.current).toBe("expanded");
+    });
+
+    it("releases the hold on contextmenu (SRS-FR-137)", () => {
+      const { inside, outside, result } = setup();
+      act(() => inside.focus());
+      act(() => {
+        document.dispatchEvent(new MouseEvent("pointerdown", { button: 0 }));
+        outside.focus();
+        document.dispatchEvent(new Event("contextmenu"));
+        vi.runAllTimers();
+      });
+      expect(result.current).toBe("expanded");
+    });
+
+    it("keeps the mode when focus lands inside an aria-modal dialog", () => {
+      const { inside, result } = setup();
+      const dialog = document.createElement("div");
+      dialog.setAttribute("role", "dialog");
+      dialog.setAttribute("aria-modal", "true");
+      const cancel = document.createElement("button");
+      dialog.append(cancel);
+      document.body.append(dialog);
+      act(() => inside.focus());
+      act(() => cancel.focus());
+      expect(result.current).toBe("collapsed");
+    });
+
+    it("expands when focus falls to body, but not on a pane-to-pane move", () => {
+      const { inside, result } = setup();
+      const other = document.createElement("textarea");
+      document.body.firstElementChild!.append(other);
+      act(() => inside.focus());
+      act(() => {
+        other.focus();
+        vi.runAllTimers();
+      });
+      expect(result.current).toBe("collapsed");
+      act(() => {
+        other.blur();
+        vi.runAllTimers();
+      });
+      expect(result.current).toBe("expanded");
+    });
+
+    it("body focus waits for the pointer hold", () => {
+      const { inside, result } = setup();
+      act(() => inside.focus());
+      act(() => {
+        document.dispatchEvent(new MouseEvent("pointerdown", { button: 0 }));
+        inside.blur();
+        vi.runAllTimers();
+      });
+      expect(result.current).toBe("collapsed");
+      act(() => {
+        document.dispatchEvent(new Event("pointerup"));
+        vi.runAllTimers();
+      });
+      expect(result.current).toBe("expanded");
+    });
+  });
+
   it("collapses in a narrow window (SRS-FR-138)", () => {
     const { result } = renderHook(() => useSummaryMode({ current: document.createElement("div") }, false));
     expect(result.current).toBe("expanded");
