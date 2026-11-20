@@ -52,6 +52,43 @@ export function maximizedBadge(entries: PaneEntry[], maximizedPaneId: string): M
   return { count: waiting.length, state: waiting[0].state, paneId: waiting[0].paneId };
 }
 
+export type StatusSummary = {
+  headline: "need" | "clear" | "idle";
+  need: number;
+  approval: number;
+  error: number;
+  running: number;
+  goTo: { paneId: string; title: string } | null;
+};
+
+/** What the Status Summary says about every session open in a pane (SRS-FR-132 to SRS-FR-136). */
+export function statusSummary(entries: PaneEntry[]): StatusSummary {
+  const open = currentPanes(entries.filter((entry) => entry.pane.started));
+  const waiting: { paneId: string; title: string; state: HighlightState; since: number }[] = [];
+  let approval = 0;
+  let error = 0;
+  let running = 0;
+  for (const { pane, title, status } of open) {
+    if (!status.tracked) continue;
+    if (status.state === "Needs Approval") approval += 1;
+    else if (status.state === "Error") error += 1;
+    else if (status.state === "Running") running += 1;
+    if (status.state === "Error" || status.state === "Needs Approval") {
+      waiting.push({ paneId: pane.paneId, title, state: status.state, since: status.since });
+    }
+  }
+  waiting.sort((a, b) => URGENCY.indexOf(a.state) - URGENCY.indexOf(b.state) || a.since - b.since);
+  const need = approval + error;
+  return {
+    headline: need > 0 ? "need" : open.length > 0 ? "clear" : "idle",
+    need,
+    approval,
+    error,
+    running,
+    goTo: waiting.length > 0 ? { paneId: waiting[0].paneId, title: waiting[0].title } : null,
+  };
+}
+
 export type ActiveSession = {
   paneId: string;
   sessionId: string;
