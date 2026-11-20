@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v5.0 (2026-10-25)
+status: Approved v5.1 (2026-11-20)
 ---
 # BRD — agent-deck
 
@@ -72,7 +72,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BR-03 | Người dùng mở lại một phiên cũ để làm tiếp; các phiên đang mở trong ô lúc thoát app tự mở lại đúng chỗ khi mở app; người dùng để dành một phiên đang dở (đóng ô của nó) vào một danh sách riêng và mở lại từ danh sách đó | BO-02 | Must |
 | BR-04 | Người dùng bắt đầu một phiên Claude Code mới trong folder đang chọn | BO-02 | Must |
 | BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, kéo thả ô để đặt nó sang trái, phải, trên hoặc dưới một ô khác, ô tự đóng khi phiên thoát bình thường, phóng to một ô ra cả cửa sổ, mở một terminal thường dưới phiên trong cùng ô và ẩn nó đi mà vẫn chạy, phóng to hoặc thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt, thấy rõ ô đang focus, ẩn cột trái để nhường chỗ cho các ô, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
-| BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
+| BR-06 | Người dùng thấy ngay trên danh sách folder, danh sách phiên đang mở và phần tóm tắt ở đầu cửa sổ phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
 | BR-07 | Từ dấu báo trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
 | BR-08 | Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc, hoặc xoá phiên ngay lúc đóng ô của nó, bằng cách chuyển chúng vào Thùng rác | BO-02 | Should |
 | BR-09 | Người dùng thấy và sửa được việc chính của mỗi phiên đang mở ngay trên ô; app không ràng buộc Claude Code theo việc chính | BO-03 | Should |
@@ -153,6 +153,7 @@ Luật nghiệp vụ:
 | 2026-10-22 | CR-011: để dành phiên đang dở thế nào? | Nút Stash trên tiêu đề ô, bên trái nút phóng to; bấm thì đóng ô, phiên vào Stashed Sessions ở cột trái; ô bận thì hỏi; bấm dòng để mở lại và dòng rời stash; × để gỡ; giữ giữa các lần mở app |
 | 2026-10-25 | CR-012: theo dõi tiến độ phiên thế nào? | Hỏi bật khi mở phiên mới, nút trên tiêu đề ô để bật lại giữa chừng; dải Tiến độ chỉ đọc dưới Target Box, ✓ xanh xong, ● vàng đang làm, thu gọn được; việc lặt vặt gộp vào việc đang làm; Claude Haiku tóm tắt qua login Claude Code sau mỗi lượt; không đụng phiên chính |
 | 2026-10-25 | CR-012: BO-04 đo bằng gì? | PO kiểm 10 phiên đã bật theo dõi, ≥ 8 phiên có danh sách không thiếu việc lớn và không tách thừa, trong 2 tuần dùng thử sau khi có tính năng |
+| 2026-11-20 | CR-013: phần tóm tắt trạng thái ở đầu cửa sổ dùng chữ gì? | "N need you" khi có phiên cần duyệt hoặc lỗi; "All clear" khi không phiên nào cần mình; "Agent Deck" + "No sessions running" khi chưa mở phiên nào; khung lịch sử rỗng giữ "No sessions yet" |
 
 ## 14. Duyệt
 
@@ -170,3 +171,4 @@ Luật nghiệp vụ:
 | v4.0 | 2026-10-22 | PO | CR-010: BO-03 đổi thành luôn thấy việc chính của mỗi phiên; BR-09 bỏ Claude Code nhắc khi lạc đề |
 | v4.1 | 2026-10-22 | PO | CR-011: BR-03 thêm để dành phiên đang dở vào danh sách riêng và mở lại từ đó |
 | v5.0 | 2026-10-25 | PO | CR-012: thêm BO-04 (nắm lại tiến độ phiên dài) và BR-10 (theo dõi tiến độ theo phiên); ràng buộc tóm tắt qua login Claude Code |
+| v5.1 | 2026-11-20 | PO | CR-013: BR-06 thêm phần tóm tắt trạng thái ở đầu cửa sổ |

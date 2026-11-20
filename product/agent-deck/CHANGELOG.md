@@ -656,3 +656,46 @@ Backlog — thêm (áp sau GATE CR):
 - 28 · Theo dõi tiến độ phiên bằng check point · add-session-progress · SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131, SRS-NFR-011, SRS-NFR-012, SRS-NFR-013 · phụ thuộc 3, 19, 25, 26, 27 · Should; CR-012; phục vụ BO-04; chỉ thêm FR mới → /dev-feature.
 
 Việc tiếp theo: /dev-update (mục 27, SRS-NFR-007) rồi /dev-feature add-session-progress (mục 28).
+
+## CR-013 — Vùng tóm tắt trạng thái ở đầu cửa sổ (One UI)
+Ngày: 2026-11-20
+Yêu cầu: "thêm CR-013 cho vùng đỉnh One UI và 3 chuỗi chữ (PO xác nhận chữ ngay trong bước này)" — từ thiết kế One UI đã duyệt (`design/agent-deck/oneui/design.html`, `design/agent-deck/brief.md` mục "Đã chốt cho One UI", 2026-11-20).
+Status: Approved (2026-11-20)
+Ảnh hưởng:
+- BR-06 (thấy phiên nào cần mình "trên danh sách folder và danh sách phiên đang mở") → thêm nơi thứ ba: đầu cửa sổ. BR-07 (từ dấu báo trạng thái chuyển thẳng tới ô) → dùng lại, nút "Go to" trên vùng tóm tắt là một dấu báo trạng thái. BO-01 không đổi: chỉ số vẫn đo trên dòng phiên, dòng folder, badge ô phóng to.
+- Dùng lại, không sửa: SRS-FR-034 (≤ 3 giây — vùng tóm tắt có FR riêng), SRS-FR-044 (badge ô phóng to thay vùng tóm tắt khi phóng to), SRS-FR-045 (luật "gấp nhất" cho nút Go to), SRS-FR-052 (thứ tự gấp), SRS-FR-036 (`Status unavailable` không đếm), SRS-FR-010 ("No sessions yet").
+- Code (cho /dev-feature): App.tsx (vùng mới trên PaneGrid), useSessionPanes.ts / sessionList.ts (đếm theo trạng thái, phiên gấp nhất — đã có cho SRS-FR-045), TerminalPane.tsx (badge "need you" hiện có), index.css / tokens.css (lớp `--oneui-*`).
+- Thiết kế: `design/agent-deck/oneui/design.html`. Lệch cần sửa ở bản thiết kế: Active Sessions rỗng phải là "No active sessions" (SRS-FR-053), bản vẽ ghi "No open sessions"; nút Go to trong bản vẽ trỏ phiên Needs Approval trong khi có phiên Error — theo SRS-FR-045 phải trỏ phiên Error.
+- Ngoài SRS, không cần CR: bo góc, thẻ, icon tròn, hộp thoại kiểu One UI (chỉ là hình, như Signal Deck / Sidebar Refresh).
+Trả lời của PO (2026-11-20):
+- Chữ: "All clear" khi có phiên đang mở mà không phiên nào `Needs Approval` / `Error`; tiêu đề "Agent Deck" + dòng phụ "No sessions running" khi chưa mở phiên nào; Session History Panel rỗng giữ "No sessions yet" (SRS-FR-010), không thêm chữ mới.
+
+Diff đề xuất:
+
+Phiên bản: BRD v5.0 → v5.1 (sửa BR-06, không đổi BO). SRS v1.12 → v1.13.
+
+BRD:
+- BR-06: "Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi" → "Người dùng thấy ngay trên danh sách folder, danh sách phiên đang mở và phần tóm tắt ở đầu cửa sổ phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi".
+- Mục 13 log thêm dòng CR-013. Mục 14: dòng v5.1 "CR-013: BR-06 thêm phần tóm tắt trạng thái ở đầu cửa sổ".
+
+SRS:
+- Thuật ngữ thêm: Status Summary — vùng đầu cửa sổ, trên cột trái và Pane Grid, tóm tắt trạng thái các phiên đang mở trong ô; có dạng mở rộng (chữ lớn + số đếm) và dạng thu gọn (một dòng) · Go-to button — nút "Go to <tiêu đề phiên>" trong Status Summary.
+- Mục mới 2.17 "Tóm tắt trạng thái đầu cửa sổ": luồng chính 1. phiên trong ô đổi trạng thái → Status Summary cập nhật ≤ 3 giây → SRS-FR-132, SRS-FR-133, SRS-FR-140. 2. người dùng bấm Go-to button → tới ô gấp nhất → SRS-FR-136. Thay thế: A1 không phiên nào cần mình → SRS-FR-134; A2 chưa mở phiên nào → SRS-FR-135; A3 focus vào ô hoặc cửa sổ hẹp → thu gọn → SRS-FR-137, SRS-FR-138; A4 có Maximized Pane → ẩn, badge SRS-FR-044 thay → SRS-FR-139.
+- SRS-FR-132 — Status Summary headline (BR-06, Should, Test): "While at least one session open in a pane is `Needs Approval` or `Error`, the system shall show in the Status Summary the number of those sessions followed by "need you"." Ví dụ: 2 phiên `Needs Approval`, 1 phiên `Error` → "3 need you". Ví dụ âm: phiên `Status unavailable` (SRS-FR-036) không được đếm.
+- SRS-FR-133 — Status Summary counts (BR-06, Should, Test): "While at least one session is open in a pane, the system shall show in the Status Summary the number of sessions open in a pane in each of the states `Needs Approval`, `Error` and `Running`." Giải thích: trạng thái có 0 phiên thì không hiện số của nó; mỗi số có dấu trạng thái của mình. Ví dụ: 2 `Needs Approval`, 1 `Error`, 5 `Running` → "2 need approval · 1 error · 5 running". Ví dụ âm: 0 `Error` → không có mục error.
+- SRS-FR-134 — All clear (BR-06, Should, Test): "While at least one session is open in a pane and none of them is `Needs Approval` or `Error`, the system shall show "All clear" as the headline of the Status Summary." Ví dụ: 3 phiên `Running` → "All clear", "3 running".
+- SRS-FR-135 — No session open (BR-06, Should, Test): "While no session is open in a pane, the system shall show "Agent Deck" as the headline of the Status Summary and "No sessions running" below it." Ví dụ: mở app lần đầu → "Agent Deck" / "No sessions running".
+- SRS-FR-136 — Jump from the Status Summary (BR-07, Should, Demo): "When the user clicks the Go-to button of the Status Summary, the system shall move keyboard focus to the pane of the most urgent session." Giải thích: gấp nhất theo SRS-FR-045 (`Error` trước `Needs Approval`, cùng trạng thái thì vào trạng thái sớm nhất); nút chỉ hiện khi SRS-FR-132 đang hiện; nhãn "Go to <tiêu đề phiên đó>". Ví dụ: ô 2 `Needs Approval` từ 14:00, ô 3 `Error` từ 14:05 → nút "Go to <tiêu đề ô 3>", bấm → ô 3 được focus.
+- SRS-FR-137 — Collapse while working in a pane (BR-06, Should, Test): "While keyboard focus is in a pane, the system shall show the Status Summary collapsed to one line." Giải thích: một dòng vẫn có headline, các số đếm và Go-to button; focus ra cột trái hoặc Session History Panel thì mở rộng lại. Ví dụ: bấm vào ô 1 → Status Summary còn một dòng cao ≤ 48 px.
+- SRS-FR-138 — Collapse in a narrow window (BR-06, Should, Test): "While the window is narrower than 1100 px, the system shall show the Status Summary collapsed to one line." Ví dụ: kéo cửa sổ còn 960 px, focus ở cột trái → vẫn một dòng.
+- SRS-FR-139 — Hide while maximized (BR-06, Should, Test): "While a pane is maximized, the system shall hide the Status Summary." Giải thích: badge của Maximized Pane (SRS-FR-044) giữ BO-01. Ví dụ: phóng to ô 1 → không còn Status Summary, ô che hết cửa sổ dưới thanh tiêu đề.
+- SRS-FR-140 — Status Summary update latency (BR-06, Should, Test): "When a session open in a pane changes state, the system shall update the Status Summary within 3 seconds." Ví dụ: ô 3 sang `Needs Approval` lúc 14:02:00 → "1 need you" trước 14:02:03.
+- Mục 7 Màn hình: thêm dòng "Cửa sổ chính · Status Summary | Tóm tắt số phiên cần mình và số phiên theo trạng thái, Go-to button, thu gọn khi focus ở ô hoặc cửa sổ hẹp, ẩn khi phóng to | SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140".
+- Mục 11: "SRS-FR-001 đến SRS-FR-131" → "SRS-FR-001 đến SRS-FR-140".
+- Bảng truy vết: thêm SRS-FR-132 đến SRS-FR-140 (BR-06; SRS-FR-136: BR-07), "Baselined".
+- Lịch sử: dòng v1.13 "CR-013: Status Summary ở đầu cửa sổ (headline "N need you" / "All clear" / "Agent Deck · No sessions running", số đếm theo trạng thái, Go-to button, thu gọn khi focus ở ô hoặc cửa sổ < 1100 px, ẩn khi phóng to); thêm SRS-FR-132 đến SRS-FR-140; theo BRD v5.1".
+
+Backlog — thêm (áp sau GATE CR):
+- 29 · Tóm tắt trạng thái ở đầu cửa sổ và giao diện One UI · add-status-summary · SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 · phụ thuộc 9, 10, 12 · Should; CR-013; phục vụ BO-01; chỉ thêm FR mới → /dev-feature; hình One UI theo `design/agent-deck/oneui/` đi cùng mục này.
+
+Việc tiếp theo: sửa 2 chỗ lệch trong `design/agent-deck/oneui/design.html` (No active sessions; Go to trỏ phiên Error), rồi /dev-feature add-status-summary (mục 29).

@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.12 (2026-10-25)
+status: Baselined v1.13 (2026-11-20)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -16,7 +16,7 @@ source: product/agent-deck/BRD.md
 
 Đặc tả hành vi của agent-deck, ứng dụng desktop cá nhân để làm việc với nhiều phiên Claude Code
 cùng lúc, phục vụ BO-01 (không sót phiên chờ duyệt hoặc lỗi), BO-02 (mở lại phiên cũ ≤ 3 thao tác),
-BO-03 (luôn thấy việc chính của phiên) và BO-04 (nắm lại tiến độ phiên dài) của BRD v5.0.
+BO-03 (luôn thấy việc chính của phiên) và BO-04 (nắm lại tiến độ phiên dài) của BRD v5.1.
 
 ### Phạm vi
 
@@ -88,6 +88,8 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Tracking Prompt | Thanh dưới Target Box của phiên mới, "Track progress for this session?", hai nút Track · No |
 | Tracking button | Nút trên tiêu đề ô, bật hoặc tắt Progress Tracking của phiên trong ô |
 | Progress Record | Lựa chọn Progress Tracking, Checkpoint List và trạng thái thu gọn của một phiên |
+| Status Summary | Vùng đầu cửa sổ, trên cột trái và Pane Grid, tóm tắt trạng thái các phiên đang mở trong ô; dạng mở rộng (chữ lớn + số đếm) hoặc thu gọn (một dòng) |
+| Go-to button | Nút "Go to <tiêu đề phiên>" trong Status Summary, đưa focus tới ô của phiên gấp nhất |
 
 ## 2. Yêu cầu chức năng
 
@@ -1240,6 +1242,86 @@ When Claude Code starts a new session in a pane after `/clear`, the system shall
 - Ưu tiên: Should
 - Nguồn: BR-10
 
+## 2.17 Tóm tắt trạng thái đầu cửa sổ
+
+- Luồng chính: 1. Một phiên trong ô đổi trạng thái → Status Summary cập nhật trong ≤ 3 giây → SRS-FR-132, SRS-FR-133, SRS-FR-140. 2. Người dùng bấm Go-to button → ô của phiên gấp nhất được focus → SRS-FR-136.
+- Luồng thay thế: A1 không phiên nào cần mình → SRS-FR-134. A2 chưa mở phiên nào → SRS-FR-135. A3 focus vào một ô hoặc cửa sổ hẹp → thu gọn một dòng → SRS-FR-137, SRS-FR-138. A4 có Maximized Pane → ẩn, badge của ô phóng to thay → SRS-FR-139.
+
+### SRS-FR-132 — Status Summary headline
+While at least one session open in a pane is `Needs Approval` or `Error`, the system shall show in the Status Summary the number of those sessions followed by "need you".
+- Giải thích: trạng thái xác định như SRS-FR-032; để thấy số phiên cần mình mà không cần nhìn cột trái (BO-01).
+- Ví dụ: 2 phiên `Needs Approval`, 1 phiên `Error` → "3 need you".
+- Ví dụ âm: một phiên `Status unavailable` (SRS-FR-036) → không được đếm.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
+### SRS-FR-133 — Status Summary counts
+While at least one session is open in a pane, the system shall show in the Status Summary the number of sessions open in a pane in each of the states `Needs Approval`, `Error` and `Running`.
+- Giải thích: trạng thái có 0 phiên thì không hiện số của nó; mỗi số đi kèm dấu của trạng thái đó.
+- Ví dụ: 2 `Needs Approval`, 1 `Error`, 5 `Running` → "2 need approval · 1 error · 5 running".
+- Ví dụ âm: 0 phiên `Error` → không có mục error.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
+### SRS-FR-134 — All clear
+While at least one session is open in a pane and none of them is `Needs Approval` or `Error`, the system shall show "All clear" as the headline of the Status Summary.
+- Ví dụ: 3 phiên `Running` → headline "All clear", bên dưới "3 running".
+- Ví dụ âm: 1 phiên `Error` → headline "1 need you", không phải "All clear".
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
+### SRS-FR-135 — No session open
+While no session is open in a pane, the system shall show "Agent Deck" as the headline of the Status Summary and "No sessions running" below it.
+- Ví dụ: mở app lần đầu, chưa có ô nào → "Agent Deck" / "No sessions running".
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
+### SRS-FR-136 — Jump from the Status Summary
+When the user clicks the Go-to button of the Status Summary, the system shall move keyboard focus to the pane of the most urgent session.
+- Giải thích: gấp nhất theo SRS-FR-045 (`Error` trước `Needs Approval`; cùng trạng thái thì phiên vào trạng thái sớm nhất); nút chỉ hiện khi headline là SRS-FR-132; nhãn "Go to <tiêu đề phiên đó>".
+- Ví dụ: ô 2 `Needs Approval` từ 14:00, ô 3 `Error` từ 14:05 → nút "Go to <tiêu đề ô 3>", bấm → ô 3 được focus.
+- Ví dụ âm: headline "All clear" → không có Go-to button.
+- Kiểm chứng: Demo
+- Ưu tiên: Should
+- Nguồn: BR-07
+
+### SRS-FR-137 — Collapse while working in a pane
+While keyboard focus is in a pane, the system shall show the Status Summary collapsed to one line.
+- Giải thích: một dòng vẫn có headline, các số đếm và Go-to button; focus ra cột trái hoặc Session History Panel thì mở rộng lại; để terminal có chỗ (BR-05).
+- Ví dụ: bấm vào ô 1 → Status Summary còn một dòng, cao ≤ 48 px.
+- Ví dụ âm: focus ở Workspace List, cửa sổ rộng 1440 px → Status Summary mở rộng.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
+### SRS-FR-138 — Collapse in a narrow window
+While the window is narrower than 1100 px, the system shall show the Status Summary collapsed to one line.
+- Ví dụ: kéo cửa sổ còn 960 px, focus ở cột trái → Status Summary vẫn một dòng.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
+### SRS-FR-139 — Hide while maximized
+While a pane is maximized, the system shall hide the Status Summary.
+- Giải thích: badge của Maximized Pane (SRS-FR-044) giữ BO-01 khi phóng to.
+- Ví dụ: phóng to ô 1 → không còn Status Summary, ô che hết cửa sổ dưới thanh tiêu đề.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
+### SRS-FR-140 — Status Summary update latency
+When a session open in a pane changes state, the system shall update the Status Summary within 3 seconds.
+- Giải thích: cùng ngưỡng với SRS-FR-034 (BO-01).
+- Ví dụ: ô 3 sang `Needs Approval` lúc 14:02:00 → Status Summary hiện "1 need you" trước 14:02:03.
+- Ví dụ âm: đổi lúc 14:02:05 → không đạt.
+- Kiểm chứng: Test
+- Ưu tiên: Should
+- Nguồn: BR-06
+
 ## 3. Dữ liệu
 
 ### Workspace
@@ -1348,6 +1430,7 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Cửa sổ chính · Session History Panel | Lịch sử phiên của folder đang chọn, nhãn `Live`, Resume, New Session, xoá một hoặc nhiều phiên, đóng khung | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-054, SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079, SRS-NFR-003 |
 | Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô qua Close Dialog (có thể chuyển phiên vào Thùng rác), ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, Target Box hiện và sửa Session Goal, nút Stash và Stash Dialog, Tracking button, Tracking Prompt, Progress Strip | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-100, SRS-FR-101, SRS-FR-102, SRS-FR-103, SRS-FR-104, SRS-FR-105, SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131 |
 | Cửa sổ chính · toàn cửa sổ | Phóng to, thu nhỏ, về mặc định cỡ chữ của mọi chữ trong cửa sổ; ẩn/hiện Sidebar bằng Sidebar Toggle hoặc Sidebar shortcut | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071, SRS-FR-088, SRS-FR-089, SRS-FR-090 |
+| Cửa sổ chính · Status Summary | Số phiên cần mình và số phiên theo trạng thái, Go-to button, thu gọn khi focus ở ô hoặc cửa sổ hẹp, ẩn khi phóng to | SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 |
 | Status Latency | Xem tỉ lệ đổi trạng thái hiện ≤ 3 giây | SRS-FR-039 |
 
 ## 8. Báo cáo
@@ -1473,7 +1556,7 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-131 (trừ SRS-FR-022, SRS-FR-031, SRS-FR-094, SRS-FR-095, SRS-FR-098 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-001 đến SRS-FR-140 (trừ SRS-FR-022, SRS-FR-031, SRS-FR-094, SRS-FR-095, SRS-FR-098 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
 | SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
 | SRS-NFR-001 đến SRS-NFR-013 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
@@ -1594,25 +1677,34 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | SRS-FR-110 | BR-03 | | Test | Baselined |
 | SRS-FR-111 | BR-03 | | Test | Baselined |
 | SRS-FR-112 | BR-03 | | Test | Baselined |
-| SRS-FR-113 | BR-10 | | [('Ví dụ', 'New Session → dưới Target Box hiện "Track progress for this session?  Track · No", gõ prompt được ngay.'), ('Ví dụ âm', 'Resume phiên cũ → không có Tracking Prompt.')] | Baselined |
-| SRS-FR-114 | BR-10 | | [('Ví dụ', 'bấm Track → thanh biến mất; xong lượt đầu thì Progress Strip hiện.')] | Baselined |
-| SRS-FR-115 | BR-10 | | [('Ví dụ âm', 'bấm No, chạy 5 lượt → không có Progress Strip, không có lần gọi tóm tắt nào.')] | Baselined |
-| SRS-FR-116 | BR-10 | | [('Ví dụ', 'thứ tự nút … Tracking · Stash · Maximize · ×.')] | Baselined |
-| SRS-FR-117 | BR-10 | | [('Ví dụ', 'phiên 12 lượt đã chọn No, bấm Tracking → trong 30 giây Progress Strip hiện các việc lớn của 12 lượt đó.')] | Baselined |
-| SRS-FR-118 | BR-10 | | [('Ví dụ', '3 Checkpoint `Done`, 1 `In progress` → đầu dải "Progress · 3/4".'), ('Ví dụ âm', 'vừa bật, chưa xong lượt nào → không có Progress Strip.')] | Baselined |
-| SRS-FR-119 | BR-10 | | [('Ví dụ', '"✓ Viết spec add-session-stash · 11 yêu cầu, đã duyệt · 14:20".')] | Baselined |
-| SRS-FR-120 | BR-10 | | [('Ví dụ', '10 Checkpoint → thấy 4 dòng, cuộn trong dải để xem phần còn lại.')] | Baselined |
-| SRS-FR-121 | BR-10 | | [('Ví dụ', '10 Checkpoint, dòng 10 `In progress` → dải cuộn để thấy dòng 10.')] | Baselined |
-| SRS-FR-122 | BR-10 | | [('Ví dụ', 'thu gọn → "Progress · 3/4 · Dựng section Stashed Sessions ở cột trái".')] | Baselined |
-| SRS-FR-123 | BR-10 | | [('Ví dụ', 'dải đang một dòng, bấm mở → hiện lại các dòng Checkpoint, tối đa 4 dòng (SRS-FR-120).')] | Baselined |
-| SRS-FR-124 | BR-10 | | [('Ví dụ', 'lượt xong lúc 15:00:00 → Progress Strip đổi trước 15:00:30.'), ('Ví dụ âm', 'lượt đang chạy 20 phút → Checkpoint List không đổi tới khi lượt xong.')] | Baselined |
-| SRS-FR-125 | BR-10 | | [('Ví dụ âm', 'tắt rồi chạy 3 lượt → không có lần gọi tóm tắt nào.')] | Baselined |
-| SRS-FR-126 | BR-10 | | [('Ví dụ', 'đang "Thêm nút Stash", agent đọc 3 file, chạy test, sửa lỗi gõ nhầm → vẫn một Checkpoint.'), ('Ví dụ', 'agent chuyển sang "Viết migration lưu stash" → thêm Checkpoint mới.')] | Baselined |
-| SRS-FR-127 | BR-10 | | [('Ví dụ âm', 'agent sang việc khác khi việc cũ còn test đỏ → việc cũ vẫn `In progress`.')] | Baselined |
-| SRS-FR-128 | BR-10 | | [('Ví dụ', 'mất mạng sau lượt → danh sách cũ còn nguyên, đầu dải có "Couldn\'t update".')] | Baselined |
-| SRS-FR-129 | BR-10 | | [('Ví dụ', 'bật theo dõi, có 4 Checkpoint, thoát app, mở lại → ô mở lại hiện đúng 4 Checkpoint và trạng thái thu gọn.')] | Baselined |
-| SRS-FR-130 | BR-10 | | [('Ví dụ âm', 'Resume phiên có từ trước CR-012 → không Tracking Prompt, không Progress Strip.')] | Baselined |
-| SRS-FR-131 | BR-10 | | [('Ví dụ', 'phiên đang bật, `/clear` → phiên mới bật, Progress Strip ẩn tới khi xong lượt đầu.')] | Baselined |
+| SRS-FR-113 | BR-10 | | Demo | Baselined |
+| SRS-FR-114 | BR-10 | | Test | Baselined |
+| SRS-FR-115 | BR-10 | | Test | Baselined |
+| SRS-FR-116 | BR-10 | | Demo | Baselined |
+| SRS-FR-117 | BR-10 | | Test | Baselined |
+| SRS-FR-118 | BR-10 | | Demo | Baselined |
+| SRS-FR-119 | BR-10 | | Demo | Baselined |
+| SRS-FR-120 | BR-10 | | Demo | Baselined |
+| SRS-FR-121 | BR-10 | | Test | Baselined |
+| SRS-FR-122 | BR-10 | | Test | Baselined |
+| SRS-FR-123 | BR-10 | | Test | Baselined |
+| SRS-FR-124 | BR-10 | | Test | Baselined |
+| SRS-FR-125 | BR-10 | | Test | Baselined |
+| SRS-FR-126 | BR-10 | | Analysis | Baselined |
+| SRS-FR-127 | BR-10 | | Analysis | Baselined |
+| SRS-FR-128 | BR-10 | | Test | Baselined |
+| SRS-FR-129 | BR-10 | | Test | Baselined |
+| SRS-FR-130 | BR-10 | | Test | Baselined |
+| SRS-FR-131 | BR-10 | | Test | Baselined |
+| SRS-FR-132 | BR-06 | | Test | Baselined |
+| SRS-FR-133 | BR-06 | | Test | Baselined |
+| SRS-FR-134 | BR-06 | | Test | Baselined |
+| SRS-FR-135 | BR-06 | | Test | Baselined |
+| SRS-FR-136 | BR-07 | | Demo | Baselined |
+| SRS-FR-137 | BR-06 | | Test | Baselined |
+| SRS-FR-138 | BR-06 | | Test | Baselined |
+| SRS-FR-139 | BR-06 | | Test | Baselined |
+| SRS-FR-140 | BR-06 | | Test | Baselined |
 | SRS-NFR-001 | BR-05 | | Test | Baselined |
 | SRS-NFR-002 | BR-05 | | Test | Baselined |
 | SRS-NFR-003 | BR-02 | | Test | Baselined |
@@ -1626,6 +1718,7 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | SRS-NFR-011 | BR-10 | | Inspection | Baselined |
 | SRS-NFR-012 | BR-10 | | Test | Baselined |
 | SRS-NFR-013 | BRD mục 8 (ràng buộc) | | Inspection | Baselined |
+
 ## 13. Câu hỏi mở
 
 | ID | Câu hỏi | Người trả lời | Trạng thái | Chặn gate |
@@ -1653,3 +1746,4 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | v1.10 | 2026-10-22 | PO | CR-010: bỏ Focus Reminder và luật lạc đề (xoá SRS-FR-094, SRS-FR-095, SRS-FR-098, RULE-09, A-10, A-11); Goal Line thành Target Box chữ đỏ, sửa trực tiếp, tối đa 3 dòng rồi cuộn; sửa SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097; theo BRD v4.0 |
 | v1.11 | 2026-10-22 | PO | CR-011: Stashed Sessions trong Sidebar, nút Stash trên tiêu đề ô bên trái Maximize, Stash Dialog khi ô bận, mở lại thì rời stash, × để gỡ, giữ giữa các lần mở app; thêm SRS-FR-103 đến SRS-FR-112, SRS-NFR-010, Stashed Sessions, Stash Dialog; theo BRD v4.1 |
 | v1.12 | 2026-10-25 | PO | CR-012: Progress Tracking bật theo phiên (Tracking Prompt, Tracking button), Progress Strip dưới Target Box chỉ đọc, Checkpoint List cập nhật sau mỗi lượt ≤ 30 giây bằng Claude Haiku qua login Claude Code, giữ giữa các lần mở app; sửa SRS-NFR-007, A-07; thêm SRS-FR-113 đến SRS-FR-131, SRS-NFR-011 đến SRS-NFR-013, RULE-10, RULE-11, A-12 và thuật ngữ; theo BRD v5.0 |
+| v1.13 | 2026-11-20 | PO | CR-013: Status Summary ở đầu cửa sổ (headline "N need you" / "All clear" / "Agent Deck · No sessions running", số đếm theo trạng thái, Go-to button, thu gọn khi focus ở ô hoặc cửa sổ < 1100 px, ẩn khi phóng to); thêm SRS-FR-132 đến SRS-FR-140; theo BRD v5.1 |
