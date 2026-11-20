@@ -36,19 +36,26 @@ export function folderHighlights(entries: PaneEntry[]): Map<string, FolderHighli
   return folders;
 }
 
+type Waiting = { paneId: string; title: string; state: "Error" | "Needs Approval"; since: number };
+
+// One ordering for SRS-FR-045 and SRS-FR-136: Error first, then the longest waiting.
+function waitingQueue(panes: PaneEntry[], excludePaneId?: string): Waiting[] {
+  const waiting: Waiting[] = [];
+  for (const { pane, title, status } of panes) {
+    if (pane.paneId === excludePaneId || !status.tracked) continue;
+    if (status.state === "Error" || status.state === "Needs Approval") {
+      waiting.push({ paneId: pane.paneId, title, state: status.state, since: status.since });
+    }
+  }
+  return waiting.sort((a, b) => URGENCY.indexOf(a.state) - URGENCY.indexOf(b.state) || a.since - b.since);
+}
+
 export type MaximizedBadge = { count: number; state: "Error" | "Needs Approval"; paneId: string };
 
 /** The other sessions that need the user while a pane is maximized, and which one to jump to (SRS-FR-044, SRS-FR-045). */
 export function maximizedBadge(entries: PaneEntry[], maximizedPaneId: string): MaximizedBadge | null {
-  const waiting: { paneId: string; state: MaximizedBadge["state"]; since: number }[] = [];
-  for (const { pane, status } of currentPanes(entries)) {
-    if (pane.paneId === maximizedPaneId || !status.tracked) continue;
-    if (status.state === "Error" || status.state === "Needs Approval") {
-      waiting.push({ paneId: pane.paneId, state: status.state, since: status.since });
-    }
-  }
+  const waiting = waitingQueue(currentPanes(entries), maximizedPaneId);
   if (waiting.length === 0) return null;
-  waiting.sort((a, b) => URGENCY.indexOf(a.state) - URGENCY.indexOf(b.state) || a.since - b.since);
   return { count: waiting.length, state: waiting[0].state, paneId: waiting[0].paneId };
 }
 
@@ -64,20 +71,16 @@ export type StatusSummary = {
 /** What the Status Summary says about every session open in a pane (SRS-FR-132 to SRS-FR-136). */
 export function statusSummary(entries: PaneEntry[]): StatusSummary {
   const open = currentPanes(entries.filter((entry) => entry.pane.started));
-  const waiting: { paneId: string; title: string; state: HighlightState; since: number }[] = [];
   let approval = 0;
   let error = 0;
   let running = 0;
-  for (const { pane, title, status } of open) {
+  for (const { status } of open) {
     if (!status.tracked) continue;
     if (status.state === "Needs Approval") approval += 1;
     else if (status.state === "Error") error += 1;
     else if (status.state === "Running") running += 1;
-    if (status.state === "Error" || status.state === "Needs Approval") {
-      waiting.push({ paneId: pane.paneId, title, state: status.state, since: status.since });
-    }
   }
-  waiting.sort((a, b) => URGENCY.indexOf(a.state) - URGENCY.indexOf(b.state) || a.since - b.since);
+  const waiting = waitingQueue(open);
   const need = approval + error;
   return {
     headline: need > 0 ? "need" : open.length > 0 ? "clear" : "idle",

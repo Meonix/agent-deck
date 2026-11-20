@@ -3,13 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { summaryMode, useSummaryMode } from "./useSummaryMode";
 
 describe("summaryMode", () => {
-  const modes = [false, true].flatMap((maximized) =>
-    [false, true].flatMap((focusInPanes) => [false, true].map((narrow) => ({ maximized, focusInPanes, narrow }))),
-  );
+  const table: [boolean, boolean, boolean, string][] = [
+    [false, false, false, "expanded"],
+    [false, false, true, "collapsed"],
+    [false, true, false, "collapsed"],
+    [false, true, true, "collapsed"],
+    [true, false, false, "hidden"],
+    [true, false, true, "hidden"],
+    [true, true, false, "hidden"],
+    [true, true, true, "hidden"],
+  ];
 
-  it.each(modes)("decides %j", (facts) => {
-    const expected = facts.maximized ? "hidden" : facts.focusInPanes || facts.narrow ? "collapsed" : "expanded";
-    expect(summaryMode(facts)).toBe(expected);
+  it.each(table)("maximized %s, focusInPanes %s, narrow %s -> %s", (maximized, focusInPanes, narrow, expected) => {
+    expect(summaryMode({ maximized, focusInPanes, narrow })).toBe(expected);
   });
 });
 
