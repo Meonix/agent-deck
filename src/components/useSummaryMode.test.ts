@@ -55,6 +55,50 @@ describe("useSummaryMode", () => {
     expect(result.current).toBe("expanded");
   });
 
+  describe("while a pointer button is down", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    function setup() {
+      const area = document.createElement("div");
+      const inside = document.createElement("textarea");
+      const outside = document.createElement("button");
+      area.append(inside);
+      document.body.append(area, outside);
+      return { inside, outside, ...renderHook(() => useSummaryMode({ current: area }, false)) };
+    }
+
+    it("keeps collapsed until the click is over when focus leaves the panes", () => {
+      const { inside, outside, result } = setup();
+      act(() => inside.focus());
+      expect(result.current).toBe("collapsed");
+      act(() => {
+        document.dispatchEvent(new Event("pointerdown"));
+        outside.focus();
+      });
+      expect(result.current).toBe("collapsed");
+      act(() => {
+        document.dispatchEvent(new Event("pointerup"));
+        vi.runAllTimers();
+      });
+      expect(result.current).toBe("expanded");
+    });
+
+    it("keeps expanded until the click is over when focus enters a pane", () => {
+      const { inside, result } = setup();
+      act(() => {
+        document.dispatchEvent(new Event("pointerdown"));
+        inside.focus();
+      });
+      expect(result.current).toBe("expanded");
+      act(() => {
+        document.dispatchEvent(new Event("pointerup"));
+        vi.runAllTimers();
+      });
+      expect(result.current).toBe("collapsed");
+    });
+  });
+
   it("collapses in a narrow window (SRS-FR-138)", () => {
     const { result } = renderHook(() => useSummaryMode({ current: document.createElement("div") }, false));
     expect(result.current).toBe("expanded");

@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 export type SummaryMode = "hidden" | "collapsed" | "expanded";
 
@@ -14,13 +14,41 @@ export function useSummaryMode(paneArea: RefObject<HTMLElement | null>, maximize
   const [focusInPanes, setFocusInPanes] = useState(false);
   const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
 
+  const pointerDown = useRef(false);
+
   useEffect(() => {
+    let pending: boolean | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     // focusin only: focusout fires between two panes and would flicker the summary open for a frame.
     const onFocusIn = (event: FocusEvent) => {
-      setFocusInPanes(event.target instanceof Node && !!paneArea.current?.contains(event.target));
+      const inPanes = event.target instanceof Node && !!paneArea.current?.contains(event.target);
+      if (pointerDown.current) pending = inPanes;
+      else setFocusInPanes(inPanes);
+    };
+    // A mode change under a held pointer moves the button before mouse-up and the click is lost,
+    // so it waits until the click has been dispatched.
+    const onPointerDown = () => {
+      clearTimeout(timer);
+      pointerDown.current = true;
+    };
+    const onPointerEnd = () => {
+      pointerDown.current = false;
+      timer = setTimeout(() => {
+        if (pending !== null) setFocusInPanes(pending);
+        pending = null;
+      }, 0);
     };
     document.addEventListener("focusin", onFocusIn);
-    return () => document.removeEventListener("focusin", onFocusIn);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("pointerup", onPointerEnd, true);
+    document.addEventListener("pointercancel", onPointerEnd, true);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("pointerup", onPointerEnd, true);
+      document.removeEventListener("pointercancel", onPointerEnd, true);
+    };
   }, [paneArea]);
 
   useEffect(() => {
