@@ -18,7 +18,7 @@ import { useTextZoom } from "./components/useTextZoom";
 import { useWorkspaces } from "./components/useWorkspaces";
 import { mergeSessions, type OpenSession } from "./components/sessionList";
 import { ICON_SM } from "./components/icon";
-import { StatusSummary } from "./components/StatusSummary";
+import { LatencyBar, StatusSummary } from "./components/StatusSummary";
 import { useSummaryMode } from "./components/useSummaryMode";
 import { useMinuteClock, useSessionList } from "./components/useSessionList";
 import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
@@ -255,7 +255,9 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {summaryMode !== "hidden" && (
+      {summaryMode === "hidden" ? (
+        <LatencyBar onOpenLatency={onOpenLatency} />
+      ) : (
         <StatusSummary
           summary={statusSummary(panes.entries)}
           mode={summaryMode}

@@ -2836,6 +2836,15 @@ describe("Status Summary (3.1)", () => {
     expect(summary()).toBeInTheDocument();
   });
 
+  it("keeps Status Latency reachable in a slim bar while a pane is maximized (SRS-FR-039, SRS-FR-139)", async () => {
+    const { user, sessions } = await openPanes(1);
+    await user.click(within(panes()[0]).getByRole("button", { name: "Maximize pane" }));
+    expect(screen.queryByRole("region", { name: "Status Summary" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Status Latency" }));
+    expect(await screen.findByRole("dialog", { name: "Status Latency" })).toBeInTheDocument();
+    expect(sessions.latencyReport).toHaveBeenCalled();
+  });
+
   it("keeps Status Latency at its right end in both modes (SRS-FR-039)", async () => {
     const { user, sessions } = await openPanes(1);
     fireEvent.focusIn(panes()[0]);

@@ -10,7 +10,7 @@ type Props = {
   onOpenLatency(): void;
 };
 
-function headline({ headline, need }: Summary): string {
+function headlineText({ headline, need }: Summary): string {
   if (headline === "need") return `${need} need you`;
   return headline === "clear" ? "All clear" : "Agent Deck · No sessions running";
 }
@@ -36,7 +36,7 @@ export function StatusSummary({ summary, mode, onGoTo, onOpenLatency }: Props) {
     >
       <div className={`flex items-center ${expanded ? "flex-col gap-4" : "min-w-0 flex-1 gap-3"}`}>
         <h1 className={`${expanded ? "text-[40px] leading-none font-light" : "truncate text-[17px] font-normal"} font-sans text-foreground`}>
-          {headline(summary)}
+          {headlineText(summary)}
         </h1>
         <ul className="flex items-center gap-2">
           {chips(summary).map(({ count, label, Icon, mark: markColor, chip }) => (
@@ -61,13 +61,28 @@ export function StatusSummary({ summary, mode, onGoTo, onOpenLatency }: Props) {
           <ArrowRight {...ICON} />
         </button>
       )}
-      <button
-        onClick={onOpenLatency}
-        className={`inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-muted-foreground bg-muted border border-border rounded-md px-2 py-0.5 hover:text-foreground hover:border-muted-foreground transition-colors ${expanded ? "absolute right-4 top-3" : ""}`}
-      >
-        <Gauge {...ICON_SM} />
-        Status Latency
-      </button>
+      <LatencyButton onOpen={onOpenLatency} className={expanded ? "absolute right-4 top-3" : ""} />
     </section>
+  );
+}
+
+function LatencyButton({ onOpen, className }: { onOpen(): void; className: string }) {
+  return (
+    <button
+      onClick={onOpen}
+      className={`inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-muted-foreground bg-muted border border-border rounded-md px-2 py-0.5 hover:text-foreground hover:border-muted-foreground transition-colors ${className}`}
+    >
+      <Gauge {...ICON_SM} />
+      Status Latency
+    </button>
+  );
+}
+
+/** SRS-FR-039: while a pane is maximized the summary is hidden (SRS-FR-139), but the report stays reachable; h-9 matches PaneGrid's top-9. */
+export function LatencyBar({ onOpenLatency }: { onOpenLatency(): void }) {
+  return (
+    <div className="flex h-9 shrink-0 items-center justify-end border-b border-border bg-card px-4">
+      <LatencyButton onOpen={onOpenLatency} className="" />
+    </div>
   );
 }
