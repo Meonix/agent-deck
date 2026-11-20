@@ -25,7 +25,7 @@
 ## 6. Design review follow-up (approved at GATE 3)
 
 - [ ] 6.1 Move the focus/pointer logic of `useSummaryMode` into a pure reducer (events: focusin, focusout-to-body, pointerdown with target-in-panes, pointerup/cancel, contextmenu, window blur, timer tick) with the hook only wiring DOM listeners; behaviour unchanged except one fix: a primary pointerdown inside the pane area keeps the summary collapsed when focus falls to body (clicking a pane header or starting a pane drag must not expand it, SRS-FR-137). Verify: reducer unit tests per event, a failing-first test for the header click, `npm test` green.
-- [ ] 6.2 Derive `modalOpen` in `App.tsx` from the single place that renders the confirm dialogs, so a new dialog cannot be rendered without making the Status Summary inert. Verify: existing inert/dialog tests in `App.test.tsx` green, `npm test`, `npx tsc --noEmit`, `npm run build`.
+- [x] 6.2 Derive `modalOpen` in `App.tsx` from the single place that renders the confirm dialogs, so a new dialog cannot be rendered without making the Status Summary inert. Verify: existing inert/dialog tests in `App.test.tsx` green, `npm test`, `npx tsc --noEmit`, `npm run build`.
 
 ## Workflow follow-up
 

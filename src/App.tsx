@@ -253,7 +253,44 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     if (kept.length > 0) showToast(`${targets.length - kept.length} of ${targets.length} sessions deleted`);
   };
 
-  const modalOpen = !!(deleting || deletingMany || (stashing && stashingEntry) || (closing && closingEntry));
+  // modalOpen derives from this, so a dialog cannot render without making the summary inert.
+  const dialog = deleting ? (
+    <ConfirmDialog
+      title={deleting.live ? `Close “${deleting.title}” and move it to Trash?` : `Move “${deleting.title}” to Trash?`}
+      detail={deleting.live ? "The session will be ended and its pane closed." : "You can restore it from the Trash."}
+      action={deleting.live ? "Close and move" : "Move to Trash"}
+      onCancel={cancelDelete}
+      onConfirm={() => void confirmDelete(deleting)}
+    />
+  ) : deletingMany ? (
+    <ConfirmDialog
+      {...deleteManyText(deletingMany)}
+      onCancel={cancelDeleteMany}
+      onConfirm={() => void confirmDeleteMany(deletingMany)}
+    />
+  ) : stashing && stashingEntry ? (
+    <ConfirmDialog
+      title={`Stash “${stashingEntry.title}”?`}
+      detail={closeWarnings(!stashingEntry.ended && isBusy(stashingEntry), stashing.shell)}
+      action="Stash"
+      onConfirm={() => void stashPane(stashingEntry)}
+      onCancel={cancelStash}
+    />
+  ) : closing && closingEntry ? (
+    <ConfirmDialog
+      title={`Close “${closingEntry.title}”?`}
+      detail={closeWarnings(!closingEntry.ended && isBusy(closingEntry), closing.shell)}
+      {...(hasHistory(closingEntry)
+        ? {
+            action: "Close and move to Trash",
+            extra: { label: "Close", onChoose: () => closeOnly(closingEntry.pane.paneId) },
+            onConfirm: () => closeAndTrash(closingEntry),
+          }
+        : { action: "Close", onConfirm: () => closeOnly(closingEntry.pane.paneId) })}
+      onCancel={cancelClose}
+    />
+  ) : null;
+  const modalOpen = dialog !== null;
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -357,45 +394,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           />
         )}
       </main>
-      {deleting && (
-        <ConfirmDialog
-          title={deleting.live ? `Close “${deleting.title}” and move it to Trash?` : `Move “${deleting.title}” to Trash?`}
-          detail={deleting.live ? "The session will be ended and its pane closed." : "You can restore it from the Trash."}
-          action={deleting.live ? "Close and move" : "Move to Trash"}
-          onCancel={cancelDelete}
-          onConfirm={() => void confirmDelete(deleting)}
-        />
-      )}
-      {deletingMany && (
-        <ConfirmDialog
-          {...deleteManyText(deletingMany)}
-          onCancel={cancelDeleteMany}
-          onConfirm={() => void confirmDeleteMany(deletingMany)}
-        />
-      )}
-      {stashing && stashingEntry && (
-        <ConfirmDialog
-          title={`Stash “${stashingEntry.title}”?`}
-          detail={closeWarnings(!stashingEntry.ended && isBusy(stashingEntry), stashing.shell)}
-          action="Stash"
-          onConfirm={() => void stashPane(stashingEntry)}
-          onCancel={cancelStash}
-        />
-      )}
-      {closing && closingEntry && (
-        <ConfirmDialog
-          title={`Close “${closingEntry.title}”?`}
-          detail={closeWarnings(!closingEntry.ended && isBusy(closingEntry), closing.shell)}
-          {...(hasHistory(closingEntry)
-            ? {
-                action: "Close and move to Trash",
-                extra: { label: "Close", onChoose: () => closeOnly(closingEntry.pane.paneId) },
-                onConfirm: () => closeAndTrash(closingEntry),
-              }
-            : { action: "Close", onConfirm: () => closeOnly(closingEntry.pane.paneId) })}
-          onCancel={cancelClose}
-        />
-      )}
+      {dialog}
     </div>
     </div>
   );
