@@ -1,0 +1,56 @@
+/* One UI (2026-11-20) — lớp token hình khối, nạp SAU ../tokens.css.
+   Không thêm màu, không đổi font: mọi màu là alias tới token đã có trong tokens.css.
+   Hình khối lấy từ refs/oneui/: dev-docs.png (thẻ ~24px, hở 20px), layout-basic.png (viewing area),
+   comp-app-bar.png (app bar mở rộng / thu gọn), structure-visual-depth.png (dim + blur một bậc).
+   Độ tương phản đo bằng script WCAG trong design-ui TOKENS.md mục 5. */
+
+:root {
+  /* Mặt bằng: nền xám, thẻ sáng nổi lên */
+  --oneui-canvas: var(--muted);            /* gray-3 #f0f0f0 — nền cửa sổ, khoảng hở giữa thẻ */
+  --oneui-surface: var(--background);      /* gray-1 #fcfcfc — thẻ ô, Session History · 1.11:1 so với canvas */
+  --oneui-term: var(--background);         /* gray-1 #fcfcfc — nền terminal trong thẻ ô, trùng thẻ: ANSI giữ ≥4.49 (trên canvas #f0f0f0 tụt còn 4.05–4.18) */
+  --oneui-sidebar: var(--card);            /* gray-2 #f9f9f9 — thẻ cột trái; giữ nền đo NFR-009/010 (tint 1.06–1.22) */
+  /* Chữ: --foreground 15.88 trên surface, 14.30 trên canvas · --muted-foreground 5.77 / 5.19 */
+  /* Focus Outline --ring 5.23 trên surface · viền Needs Approval --approval 1.54 (đã chấp nhận từ CR-001) */
+
+  --oneui-dim: rgb(0 0 0 / 0.32);          /* dim một bậc sau hộp thoại / ô phóng to */
+  --oneui-blur: 12px;                      /* blur nền khi mở lớp không liên quan */
+  --oneui-shadow: 0 6px 24px rgb(0 0 0 / 0.10), 0 1px 3px rgb(0 0 0 / 0.06); /* chỉ cho lớp nổi liên quan: menu, toast */
+}
+
+.dark {
+  --oneui-canvas: var(--background);       /* gray-dark-1 #111111 */
+  --oneui-surface: var(--card);            /* gray-dark-2 #191919 · 1.07:1 so với canvas — tách bằng bo góc + hở, xem GATE 2 */
+  --oneui-term: var(--background);         /* #111111 — terminal lõm trong thẻ #191919; nền terminal cũ của Signal Deck, ANSI giữ nguyên số đo */
+  --oneui-sidebar: var(--card);            /* #191919 — giữ nền đo NFR-009/010 (tint 1.04–1.24); đặt tint trên #111 thì Active lên 1.33 > 1.25 */
+  /* Focus Outline vẽ trên canvas: --ring 3.52 trên #111111 (trên --muted chỉ 2.96 — không vẽ outline lên nền --muted) */
+
+  --oneui-dim: rgb(0 0 0 / 0.56);
+  --oneui-shadow: 0 6px 24px rgb(0 0 0 / 0.45);
+}
+
+:root {
+  /* Bo góc */
+  --oneui-radius-card: 24px;               /* thẻ lớn: cột trái, ô terminal, Session History, hộp thoại */
+  --oneui-radius-group: 18px;              /* khối danh sách trong cột trái */
+  --oneui-radius-row: 12px;                /* dòng đang chọn / hover bên trong khối */
+  --oneui-radius-pill: 999px;              /* nút, chip, badge */
+
+  /* Khoảng cách */
+  --oneui-gap: 12px;                       /* hở giữa các thẻ, lề cửa sổ */
+  --oneui-pad-card: 16px;
+  --oneui-row-h: 52px;                     /* dòng hai tầng: tiêu đề + dòng phụ */
+  --oneui-hit: 36px;                       /* nút icon tối thiểu (desktop, chuột) */
+
+  /* Viewing area (vùng đỉnh tóm tắt trạng thái) */
+  --oneui-header-expanded: 152px;
+  --oneui-header-collapsed: 48px;          /* thu gọn khi focus vào ô */
+  --oneui-title-size: 40px;                /* "2 need you" — Inter 300, canh giữa như One UI */
+  --oneui-title-weight: 300;
+  --oneui-subtitle-size: 15px;             /* "5 running · 1 error" */
+  --oneui-subheader-size: 13px;            /* nhãn nhóm "Folders" — thường, không in hoa, không mono */
+
+  /* Chuyển động: One UI dùng ease-out dài, mềm */
+  --oneui-duration: 280ms;
+  --oneui-ease: cubic-bezier(0.22, 0.25, 0, 1);
+}

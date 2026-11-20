@@ -95,3 +95,20 @@ Duyệt bằng agent-browser (`ab`, Brave) ngày 2026-11-02. Hex đọc từ tra
 | 28 | Color Hunt · Dark Warm | https://colorhunt.co/palettes/dark-warm | `refs/sidebar/palettes/colorhunt-dark-warm.png` | Bộ "cà phê" #D5CEA3 · #A56F63 · #DCA06D và nhiều bộ đỏ–hồng–nâu trên nền tối |
 
 | 29 | Palette "Сталь" (Holst), ảnh user gửi trong chat 2026-11-02 | — (ảnh trong chat, reference-only) | — | 7 bậc thép: #10161C · #1F2C38 · #33475A · #4E6A83 · #8199AE · #B7C6D3 · #E7EDF2. User chốt dùng bộ này cho tint section (thay sky / indigo / teal) |
+
+## One UI (2026-11-20) — thử giao diện One UI đầy đủ
+
+Chụp bằng Playwright ngày 2026-11-20, viewport 1440×900, full-page, chờ 4 giây. Ảnh trong `refs/oneui/`. Nguồn: bộ hướng dẫn One UI chính thức của Samsung (developer.samsung.com/one-ui).
+
+| # | Nguồn | Link | Ảnh | Lấy gì |
+| --- | --- | --- | --- | --- |
+| 16 | One UI · Basic layout | https://developer.samsung.com/one-ui/layout/basic.html | `refs/oneui/layout-basic.png` | Chia màn: viewing area ở trên (tiêu đề to canh giữa, lề rộng, không có nút) và interaction area ở dưới; danh sách gom thành khối bo góc lớn, subheader nhỏ giữa các khối |
+| 17 | One UI · App bar | https://developer.samsung.com/one-ui/comp/app-bar.html | `refs/oneui/comp-app-bar.png` | App bar mở rộng thu về dạng gọn khi cuộn; "dynamic title" thay tên app bằng một câu thông tin (số tin chưa đọc, giờ báo thức) — đúng cho "2 need you"; tối đa 3 nút hành động bên phải |
+| 18 | One UI · Lists | https://developer.samsung.com/one-ui/comp/list.html | `refs/oneui/comp-list.png` | Dòng hai tầng (main text + subtext/value text màu nhấn), ngăn mảnh trong khối, icon tròn màu trước tên; subheader nhỏ xám gom nhóm — mẫu cho Folders / Active / Stashed |
+| 19 | One UI · Dialog | https://developer.samsung.com/one-ui/comp/dialog.html | `refs/oneui/comp-dialog.png` | Hộp xác nhận bo góc lớn, nút chữ màu nhấn chia đôi bằng vạch dọc, không viền nút; menu ngữ cảnh dạng thẻ nổi không tiêu đề — mẫu cho Close/Stash/Delete Dialog |
+| 20 | One UI · Visual depth | https://developer.samsung.com/one-ui/structure/visual-depth.html | `refs/oneui/structure-visual-depth.png` | Ba lớp chiều sâu: blur + dim nền khi mở lớp không liên quan, chỉ bóng mềm khi lớp liên quan; dim một bậc, không chồng nhiều bậc — áp cho ô phóng to và hộp thoại |
+| 21 | One UI · Large screen layout | https://developer.samsung.com/one-ui/largescreen-and-foldable/large_screen_layout.html | `refs/oneui/largescreen-and-foldable-large-screen-layout.png` | Màn lớn: menu luôn hiện cạnh nội dung (list–detail), pop-up nhỏ thay vì đổi cả màn, lưới thẻ bo góc nhiều cột — mẫu cho cột trái + Session History Panel + lưới ô |
+| 22 | One UI · Color system | https://developer.samsung.com/one-ui/color/system.html | `refs/oneui/color-system.png` | Màu đặc, bão hoà vừa trong dải cho phép; nền đơn sắc dịu (mono tone) cho cả light/dark, màu chỉ dành cho điểm nhấn và icon |
+| 23 | One UI Docs (trang web của Samsung) | https://developer.samsung.com/one-ui/index.html | `refs/oneui/dev-docs.png` | Ba thẻ trắng bo góc lớn (~24px) nổi trên nền xám nhạt, khoảng hở 20px, mục đang chọn nền xanh nhạt bo tròn — bản One UI cho màn rộng, gần agent-deck nhất |
+
+Đã thử nhưng bỏ: https://design.samsung.com/global/contents/one-ui/ (chỉ có hero chữ), https://www.samsung.com/us/one-ui/ và https://www.samsung.com/us/apps/dex/ (bị hộp cookie che, không thấy giao diện), https://www.samsung.com/global/galaxy/one-ui/ (trang lỗi "not available").

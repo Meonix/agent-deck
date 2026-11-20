@@ -141,3 +141,28 @@ Giới hạn SRS giữ nguyên trong C: Sidebar Toggle vẫn ở giữa mép ph�
   - Folder đang chọn: vạch 2px `--row-focus` + nền `--accent`; Row Focus Mark giữ vòng iris (≥ 3.24 trên #1F2C38).
 - Không phải thang Radix: hex lấy từ palette user, độ sáng pha giữa hai bậc của palette để nằm dưới trần SRS 1.25.
 - Trạng thái: `#empty-no-folders`, `#empty-no-sessions`, `#error`, `#dense-data`, `#narrow`. Không vẽ Loading, No permission.
+
+## Phạm vi One UI (2026-11-20)
+
+Thử nghiệm, không có CR — đổi visual và bố cục khung, SRS không đổi hành vi. Nguồn: yêu cầu user "design giao diện mới theo kiểu One UI" (Samsung).
+
+- Người dùng: như trên — một lập trình viên, cũng là PO, chạy song song nhiều phiên Claude Code.
+- Mức: One UI đầy đủ (user chọn) — vùng tiêu đề lớn ở đỉnh, cột trái thành danh sách thẻ to gom nhóm, ô terminal là thẻ nổi bo góc lớn tách nhau bằng khoảng hở. Đánh đổi đã biết: terminal mất chỗ so với Signal Deck.
+- Vùng đỉnh: tóm tắt trạng thái chữ to ("2 need you" + "5 running · 1 error"), bấm tới phiên gấp nhất; thu thành thanh mảnh khi focus vào ô.
+- Giá trị cốt lõi:
+  1. Không sót phiên chờ duyệt / lỗi (BO-01) — vùng đỉnh nói thẳng số phiên cần mình.
+  2. Mở lại phiên cũ ≤ 3 thao tác (BO-02) — giữ nguyên luồng folder → phiên → Resume.
+  3. Terminal vẫn dùng được như terminal thường, phóng to ra cả cửa sổ (BR-05) — vùng đỉnh phải thu được.
+- Màn hình: Cửa sổ chính (Workspace List, Active Sessions, Stashed Sessions, Session History Panel, Pane Grid, ô phóng to, Pane Shell, Target Box, Progress Strip, các hộp xác nhận, Toast) — SRS mục 7.
+- Ràng buộc SRS giữ: Focus Outline 2px iris; viền Needs Approval 2px vàng (FR-087); Target Box chữ đỏ (FR-092); ✓ xanh · ● vàng (FR-119); 3 tint section ≤1.25:1, chữ ≥4.5:1 (NFR-009/010); thứ tự Stash · Maximize · × (FR-103); Sidebar Toggle giữa mép phải; nhãn tiếng Anh (NFR-008).
+
+## Đã chốt cho One UI (2026-11-20)
+
+Thử nghiệm, chưa có CR, chưa lên code. File: `oneui/design.html`, `oneui/tokens-oneui.css` (nạp sau `tokens.css`), reference #16–23 trong `references.md`.
+
+- Bố cục: A · Đỉnh toàn cửa sổ. Vùng đỉnh 152px canh giữa ("2 need you" Inter 300 40px + 3 viên đếm Needs Approval / Error / Running), thu còn 48px khi focus vào ô hoặc cửa sổ < 1100px; ẩn hẳn khi ô phóng to. Dưới: thẻ cột trái 264px · thẻ Session History 260px · lưới ô thẻ bo 24px, hở 12px.
+- Màu: v3 · Icon tròn màu. Mỗi dòng mở bằng vòng tròn 28px: folder nền `--accent`, folder Missing nền `--muted` + `folder-x`, phiên nền màu trạng thái đặc + icon Lucide đen (hand / triangle-alert / play), Status unavailable nền `--muted-foreground` + `circle-help`. Ba section là khối bo 18px trên tint `--section-*` (giữ NFR-009/010). Hộp thoại kiểu One UI: bo 26px nửa dưới, blur + dim một bậc, nút chữ chia vạch dọc.
+- Token: không thêm màu, không đổi font. Lớp `--oneui-*` là alias + hình khối; thêm `--oneui-term` (nền terminal: light #fcfcfc vì trên #f0f0f0 ANSI tụt 4.05–4.18; dark #111111). Nền dark giữ #111111.
+- Còn hở (từ trước, không do One UI): viền vàng light 1.38 trên canvas; ANSI bright-black dark 4.46. Progress Strip bị cắt ở ô hẹp.
+- Chữ đề xuất ngoài SRS, cần PO xác nhận: "All clear", "No sessions running", "No sessions in this folder yet.".
+- Trạng thái: `#final`, `#final-collapsed`, `#all-clear`, `#empty-no-folders`, `#empty-no-sessions`, `#loading`, `#error`, `#close-confirm`, `#maximized`, `#dense-data`, `#narrow`. Không vẽ No permission.
