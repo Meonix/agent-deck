@@ -32,7 +32,7 @@ export function StatusSummary({ summary, mode, onGoTo, onOpenLatency }: Props) {
     <section
       aria-label="Status Summary"
       data-mode={mode}
-      className={`relative flex shrink-0 items-center border-b border-border bg-card px-4 ${expanded ? "h-[152px] flex-col justify-center gap-4" : "h-12 gap-3"}`}
+      className={`relative flex shrink-0 items-center px-4 ${expanded ? "h-[152px] flex-col justify-center gap-4" : "h-12 gap-3"}`}
     >
       <div className={`flex items-center ${expanded ? "flex-col gap-4" : "min-w-0 flex-1 gap-3"}`}>
         <h1 className={`${expanded ? "text-[40px] leading-none font-light" : "truncate text-[17px] font-normal"} font-sans text-foreground`}>
@@ -81,7 +81,7 @@ function LatencyButton({ onOpen, className }: { onOpen(): void; className: strin
 /** SRS-FR-039: while a pane is maximized the summary is hidden (SRS-FR-139), but the report stays reachable; h-9 matches PaneGrid's top-9. */
 export function LatencyBar({ onOpenLatency }: { onOpenLatency(): void }) {
   return (
-    <div className="flex h-9 shrink-0 items-center justify-end border-b border-border bg-card px-4">
+    <div className="flex h-9 shrink-0 items-center justify-end px-4">
       <LatencyButton onOpen={onOpenLatency} className="" />
     </div>
   );

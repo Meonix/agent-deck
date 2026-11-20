@@ -43,7 +43,7 @@ function App(deps: Deps) {
   const textSize = useTextZoom(deps.zoom, deps.mac ?? false);
   const sidebar = useSidebarToggle(deps.mac ?? false);
   return (
-    <div className="h-screen relative flex flex-col bg-background text-foreground font-sans">
+    <div className="h-screen relative flex flex-col bg-canvas text-foreground font-sans">
       <ToastProvider>
         <Workbench {...deps} textSize={textSize} sidebar={sidebar} onOpenLatency={openReport} />
         {reportOpen && <StatusLatencyReport client={deps.sessions} onClose={closeReport} />}
@@ -265,7 +265,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           onOpenLatency={onOpenLatency}
         />
       )}
-    <div className={`flex-1 min-h-0 relative grid ${gridColumns(sidebar.shown, historyShown)}`}>
+    <div className={`flex-1 min-h-0 relative grid gap-gap px-gap pb-gap ${gridColumns(sidebar.shown, historyShown)}`}>
       <WorkspaceSidebar
         hidden={!sidebar.shown}
         workspaces={workspaces}
@@ -446,14 +446,14 @@ function isBusy({ status }: PaneEntry): boolean {
 
 function CenteredState({ title, hint, action, disabled = false, onAction }: CenteredStateProps) {
   return (
-    <div className="h-full flex items-center justify-center p-2">
+    <div className="h-full flex items-center justify-center p-2 rounded-card bg-surface">
       <div className="text-center space-y-2 max-w-sm">
         <div className="text-base font-medium text-foreground">{title}</div>
         <div className="text-sm text-muted-foreground">{hint}</div>
         <button
           onClick={onAction}
           disabled={disabled}
-          className="mt-2 text-sm font-medium bg-primary text-primary-foreground rounded-md px-3 py-1.5 hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="mt-2 text-sm font-medium bg-primary text-primary-foreground rounded-full px-4 py-1.5 hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {action}
         </button>
@@ -469,7 +469,7 @@ function gridColumns(sidebarShown: boolean, historyShown: boolean): string {
   return historyShown ? "grid-cols-[280px_1fr]" : "grid-cols-[1fr]";
 }
 
-// Below the maximized pane's z-10, which covers it (SRS-FR-088).
+// Below the maximized pane's z-10, which covers it (SRS-FR-088). Shown, it sits in the gap right of the sidebar card.
 function SidebarToggle({ shown, covered, onToggle }: { shown: boolean; covered: boolean; onToggle(): void }) {
   return (
     <button
@@ -477,7 +477,7 @@ function SidebarToggle({ shown, covered, onToggle }: { shown: boolean; covered: 
       inert={covered}
       aria-label={shown ? "Hide sidebar" : "Show sidebar"}
       aria-expanded={shown}
-      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 w-4 flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${shown ? "left-[260px] -translate-x-1/2" : "left-0 rounded-l-none border-l-0"}`}
+      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 w-4 flex items-center justify-center rounded-full border border-border bg-surface text-muted-foreground hover:text-foreground transition-colors ${shown ? "left-[calc(260px+var(--oneui-gap)*1.5)] -translate-x-1/2" : "left-0 rounded-l-none border-l-0"}`}
     >
       {shown ? <ChevronLeft {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}
     </button>

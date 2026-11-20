@@ -24,8 +24,11 @@ type Props = {
   onMove(id: string, targetId: string, side: Side): void;
 };
 
-// top-9 matches the h-9 title bar in App.
-const MAXIMIZED = "fixed inset-x-0 bottom-0 top-9 z-10 flex flex-col min-h-0 min-w-0 p-2 bg-background [&>*]:flex-1";
+// top-9 matches the h-9 LatencyBar that replaces the Status Summary while a pane is maximized.
+const MAXIMIZED = "fixed inset-x-0 bottom-0 top-9 z-10 flex flex-col min-h-0 min-w-0 px-gap pb-gap bg-canvas [&>*]:flex-1";
+// Each pane wrapper pads half the gap, so cards sit a full gap apart with the dividers in between;
+// the grid reaches half a gap past the main area so the outer cards still line up with the sidebar.
+const HALF_GAP = "p-[calc(var(--oneui-gap)/2)]";
 
 export function PaneGrid({ layout, panes, maximizedId, onResize, onMove }: Props) {
   const grid = useRef<HTMLDivElement>(null);
@@ -115,7 +118,7 @@ export function PaneGrid({ layout, panes, maximizedId, onResize, onMove }: Props
   };
 
   return (
-    <div className="h-full p-1">
+    <div className="h-[calc(100%+var(--oneui-gap))] -m-[calc(var(--oneui-gap)/2)]">
       <div
         ref={grid}
         data-testid="pane-grid"
@@ -137,7 +140,7 @@ export function PaneGrid({ layout, panes, maximizedId, onResize, onMove }: Props
               key={id}
               data-pane-id={id}
               inert={covered}
-              className={`absolute flex flex-col min-h-0 min-w-0 p-0.5 [&>*]:flex-1 ${covered ? "invisible" : ""} ${drag?.active && drag.id === id ? "opacity-50" : ""}`}
+              className={`absolute flex flex-col min-h-0 min-w-0 ${HALF_GAP} [&>*]:flex-1 ${covered ? "invisible" : ""} ${drag?.active && drag.id === id ? "opacity-50" : ""}`}
               style={{
                 left: `${r.x * 100}%`,
                 top: `${r.y * 100}%`,
@@ -223,10 +226,10 @@ function DropZones({ target, box, side }: { target: string; box: Rect; side: Sid
     <div
       aria-hidden
       data-drop-target={target}
-      className="absolute pointer-events-none p-1"
+      className={`absolute pointer-events-none ${HALF_GAP}`}
       style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.width * 100}%`, height: `${box.height * 100}%` }}
     >
-      <div className="relative h-full w-full rounded-lg border border-dashed border-primary/40">
+      <div className="relative h-full w-full rounded-card border border-dashed border-primary/40">
         {SIDES.map((s) => (
           <div
             key={s}
@@ -234,8 +237,8 @@ function DropZones({ target, box, side }: { target: string; box: Rect; side: Sid
             data-active={s === side || undefined}
             className={
               s === side
-                ? "absolute rounded-lg border border-primary bg-primary/20"
-                : "absolute rounded-lg border border-dashed border-primary/40 bg-primary/5"
+                ? "absolute rounded-card border border-primary bg-primary/20"
+                : "absolute rounded-card border border-dashed border-primary/40 bg-primary/5"
             }
             style={band(s, s === side ? "50%" : "25%")}
           />

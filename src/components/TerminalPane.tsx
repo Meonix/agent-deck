@@ -190,11 +190,11 @@ export function TerminalPane({
   // On an overlay: an inset shadow on the section itself is hidden under its opaque children.
   const glow =
     !quiet && status.state === "Needs Approval"
-      ? "after:pointer-events-none after:absolute after:inset-0 after:z-10 after:shadow-approval-glow"
+      ? "after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-approval-glow"
       : "";
   const dim = focused || maximized || attention ? "" : "opacity-pane-dim";
   // A box-shadow outside the status border, so focus never hides the state colour (SRS-FR-087).
-  const outline = focused ? "ring-2 ring-ring ring-offset-1 ring-offset-background" : "";
+  const outline = focused ? "ring-2 ring-ring ring-offset-1 ring-offset-canvas" : "";
   const toggleMaximized = () => (maximized ? onRestore() : onMaximize(paneId));
   const headerPressed = useRef(false);
 
@@ -202,7 +202,7 @@ export function TerminalPane({
     <section
       aria-label={`${workspaceName} · ${title}`}
       onFocus={() => onFocus(paneId)}
-      className={`relative flex flex-col min-h-0 min-w-0 rounded-lg border ${border} ${attention ? "border-2" : ""} ${glow} ${outline} ${dim} bg-background overflow-hidden transition-opacity`}
+      className={`relative flex flex-col min-h-0 min-w-0 rounded-card border ${border} ${attention ? "border-2" : ""} ${glow} ${outline} ${dim} bg-surface overflow-hidden transition-opacity`}
     >
       <header
         data-drag-handle

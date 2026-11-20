@@ -30,11 +30,11 @@ type Props = {
 /** The selected folder's sessions, between the left column and the panes (SRS-FR-007, SRS-FR-054). */
 export function SessionHistoryPanel({ workspaceName, covered, onNewSession, onClose, ...list }: Props) {
   return (
-    <div className="min-h-0 border-r border-border">
+    <div className="min-h-0 overflow-hidden rounded-card bg-surface">
       <section
         aria-label="Session history"
         inert={covered}
-        className="h-full overflow-auto bg-background"
+        className="h-full overflow-auto"
       >
         <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-border bg-card">
           <h2 className="truncate font-mono text-xs font-medium text-foreground">{workspaceName}</h2>

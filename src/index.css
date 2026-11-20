@@ -1,8 +1,24 @@
 @import "tailwindcss";
 @import "../design/agent-deck/tokens.css";
+@import "../design/agent-deck/oneui/tokens-oneui.css";
 @config "../design/agent-deck/tailwind.preset.js";
 @source "./";
 
 @theme {
   --default-transition-duration: var(--duration);
+}
+
+/* One UI shape layer; inline, so dark mode's --oneui-* values apply where the class is used. */
+@theme inline {
+  --color-canvas: var(--oneui-canvas);
+  --color-surface: var(--oneui-surface);
+  --color-term: var(--oneui-term);
+  --color-sidebar: var(--oneui-sidebar);
+  --color-dim: var(--oneui-dim);
+  --radius-card: var(--oneui-radius-card);
+  --radius-group: var(--oneui-radius-group);
+  --radius-row: var(--oneui-radius-row);
+  --spacing-gap: var(--oneui-gap);
+  --shadow-oneui: var(--oneui-shadow);
+  --blur-oneui: var(--oneui-blur);
 }

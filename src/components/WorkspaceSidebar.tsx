@@ -40,7 +40,7 @@ export function WorkspaceSidebar({
 }: Props) {
   const { items, selected, select, addFolder, removeFolder } = workspaces;
   return (
-    <aside aria-label="Workspaces" hidden={hidden} inert={covered} className="flex min-h-0 flex-col bg-card border-r border-border">
+    <aside aria-label="Workspaces" hidden={hidden} inert={covered} className="flex min-h-0 flex-col overflow-hidden rounded-card bg-sidebar">
       {/* SRS-FR-088: this list area keeps its scroll position while the sidebar is hidden. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         <section className="bg-section-folders pb-2">
