@@ -91,3 +91,8 @@ keeps its accessible name (app-theme).
 ## Migration Plan
 
 Pure front-end change; rollback is reverting the change's commits. No stored data changes.
+
+## Post-review decisions (GATE 3, approved)
+
+- D6 · `useSummaryMode` becomes a pure reducer plus a thin listener hook; the reducer also remembers whether the last primary pointerdown hit the pane area, so focus falling to body after a click inside a pane (header, padding, drag start) keeps the summary collapsed.
+- D7 · `modalOpen` is derived from the same value that renders the confirm dialog, not re-listed conditions.
