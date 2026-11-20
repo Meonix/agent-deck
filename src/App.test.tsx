@@ -2787,6 +2787,29 @@ describe("Status Summary (3.1)", () => {
     expect(within(summary()).getByText("1 need you")).toBeInTheDocument();
   });
 
+  it("pluralises error but leaves the other chips as they are", async () => {
+    const { sessions } = await openPanes(3);
+    act(() => sessions.opened[0].stream.status({ state: "Error", since, reason: "boom" }));
+    act(() => sessions.opened[1].stream.status({ state: "Error", since, reason: "boom" }));
+    act(() => sessions.opened[2].stream.status({ state: "Needs Approval", since, reason: "Edit a" }));
+    expect(within(summary()).getByText("2 errors")).toBeInTheDocument();
+    expect(within(summary()).getByText("1 need approval")).toBeInTheDocument();
+  });
+
+  it("truncates a long Go to title inside the bar but keeps the full name (SRS-FR-136)", async () => {
+    const title = "A very long session title that would otherwise push Status Latency off the window";
+    const sessions = fakeSessions({ titles: [title] });
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(ctx.user, "agent-deck");
+    await within(sidebar()).findByText(title);
+    act(() => sessions.opened[0].stream.status({ state: "Needs Approval", since, reason: "Edit a" }));
+    const goTo = within(summary()).getByRole("button", { name: `Go to ${title}` });
+    expect(goTo).toHaveClass("min-w-0", "max-w-[40%]");
+    expect(goTo).toHaveAttribute("title", `Go to ${title}`);
+    expect(within(goTo).getByText(`Go to ${title}`)).toHaveClass("truncate");
+    expect(within(summary()).getByRole("button", { name: "Status Latency" })).toHaveClass("shrink-0");
+  });
+
   it("says All clear when sessions are open and none needs the user (SRS-FR-134)", async () => {
     const { sessions } = await openPanes(1);
     act(() => sessions.opened[0].stream.status({ state: "Running", since }));

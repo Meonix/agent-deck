@@ -18,9 +18,9 @@ function headlineText({ headline, need }: Summary): string {
 
 /** SRS-FR-133: only the states with sessions get a chip. */
 function chips({ approval, error, running }: Summary) {
-  const all: { count: number; label: string; state: HighlightState }[] = [
+  const all: { count: number; label: string; plural?: string; state: HighlightState }[] = [
     { count: approval, label: "need approval", state: "Needs Approval" },
-    { count: error, label: "error", state: "Error" },
+    { count: error, label: "error", plural: "errors", state: "Error" },
     { count: running, label: "running", state: "Running" },
   ];
   return all.filter((c) => c.count > 0);
@@ -42,13 +42,13 @@ export function StatusSummary({ summary, mode, onGoTo, onOpenLatency }: Props) {
           <p className={`text-muted-foreground ${expanded ? "-mt-2 text-[15px]" : "shrink-0 text-xs"}`}>No sessions running</p>
         )}
         <ul className="flex items-center gap-2">
-          {chips(summary).map(({ count, label, state }) => (
+          {chips(summary).map(({ count, label, plural, state }) => (
             <li
               key={label}
               className={`inline-flex items-center gap-2 rounded-full bg-surface text-foreground ${expanded ? "h-9 pl-1.5 pr-3.5 text-[13px]" : "h-7 pl-0.5 pr-2.5 text-xs"}`}
             >
               <RoundMark mark={{ kind: "state", state }} small />
-              <span>{`${count} ${label}`}</span>
+              <span>{`${count} ${count > 1 && plural ? plural : label}`}</span>
             </li>
           ))}
         </ul>
@@ -56,10 +56,11 @@ export function StatusSummary({ summary, mode, onGoTo, onOpenLatency }: Props) {
       {summary.goTo && (
         <button
           onClick={() => onGoTo(summary.goTo!.paneId)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+          title={`Go to ${summary.goTo.title}`}
+          className="inline-flex min-w-0 max-w-[40%] items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
         >
-          Go to {summary.goTo.title}
-          <ArrowRight {...ICON} />
+          <span className="truncate">Go to {summary.goTo.title}</span>
+          <ArrowRight {...ICON} className="shrink-0" />
         </button>
       )}
       <LatencyButton onOpen={onOpenLatency} className={expanded ? "absolute right-4 top-3" : ""} />

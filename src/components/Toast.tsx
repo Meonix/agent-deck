@@ -25,10 +25,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {toast && (
         <div
           role="alert"
-          className="absolute z-20 bottom-6 left-1/2 -translate-x-1/2 flex h-11 items-center gap-2 rounded-full bg-foreground pl-2 pr-4 text-[13px] text-background shadow-oneui"
+          className="absolute z-20 bottom-6 left-1/2 -translate-x-1/2 flex min-h-11 w-max max-w-[min(560px,calc(100vw-2rem))] items-center gap-2 rounded-[22px] bg-foreground py-2 pl-2 pr-4 text-[13px] text-background shadow-oneui"
         >
           <RoundMark mark={{ kind: "state", state: "Error" }} />
-          {toast}
+          <span className="min-w-0 break-words">{toast}</span>
         </div>
       )}
     </ToastContext.Provider>

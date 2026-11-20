@@ -7,6 +7,9 @@ import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
 import type { MaximizedBadge } from "./statusHighlight";
 import { type Mark, RoundMark, tone } from "./statusTone";
 
+/** No --oneui-radius-* token is 16px; the terminal well sits between row (12) and group (18). */
+const TERM_RADIUS = "rounded-[16px]";
+
 const ICON_BTN_BASE =
   "inline-flex size-7 shrink-0 items-center justify-center rounded-full hover:bg-muted hover:text-foreground transition-colors";
 const ICON_BTN = `${ICON_BTN_BASE} text-muted-foreground`;
@@ -293,11 +296,11 @@ export function TerminalPane({
         {pane.started ? (
           // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
           // so the padding sits on a wrapper and xterm gets an unpadded container.
-          <div className="flex-1 min-h-0 min-w-0 flex mx-2 mb-2 rounded-[16px] bg-term p-2">
+          <div className={`flex-1 min-h-0 min-w-0 flex mx-2 mb-2 ${TERM_RADIUS} bg-term p-2`}>
             <div ref={body} data-pane-body={paneId} className="flex-1 min-h-0 min-w-0" />
           </div>
         ) : (
-          <div className="flex-1 mx-2 mb-2 rounded-[16px] bg-term p-3 font-mono text-xs leading-5 text-foreground">
+          <div className={`flex-1 mx-2 mb-2 ${TERM_RADIUS} bg-term p-3 font-mono text-xs leading-5 text-foreground`}>
             <div>Claude Code could not be started</div>
             <div className="mt-5">Check that Claude Code is installed and on your PATH.</div>
           </div>
