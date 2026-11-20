@@ -1,8 +1,11 @@
 import { X } from "lucide-react";
 import { useState } from "react";
 import { ICON } from "./icon";
+import { RoundMark } from "./statusTone";
 import { formatWhen, type ListedSession, mergeSessions, type OpenSession } from "./sessionList";
 import type { SessionListState } from "./useSessionList";
+
+const PILL = "inline-flex h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-medium transition-opacity hover:opacity-90 disabled:opacity-50";
 
 type RowAction = (workspaceId: string, row: { id: string; title: string }) => void;
 type SelectionProps = {
@@ -36,16 +39,16 @@ export function SessionHistoryPanel({ workspaceName, covered, onNewSession, onCl
         inert={covered}
         className="h-full overflow-auto"
       >
-        <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-border bg-card">
-          <h2 className="truncate font-mono text-xs font-medium text-foreground">{workspaceName}</h2>
-          <span className="flex shrink-0 items-center gap-1.5">
-            <button onClick={onNewSession} className="font-mono text-[11px] bg-primary text-primary-foreground rounded-md px-2 py-1 hover:opacity-90 transition-opacity">
+        <div className="flex items-center justify-between gap-2 pb-2 pl-4 pr-2 pt-3">
+          <h2 className="truncate text-[17px] font-semibold text-foreground">{workspaceName}</h2>
+          <span className="flex shrink-0 items-center gap-1">
+            <button onClick={onNewSession} className={`${PILL} bg-primary text-primary-foreground`}>
               New Session
             </button>
             <button
               aria-label="Close session history"
               onClick={onClose}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className="inline-flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <X {...ICON} />
             </button>
@@ -70,16 +73,16 @@ function SessionList({ sessions: state, openSessions, now, onResume, onDelete, s
     case "none":
       return null;
     case "missing":
-      return <div className="px-4 py-2 text-sm text-muted-foreground">This folder no longer exists on disk.</div>;
+      return <div className="px-4 py-2 text-[13px] text-muted-foreground">This folder no longer exists on disk.</div>;
     case "failed":
       return <Notice text="Sessions could not be read" />;
     case "loading":
       return (
         <ul aria-label="Loading sessions" className="px-2 space-y-1.5 pt-1">
           {[1, 2, 3, 4].map((i) => (
-            <li key={i} className="rounded-md px-2 py-1.5 space-y-1.5">
-              <div className="h-3 w-3/4 rounded-md bg-muted animate-pulse" />
-              <div className="h-2.5 w-1/3 rounded-md bg-muted animate-pulse" />
+            <li key={i} className="rounded-row px-3 py-2 space-y-1.5">
+              <div className="h-3 w-3/4 rounded-full bg-muted animate-pulse" />
+              <div className="h-2.5 w-1/3 rounded-full bg-muted animate-pulse" />
             </li>
           ))}
         </ul>
@@ -96,7 +99,7 @@ function SessionList({ sessions: state, openSessions, now, onResume, onDelete, s
             <Notice text={`${unreadable} ${unreadable === 1 ? "session" : "sessions"} could not be read`} />
           )}
           {rows.length === 0 ? (
-            <div className="px-4 py-2 text-sm text-muted-foreground">No sessions yet</div>
+            <div className="px-4 py-2 text-[13px] text-muted-foreground">No sessions yet</div>
           ) : (
             <SessionRows
               key={state.workspaceId}
@@ -111,17 +114,17 @@ function SessionList({ sessions: state, openSessions, now, onResume, onDelete, s
           )}
           {ticked.length > 0 && (
             // Below the rows and pinned to the bottom: it shows next to old rows ticked far down, and moves no row.
-            <div className="sticky bottom-0 px-4 py-2 flex justify-end gap-1 border-t border-border bg-background">
+            <div className="sticky bottom-0 px-3 py-2 flex justify-end gap-2 bg-surface">
               <button
                 onClick={() => onSelect(rows.map((r) => r.id))}
-                className="font-mono text-[11px] text-foreground bg-muted border border-border rounded-md px-1.5 hover:border-muted-foreground transition-colors"
+                className={`${PILL} bg-muted text-foreground`}
               >
                 Select all
               </button>
               <button
                 disabled={deletingSelection}
                 onClick={() => onDeleteSelected(workspaceId, ticked)}
-                className="font-mono text-[11px] text-muted-foreground border border-border rounded-md px-1.5 hover:text-foreground hover:border-muted-foreground transition-colors disabled:opacity-50"
+                className={`${PILL} bg-muted text-error-foreground`}
               >
                 Delete selected ({ticked.length})
               </button>
@@ -147,10 +150,10 @@ function SessionRows({ workspaceId, rows, now, onResume, onDelete, ticked, onTic
   const [pickedId, setPickedId] = useState<string | null>(null);
   const picked = rows.find((r) => r.id === pickedId) ?? null;
   return (
-    <ul aria-label="Session history" className="px-2 space-y-0.5">
+    <ul aria-label="Session history" className="mx-2 mb-2 rounded-group bg-muted p-1">
       {rows.map((row) => (
-        <li key={row.id} className={`rounded-md px-2 py-1.5 transition-colors ${row === picked ? "bg-muted" : "hover:bg-muted/60"}`}>
-          <div className="flex items-center gap-2">
+        <li key={row.id} className={`rounded-row px-3 py-2 transition-colors ${row === picked ? "bg-accent" : "hover:bg-surface/60"}`}>
+          <div className="flex items-center gap-3">
             <input
               type="checkbox"
               aria-label={`Select ${row.title}`}
@@ -161,29 +164,30 @@ function SessionRows({ workspaceId, rows, now, onResume, onDelete, ticked, onTic
             <button
               aria-pressed={row === picked}
               onClick={() => setPickedId(row.id)}
-              className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-sm text-left text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={`flex min-w-0 flex-1 items-center gap-3 rounded-row text-left text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${row === picked ? "font-medium text-accent-foreground" : "text-foreground"}`}
             >
-              <span className="truncate">{row.title}</span>
+              <RoundMark mark={{ kind: "history" }} />
+              <span className="min-w-0 flex-1 truncate">{row.title}</span>
               {row.live ? (
-                <span className="shrink-0 font-mono text-[10px] font-medium text-accent-foreground bg-accent rounded-md px-1">
+                <span className="shrink-0 rounded-full bg-accent px-2 text-[10px] font-medium text-accent-foreground">
                   Live
                 </span>
               ) : (
-                <span className="shrink-0 text-xs text-muted-foreground">{formatWhen(row.lastActivity, now)}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">{formatWhen(row.lastActivity, now)}</span>
               )}
             </button>
           </div>
           {row === picked && (
-            <div className="mt-1 flex justify-end gap-1">
+            <div className="mt-2 flex justify-end gap-2">
               <button
                 onClick={() => onResume(workspaceId, { id: row.id, title: row.title })}
-                className="font-mono text-[11px] text-foreground bg-muted border border-border rounded-md px-1.5 hover:border-muted-foreground transition-colors"
+                className={`${PILL} bg-primary text-primary-foreground`}
               >
                 Resume
               </button>
               <button
                 onClick={() => onDelete(workspaceId, { id: row.id, title: row.title })}
-                className="font-mono text-[11px] text-muted-foreground border border-border rounded-md px-1.5 hover:text-foreground hover:border-muted-foreground transition-colors"
+                className={`${PILL} bg-surface text-error-foreground`}
               >
                 Delete
               </button>
@@ -197,7 +201,7 @@ function SessionRows({ workspaceId, rows, now, onResume, onDelete, ticked, onTic
 
 function Notice({ text }: { text: string }) {
   return (
-    <div role="status" className="mx-2 mb-1 rounded-md border border-error-border bg-error-bg px-2 py-1.5 text-xs text-error-foreground">
+    <div role="status" className="mx-2 mb-2 rounded-row border border-error-border bg-error-bg px-3 py-2 text-xs text-error-foreground">
       {text}
     </div>
   );
