@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.13 (2026-11-20)
+status: Baselined v1.14 (2026-11-22)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -88,8 +88,8 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Tracking Prompt | Thanh dưới Target Box của phiên mới, "Track progress for this session?", hai nút Track · No |
 | Tracking button | Nút trên tiêu đề ô, bật hoặc tắt Progress Tracking của phiên trong ô |
 | Progress Record | Lựa chọn Progress Tracking, Checkpoint List và trạng thái thu gọn của một phiên |
-| Status Summary | Vùng đầu cửa sổ, trên cột trái và Pane Grid, tóm tắt trạng thái các phiên đang mở trong ô; dạng mở rộng (chữ lớn + số đếm) hoặc thu gọn (một dòng) |
-| Go-to button | Nút "Go to <tiêu đề phiên>" trong Status Summary, đưa focus tới ô của phiên gấp nhất |
+| Status Summary | Deleted (CR-014) |
+| Go-to button | Deleted (CR-014) |
 
 ## 2. Yêu cầu chức năng
 
@@ -624,24 +624,18 @@ When the user clicks the status badge of the Maximized Pane, the system shall re
 
 ## 2.8 Đo độ trễ trạng thái
 
-- Luồng chính: 1. Mỗi lần một phiên trong ô đổi trạng thái, hệ thống ghi lúc Claude Code báo đổi và lúc Status Highlight hiện. 2. Người dùng mở "Status Latency". 3. Báo cáo hiện tỉ lệ lần đổi trạng thái có Status Highlight hiện ≤ 3 giây trong 14 ngày gần nhất.
-- Luồng thay thế: A1 chưa có lần đổi trạng thái nào → báo cáo hiện "No data yet" → SRS-FR-039
+- Luồng chính: 1. Mỗi lần một phiên trong ô đổi trạng thái, hệ thống ghi lúc Claude Code báo đổi và lúc Status Highlight hiện. 2. PO tính tỉ lệ lần đổi trạng thái có Status Highlight hiện ≤ 3 giây trong 14 ngày gần nhất từ file bản ghi (CR-014: không còn báo cáo trong app).
 
 ### SRS-FR-038 — Record status change timing
 When a session open in a pane changes state, the system shall record the time Claude Code reported the change and the time the Status Highlight showed it.
-- Giải thích: dữ liệu để đo BO-01 (Q-01).
+- Giải thích: dữ liệu để đo BO-01 (Q-01); PO đọc thẳng file `status-latency.jsonl`.
 - Ví dụ: Claude Code báo xin phép lúc 14:02:00.200, dòng phiên đổi màu lúc 14:02:00.450 → ghi một dòng độ trễ 250 ms.
 - Kiểm chứng: Test
 - Ưu tiên: Must
 - Nguồn: BR-06
 
-### SRS-FR-039 — Status latency report
-When the user opens the Status Latency report, the system shall show the percentage of state changes in the last 14 days whose Status Highlight appeared within 3 seconds.
-- Ví dụ: 14 ngày có 400 lần đổi trạng thái, 398 lần ≤ 3 giây → báo cáo hiện "99.5% (398/400) within 3 s".
-- Ví dụ âm: chưa có lần đổi trạng thái nào → hiện "No data yet", không hiện 0%.
-- Kiểm chứng: Test
-- Ưu tiên: Must
-- Nguồn: BR-06
+### SRS-FR-039 — Status latency report — Deleted (CR-014)
+Không còn nút và báo cáo Status Latency trong app; PO tính tỉ lệ từ bản ghi của SRS-FR-038.
 
 ## 2.9 Xoá phiên
 
@@ -1242,85 +1236,36 @@ When Claude Code starts a new session in a pane after `/clear`, the system shall
 - Ưu tiên: Should
 - Nguồn: BR-10
 
-## 2.17 Tóm tắt trạng thái đầu cửa sổ
+## 2.17 Tóm tắt trạng thái đầu cửa sổ — Deleted (CR-014)
 
-- Luồng chính: 1. Một phiên trong ô đổi trạng thái → Status Summary cập nhật trong ≤ 3 giây → SRS-FR-132, SRS-FR-133, SRS-FR-140. 2. Người dùng bấm Go-to button → ô của phiên gấp nhất được focus → SRS-FR-136.
-- Luồng thay thế: A1 không phiên nào cần mình → SRS-FR-134. A2 chưa mở phiên nào → SRS-FR-135. A3 focus vào một ô hoặc cửa sổ hẹp → thu gọn một dòng → SRS-FR-137, SRS-FR-138. A4 có Maximized Pane → ẩn, badge của ô phóng to thay → SRS-FR-139.
+Không còn vùng tóm tắt ở đầu cửa sổ; trạng thái phiên xem trên Workspace List, Active Sessions và badge của ô phóng to (SRS-FR-034, SRS-FR-044).
 
-### SRS-FR-132 — Status Summary headline
-While at least one session open in a pane is `Needs Approval` or `Error`, the system shall show in the Status Summary the number of those sessions followed by "need you".
-- Giải thích: trạng thái xác định như SRS-FR-032; để thấy số phiên cần mình mà không cần nhìn cột trái (BO-01).
-- Ví dụ: 2 phiên `Needs Approval`, 1 phiên `Error` → "3 need you".
-- Ví dụ âm: một phiên `Status unavailable` (SRS-FR-036) → không được đếm.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-06
+### SRS-FR-132 — Status Summary headline — Deleted (CR-014)
+Không còn Status Summary.
 
-### SRS-FR-133 — Status Summary counts
-While at least one session is open in a pane, the system shall show in the Status Summary the number of sessions open in a pane in each of the states `Needs Approval`, `Error` and `Running`.
-- Giải thích: trạng thái có 0 phiên thì không hiện số của nó; mỗi số đi kèm dấu của trạng thái đó.
-- Ví dụ: 2 `Needs Approval`, 1 `Error`, 5 `Running` → "2 need approval · 1 error · 5 running".
-- Ví dụ âm: 0 phiên `Error` → không có mục error.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-06
+### SRS-FR-133 — Status Summary counts — Deleted (CR-014)
+Không còn Status Summary.
 
-### SRS-FR-134 — All clear
-While at least one session is open in a pane and none of them is `Needs Approval` or `Error`, the system shall show "All clear" as the headline of the Status Summary.
-- Ví dụ: 3 phiên `Running` → headline "All clear", bên dưới "3 running".
-- Ví dụ âm: 1 phiên `Error` → headline "1 need you", không phải "All clear".
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-06
+### SRS-FR-134 — All clear — Deleted (CR-014)
+Không còn Status Summary.
 
-### SRS-FR-135 — No session open
-While no session is open in a pane, the system shall show "Agent Deck" as the headline of the Status Summary and "No sessions running" below it.
-- Ví dụ: mở app lần đầu, chưa có ô nào → "Agent Deck" / "No sessions running".
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-06
+### SRS-FR-135 — No session open — Deleted (CR-014)
+Không còn Status Summary.
 
-### SRS-FR-136 — Jump from the Status Summary
-When the user clicks the Go-to button of the Status Summary, the system shall move keyboard focus to the pane of the most urgent session.
-- Giải thích: gấp nhất theo SRS-FR-045 (`Error` trước `Needs Approval`; cùng trạng thái thì phiên vào trạng thái sớm nhất); nút chỉ hiện khi headline là SRS-FR-132; nhãn "Go to <tiêu đề phiên đó>".
-- Ví dụ: ô 2 `Needs Approval` từ 14:00, ô 3 `Error` từ 14:05 → nút "Go to <tiêu đề ô 3>", bấm → ô 3 được focus.
-- Ví dụ âm: headline "All clear" → không có Go-to button.
-- Kiểm chứng: Demo
-- Ưu tiên: Should
-- Nguồn: BR-07
+### SRS-FR-136 — Jump from the Status Summary — Deleted (CR-014)
+Không còn Status Summary.
 
-### SRS-FR-137 — Collapse while working in a pane
-While keyboard focus is in a pane, the system shall show the Status Summary collapsed to one line.
-- Giải thích: một dòng vẫn có headline, các số đếm và Go-to button; focus ra cột trái hoặc Session History Panel thì mở rộng lại; để terminal có chỗ (BR-05).
-- Ví dụ: bấm vào ô 1 → Status Summary còn một dòng, cao ≤ 48 px.
-- Ví dụ âm: focus ở Workspace List, cửa sổ rộng 1440 px → Status Summary mở rộng.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-06
+### SRS-FR-137 — Collapse while working in a pane — Deleted (CR-014)
+Không còn Status Summary.
 
-### SRS-FR-138 — Collapse in a narrow window
-While the window is narrower than 1100 px, the system shall show the Status Summary collapsed to one line.
-- Ví dụ: kéo cửa sổ còn 960 px, focus ở cột trái → Status Summary vẫn một dòng.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-06
+### SRS-FR-138 — Collapse in a narrow window — Deleted (CR-014)
+Không còn Status Summary.
 
-### SRS-FR-139 — Hide while maximized
-While a pane is maximized, the system shall hide the Status Summary.
-- Giải thích: badge của Maximized Pane (SRS-FR-044) giữ BO-01 khi phóng to.
-- Ví dụ: phóng to ô 1 → không còn Status Summary, ô che hết cửa sổ dưới thanh tiêu đề.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-06
+### SRS-FR-139 — Hide while maximized — Deleted (CR-014)
+Không còn Status Summary.
 
-### SRS-FR-140 — Status Summary update latency
-When a session open in a pane changes state, the system shall update the Status Summary within 3 seconds.
-- Giải thích: cùng ngưỡng với SRS-FR-034 (BO-01).
-- Ví dụ: ô 3 sang `Needs Approval` lúc 14:02:00 → Status Summary hiện "1 need you" trước 14:02:03.
-- Ví dụ âm: đổi lúc 14:02:05 → không đạt.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-06
+### SRS-FR-140 — Status Summary update latency — Deleted (CR-014)
+Không còn Status Summary.
 
 ## 3. Dữ liệu
 
@@ -1357,7 +1302,7 @@ When a session open in a pane changes state, the system shall update the Status 
 | Lúc Claude Code báo | Thời điểm Claude Code báo đổi trạng thái | Có | |
 | Lúc hiện Status Highlight | Thời điểm Status Highlight hiện thay đổi | Có | Không sớm hơn lúc Claude Code báo |
 
-Bản ghi chỉ cần giữ đủ 14 ngày gần nhất cho SRS-FR-039.
+Bản ghi chỉ cần giữ đủ 14 ngày gần nhất để đo BO-01.
 
 ### Progress Record
 | Trường | Nghĩa | Bắt buộc | Ràng buộc nghiệp vụ |
@@ -1430,14 +1375,14 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Cửa sổ chính · Session History Panel | Lịch sử phiên của folder đang chọn, nhãn `Live`, Resume, New Session, xoá một hoặc nhiều phiên, đóng khung | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-054, SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079, SRS-NFR-003 |
 | Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô qua Close Dialog (có thể chuyển phiên vào Thùng rác), ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, Target Box hiện và sửa Session Goal, nút Stash và Stash Dialog, Tracking button, Tracking Prompt, Progress Strip | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-100, SRS-FR-101, SRS-FR-102, SRS-FR-103, SRS-FR-104, SRS-FR-105, SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131 |
 | Cửa sổ chính · toàn cửa sổ | Phóng to, thu nhỏ, về mặc định cỡ chữ của mọi chữ trong cửa sổ; ẩn/hiện Sidebar bằng Sidebar Toggle hoặc Sidebar shortcut | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071, SRS-FR-088, SRS-FR-089, SRS-FR-090 |
-| Cửa sổ chính · Status Summary | Số phiên cần mình và số phiên theo trạng thái, Go-to button, thu gọn khi focus ở ô hoặc cửa sổ hẹp, ẩn khi phóng to | SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 |
-| Status Latency | Xem tỉ lệ đổi trạng thái hiện ≤ 3 giây | SRS-FR-039 |
 
 ## 8. Báo cáo
 
 | Báo cáo | Chỉ số | Lọc | Tần suất | Ai xem | FR | BO |
 | --- | --- | --- | --- | --- | --- | --- |
-| Status Latency | Số lần đổi trạng thái có Status Highlight hiện ≤ 3 giây / tổng số lần đổi trạng thái | 14 ngày gần nhất | Khi người dùng mở | PO | SRS-FR-038, SRS-FR-039 | BO-01 |
+| Status Latency | Số lần đổi trạng thái có Status Highlight hiện ≤ 3 giây / tổng số lần đổi trạng thái | 14 ngày gần nhất | Khi PO đo | PO | SRS-FR-038 | BO-01 |
+
+Status Latency không có màn hình trong app (CR-014): PO tính tỉ lệ từ file bản ghi.
 
 BO-02 (≤ 3 thao tác) không có báo cáo trong app: kiểm bằng kịch bản demo theo A-09.
 
@@ -1556,7 +1501,7 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-140 (trừ SRS-FR-022, SRS-FR-031, SRS-FR-094, SRS-FR-095, SRS-FR-098 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-001 đến SRS-FR-140 (trừ SRS-FR-022, SRS-FR-031, SRS-FR-039, SRS-FR-094, SRS-FR-095, SRS-FR-098, SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
 | SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
 | SRS-NFR-001 đến SRS-NFR-013 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
@@ -1603,7 +1548,7 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | SRS-FR-036 | BR-06 | | Test | Baselined |
 | SRS-FR-037 | BR-07 | | Demo | Baselined |
 | SRS-FR-038 | BR-06 | | Test | Baselined |
-| SRS-FR-039 | BR-06 | | Test | Baselined |
+| SRS-FR-039 | BR-06 | | Test | Deleted (CR-014) |
 | SRS-FR-040 | BR-06 | | Test | Baselined |
 | SRS-FR-041 | BR-05 | | Demo | Baselined |
 | SRS-FR-042 | BR-05 | | Demo | Baselined |
@@ -1696,15 +1641,15 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | SRS-FR-129 | BR-10 | | Test | Baselined |
 | SRS-FR-130 | BR-10 | | Test | Baselined |
 | SRS-FR-131 | BR-10 | | Test | Baselined |
-| SRS-FR-132 | BR-06 | | Test | Baselined |
-| SRS-FR-133 | BR-06 | | Test | Baselined |
-| SRS-FR-134 | BR-06 | | Test | Baselined |
-| SRS-FR-135 | BR-06 | | Test | Baselined |
-| SRS-FR-136 | BR-07 | | Demo | Baselined |
-| SRS-FR-137 | BR-06 | | Test | Baselined |
-| SRS-FR-138 | BR-06 | | Test | Baselined |
-| SRS-FR-139 | BR-06 | | Test | Baselined |
-| SRS-FR-140 | BR-06 | | Test | Baselined |
+| SRS-FR-132 | BR-06 | | Test | Deleted (CR-014) |
+| SRS-FR-133 | BR-06 | | Test | Deleted (CR-014) |
+| SRS-FR-134 | BR-06 | | Test | Deleted (CR-014) |
+| SRS-FR-135 | BR-06 | | Test | Deleted (CR-014) |
+| SRS-FR-136 | BR-07 | | Demo | Deleted (CR-014) |
+| SRS-FR-137 | BR-06 | | Test | Deleted (CR-014) |
+| SRS-FR-138 | BR-06 | | Test | Deleted (CR-014) |
+| SRS-FR-139 | BR-06 | | Test | Deleted (CR-014) |
+| SRS-FR-140 | BR-06 | | Test | Deleted (CR-014) |
 | SRS-NFR-001 | BR-05 | | Test | Baselined |
 | SRS-NFR-002 | BR-05 | | Test | Baselined |
 | SRS-NFR-003 | BR-02 | | Test | Baselined |
@@ -1723,7 +1668,7 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 
 | ID | Câu hỏi | Người trả lời | Trạng thái | Chặn gate |
 | --- | --- | --- | --- | --- |
-| Q-01 | Đo BO-01 (≤ 3 giây) và BO-02 (≤ 3 thao tác) bằng cách nào? | PO | Đã trả lời 2026-10-15: BO-01 báo cáo Status Latency trong app; BO-02 kịch bản demo (A-09) | Có |
+| Q-01 | Đo BO-01 (≤ 3 giây) và BO-02 (≤ 3 thao tác) bằng cách nào? | PO | Đã trả lời 2026-10-15: BO-01 báo cáo Status Latency trong app, từ CR-014 đọc file bản ghi độ trễ; BO-02 kịch bản demo (A-09) | Có |
 | Q-02 | Tình huống nào tính là `Error`, và lỗi được xoá khỏi bảng lúc nào? | PO | Đã trả lời 2026-10-15: chỉ lỗi làm dừng lượt hoặc phiên (RULE-06); hết lỗi khi gửi yêu cầu mới hoặc đóng ô (RULE-08) | Có |
 | Q-03 | Số ô chạy cùng lúc, độ trễ gõ phím, thời gian tải danh sách phiên tối thiểu là bao nhiêu? | PO | Đã trả lời 2026-10-15: ≥ 4 ô; ≤ 100 ms p95; 200 phiên ≤ 3 giây | Có |
 | Q-04 | Bản đầu phải chạy trên phiên bản macOS và Windows nào? | PO | Đã trả lời 2026-10-15: macOS 14 trở lên, Windows 11 | Có |
@@ -1747,3 +1692,4 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | v1.11 | 2026-10-22 | PO | CR-011: Stashed Sessions trong Sidebar, nút Stash trên tiêu đề ô bên trái Maximize, Stash Dialog khi ô bận, mở lại thì rời stash, × để gỡ, giữ giữa các lần mở app; thêm SRS-FR-103 đến SRS-FR-112, SRS-NFR-010, Stashed Sessions, Stash Dialog; theo BRD v4.1 |
 | v1.12 | 2026-10-25 | PO | CR-012: Progress Tracking bật theo phiên (Tracking Prompt, Tracking button), Progress Strip dưới Target Box chỉ đọc, Checkpoint List cập nhật sau mỗi lượt ≤ 30 giây bằng Claude Haiku qua login Claude Code, giữ giữa các lần mở app; sửa SRS-NFR-007, A-07; thêm SRS-FR-113 đến SRS-FR-131, SRS-NFR-011 đến SRS-NFR-013, RULE-10, RULE-11, A-12 và thuật ngữ; theo BRD v5.0 |
 | v1.13 | 2026-11-20 | PO | CR-013: Status Summary ở đầu cửa sổ (headline "N need you" / "All clear" / "Agent Deck · No sessions running", số đếm theo trạng thái, Go-to button, thu gọn khi focus ở ô hoặc cửa sổ < 1100 px, ẩn khi phóng to); thêm SRS-FR-132 đến SRS-FR-140; theo BRD v5.1 |
+| v1.14 | 2026-11-22 | PO | CR-014: bỏ Status Summary và báo cáo Status Latency trong app (xoá SRS-FR-039, SRS-FR-132 đến SRS-FR-140); vẫn ghi độ trễ (SRS-FR-038); theo BRD v5.2 |

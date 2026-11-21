@@ -699,3 +699,43 @@ Backlog — thêm (áp sau GATE CR):
 - 29 · Tóm tắt trạng thái ở đầu cửa sổ và giao diện One UI · add-status-summary · SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 · phụ thuộc 9, 10, 12 · Should; CR-013; phục vụ BO-01; chỉ thêm FR mới → /dev-feature; hình One UI theo `design/agent-deck/oneui/` đi cùng mục này.
 
 Việc tiếp theo: sửa 2 chỗ lệch trong `design/agent-deck/oneui/design.html` (No active sessions; Go to trỏ phiên Error), rồi /dev-feature add-status-summary (mục 29).
+
+## CR-014 — Bỏ vùng tóm tắt trạng thái và nút Status Latency ở đầu cửa sổ
+Ngày: 2026-11-22
+Yêu cầu: "bỏ phần view "All clear" phía trên cửa sổ ứng dụng này đi" → "mở CR bỏ Status Summary và status latency".
+Status: Approved (2026-11-22)
+Trả lời của PO (2026-11-22):
+- Status Latency: bỏ nút và báo cáo trong app (SRS-FR-039); vẫn ghi độ trễ (SRS-FR-038); BO-01 đọc số thẳng từ file bản ghi.
+Ảnh hưởng:
+- SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 (archived: add-status-summary, `openspec/specs/status-summary/` → /dev-update).
+- SRS-FR-039 (archived: add-status-latency-report, update-status-highlight; `openspec/specs/status-latency/` → /dev-update).
+- Giữ, không sửa: SRS-FR-038 (ghi độ trễ), SRS-FR-044 (badge ô phóng to), SRS-FR-045 (luật gấp nhất, Active Sessions còn dùng), SRS-FR-034.
+- BR-06: bỏ "phần tóm tắt ở đầu cửa sổ". BR-07 không đổi (Go-to button chỉ là một trong các dấu báo). BO-01 không đổi chỉ số; chỗ đọc số đổi từ báo cáo trong app sang file bản ghi.
+- Q-01 (SRS mục 13): câu trả lời "BO-01 báo cáo Status Latency trong app" hết đúng.
+- Code (cho /dev-update): src/components/StatusSummary.tsx (StatusSummary, LatencyBar, LatencyButton), src/components/StatusLatencyReport.tsx, src/App.tsx (vùng trên PaneGrid, reportOpen), src/api/sessions.ts + src-tauri/src/latency_commands.rs (lệnh đọc báo cáo), test trong src/App.test.tsx. Giữ src-tauri/src/status_latency.rs, latencyLog.ts (ghi `status-latency.jsonl`).
+- Thiết kế (không sửa ở đây → /design-ui): `design/agent-deck/oneui/design.html` và `design/agent-deck/brief.md` vẫn vẽ vùng "All clear". Hình One UI (bo góc, thẻ, token `--oneui-*`) ngoài SRS, giữ nguyên.
+
+Diff đề xuất:
+
+Phiên bản: BRD v5.1 → v5.2 (sửa BR-06, không đổi BO). SRS v1.13 → v1.14.
+
+BRD:
+- BR-06: "Người dùng thấy ngay trên danh sách folder, danh sách phiên đang mở và phần tóm tắt ở đầu cửa sổ phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi" → "Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi".
+- Mục 13 log thêm dòng CR-014. Mục 14: dòng v5.2 "CR-014: BR-06 bỏ phần tóm tắt trạng thái ở đầu cửa sổ; BO-01 đọc số từ file bản ghi độ trễ".
+
+SRS:
+- Thuật ngữ: Status Summary, Go-to button → giữ dòng, thêm "Deleted (CR-014)".
+- Mục 2.17: luồng chính/thay thế thay bằng "Deleted (CR-014)"; SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 giữ tiêu đề, thân thành "Deleted (CR-014)".
+- Mục 2.8: luồng chính bỏ bước 2, 3 (mở báo cáo); bỏ A1. SRS-FR-039 → "Deleted (CR-014)". SRS-FR-038 Giải thích: "dữ liệu để đo BO-01 (Q-01); PO đọc thẳng file `status-latency.jsonl`".
+- Mục 3 (Status Change Record): "giữ đủ 14 ngày gần nhất cho SRS-FR-039" → "giữ đủ 14 ngày gần nhất để đo BO-01".
+- Mục 7 Màn hình: xoá dòng "Cửa sổ chính · Status Summary" và dòng "Status Latency".
+- Mục 8 Báo cáo: dòng Status Latency → Tần suất "Khi PO đo", FR "SRS-FR-038", thêm ghi chú "không có màn hình trong app (CR-014); PO tính tỉ lệ từ file bản ghi".
+- Mục 11: "trừ SRS-FR-022, SRS-FR-031, SRS-FR-094, SRS-FR-095, SRS-FR-098 đã xoá" → thêm SRS-FR-039, SRS-FR-132 đến SRS-FR-140.
+- Mục 13 Q-01: "BO-01 báo cáo Status Latency trong app" → "BO-01 đọc file bản ghi độ trễ (CR-014)".
+- Bảng truy vết: SRS-FR-039, SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 → "Deleted (CR-014)".
+- Lịch sử: dòng v1.14 "CR-014: bỏ Status Summary và báo cáo Status Latency trong app (xoá SRS-FR-039, SRS-FR-132 đến SRS-FR-140); vẫn ghi độ trễ (SRS-FR-038); theo BRD v5.2".
+
+Backlog — thêm (áp sau GATE CR):
+- 30 · Bỏ Status Summary và nút Status Latency · remove-status-summary · SRS-FR-039, SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 · phụ thuộc 4, 29 · Should; CR-014; đổi hành vi đã archived của mục 4, 29 → /dev-update.
+
+Việc tiếp theo: /dev-update remove-status-summary (mục 30); /design-ui sửa bản One UI bỏ vùng "All clear".
