@@ -756,41 +756,6 @@ describe("Status latency (2.1, 2.2)", () => {
     act(() => stream.status({ state: "Running", reportedAt: 2_000_000 }));
     expect(sessions.recordStatusShown).toHaveBeenCalledWith("s1", "Running", 2_000_000, 2_000_000);
   });
-
-  it("opens the report from the title bar with the share within 3 s", async () => {
-    const sessions = fakeSessions({ latencyReport: vi.fn(async () => ({ within: 398, total: 400 })) });
-    const { user } = setup([ws("a", "agent-deck")], sessions);
-    await user.click(screen.getByRole("button", { name: "Status Latency" }));
-    const report = await screen.findByRole("dialog", { name: "Status Latency" });
-    expect(await within(report).findByText("99.5%")).toBeInTheDocument();
-    expect(within(report).getByText("398 of 400 state changes appeared within 3 s")).toBeInTheDocument();
-    expect(within(report).getByText("Last 14 days")).toBeInTheDocument();
-    await user.click(within(report).getByRole("button", { name: "Close report" }));
-    expect(screen.queryByRole("dialog", { name: "Status Latency" })).not.toBeInTheDocument();
-  });
-
-  it("shows No data yet and no percentage without records, and Escape closes it", async () => {
-    const { user, sessions } = setup([ws("a", "agent-deck")]);
-    await user.click(screen.getByRole("button", { name: "Status Latency" }));
-    const report = await screen.findByRole("dialog", { name: "Status Latency" });
-    expect(await within(report).findByText("No data yet")).toBeInTheDocument();
-    expect(within(report).queryByText(/%/)).not.toBeInTheDocument();
-    expect(sessions.latencyReport).toHaveBeenCalledTimes(1);
-    await user.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog", { name: "Status Latency" })).not.toBeInTheDocument();
-  });
-
-  it("keeps focus inside the report so no key reaches a terminal behind it", async () => {
-    const { user } = await openPane();
-    await user.click(screen.getByRole("button", { name: "Status Latency" }));
-    const report = await screen.findByRole("dialog", { name: "Status Latency" });
-    await within(report).findByText("No data yet");
-    expect(report).toContainElement(document.activeElement as HTMLElement);
-    await user.tab();
-    expect(report).toContainElement(document.activeElement as HTMLElement);
-    await user.tab({ shift: true });
-    expect(report).toContainElement(document.activeElement as HTMLElement);
-  });
 });
 
 describe("Session list (2.1, 2.2)", () => {
@@ -2743,13 +2708,8 @@ describe("Progress tracking (SRS-FR-113, SRS-FR-130)", () => {
   });
 });
 
-describe("Status Summary (3.1)", () => {
+describe("No Status Summary (CR-014)", () => {
   const since = new Date(2026, 9, 16, 14, 2).getTime();
-  const summary = () => screen.getByRole("region", { name: "Status Summary" });
-  const rowButton = (title: string) =>
-    within(within(within(sidebar()).getByRole("list", { name: "Active sessions" })).getByText(title).closest("li")!).getByRole(
-      "button",
-    );
 
   async function openPanes(count: number) {
     const sessions = fakeSessions({ titles: ["First", "Second", "Third"] });
@@ -2763,146 +2723,62 @@ describe("Status Summary (3.1)", () => {
     return ctx;
   }
 
-  afterEach(() => vi.unstubAllGlobals());
+  function expectNoSummary() {
+    expect(screen.queryByRole("region", { name: "Status Summary" })).not.toBeInTheDocument();
+    expect(screen.queryByText("All clear")).not.toBeInTheDocument();
+    expect(screen.queryByText(/need you$/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Agent Deck" })).not.toBeInTheDocument();
+    expect(screen.queryByText("No sessions running")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Go to/ })).not.toBeInTheDocument();
+  }
 
-  it("says Agent Deck, with No sessions running apart from it, with no pane open (SRS-FR-135)", () => {
+  it("shows no summary with no pane open (SRS-FR-135 deleted)", () => {
     setup([ws("a", "agent-deck")]);
-    expect(within(summary()).getByRole("heading")).toHaveTextContent(/^Agent Deck$/);
-    const note = within(summary()).getByText("No sessions running");
-    expect(note).toBeInTheDocument();
-    expect(within(summary()).getByRole("heading")).not.toContainElement(note);
+    expectNoSummary();
   });
 
-  it("counts the sessions that need the user, zero counts left out (SRS-FR-132, SRS-FR-133, SRS-FR-140)", async () => {
-    const { sessions } = await openPanes(3);
-    act(() => sessions.opened[0].stream.status({ state: "Needs Approval", since, reason: "Edit a" }));
-    act(() => sessions.opened[1].stream.status({ state: "Error", since, reason: "boom" }));
-    act(() => sessions.opened[2].stream.status({ state: "Running", since }));
-    expect(within(summary()).getByText("2 need you")).toBeInTheDocument();
-    expect(within(summary()).getByText("1 need approval")).toBeInTheDocument();
-    expect(within(summary()).getByText("1 error")).toBeInTheDocument();
-    expect(within(summary()).getByText("1 running")).toBeInTheDocument();
-    act(() => sessions.opened[1].stream.status({ state: "Idle", since }));
-    expect(within(summary()).queryByText(/error/)).not.toBeInTheDocument();
-    expect(within(summary()).getByText("1 need you")).toBeInTheDocument();
-  });
-
-  it("pluralises error but leaves the other chips as they are", async () => {
-    const { sessions } = await openPanes(3);
-    act(() => sessions.opened[0].stream.status({ state: "Error", since, reason: "boom" }));
-    act(() => sessions.opened[1].stream.status({ state: "Error", since, reason: "boom" }));
-    act(() => sessions.opened[2].stream.status({ state: "Needs Approval", since, reason: "Edit a" }));
-    expect(within(summary()).getByText("2 errors")).toBeInTheDocument();
-    expect(within(summary()).getByText("1 need approval")).toBeInTheDocument();
-  });
-
-  it("truncates a long Go to title inside the bar but keeps the full name (SRS-FR-136)", async () => {
-    const title = "A very long session title that would otherwise push Status Latency off the window";
-    const sessions = fakeSessions({ titles: [title] });
-    const ctx = setup([ws("a", "agent-deck")], sessions);
-    await selectAndStart(ctx.user, "agent-deck");
-    await within(sidebar()).findByText(title);
-    act(() => sessions.opened[0].stream.status({ state: "Needs Approval", since, reason: "Edit a" }));
-    const goTo = within(summary()).getByRole("button", { name: `Go to ${title}` });
-    expect(goTo).toHaveClass("min-w-0", "max-w-[40%]");
-    expect(goTo).toHaveAttribute("title", `Go to ${title}`);
-    expect(within(goTo).getByText(`Go to ${title}`)).toHaveClass("truncate");
-    expect(within(summary()).getByRole("button", { name: "Status Latency" })).toHaveClass("shrink-0");
-  });
-
-  it("says All clear when sessions are open and none needs the user (SRS-FR-134)", async () => {
-    const { sessions } = await openPanes(1);
+  it("shows no summary while sessions run or need the user (SRS-FR-132 to SRS-FR-134 deleted)", async () => {
+    const { sessions } = await openPanes(2);
     act(() => sessions.opened[0].stream.status({ state: "Running", since }));
-    expect(within(summary()).getByText("All clear")).toBeInTheDocument();
-    expect(within(summary()).getByText("1 running")).toBeInTheDocument();
-  });
-
-  it("offers Go to the longest-waiting session and focuses its pane (SRS-FR-136)", async () => {
-    const { user, sessions, adapters } = await openPanes(2);
+    expectNoSummary();
     act(() => sessions.opened[1].stream.status({ state: "Needs Approval", since, reason: "Edit a" }));
-    fireEvent.focus(panes()[0]);
-    const calls = vi.mocked(adapters[1].focus).mock.calls.length;
-
-    await user.click(within(summary()).getByRole("button", { name: "Go to Second" }));
-
-    expect(panes()[1]).toHaveClass("ring-2");
-    expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(calls + 1);
+    expectNoSummary();
   });
 
-  it("offers no Go to while nothing waits", async () => {
-    await openPanes(1);
-    expect(within(summary()).queryByRole("button", { name: /^Go to/ })).not.toBeInTheDocument();
-  });
-
-  it("collapses on focus in a pane and expands on focus in the Sidebar (SRS-FR-137)", async () => {
-    await openPanes(1);
-    expect(summary()).toHaveAttribute("data-mode", "expanded");
-    fireEvent.focusIn(panes()[0]);
-    expect(summary()).toHaveAttribute("data-mode", "collapsed");
-    fireEvent.focusIn(rowButton("First"));
-    expect(summary()).toHaveAttribute("data-mode", "expanded");
-  });
-
-  it("stays collapsed behind a confirm dialog and returns focus to the pane on Cancel (SRS-FR-137)", async () => {
+  it("offers no Status Latency button, with or without a maximized pane (SRS-FR-039 deleted)", async () => {
     const { user } = await openPanes(1);
+    expect(screen.queryByRole("button", { name: "Status Latency" })).not.toBeInTheDocument();
+    await user.click(within(panes()[0]).getByRole("button", { name: "Maximize pane" }));
+    expect(screen.queryByRole("button", { name: "Status Latency" })).not.toBeInTheDocument();
+  });
+
+  it("anchors a maximized pane at the top of the window", async () => {
+    const { user } = await openPanes(1);
+    await user.click(within(panes()[0]).getByRole("button", { name: "Maximize pane" }));
+    const wrapper = panes()[0].closest(".fixed")!;
+    expect(wrapper).toHaveClass("top-0", "pt-gap");
+    expect(wrapper).not.toHaveClass("top-9");
+  });
+
+  it("keeps a gap above the Sidebar and the panes now that no strip sits there", () => {
+    setup([ws("a", "agent-deck")]);
+    expect(sidebar().closest(".grid.gap-gap")).toHaveClass("pt-gap");
+  });
+});
+
+describe("Confirm dialog focus", () => {
+  it("returns focus to the pane on Cancel", async () => {
+    const sessions = fakeSessions({ titles: ["First"] });
+    const { user } = setup([ws("a", "agent-deck")], sessions);
+    await selectAndStart(user, "agent-deck");
+    await within(sidebar()).findByText("First");
     await user.click(within(panes()[0]).getByRole("button", { name: "Close pane" }));
-    expect(summary()).toHaveAttribute("data-mode", "collapsed");
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
-    expect(summary()).toHaveAttribute("data-mode", "collapsed");
 
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(panes()[0]).toContainElement(document.activeElement as HTMLElement);
-    expect(summary()).toHaveAttribute("data-mode", "collapsed");
-  });
-
-  it("makes the summary inert while a confirm dialog is open", async () => {
-    const { user, sessions } = await openPanes(1);
-    act(() => sessions.opened[0].stream.status({ state: "Needs Approval", since, reason: "Edit a" }));
-    const goTo = within(summary()).getByRole("button", { name: "Go to First" });
-    expect(goTo.closest("[inert]")).toBeNull();
-    await user.click(within(panes()[0]).getByRole("button", { name: "Close pane" }));
-    expect(goTo.closest("[inert]")).not.toBeNull();
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
-    expect(goTo.closest("[inert]")).toBeNull();
-  });
-
-  it("is collapsed in a narrow window (SRS-FR-138)", () => {
-    vi.stubGlobal("matchMedia", (query: string) => ({
-      matches: true,
-      media: query,
-      addEventListener() {},
-      removeEventListener() {},
-    }));
-    setup([ws("a", "agent-deck")]);
-    expect(summary()).toHaveAttribute("data-mode", "collapsed");
-  });
-
-  it("hides while a pane is maximized and shows again on restore (SRS-FR-139)", async () => {
-    const { user } = await openPanes(1);
-    await user.click(within(panes()[0]).getByRole("button", { name: "Maximize pane" }));
-    expect(screen.queryByRole("region", { name: "Status Summary" })).not.toBeInTheDocument();
-    await user.click(within(panes()[0]).getByRole("button", { name: "Restore pane" }));
-    expect(summary()).toBeInTheDocument();
-  });
-
-  it("keeps Status Latency reachable in a slim bar while a pane is maximized (SRS-FR-039, SRS-FR-139)", async () => {
-    const { user, sessions } = await openPanes(1);
-    await user.click(within(panes()[0]).getByRole("button", { name: "Maximize pane" }));
-    expect(screen.queryByRole("region", { name: "Status Summary" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Status Latency" }));
-    expect(await screen.findByRole("dialog", { name: "Status Latency" })).toBeInTheDocument();
-    expect(sessions.latencyReport).toHaveBeenCalled();
-  });
-
-  it("keeps Status Latency at its right end in both modes (SRS-FR-039)", async () => {
-    const { user, sessions } = await openPanes(1);
-    fireEvent.focusIn(panes()[0]);
-    expect(summary()).toHaveAttribute("data-mode", "collapsed");
-    await user.click(within(summary()).getByRole("button", { name: "Status Latency" }));
-    expect(await screen.findByRole("dialog", { name: "Status Latency" })).toBeInTheDocument();
-    expect(sessions.latencyReport).toHaveBeenCalled();
   });
 });

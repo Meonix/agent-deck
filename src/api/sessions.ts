@@ -13,8 +13,6 @@ export type PaneStatus = {
   reportedAt: number | null;
 };
 
-export type LatencyReport = { within: number; total: number };
-
 export type Checkpoint = { summary: string; result: string; done: boolean; startedAt: string };
 export type PaneProgress = {
   tracking: "unset" | "on" | "off";
@@ -59,7 +57,6 @@ export interface SessionsClient {
   close(paneId: string): Promise<void>;
   title(paneId: string): Promise<string>;
   recordStatusShown(sessionId: string, state: SessionState, reportedAt: number, shownAt: number): Promise<void>;
-  latencyReport(): Promise<LatencyReport>;
   /** Replaces the pane's goal; the new goal comes back on the stream. Rejects with "not_found" or "not_started". */
   setGoal(paneId: string, text: string): Promise<void>;
   /** Turns progress tracking on or off; the new state comes back on the stream. */
@@ -302,7 +299,6 @@ export const tauriSessionsClient: SessionsClient = {
   title: (paneId) => invoke<string>("pane_title", { paneId }),
   recordStatusShown: (sessionId, state, reportedAt, shownAt) =>
     invoke<void>("record_status_shown", { sessionId, state, reportedAt, shownAt }),
-  latencyReport: () => invoke<LatencyReport>("status_latency_report"),
   setGoal: (paneId, text) => invoke<void>("set_session_goal", { paneId, text }),
   setProgressTracking: (paneId, on) => invoke<void>("set_progress_tracking", { paneId, on }),
   setProgressCollapsed: (paneId, collapsed) => invoke<void>("set_progress_collapsed", { paneId, collapsed }),

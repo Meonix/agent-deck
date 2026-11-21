@@ -24,8 +24,7 @@ type Props = {
   onMove(id: string, targetId: string, side: Side): void;
 };
 
-// top-9 matches the h-9 LatencyBar that replaces the Status Summary while a pane is maximized.
-const MAXIMIZED = "fixed inset-x-0 bottom-0 top-9 z-10 flex flex-col min-h-0 min-w-0 px-gap pb-gap bg-canvas [&>*]:flex-1";
+const MAXIMIZED = "fixed inset-x-0 bottom-0 top-0 z-10 flex flex-col min-h-0 min-w-0 px-gap pt-gap pb-gap bg-canvas [&>*]:flex-1";
 // Each pane wrapper pads half the gap, so cards sit a full gap apart with the dividers in between;
 // the grid reaches half a gap past the main area so the outer cards still line up with the sidebar.
 const HALF_GAP = "p-[calc(var(--oneui-gap)/2)]";

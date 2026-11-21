@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 
-// jsdom has no matchMedia; a wide window by default, tests stub a narrow one (SRS-FR-138).
+// jsdom has no matchMedia; every query answers false.
 window.matchMedia ??= (query: string) =>
   ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList;
 

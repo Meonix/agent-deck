@@ -13,7 +13,7 @@ type Props = {
 export function ConfirmDialog({ title, detail, action, extra, onCancel, onConfirm }: Props) {
   const dialog = useRef<HTMLDivElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
-  // Focus returns to where it was, so closing the dialog does not strand it on body (SRS-FR-137).
+  // Focus returns to where it was, so closing the dialog does not strand it on body.
   useEffect(() => {
     const opener = document.activeElement;
     return () => {

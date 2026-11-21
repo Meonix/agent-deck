@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PaneStatus } from "../api/sessions";
-import { activeSessions, folderHighlights, maximizedBadge, statusSummary } from "./statusHighlight";
+import { activeSessions, folderHighlights, maximizedBadge } from "./statusHighlight";
 import type { PaneEntry } from "./TerminalPane";
 
 function e(id: string, workspaceId: string, status: Partial<PaneStatus>, sessionId = `s${id}`, ended = false): PaneEntry {
@@ -176,82 +176,5 @@ describe("activeSessions (1.1)", () => {
     failed.pane.started = false;
     const rows = activeSessions([e("1", "w", { state: "Ended" }, "s-crashed", true), failed]);
     expect(rows.map((r) => [r.paneId, r.state])).toEqual([["1", "Ended"]]);
-  });
-});
-
-describe("statusSummary", () => {
-  it("counts approval and error together as need (SRS-FR-132)", () => {
-    const s = statusSummary([
-      e("1", "w", { state: "Needs Approval" }),
-      e("2", "w", { state: "Needs Approval" }),
-      e("3", "w", { state: "Error" }),
-    ]);
-    expect(s.headline).toBe("need");
-    expect(s.need).toBe(3);
-  });
-
-  it("leaves out a session whose status is unavailable (SRS-FR-132)", () => {
-    const s = statusSummary([e("1", "w", { state: "Needs Approval" }), e("2", "w", { state: "Error", tracked: false })]);
-    expect(s.need).toBe(1);
-    expect(s.error).toBe(0);
-  });
-
-  it("counts each state (SRS-FR-133)", () => {
-    const s = statusSummary([
-      e("1", "w", { state: "Needs Approval" }),
-      e("2", "w", { state: "Needs Approval" }),
-      e("3", "w", { state: "Error" }),
-      ...["4", "5", "6", "7", "8"].map((id) => e(id, "w", { state: "Running" })),
-    ]);
-    expect([s.approval, s.error, s.running]).toEqual([2, 1, 5]);
-  });
-
-  it("reports zero for a state with no session (SRS-FR-133)", () => {
-    const s = statusSummary([e("1", "w", { state: "Needs Approval" }), e("2", "w", { state: "Needs Approval" }), e("3", "w", { state: "Running" })]);
-    expect([s.approval, s.error, s.running]).toEqual([2, 0, 1]);
-  });
-
-  it("is clear with only running sessions (SRS-FR-134)", () => {
-    const s = statusSummary([e("1", "w", { state: "Running" }), e("2", "w", { state: "Running" }), e("3", "w", { state: "Running" })]);
-    expect(s.headline).toBe("clear");
-    expect(s.running).toBe(3);
-  });
-
-  it("is not clear with one error (SRS-FR-134)", () => {
-    const s = statusSummary([e("1", "w", { state: "Running" }), e("2", "w", { state: "Running" }), e("3", "w", { state: "Error" })]);
-    expect(s.headline).toBe("need");
-    expect(s.need).toBe(1);
-  });
-
-  it("is idle with no pane that started (SRS-FR-135)", () => {
-    const never = e("1", "w", { state: "Running" });
-    never.pane.started = false;
-    expect(statusSummary([]).headline).toBe("idle");
-    expect(statusSummary([never]).headline).toBe("idle");
-  });
-
-  it("stays clear when the only open pane has ended (SRS-FR-135)", () => {
-    const s = statusSummary([e("1", "w", { state: "Idle" }, "s1", true)]);
-    expect(s.headline).toBe("clear");
-  });
-
-  it("points Go-to at Error before Needs Approval (SRS-FR-136)", () => {
-    const s = statusSummary([
-      e("2", "w", { state: "Needs Approval", since: 100 }),
-      e("3", "w", { state: "Error", since: 200 }),
-    ]);
-    expect(s.goTo).toEqual({ paneId: "3", title: "title-3" });
-  });
-
-  it("points Go-to at the earliest of the same state (SRS-FR-136)", () => {
-    const s = statusSummary([
-      e("1", "w", { state: "Needs Approval", since: 103 }),
-      e("2", "w", { state: "Needs Approval", since: 100 }),
-    ]);
-    expect(s.goTo?.paneId).toBe("2");
-  });
-
-  it("has no Go-to target when clear (SRS-FR-136)", () => {
-    expect(statusSummary([e("1", "w", { state: "Running" })]).goTo).toBeNull();
   });
 });

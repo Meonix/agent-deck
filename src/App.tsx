@@ -4,12 +4,11 @@ import type { SessionsClient } from "./api/sessions";
 import type { WorkspacesClient } from "./api/workspaces";
 import type { ZoomClient } from "./api/zoom";
 import { ConfirmDialog } from "./components/ConfirmDialog";
-import { StatusLatencyReport } from "./components/StatusLatencyReport";
 import { PaneGrid } from "./components/PaneGrid";
 import { TerminalPane, UNTITLED, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
 import { ToastProvider, useToast } from "./components/Toast";
 import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
-import { activeSessions, folderHighlights, maximizedBadge, statusSummary } from "./components/statusHighlight";
+import { activeSessions, folderHighlights, maximizedBadge } from "./components/statusHighlight";
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useSidebarToggle } from "./components/useSidebarToggle";
 import type { StashedSession } from "./components/stash";
@@ -18,8 +17,6 @@ import { useTextZoom } from "./components/useTextZoom";
 import { useWorkspaces } from "./components/useWorkspaces";
 import { mergeSessions, type OpenSession } from "./components/sessionList";
 import { ICON_SM } from "./components/icon";
-import { LatencyBar, StatusSummary } from "./components/StatusSummary";
-import { useSummaryMode } from "./components/useSummaryMode";
 import { useMinuteClock, useSessionList } from "./components/useSessionList";
 import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
 import { countTerminals, type DiagClient } from "./diagnostics";
@@ -37,24 +34,19 @@ type Deps = {
 const REPORT_MS = 60_000;
 
 function App(deps: Deps) {
-  const [reportOpen, setReportOpen] = useState(false);
-  const openReport = useCallback(() => setReportOpen(true), []);
-  const closeReport = useCallback(() => setReportOpen(false), []);
   const textSize = useTextZoom(deps.zoom, deps.mac ?? false);
   const sidebar = useSidebarToggle(deps.mac ?? false);
   return (
     <div className="h-screen relative flex flex-col bg-canvas text-foreground font-sans">
       <ToastProvider>
-        <Workbench {...deps} textSize={textSize} sidebar={sidebar} onOpenLatency={openReport} />
-        {reportOpen && <StatusLatencyReport client={deps.sessions} onClose={closeReport} />}
+        <Workbench {...deps} textSize={textSize} sidebar={sidebar} />
       </ToastProvider>
     </div>
   );
 }
 
-function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag, textSize, sidebar, onOpenLatency }: Deps & {
+function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag, textSize, sidebar }: Deps & {
   textSize: number;
-  onOpenLatency(): void;
   sidebar: { shown: boolean; toggle(): void };
 }) {
   const terminals = useMemo(() => countTerminals(makeTerminal), [makeTerminal]);
@@ -68,7 +60,6 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     () => void refresh().catch(() => {}),
     paneArea,
   );
-  const summaryMode = useSummaryMode(paneArea, panes.maximizedId !== null);
   const { diagnostics } = panes;
   const { reopenPanes } = panes;
   useEffect(() => {
@@ -253,7 +244,6 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     if (kept.length > 0) showToast(`${targets.length - kept.length} of ${targets.length} sessions deleted`);
   };
 
-  // modalOpen derives from this, so a dialog cannot render without making the summary inert.
   const dialog = deleting ? (
     <ConfirmDialog
       title={deleting.live ? `Close “${deleting.title}” and move it to Trash?` : `Move “${deleting.title}” to Trash?`}
@@ -290,24 +280,9 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
       onCancel={cancelClose}
     />
   ) : null;
-  const modalOpen = dialog !== null;
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      {/* Go to and Status Latency must not be reachable behind a modal dialog. */}
-      <div inert={modalOpen} className="shrink-0">
-      {summaryMode === "hidden" ? (
-        <LatencyBar onOpenLatency={onOpenLatency} />
-      ) : (
-        <StatusSummary
-          summary={statusSummary(panes.entries)}
-          mode={summaryMode}
-          onGoTo={panes.jumpTo}
-          onOpenLatency={onOpenLatency}
-        />
-      )}
-      </div>
-    <div className={`flex-1 min-h-0 relative grid gap-gap px-gap pb-gap ${gridColumns(sidebar.shown, historyShown)}`}>
+    <div className={`flex-1 min-h-0 relative grid gap-gap px-gap pt-gap pb-gap ${gridColumns(sidebar.shown, historyShown)}`}>
       <WorkspaceSidebar
         hidden={!sidebar.shown}
         workspaces={workspaces}
@@ -395,7 +370,6 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
         )}
       </main>
       {dialog}
-    </div>
     </div>
   );
 }

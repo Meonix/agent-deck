@@ -191,8 +191,7 @@ describe("robustness (fix round 1)", () => {
     const user = userEvent.setup();
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
     await folders().findByText("beta");
-    // Title bar "Status Latency", then the first row; "+ Add Folder" sits at the sidebar foot.
-    await user.tab();
+    // The first row comes first; "+ Add Folder" sits at the sidebar foot.
     await user.tab();
     await user.keyboard("{Enter}");
     expect(folders().getByText("alpha").closest("li")).toHaveAttribute("aria-current", "true");
@@ -202,8 +201,8 @@ describe("robustness (fix round 1)", () => {
     const user = userEvent.setup();
     renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
     await folders().findByText("beta");
-    // Title bar "Status Latency", the alpha row, then its Remove.
-    for (let i = 0; i < 3; i++) await user.tab();
+    // The alpha row, then its Remove.
+    for (let i = 0; i < 2; i++) await user.tab();
     expect(screen.getByRole("button", { name: "Remove alpha" })).toHaveFocus();
   });
 
@@ -211,8 +210,8 @@ describe("robustness (fix round 1)", () => {
     const user = userEvent.setup();
     renderSidebar(fakeClient([ws("a", "alpha")]));
     await folders().findByText("alpha");
-    // Title bar "Status Latency", the alpha row, its Remove, then the sidebar foot.
-    for (let i = 0; i < 4; i++) await user.tab();
+    // The alpha row, its Remove, then the sidebar foot.
+    for (let i = 0; i < 3; i++) await user.tab();
     expect(screen.getByRole("button", { name: "+ Add Folder" })).toHaveFocus();
   });
 

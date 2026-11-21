@@ -110,7 +110,6 @@ export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean
     close: vi.fn(async () => {}),
     title: vi.fn(async () => titles[Math.min(titleCall++, titles.length - 1)]),
     recordStatusShown: vi.fn(async () => {}),
-    latencyReport: vi.fn(async () => ({ within: 0, total: 0 })),
     setGoal: vi.fn(async () => {}),
     setProgressTracking: vi.fn(async () => {}),
     setProgressCollapsed: vi.fn(async () => {}),

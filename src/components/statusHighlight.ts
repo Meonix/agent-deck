@@ -38,7 +38,7 @@ export function folderHighlights(entries: PaneEntry[]): Map<string, FolderHighli
 
 type Waiting = { paneId: string; title: string; state: "Error" | "Needs Approval"; since: number };
 
-// One ordering for SRS-FR-045 and SRS-FR-136: Error first, then the longest waiting.
+// The SRS-FR-045 ordering: Error first, then the longest waiting.
 function waitingQueue(panes: PaneEntry[], excludePaneId?: string): Waiting[] {
   const waiting: Waiting[] = [];
   for (const { pane, title, status } of panes) {
@@ -57,39 +57,6 @@ export function maximizedBadge(entries: PaneEntry[], maximizedPaneId: string): M
   const waiting = waitingQueue(currentPanes(entries), maximizedPaneId);
   if (waiting.length === 0) return null;
   return { count: waiting.length, state: waiting[0].state, paneId: waiting[0].paneId };
-}
-
-export type StatusSummary = {
-  headline: "need" | "clear" | "idle";
-  need: number;
-  approval: number;
-  error: number;
-  running: number;
-  goTo: { paneId: string; title: string } | null;
-};
-
-/** What the Status Summary says about every session open in a pane (SRS-FR-132 to SRS-FR-136). */
-export function statusSummary(entries: PaneEntry[]): StatusSummary {
-  const open = currentPanes(entries.filter((entry) => entry.pane.started));
-  let approval = 0;
-  let error = 0;
-  let running = 0;
-  for (const { status } of open) {
-    if (!status.tracked) continue;
-    if (status.state === "Needs Approval") approval += 1;
-    else if (status.state === "Error") error += 1;
-    else if (status.state === "Running") running += 1;
-  }
-  const waiting = waitingQueue(open);
-  const need = approval + error;
-  return {
-    headline: need > 0 ? "need" : open.length > 0 ? "clear" : "idle",
-    need,
-    approval,
-    error,
-    running,
-    goTo: waiting.length > 0 ? { paneId: waiting[0].paneId, title: waiting[0].title } : null,
-  };
 }
 
 export type ActiveSession = {
