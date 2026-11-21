@@ -6,10 +6,8 @@ use serde::{Deserialize, Serialize};
 
 const FILE: &str = "status-latency.jsonl";
 const TMP: &str = "status-latency.jsonl.tmp";
-/// The report window of SRS-FR-039.
+/// How long records are kept: the 14 days BO-01 is measured over.
 pub const WINDOW_MS: u64 = 14 * 24 * 60 * 60 * 1000;
-/// BO-01: a change counts when the Status Highlight showed it within 3 s.
-pub const TARGET_MS: u64 = 3000;
 
 /// The names a record may carry, so a record can never hold anything but a state (SRS-NFR-007).
 pub const STATE_NAMES: [&str; 5] = ["Running", "Needs Approval", "Idle", "Error", "Ended"];
@@ -22,12 +20,6 @@ pub struct LatencyRecord {
     pub state: String,
     pub reported_at: u64,
     pub shown_at: u64,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-pub struct LatencyReport {
-    pub within: u64,
-    pub total: u64,
 }
 
 pub struct StatusLatencyLog {
@@ -56,22 +48,7 @@ impl StatusLatencyLog {
             .write_all(&line)
     }
 
-    pub fn report(&self, now: u64) -> io::Result<LatencyReport> {
-        let since = now.saturating_sub(WINDOW_MS);
-        let mut report = LatencyReport {
-            within: 0,
-            total: 0,
-        };
-        for record in self.records()?.iter().filter(|r| r.shown_at >= since) {
-            report.total += 1;
-            if record.shown_at.saturating_sub(record.reported_at) <= TARGET_MS {
-                report.within += 1;
-            }
-        }
-        Ok(report)
-    }
-
-    /// Rewrites the file with only the records inside the report window, when any is older.
+    /// Rewrites the file with only the records inside the window, when any is older.
     pub fn prune(&self, now: u64) -> io::Result<()> {
         let since = now.saturating_sub(WINDOW_MS);
         let records = self.records()?;
@@ -143,68 +120,17 @@ mod tests {
     }
 
     #[test]
-    fn no_file_means_no_data() {
-        let (_dir, log) = log();
-        assert_eq!(
-            log.report(NOW).unwrap(),
-            LatencyReport {
-                within: 0,
-                total: 0
-            }
-        );
-    }
-
-    #[test]
-    fn appended_records_are_counted_and_kept_as_json_lines() {
+    fn appended_records_are_kept_as_json_lines() {
         let (_dir, log) = log();
         log.append(&record(NOW - 1000, NOW - 750)).unwrap();
         log.append(&record(NOW - 9000, NOW - 1000)).unwrap();
-        assert_eq!(
-            log.report(NOW).unwrap(),
-            LatencyReport {
-                within: 1,
-                total: 2
-            }
-        );
+        assert_eq!(log.records().unwrap().len(), 2);
 
         let text = fs::read_to_string(log.dir.join(FILE)).unwrap();
         let first: serde_json::Value = serde_json::from_str(text.lines().next().unwrap()).unwrap();
         assert_eq!(
             first,
             serde_json::json!({"session": "s-1", "state": "Needs Approval", "reportedAt": NOW - 1000, "shownAt": NOW - 750})
-        );
-    }
-
-    #[test]
-    fn exactly_three_seconds_is_within() {
-        let (_dir, log) = log();
-        log.append(&record(NOW - 5000, NOW - 2000)).unwrap();
-        log.append(&record(NOW - 5001, NOW - 2000)).unwrap();
-        assert_eq!(
-            log.report(NOW).unwrap(),
-            LatencyReport {
-                within: 1,
-                total: 2
-            }
-        );
-    }
-
-    #[test]
-    fn records_older_than_fourteen_days_are_left_out() {
-        let (_dir, log) = log();
-        log.append(&record(NOW - 15 * DAY, NOW - 15 * DAY + 10))
-            .unwrap();
-        log.append(&record(NOW - WINDOW_MS - 1, NOW - WINDOW_MS - 1))
-            .unwrap();
-        log.append(&record(NOW - WINDOW_MS, NOW - WINDOW_MS))
-            .unwrap();
-        log.append(&record(NOW - 10, NOW)).unwrap();
-        assert_eq!(
-            log.report(NOW).unwrap(),
-            LatencyReport {
-                within: 2,
-                total: 2
-            }
         );
     }
 
@@ -218,13 +144,7 @@ mod tests {
             .unwrap();
         file.write_all(b"not json\n{\"session\":1}\n").unwrap();
         log.append(&record(NOW - 20, NOW)).unwrap();
-        assert_eq!(
-            log.report(NOW).unwrap(),
-            LatencyReport {
-                within: 2,
-                total: 2
-            }
-        );
+        assert_eq!(log.records().unwrap().len(), 2);
     }
 
     #[test]
@@ -236,13 +156,7 @@ mod tests {
         let text = fs::read_to_string(log.dir.join(FILE)).unwrap();
         assert_eq!(text.lines().count(), 1);
         assert!(!log.dir.join(TMP).exists());
-        assert_eq!(
-            log.report(NOW).unwrap(),
-            LatencyReport {
-                within: 1,
-                total: 1
-            }
-        );
+        assert_eq!(log.records().unwrap().len(), 1);
     }
 
     #[test]
@@ -255,21 +169,9 @@ mod tests {
             .unwrap();
         file.write_all(b"{\"session\":\"s-1\",\"sta").unwrap();
         log.append(&record(NOW - 20, NOW)).unwrap();
-        assert_eq!(
-            log.report(NOW).unwrap(),
-            LatencyReport {
-                within: 2,
-                total: 2
-            }
-        );
+        assert_eq!(log.records().unwrap().len(), 2);
         log.prune(NOW).unwrap();
-        assert_eq!(
-            log.report(NOW).unwrap(),
-            LatencyReport {
-                within: 2,
-                total: 2
-            }
-        );
+        assert_eq!(log.records().unwrap().len(), 2);
     }
 
     #[test]
@@ -282,21 +184,9 @@ mod tests {
             .unwrap();
         file.write_all(b"\xff\xfe broken\n").unwrap();
         log.append(&record(NOW - 20, NOW)).unwrap();
-        assert_eq!(
-            log.report(NOW).unwrap(),
-            LatencyReport {
-                within: 2,
-                total: 2
-            }
-        );
+        assert_eq!(log.records().unwrap().len(), 2);
         log.prune(NOW).unwrap();
-        assert_eq!(
-            log.report(NOW).unwrap(),
-            LatencyReport {
-                within: 2,
-                total: 2
-            }
-        );
+        assert_eq!(log.records().unwrap().len(), 2);
     }
 
     #[test]
@@ -327,6 +217,19 @@ mod tests {
             })
             .collect();
         assert_eq!(sent, STATE_NAMES);
+    }
+
+    #[test]
+    fn prune_keeps_a_record_exactly_fourteen_days_old() {
+        let (_dir, log) = log();
+        log.append(&record(NOW - WINDOW_MS - 1, NOW - WINDOW_MS - 1))
+            .unwrap();
+        log.append(&record(NOW - WINDOW_MS, NOW - WINDOW_MS))
+            .unwrap();
+        log.prune(NOW).unwrap();
+        let kept = log.records().unwrap();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].shown_at, NOW - WINDOW_MS);
     }
 
     #[test]

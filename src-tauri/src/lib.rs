@@ -134,7 +134,6 @@ pub fn run() {
             pane_commands::shell_resize,
             pane_commands::shell_activity,
             latency_commands::record_status_shown,
-            latency_commands::status_latency_report,
             session_commands::list_sessions,
             session_commands::delete_session,
             diag_commands::diag_log,
