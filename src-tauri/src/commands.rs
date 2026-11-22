@@ -129,7 +129,7 @@ mod tests {
         let (_f, store) = failing_store();
         let existing = tempdir().unwrap();
         // Canonical, so the list recognises the folder (tmp is a symlink on macOS).
-        let canonical = std::fs::canonicalize(existing.path()).unwrap();
+        let canonical = dunce::canonicalize(existing.path()).unwrap();
         let mut list = WorkspaceList::from_paths(vec![canonical]);
         let outcome = add_and_save(&mut list, &store, existing.path()).unwrap();
         assert!(matches!(outcome, AddOutcome::AlreadyPresent(_)));

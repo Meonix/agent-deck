@@ -140,7 +140,7 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let folder = root.path().join("mokairo");
         fs::create_dir(&folder).unwrap();
-        let canonical = fs::canonicalize(&folder).unwrap();
+        let canonical = dunce::canonicalize(&folder).unwrap();
 
         let mut list = WorkspaceList::new();
         let outcome = list.add(&folder);

@@ -291,7 +291,7 @@ mod tests {
         let _ = std::thread::spawn(|| panic!("boom in a pane thread")).join();
         let text = read(dir.path(), FILE_NAME);
         assert!(
-            text.contains("ERROR panic: boom in a pane thread at src/diag.rs:"),
+            text.contains(&format!("ERROR panic: boom in a pane thread at {}:", file!())),
             "{text}"
         );
     }
