@@ -12,6 +12,15 @@ function isTextKey(ev: KeyboardEvent): boolean {
   return [...ev.key].length > 1 && !/^[A-Z][A-Za-z0-9]*$/.test(ev.key);
 }
 
+type ClipboardKey = "copy" | "paste" | null;
+
+/** Windows Terminal's keys: Ctrl+C / Ctrl+V, with or without Shift (SRS-FR-025). macOS uses Cmd, which xterm leaves alone. */
+function clipboardKey(ev: KeyboardEvent, mac: boolean): ClipboardKey {
+  if (mac || !ev.ctrlKey || ev.altKey || ev.metaKey) return null;
+  const key = ev.key.toLowerCase();
+  return key === "c" ? "copy" : key === "v" ? "paste" : null;
+}
+
 const ANSI = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"] as const;
 
 // xterm's theme keys are `red` / `brightRed`; the tokens are `--ansi-red` / `--ansi-bright-red`.
@@ -25,7 +34,7 @@ function ansiTheme(token: (name: string) => string | undefined): Record<string, 
 }
 
 // Kept apart from TerminalPane so tests, which use a fake adapter, never load xterm.
-export function createXtermAdapter(): TerminalAdapter {
+export function createXtermAdapter({ mac = false }: { mac?: boolean } = {}): TerminalAdapter {
   // xterm draws on a canvas, which cannot resolve CSS variables, so read their values now.
   const css = getComputedStyle(document.documentElement);
   const token = (name: string) => css.getPropertyValue(name).trim() || undefined;
@@ -47,6 +56,16 @@ export function createXtermAdapter(): TerminalAdapter {
   // XKey replaces a word's tail with one key event whose key is the new text ("ửa");
   // xterm alone would type only its first character.
   terminal.attachCustomKeyEventHandler((ev) => {
+    // xterm would send Ctrl+C / Ctrl+V as ^C / ^V and cancel the key, so the webview never copies or pastes.
+    const clip = clipboardKey(ev, mac);
+    if (clip === "paste") return false;
+    if (clip === "copy" && terminal.hasSelection()) {
+      if (ev.type === "keydown") {
+        ev.preventDefault();
+        void navigator.clipboard.writeText(terminal.getSelection()).then(() => terminal.clearSelection());
+      }
+      return false;
+    }
     if (!isTextKey(ev)) return true;
     if (ev.type === "keydown") {
       ev.preventDefault();

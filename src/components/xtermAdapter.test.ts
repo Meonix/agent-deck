@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const xterm = vi.hoisted(() => {
   type Listener = (data: string) => void;
@@ -7,12 +7,22 @@ const xterm = vi.hoisted(() => {
     data = new Set<Listener>();
     binary = new Set<Listener>();
     keyHandler: ((ev: KeyboardEvent) => boolean) | null = null;
+    selection = "";
     options: Record<string, unknown>;
     constructor(options: Record<string, unknown> = {}) {
       this.options = options;
       FakeTerminal.last = this;
     }
     loadAddon() {}
+    hasSelection() {
+      return this.selection !== "";
+    }
+    getSelection() {
+      return this.selection;
+    }
+    clearSelection() {
+      this.selection = "";
+    }
     attachCustomKeyEventHandler(handler: (ev: KeyboardEvent) => boolean) {
       this.keyHandler = handler;
     }
@@ -127,5 +137,59 @@ describe("createXtermAdapter: text sent as one key event (SRS-FR-026)", () => {
 
     expect(typed).toEqual([]);
     expect(passedOn).toEqual(events.map(() => true));
+  });
+});
+
+describe("createXtermAdapter: copy and paste like Windows Terminal (SRS-FR-025)", () => {
+  const writeText = vi.fn<(text: string) => Promise<void>>();
+
+  beforeEach(() => {
+    writeText.mockReset().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+  });
+
+  function press(mac: boolean, selection: string, init: KeyboardEventInit) {
+    createXtermAdapter({ mac });
+    const term = xterm.FakeTerminal.last;
+    term.selection = selection;
+    const ev = new KeyboardEvent("keydown", { cancelable: true, ...init });
+    const passedOn = term.keyHandler?.(ev) ?? true;
+    return { term, ev, passedOn };
+  }
+
+  it.each([
+    { key: "v", ctrlKey: true },
+    { key: "V", ctrlKey: true, shiftKey: true },
+  ])("lets the webview paste on %o instead of xterm sending ^V", (init) => {
+    const { ev, passedOn } = press(false, "", init);
+
+    expect(passedOn).toBe(false);
+    // xterm turns the browser's paste event into input; it only fires if the keydown is not cancelled.
+    expect(ev.defaultPrevented).toBe(false);
+  });
+
+  it.each([
+    { key: "c", ctrlKey: true },
+    { key: "C", ctrlKey: true, shiftKey: true },
+  ])("copies the selection on %o and clears it, so the next Ctrl+C interrupts", async (init) => {
+    const { term, ev, passedOn } = press(false, "hello", init);
+
+    expect(passedOn).toBe(false);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(writeText).toHaveBeenCalledWith("hello");
+    await vi.waitFor(() => expect(term.hasSelection()).toBe(false));
+  });
+
+  it("leaves Ctrl+C with nothing selected to xterm, which sends ^C", () => {
+    const { passedOn } = press(false, "", { key: "c", ctrlKey: true });
+
+    expect(passedOn).toBe(true);
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("leaves Ctrl+C and Ctrl+V to xterm on macOS, where Cmd copies and pastes", () => {
+    expect(press(true, "hello", { key: "c", ctrlKey: true }).passedOn).toBe(true);
+    expect(press(true, "", { key: "v", ctrlKey: true }).passedOn).toBe(true);
+    expect(writeText).not.toHaveBeenCalled();
   });
 });

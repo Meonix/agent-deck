@@ -19,15 +19,17 @@ const applyScheme = () => document.documentElement.classList.toggle("dark", dark
 applyScheme();
 darkScheme.addEventListener("change", applyScheme);
 
+const mac = navigator.userAgent.includes("Mac");
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <App
       workspaces={tauriWorkspacesClient}
       sessions={tauriSessionsClient}
-      createTerminal={createXtermAdapter}
+      createTerminal={() => createXtermAdapter({ mac })}
       diag={tauriDiagClient}
       zoom={tauriZoomClient}
-      mac={navigator.userAgent.includes("Mac")}
+      mac={mac}
     />
   </React.StrictMode>,
 );
