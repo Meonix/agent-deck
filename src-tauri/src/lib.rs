@@ -7,15 +7,12 @@ pub mod launcher;
 mod pane_commands;
 pub mod pane_status;
 pub mod panes;
-pub mod progress_keeper;
 pub mod pty;
 mod session_commands;
 pub mod session_goal;
 pub mod session_list;
-pub mod session_progress;
 pub mod session_title;
 pub mod session_trash;
-pub mod summarizer;
 pub mod shell;
 pub mod status;
 pub mod status_latency;
@@ -67,23 +64,7 @@ pub fn run() {
             let store = WorkspaceStore::new(data_dir.clone());
             let list = store.load()?;
             let goals = session_goal::GoalStore::load(data_dir.clone());
-            let progress = Arc::new(Mutex::new(session_progress::ProgressStore::load(
-                data_dir.clone(),
-            )));
-            if let Ok(home) = app.path().home_dir() {
-                let progress = progress.clone();
-                std::thread::spawn(move || {
-                    progress_keeper::prune_without_history(
-                        &progress,
-                        &home.join(".claude").join("projects"),
-                    )
-                });
-            }
             let launch = Arc::new(LaunchLookup::start());
-            let summarizer = Arc::new(pane_commands::LookupSummarizer {
-                launch: launch.clone(),
-                cwd: data_dir.clone(),
-            });
             let latency = StatusLatencyLog::new(data_dir);
             if let Err(e) = latency.prune(pane_status::now_ms()) {
                 diag::error(
@@ -98,8 +79,6 @@ pub fn run() {
                 shells: Mutex::new(ShellRegistry::new()),
                 launch,
                 goals: Arc::new(Mutex::new(goals)),
-                progress,
-                summarizer,
                 hooks: HookServer::start()
                     .map_err(|e| {
                         diag::error("hooks", &format!("hook listener could not start: {e}"))
@@ -126,8 +105,6 @@ pub fn run() {
             pane_commands::pane_resize,
             pane_commands::pane_title,
             pane_commands::set_session_goal,
-            pane_commands::set_progress_tracking,
-            pane_commands::set_progress_collapsed,
             pane_commands::close_pane,
             pane_commands::open_shell,
             pane_commands::shell_write,

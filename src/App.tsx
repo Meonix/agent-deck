@@ -342,8 +342,6 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
                   onResizeShell={panes.resizeShell}
                   onDismissShellFailure={panes.dismissShellFailure}
                   onSetGoal={panes.setGoal}
-                  onSetTracking={panes.setProgressTracking}
-                  onSetCollapsed={panes.setProgressCollapsed}
                 />
               ),
             }))}

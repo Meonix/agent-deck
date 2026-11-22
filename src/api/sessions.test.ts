@@ -208,47 +208,25 @@ describe("goal messages (SRS-FR-092)", () => {
   });
 });
 
-describe("progress messages", () => {
-  const progress = {
-    tracking: "on",
-    checkpoints: [{ summary: "Read the log", result: "", done: false, startedAt: "09:12" }],
-    collapsed: false,
-    updating: true,
-    failed: false,
-  };
-
-  it("queues progress sent before onProgress, then delivers later ones live", async () => {
-    tauri.invoke.mockImplementation(async () => {
-      send(JSON.stringify({ progress }));
-      return opened;
-    });
-    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
-    const seen: unknown[] = [];
-    stream.onProgress((p) => seen.push(p));
-    expect(seen).toEqual([progress]);
-    send({ progress: { ...progress, tracking: "off" } });
-    expect(seen).toHaveLength(2);
-  });
-
-  it("ignores a progress of the wrong shape", async () => {
+describe("no progress API (CR-015)", () => {
+  it("has no progress commands and no onProgress", async () => {
+    expect("setProgressTracking" in tauriSessionsClient).toBe(false);
+    expect("setProgressCollapsed" in tauriSessionsClient).toBe(false);
     tauri.invoke.mockResolvedValue(opened);
     const { stream } = await tauriSessionsClient.open("w1", 80, 24);
-    const seen: unknown[] = [];
-    stream.onProgress((p) => seen.push(p));
-    send({ progress: null });
-    send({ progress: { ...progress, tracking: "maybe" } });
-    send({ progress: { ...progress, checkpoints: [{ summary: 1 }] } });
-    send({ progress: { ...progress, collapsed: "no" } });
-    expect(seen).toEqual([]);
+    expect("onProgress" in stream).toBe(false);
   });
 
-  it("sets tracking and collapsed through their commands", async () => {
-    tauri.invoke.mockResolvedValue(undefined);
-    await tauriSessionsClient.setProgressTracking("p1", true);
-    await tauriSessionsClient.setProgressCollapsed("p1", false);
-    expect(tauri.invoke.mock.calls).toEqual([
-      ["set_progress_tracking", { paneId: "p1", on: true }],
-      ["set_progress_collapsed", { paneId: "p1", collapsed: false }],
-    ]);
+  it("passes a progress message to no callback", async () => {
+    tauri.invoke.mockResolvedValue(opened);
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen = vi.fn();
+    stream.onOutput(seen);
+    stream.onExit(seen);
+    stream.onStatus(seen);
+    stream.onGoal(seen);
+    stream.onSession(seen);
+    send({ progress: { tracking: "on", checkpoints: [], collapsed: false, updating: false, failed: false } });
+    expect(seen).not.toHaveBeenCalled();
   });
 });
