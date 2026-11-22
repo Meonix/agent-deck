@@ -153,8 +153,9 @@ fn is_executable(path: &Path) -> bool {
 }
 
 /// Set by a Claude Code session or a terminal that launched the app; passed on,
-/// they would make `claude` think it runs nested or inside that terminal.
-const INHERITED_ONLY: [&str; 7] = [
+/// they would make `claude` think it runs nested or inside that terminal, or
+/// switch its colours off although the pane renders them.
+const INHERITED_ONLY: [&str; 9] = [
     "CLAUDECODE",
     "CLAUDE_CODE_ENTRYPOINT",
     "CLAUDE_CODE_CHILD_SESSION",
@@ -162,6 +163,8 @@ const INHERITED_ONLY: [&str; 7] = [
     "CLAUDE_CODE_SSE_PORT",
     "CLAUDE_PID",
     "TERM_SESSION_ID",
+    "NO_COLOR",
+    "FORCE_COLOR",
 ];
 const INHERITED_ONLY_PREFIXES: [&str; 6] = [
     "CLAUDE_CODE_SESSION_",
@@ -384,6 +387,15 @@ mod tests {
         let env = session_env(&[pair("LC_ALL", "vi_VN.UTF-8")], "/p");
         assert_eq!(get(&env, "LC_ALL"), Some("vi_VN.UTF-8"));
         assert_eq!(get(&env, "LANG"), None);
+    }
+
+    #[test]
+    fn session_env_drops_colour_switches_of_the_launching_context() {
+        let base = [pair("NO_COLOR", "1"), pair("FORCE_COLOR", "0")];
+        let env = session_env(&base, "/p");
+        assert_eq!(get(&env, "NO_COLOR"), None);
+        assert_eq!(get(&env, "FORCE_COLOR"), None);
+        assert_eq!(get(&env, "COLORTERM"), Some("truecolor"));
     }
 
     #[test]
