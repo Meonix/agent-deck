@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v5.2 (2026-11-22)
+status: Approved v6.0 (2026-11-23)
 ---
 # BRD — agent-deck
 
@@ -37,8 +37,8 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | --- | --- | --- | --- | --- |
 | BO-01 | Không bỏ sót phiên Claude Code đang chờ duyệt hoặc đang lỗi | Thời gian từ lúc một phiên mở trong agent-deck bắt đầu chờ duyệt hoặc gặp lỗi đến lúc phiên đó hiện dấu báo trạng thái trong app (dòng phiên, dòng folder, hoặc badge của ô phóng to) | ≤ 3 giây | Đạt trong 2 tuần dùng thử ngay sau khi có MVP |
 | BO-02 | Quay lại làm tiếp một phiên cũ thật nhanh | Số thao tác từ lúc mở app đến lúc gõ tiếp được vào một phiên cũ bất kỳ | ≤ 3 thao tác | Đạt trong 2 tuần dùng thử ngay sau khi có MVP |
-| BO-03 | Luôn thấy việc chính của mỗi phiên đang mở | Số thao tác để thấy việc chính của một ô đang mở đã có prompt | 0 thao tác | Đạt trong 2 tuần dùng thử ngay sau khi có tính năng |
-| BO-04 | Nắm lại tiến độ một phiên dài mà không phải đọc log | Số phiên đã bật theo dõi có danh sách check point không thiếu việc lớn nào và không tách thừa, trên 10 phiên PO kiểm | ≥ 8/10 | Đạt trong 2 tuần dùng thử ngay sau khi có tính năng |
+| BO-03 | Deleted (CR-015) | Deleted (CR-015) | Deleted (CR-015) | Deleted (CR-015) |
+| BO-04 | Deleted (CR-015) | Deleted (CR-015) | Deleted (CR-015) | Deleted (CR-015) |
 
 ## 5. Phạm vi
 
@@ -75,8 +75,8 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
 | BR-07 | Từ dấu báo trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
 | BR-08 | Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc, hoặc xoá phiên ngay lúc đóng ô của nó, bằng cách chuyển chúng vào Thùng rác | BO-02 | Should |
-| BR-09 | Người dùng thấy và sửa được việc chính của mỗi phiên đang mở ngay trên ô; app không ràng buộc Claude Code theo việc chính | BO-03 | Should |
-| BR-10 | Người dùng chọn theo dõi tiến độ cho từng phiên; khi bật, ô hiện danh sách các việc lớn phiên đã làm và đang làm, tự cập nhật sau mỗi lượt làm việc của Claude Code, chỉ để đọc; app không thêm gì vào phiên Claude Code | BO-04 | Should |
+| BR-09 | Deleted (CR-015) | BO-03 | Should |
+| BR-10 | Deleted (CR-015) | BO-04 | Should |
 
 ## 7. Quy trình và luật nghiệp vụ
 
@@ -101,7 +101,6 @@ Luật nghiệp vụ:
 - Bản đầu dùng hằng ngày trên macOS; phải build ra được bản chạy trên Windows.
 - Không sửa dữ liệu phiên của Claude Code trên máy; chỉ được chuyển cả một phiên vào Thùng rác khi người dùng chọn xoá phiên đó (BR-08).
 - Không thay đổi cấu hình Claude Code dùng chung toàn máy của người dùng.
-- Tóm tắt tiến độ dùng model rẻ của Claude qua login Claude Code sẵn có trên máy, không cần khoá API riêng; chỉ chạy cho phiên người dùng đã bật theo dõi.
 
 ## 9. Giả định (A)
 
@@ -119,10 +118,10 @@ Luật nghiệp vụ:
 
 ## 11. Chỉ số thành công
 
-- BO-01: trong 2 tuần dùng thử sau khi có MVP, mọi phiên mở trong agent-deck mà chờ duyệt hoặc lỗi hiện dấu báo trạng thái trong ≤ 3 giây.
+- BO-01: trong 2 tuần dùng thử sau khi có MVP, mọi phiên mở trong agent-deck mà chờ duyệt hoặc lỗi hiện dấu báo trạng thái trong ≤ 3 giây. PO tự kiểm trong lúc dùng; app không ghi độ trễ (CR-015).
 - BO-02: trong 2 tuần dùng thử sau khi có MVP, mở lại bất kỳ phiên cũ nào trong ≤ 3 thao tác (chọn folder, chọn phiên, mở).
-- BO-03: trong 2 tuần dùng thử sau khi có tính năng, mọi ô đã có prompt đều hiện việc chính mà không cần thao tác nào.
-- BO-04: trong 2 tuần dùng thử sau khi có tính năng, PO kiểm 10 phiên đã bật theo dõi, ≥ 8 phiên có danh sách check point không thiếu việc lớn và không tách thừa.
+- BO-03: Deleted (CR-015)
+- BO-04: Deleted (CR-015)
 
 ## 12. Câu hỏi mở (Q)
 
@@ -155,6 +154,7 @@ Luật nghiệp vụ:
 | 2026-10-25 | CR-012: BO-04 đo bằng gì? | PO kiểm 10 phiên đã bật theo dõi, ≥ 8 phiên có danh sách không thiếu việc lớn và không tách thừa, trong 2 tuần dùng thử sau khi có tính năng |
 | 2026-11-20 | CR-013: phần tóm tắt trạng thái ở đầu cửa sổ dùng chữ gì? | "N need you" khi có phiên cần duyệt hoặc lỗi; "All clear" khi không phiên nào cần mình; "Agent Deck" + "No sessions running" khi chưa mở phiên nào; khung lịch sử rỗng giữ "No sessions yet" |
 | 2026-11-22 | CR-014: bỏ phần tóm tắt ở đầu cửa sổ thì đo BO-01 ở đâu? | Bỏ cả phần tóm tắt và nút Status Latency; vẫn ghi độ trễ, PO đọc thẳng file bản ghi |
+| 2026-11-23 | CR-015: bỏ ghi độ trễ thì đo BO-01 bằng gì? | Giữ BO-01 và ngưỡng 3 giây, PO tự kiểm khi dùng; Target Box và Progress Tracking bỏ hẳn cùng BO-03, BO-04 |
 
 ## 14. Duyệt
 
@@ -174,3 +174,4 @@ Luật nghiệp vụ:
 | v5.0 | 2026-10-25 | PO | CR-012: thêm BO-04 (nắm lại tiến độ phiên dài) và BR-10 (theo dõi tiến độ theo phiên); ràng buộc tóm tắt qua login Claude Code |
 | v5.1 | 2026-11-20 | PO | CR-013: BR-06 thêm phần tóm tắt trạng thái ở đầu cửa sổ |
 | v5.2 | 2026-11-22 | PO | CR-014: BR-06 bỏ phần tóm tắt trạng thái ở đầu cửa sổ; BO-01 đọc số từ file bản ghi độ trễ |
+| v6.0 | 2026-11-23 | PO | CR-015: xoá BO-03, BO-04, BR-09, BR-10; BO-01 PO tự kiểm, app không ghi độ trễ; bỏ ràng buộc tóm tắt qua login Claude Code |

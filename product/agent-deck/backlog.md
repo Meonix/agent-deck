@@ -4,7 +4,7 @@ slug: agent-deck
 ---
 # Backlog — agent-deck
 
-Nguồn: `SRS.md` Baselined v1.14 (2026-11-22), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23; CR-009 thêm mục 24; CR-010 thêm mục 25; CR-011 thêm mục 26; CR-012 thêm mục 27, 28; CR-013 thêm mục 29 (SRS v1.13); CR-014 thêm mục 30 (SRS v1.14). Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
+Nguồn: `SRS.md` Baselined v1.15 (2026-11-23), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23; CR-009 thêm mục 24; CR-010 thêm mục 25; CR-011 thêm mục 26; CR-012 thêm mục 27, 28; CR-013 thêm mục 29 (SRS v1.13); CR-014 thêm mục 30 (SRS v1.14); CR-015 thêm mục 31, 32, 33 (SRS v1.15). Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
 
 | # | Mục | change-id | SRS-ID | Phụ thuộc | Lý do | Trạng thái |
 |---|---|---|---|---|---|---|
@@ -38,3 +38,6 @@ Nguồn: `SRS.md` Baselined v1.14 (2026-11-22), CR-001 thêm mục 9, 10, 11; CR
 | 28 | Theo dõi tiến độ phiên bằng check point | add-session-progress | SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131, SRS-NFR-011, SRS-NFR-012, SRS-NFR-013 | 3, 19, 25, 26, 27 | Should; CR-012; phục vụ BO-04; chỉ thêm FR mới → /dev-feature | archived |
 | 29 | Tóm tắt trạng thái ở đầu cửa sổ và giao diện One UI | add-status-summary | SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 | 9, 10, 12 | Should; CR-013; phục vụ BO-01; chỉ thêm FR mới → /dev-feature; hình One UI theo `design/agent-deck/oneui/` đi cùng mục này | archived |
 | 30 | Bỏ Status Summary và nút Status Latency | remove-status-summary | SRS-FR-039, SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 | 4, 29 | Should; CR-014; đổi hành vi đã archived của mục 4, 29 → /dev-update | archived |
+| 31 | Bỏ theo dõi tiến độ phiên | remove-session-progress | SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131, SRS-NFR-007, SRS-NFR-011, SRS-NFR-012, SRS-NFR-013 | 27, 28 | Should; CR-015; đổi hành vi đã archived → /dev-update; làm trước 32 vì Progress Tracking đọc Session Goal | todo |
+| 32 | Bỏ Target Box và Session Goal | remove-session-goal | SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097 | 25, 31 | Should; CR-015; đổi hành vi đã archived → /dev-update | todo |
+| 33 | Bỏ ghi độ trễ trạng thái | remove-status-latency | SRS-FR-038 | 4, 30 | Should; CR-015; đổi hành vi đã archived → /dev-update | todo |

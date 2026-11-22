@@ -739,3 +739,61 @@ Backlog — thêm (áp sau GATE CR):
 - 30 · Bỏ Status Summary và nút Status Latency · remove-status-summary · SRS-FR-039, SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 · phụ thuộc 4, 29 · Should; CR-014; đổi hành vi đã archived của mục 4, 29 → /dev-update.
 
 Việc tiếp theo: /dev-update remove-status-summary (mục 30); /design-ui sửa bản One UI bỏ vùng "All clear".
+
+## CR-015 — Bỏ Target Box, theo dõi tiến độ phiên và đo độ trễ trạng thái
+Ngày: 2026-11-23
+Yêu cầu: "1. gỡ bỏ target (màu đỏ) ra khỏi view của ứng dụng. 2. gỡ bỏ tính năng "track progress for this session" 3. gỡ bỏ luôn tính năng status latency." → "gộp cả 3 yêu cầu vào một CR".
+Status: Approved (2026-11-23)
+Trả lời của PO (2026-11-23):
+- Target Box: gỡ cả tính năng (ghim, lưu, sửa Session Goal), không chỉ ẩn khỏi giao diện; BO-03 và BR-09 bỏ.
+- Status Latency: gỡ cả phần ghi độ trễ (SRS-FR-038, file `status-latency.jsonl`); giữ BO-01 và ngưỡng 3 giây, PO tự kiểm bằng quan sát trong lúc dùng; SRS-FR-034 (Status Highlight ≤ 3 giây, Kiểm chứng Test) vẫn giữ.
+- Progress Tracking: gỡ cả tính năng; BO-04 và BR-10 bỏ.
+Ảnh hưởng:
+- SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097 (archived: add-session-goal, update-session-target-box; `openspec/specs/session-goal/` → /dev-update).
+- SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131, SRS-NFR-011, SRS-NFR-012, SRS-NFR-013, RULE-10, RULE-11, A-12 (archived: add-session-progress; `openspec/specs/session-progress/` → /dev-update).
+- SRS-NFR-007, A-07 (archived: update-session-data-boundary; `openspec/specs/session-history/` → /dev-update): ngoại lệ "tóm tắt qua Claude Code" hết lý do tồn tại, trả về câu trước CR-012.
+- SRS-FR-038 (archived: add-status-latency-report, update-status-highlight; `openspec/specs/status-latency/` → /dev-update). Mục 2.8 rỗng.
+- BRD: BO-03, BO-04, BR-09, BR-10 bỏ; BO-01 đổi chỗ đọc số; ràng buộc "Tóm tắt tiến độ dùng model rẻ…" ở mục 8 bỏ.
+- Giữ, không sửa: SRS-FR-034 (độ trễ Status Highlight), SRS-FR-032, SRS-FR-033, SRS-FR-044, SRS-FR-103 đến SRS-FR-112 (Stash), SRS-FR-084 đến SRS-FR-086 (mở lại ô).
+- Code (cho /dev-update): src/components/PaneProgress.tsx, src/components/TerminalPane.tsx (Target Box, Tracking Prompt, Tracking button, Progress Strip), src/components/latencyLog.ts + test, src/components/useSessionPanes.ts, src/api/sessions.ts + test, src/App.tsx, src/App.test.tsx, src/test/fakes.ts; src-tauri/src/session_goal.rs, session_progress.rs, progress_keeper.rs, summarizer.rs, status_latency.rs, latency_commands.rs, và chỗ gọi trong lib.rs, commands.rs, panes.rs, pane_commands.rs, pty/session.rs, session_commands.rs, session_trash.rs.
+- Dữ liệu cũ trên máy (Session Goals, Progress Records, `status-latency.jsonl`): app thôi đọc và ghi; có xoá file cũ hay không do /dev-update quyết ở design.md.
+- Thiết kế (không sửa ở đây → /design-ui): `design/agent-deck/brief.md`, `design/agent-deck/design.html`, `design/agent-deck/references.md` còn vẽ hoặc nhắc Target Box, Progress Strip hay Status Latency.
+
+Diff đề xuất:
+
+Phiên bản: BRD v5.2 → v6.0 (xoá BO-03, BO-04; đổi cách đo BO-01). SRS v1.14 → v1.15.
+
+BRD:
+- Mục 4: BO-03, BO-04 giữ dòng, các cột thành "Deleted (CR-015)". BO-01 không đổi chỉ số, ngưỡng, hạn.
+- Mục 6: BR-09, BR-10 giữ dòng, thân thành "Deleted (CR-015)".
+- Mục 8: xoá dòng "Tóm tắt tiến độ dùng model rẻ của Claude qua login Claude Code…".
+- Mục 11: BO-03, BO-04 → "Deleted (CR-015)". BO-01 thêm "PO quan sát trong lúc dùng; app không còn ghi độ trễ (CR-015)".
+- Mục 13 log thêm dòng 2026-11-23 "CR-015: bỏ ghi độ trễ thì đo BO-01 bằng gì? | Giữ BO-01, PO tự kiểm khi dùng; Target Box và Progress Tracking bỏ hẳn cùng BO-03, BO-04".
+- Mục 14: dòng v6.0 "CR-015: xoá BO-03, BO-04, BR-09, BR-10; BO-01 PO tự kiểm, app không ghi độ trễ; bỏ ràng buộc tóm tắt qua login Claude Code".
+
+SRS:
+- Mục đích: "phục vụ BO-01 … BO-03 … BO-04 của BRD v5.1" → "phục vụ BO-01 (không sót phiên chờ duyệt hoặc lỗi) và BO-02 (mở lại phiên cũ ≤ 3 thao tác) của BRD v6.0".
+- Phạm vi: "BR-01 đến BR-10" → "BR-01 đến BR-08".
+- A-07 → "Ứng dụng không gửi dữ liệu phiên ra khỏi máy" (bỏ ngoại lệ CR-012). A-12 → "Deleted (CR-015)".
+- Thuật ngữ: Session Goal, Target Box, Progress Tracking, Checkpoint, Checkpoint List, Progress Strip, Tracking Prompt, Tracking button, Progress Record → giữ dòng, nghĩa thành "Deleted (CR-015)".
+- Mục 2.8: luồng chính thành "Deleted (CR-015)"; SRS-FR-038 → "Deleted (CR-015)", thân: "App không ghi độ trễ trạng thái; BO-01 do PO tự kiểm, SRS-FR-034 vẫn kiểm bằng Test".
+- Mục 2.14: luồng thành "Deleted (CR-015)"; SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097 giữ tiêu đề, thân thành "Deleted (CR-015)".
+- Mục 2.16: luồng thành "Deleted (CR-015)"; SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131 giữ tiêu đề, thân thành "Deleted (CR-015)".
+- Mục 3 Dữ liệu: bảng Status Change Record, Progress Record → "Deleted (CR-015)"; dòng Session Goals, Progress Records trong bảng lưu trên máy → xoá.
+- Mục 4: RULE-10, RULE-11 → "Deleted (CR-015)".
+- Mục 6: dòng "Claude Code (tóm tắt tiến độ)" → xoá.
+- Mục 7: dòng Pane Grid bỏ phần Target Box / Progress Strip / Tracking button (sửa theo nội dung dòng lúc áp).
+- Mục 8: dòng Status Latency và câu "Status Latency không có màn hình trong app (CR-014)…" → "Deleted (CR-015): BO-01 PO tự kiểm"; câu "BO-04 không có báo cáo trong app…" → xoá.
+- SRS-NFR-007: "…to any network destination except through Claude Code for a session whose Progress Tracking is on." → "The system shall not send session content or session history to any network destination."; Giải thích ghi "Sửa ở CR-015: bỏ ngoại lệ tóm tắt của CR-012".
+- SRS-NFR-011, SRS-NFR-012, SRS-NFR-013 → "Deleted (CR-015)".
+- Mục 11: danh sách "đã xoá" thêm SRS-FR-038, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-113 đến SRS-FR-131; dòng NFR ghi "trừ SRS-NFR-011, SRS-NFR-012, SRS-NFR-013 đã xoá".
+- Mục 13 Q-01: "…từ CR-014 đọc file bản ghi độ trễ" → "…từ CR-015 PO tự kiểm khi dùng, app không ghi độ trễ".
+- Bảng truy vết: SRS-FR-038, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-113 đến SRS-FR-131, SRS-NFR-011, SRS-NFR-012, SRS-NFR-013 → "Deleted (CR-015)"; SRS-NFR-007 giữ.
+- Lịch sử: dòng v1.15 "CR-015: bỏ Target Box và Session Goal, Progress Tracking, ghi độ trễ trạng thái (xoá SRS-FR-038, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-113 đến SRS-FR-131, SRS-NFR-011 đến SRS-NFR-013, RULE-10, RULE-11, A-12); SRS-NFR-007, A-07 về lại không có ngoại lệ; theo BRD v6.0".
+
+Backlog — thêm (áp sau GATE CR), theo thứ tự này vì Progress Tracking đọc Session Goal:
+- 31 · Bỏ theo dõi tiến độ phiên · remove-session-progress · SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131, SRS-NFR-007, SRS-NFR-011, SRS-NFR-012, SRS-NFR-013 · phụ thuộc 27, 28 · Should; CR-015; đổi hành vi đã archived → /dev-update.
+- 32 · Bỏ Target Box và Session Goal · remove-session-goal · SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097 · phụ thuộc 25, 31 · Should; CR-015; đổi hành vi đã archived → /dev-update.
+- 33 · Bỏ ghi độ trễ trạng thái · remove-status-latency · SRS-FR-038 · phụ thuộc 4, 30 · Should; CR-015; đổi hành vi đã archived → /dev-update.
+
+Việc tiếp theo: /dev-update remove-session-progress (mục 31) → remove-session-goal (mục 32) → remove-status-latency (mục 33); /design-ui gỡ Target Box, Progress Strip khỏi bản thiết kế.

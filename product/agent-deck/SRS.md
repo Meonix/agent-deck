@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.14 (2026-11-22)
+status: Baselined v1.15 (2026-11-23)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -15,12 +15,12 @@ source: product/agent-deck/BRD.md
 ### Mục đích
 
 Đặc tả hành vi của agent-deck, ứng dụng desktop cá nhân để làm việc với nhiều phiên Claude Code
-cùng lúc, phục vụ BO-01 (không sót phiên chờ duyệt hoặc lỗi), BO-02 (mở lại phiên cũ ≤ 3 thao tác),
-BO-03 (luôn thấy việc chính của phiên) và BO-04 (nắm lại tiến độ phiên dài) của BRD v5.1.
+cùng lúc, phục vụ BO-01 (không sót phiên chờ duyệt hoặc lỗi) và BO-02 (mở lại phiên cũ ≤ 3 thao tác)
+của BRD v6.0.
 
 ### Phạm vi
 
-Trong phạm vi: BR-01 đến BR-10 của BRD. Ngoài phạm vi: như BRD mục 5. Cụ thể, phiên Claude Code mở
+Trong phạm vi: BR-01 đến BR-08 của BRD. Ngoài phạm vi: như BRD mục 5. Cụ thể, phiên Claude Code mở
 ngoài agent-deck vẫn hiện trong lịch sử phiên nhưng không có trạng thái và không có Status Highlight.
 
 ### Người dùng
@@ -37,12 +37,12 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | A-04 | Mở một phiên đã đang mở trong một ô thì chuyển tới ô đó, không mở bản thứ hai | PO |
 | A-05 | Đóng ô có phiên đang chạy hoặc đang chờ duyệt thì phải xác nhận trước | PO |
 | A-06 | "Cần duyệt" gồm cả lúc Claude Code xin phép làm một thao tác và lúc nó hỏi người dùng chọn phương án | PO |
-| A-07 | Ứng dụng không gửi dữ liệu phiên ra khỏi máy, trừ phần lịch sử phiên đưa cho Claude Code tóm tắt khi người dùng đã bật Progress Tracking cho phiên đó (CR-012) | PO |
+| A-07 | Ứng dụng không gửi dữ liệu phiên ra khỏi máy (CR-015 bỏ ngoại lệ tóm tắt của CR-012) | PO |
 | A-08 | Bản đầu được kiểm trên Claude Code 2.1.300, bản đang cài trên máy PO ngày 2026-10-15 | PO |
 | A-09 | BO-02 kiểm bằng kịch bản demo: mở app → chọn folder → chọn phiên → Resume, đếm thao tác trên 5 phiên khác nhau (Q-01) | PO |
 | A-10 | Deleted (CR-010) | PO |
 | A-11 | Deleted (CR-010) | PO |
-| A-12 | BO-04 kiểm bằng cách PO chấm 10 phiên đã bật Progress Tracking trong 2 tuần dùng thử: so Checkpoint List với lịch sử phiên, đếm phiên không thiếu việc lớn và không tách thừa | PO |
+| A-12 | Deleted (CR-015) | PO |
 
 ### Thuật ngữ
 
@@ -79,15 +79,15 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Stash Dialog | Hộp hiện khi người dùng bấm Stash trên ô đang bận, tiêu đề "Stash "<title>"?", hai nút Cancel · Stash, cùng các dòng cảnh báo như Close Dialog |
 | Sidebar Toggle | Nút ở giữa theo chiều dọc, sát mép phải Sidebar (Sidebar ẩn: sát mép trái cửa sổ), bấm để ẩn/hiện Sidebar |
 | Sidebar shortcut | macOS: Cmd+B; Windows: Ctrl+B |
-| Session Goal | Việc chính của một phiên: prompt đầu tiên người dùng gửi trong phiên, hoặc câu người dùng sửa lại; câu rỗng người dùng để lại cũng là Session Goal |
-| Target Box | Ô chữ đỏ ngay dưới tiêu đề ô, hiện và sửa trực tiếp Session Goal, cao tối đa 3 dòng rồi cuộn |
-| Progress Tracking | Việc app theo dõi tiến độ của một phiên, bật hoặc tắt theo phiên |
-| Checkpoint | Một việc lớn của phiên theo RULE-10, có trạng thái `Done` hoặc `In progress`, câu tóm tắt, dòng kết quả (có thể trống), giờ bắt đầu |
-| Checkpoint List | Các Checkpoint của một phiên theo thứ tự bắt đầu |
-| Progress Strip | Dải ngay dưới Target Box hiện Checkpoint List, đầu dải "Progress · <số Done>/<tổng>", thu gọn được về một dòng |
-| Tracking Prompt | Thanh dưới Target Box của phiên mới, "Track progress for this session?", hai nút Track · No |
-| Tracking button | Nút trên tiêu đề ô, bật hoặc tắt Progress Tracking của phiên trong ô |
-| Progress Record | Lựa chọn Progress Tracking, Checkpoint List và trạng thái thu gọn của một phiên |
+| Session Goal | Deleted (CR-015) |
+| Target Box | Deleted (CR-015) |
+| Progress Tracking | Deleted (CR-015) |
+| Checkpoint | Deleted (CR-015) |
+| Checkpoint List | Deleted (CR-015) |
+| Progress Strip | Deleted (CR-015) |
+| Tracking Prompt | Deleted (CR-015) |
+| Tracking button | Deleted (CR-015) |
+| Progress Record | Deleted (CR-015) |
 | Status Summary | Deleted (CR-014) |
 | Go-to button | Deleted (CR-014) |
 
@@ -622,17 +622,11 @@ When the user clicks the status badge of the Maximized Pane, the system shall re
 - Ưu tiên: Should
 - Nguồn: BR-07
 
-## 2.8 Đo độ trễ trạng thái
+## 2.8 Đo độ trễ trạng thái — Deleted (CR-015)
+App không ghi độ trễ trạng thái; BO-01 do PO tự kiểm khi dùng, SRS-FR-034 vẫn kiểm bằng Test.
 
-- Luồng chính: 1. Mỗi lần một phiên trong ô đổi trạng thái, hệ thống ghi lúc Claude Code báo đổi và lúc Status Highlight hiện. 2. PO tính tỉ lệ lần đổi trạng thái có Status Highlight hiện ≤ 3 giây trong 14 ngày gần nhất từ file bản ghi (CR-014: không còn báo cáo trong app).
-
-### SRS-FR-038 — Record status change timing
-When a session open in a pane changes state, the system shall record the time Claude Code reported the change and the time the Status Highlight showed it.
-- Giải thích: dữ liệu để đo BO-01 (Q-01); PO đọc thẳng file `status-latency.jsonl`.
-- Ví dụ: Claude Code báo xin phép lúc 14:02:00.200, dòng phiên đổi màu lúc 14:02:00.450 → ghi một dòng độ trễ 250 ms.
-- Kiểm chứng: Test
-- Ưu tiên: Must
-- Nguồn: BR-06
+### SRS-FR-038 — Record status change timing — Deleted (CR-015)
+App không ghi độ trễ trạng thái; BO-01 do PO tự kiểm khi dùng, SRS-FR-034 vẫn kiểm bằng Test.
 
 ### SRS-FR-039 — Status latency report — Deleted (CR-014)
 Không còn nút và báo cáo Status Latency trong app; PO tính tỉ lệ từ bản ghi của SRS-FR-038.
@@ -933,38 +927,17 @@ When the application starts, the system shall show the Sidebar.
 - Ưu tiên: Should
 - Nguồn: BR-05
 
-## 2.14 Hiện việc chính của phiên
+## 2.14 Hiện việc chính của phiên — Deleted (CR-015)
+Không còn Session Goal và Target Box.
 
-- Luồng chính: 1. Người dùng gửi prompt đầu trong ô → Session Goal, Target Box hiện câu đó → SRS-FR-091, SRS-FR-092.
-- Luồng thay thế: A1 người dùng sửa trong Target Box → SRS-FR-093. A2 mở lại app hoặc Resume → SRS-FR-096, SRS-FR-097
+### SRS-FR-091 — Pin first prompt as session goal — Deleted (CR-015)
+Không còn Session Goal và Target Box.
 
-### SRS-FR-091 — Pin first prompt as session goal
-When the user sends a prompt in a pane whose session has no stored Session Goal, the system shall set that prompt as the Session Goal.
-- Giải thích: áp cho phiên mới và cho phiên mới Claude Code tạo sau `/clear`; lấy nguyên văn, giữ xuống dòng; prompt là lệnh skill (`/dev-bug lỗi X`) thì lấy nguyên câu. Người dùng đã gõ vào Target Box trước prompt đầu, hay đã xoá trống nó, thì phiên đã có Session Goal nên prompt không ghi đè. Sửa ở CR-010: trước là "has no Session Goal".
-- Ví dụ: ô mới, gửi "Sửa lỗi resume mất scrollback" → Session Goal là câu đó.
-- Ví dụ âm: gửi tiếp "chạy test" → Session Goal không đổi.
-- Ví dụ âm: gõ "Sửa resume" vào Target Box rồi gửi "chạy test" → Session Goal vẫn "Sửa resume".
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-09
+### SRS-FR-092 — Target Box — Deleted (CR-015)
+Không còn Session Goal và Target Box.
 
-### SRS-FR-092 — Target Box
-The system shall show the Target Box below the header of every pane.
-- Giải thích: chữ đỏ; cao theo nội dung, tối đa 3 dòng, dài hơn thì cuộn trong ô; chưa có Session Goal thì ô trống kèm chữ gợi ý mờ; nhấp đúp hay kéo trong Target Box không phóng to, không kéo ô. Sửa ở CR-010: trước là Goal Line một dòng ≤ 80 ký tự, chỉ hiện khi có Session Goal.
-- Ví dụ: prompt đầu 5 dòng → Target Box hiện 3 dòng đầu, cuộn để xem phần còn lại.
-- Ví dụ: ô mới chưa gửi prompt → Target Box trống, có chữ gợi ý.
-- Kiểm chứng: Demo
-- Ưu tiên: Should
-- Nguồn: BR-09
-
-### SRS-FR-093 — Edit session goal
-When the Target Box loses focus after the user changed its text, the system shall replace the Session Goal with that text.
-- Giải thích: bấm vào Target Box là sửa ngay, không có nút bút chì; Enter xuống dòng; Esc bỏ phần vừa gõ và trả câu cũ; câu rỗng được lưu, ô giữ trống và không tự điền lại. Sửa ở CR-010: trước là sửa qua nút Edit Goal, Enter lưu, câu rỗng giữ câu cũ.
-- Ví dụ: sửa thành "Sửa resume trên Windows", bấm ra ngoài → thoát app, mở lại vẫn thấy câu mới.
-- Ví dụ âm: gõ "abc" rồi Esc → Target Box hiện câu cũ.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-09
+### SRS-FR-093 — Edit session goal — Deleted (CR-015)
+Không còn Session Goal và Target Box.
 
 ### SRS-FR-094 — Focus Reminder with each prompt — Deleted (CR-010)
 App không gửi gì thêm cho Claude Code cùng prompt; người dùng tự đối chiếu việc chính trên Target Box (SRS-FR-092).
@@ -972,22 +945,11 @@ App không gửi gì thêm cho Claude Code cùng prompt; người dùng tự đ�
 ### SRS-FR-095 — Off-goal instruction — Deleted (CR-010)
 App không ràng buộc Claude Code theo Session Goal.
 
-### SRS-FR-096 — Keep session goal across launches
-The system shall keep the Session Goal of each session between application launches.
-- Ví dụ: sửa Session Goal, thoát app, mở lại → Target Box của ô mở lại hiện câu đã sửa.
-- Ví dụ: đóng ô, sau đó Resume phiên đó → Target Box như trước khi đóng.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-09
+### SRS-FR-096 — Keep session goal across launches — Deleted (CR-015)
+Không còn Session Goal và Target Box.
 
-### SRS-FR-097 — Goal of a resumed session without a stored goal
-When the user resumes a session that has no stored Session Goal, the system shall set the first prompt the user sent in that session as its Session Goal.
-- Giải thích: đọc từ lịch sử phiên của Claude Code, không sửa nó (SRS-NFR-005); phiên chưa có prompt nào thì chưa có Session Goal, SRS-FR-091 áp khi gửi prompt.
-- Ví dụ: Resume phiên cũ có prompt đầu "Scaffold Tauri app" → Target Box hiện "Scaffold Tauri app".
-- Ví dụ âm: Resume phiên chưa có prompt nào → Target Box trống.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-09
+### SRS-FR-097 — Goal of a resumed session without a stored goal — Deleted (CR-015)
+Không còn Session Goal và Target Box.
 
 ### SRS-FR-098 — Prompt goes through without reminder — Deleted (CR-010)
 Không còn Focus Reminder (SRS-FR-094); prompt luôn tới Claude Code nguyên vẹn.
@@ -1081,160 +1043,65 @@ If the history of a stashed session no longer exists, then the system shall remo
 - Ưu tiên: Should
 - Nguồn: BR-03
 
-## 2.16 Theo dõi tiến độ phiên
+## 2.16 Theo dõi tiến độ phiên — Deleted (CR-015)
+Không còn Progress Tracking.
 
-- Luồng chính: 1. Phiên mới → Tracking Prompt → người dùng chọn Track → SRS-FR-113, SRS-FR-114. 2. Claude Code xong lượt → Checkpoint List cập nhật, Progress Strip hiện → SRS-FR-124, SRS-FR-118, SRS-FR-119.
-- Luồng thay thế: A1 chọn No → SRS-FR-115. A2 bật giữa chừng bằng Tracking button → SRS-FR-116, SRS-FR-117. A3 tắt → SRS-FR-116, SRS-FR-125. A4 thu gọn/mở → SRS-FR-122, SRS-FR-123. A5 mở lại app hoặc Resume → SRS-FR-129, SRS-FR-130. A6 `/clear` → SRS-FR-131
-- Luồng ngoại lệ: E1 cập nhật lỗi → SRS-FR-128
+### SRS-FR-113 — Tracking Prompt — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-113 — Tracking Prompt
-When a pane starts a new session, the system shall show the Tracking Prompt below the Target Box of that pane.
-- Giải thích: không chặn gõ prompt; chưa chọn thì Progress Tracking tắt; Resume không hiện Tracking Prompt (SRS-FR-130).
-- Ví dụ: New Session → dưới Target Box hiện "Track progress for this session?  Track · No", gõ prompt được ngay.
-- Ví dụ âm: Resume phiên cũ → không có Tracking Prompt.
-- Kiểm chứng: Demo
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-114 — Turn tracking on from the prompt — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-114 — Turn tracking on from the prompt
-When the user chooses Track in the Tracking Prompt, the system shall turn Progress Tracking on for that session and hide the Tracking Prompt.
-- Ví dụ: bấm Track → thanh biến mất; xong lượt đầu thì Progress Strip hiện.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-115 — Decline tracking — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-115 — Decline tracking
-When the user chooses No in the Tracking Prompt, the system shall hide the Tracking Prompt and keep Progress Tracking off for that session.
-- Giải thích: tắt thì không có Progress Strip và không gọi tóm tắt.
-- Ví dụ âm: bấm No, chạy 5 lượt → không có Progress Strip, không có lần gọi tóm tắt nào.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-116 — Tracking button — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-116 — Tracking button
-The system shall show a Tracking button in the header of every pane immediately to the left of the Stash button.
-- Giải thích: bấm để bật hoặc tắt Progress Tracking của phiên trong ô; khi bật, nút có dạng đang chọn; Pane Shell không có Progress Tracking.
-- Ví dụ: thứ tự nút … Tracking · Stash · Maximize · ×.
-- Kiểm chứng: Demo
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-117 — Track an ongoing session — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-117 — Track an ongoing session
-When the user turns Progress Tracking on for a session that already has turns, the system shall build its Checkpoint List from the whole session history.
-- Giải thích: đọc lịch sử phiên, không sửa (SRS-NFR-005); Checkpoint List đã có từ lần bật trước thì cập nhật tiếp từ chỗ dừng.
-- Ví dụ: phiên 12 lượt đã chọn No, bấm Tracking → trong 30 giây Progress Strip hiện các việc lớn của 12 lượt đó.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-118 — Progress Strip — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-118 — Progress Strip
-While Progress Tracking is on for a session whose Checkpoint List is not empty, the system shall show the Progress Strip below the Target Box of its pane.
-- Ví dụ: 3 Checkpoint `Done`, 1 `In progress` → đầu dải "Progress · 3/4".
-- Ví dụ âm: vừa bật, chưa xong lượt nào → không có Progress Strip.
-- Kiểm chứng: Demo
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-119 — Checkpoint row — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-119 — Checkpoint row
-The system shall show each Checkpoint in the Progress Strip with its state mark, its summary, its result line when it has one, and its start time.
-- Giải thích: `Done` dấu ✓ xanh, `In progress` dấu ● vàng; câu tóm tắt và dòng kết quả viết theo ngôn ngữ người dùng dùng trong phiên (không phải nhãn của app, SRS-NFR-008); không sửa được.
-- Ví dụ: "✓ Viết spec add-session-stash · 11 yêu cầu, đã duyệt · 14:20".
-- Kiểm chứng: Demo
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-120 — Progress Strip height — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-120 — Progress Strip height
-While the Progress Strip is expanded, the system shall show at most 4 Checkpoint rows and let the rest scroll inside the strip.
-- Ví dụ: 10 Checkpoint → thấy 4 dòng, cuộn trong dải để xem phần còn lại.
-- Kiểm chứng: Demo
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-121 — Scroll to the work in progress — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-121 — Scroll to the work in progress
-When the Checkpoint List of a session changes, the system shall scroll its Progress Strip to the latest Checkpoint in progress.
-- Ví dụ: 10 Checkpoint, dòng 10 `In progress` → dải cuộn để thấy dòng 10.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-122 — Collapse the Progress Strip — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-122 — Collapse the Progress Strip
-When the user collapses the Progress Strip, the system shall show it as one line with the number of Done Checkpoints, the total, and the summary of the latest Checkpoint in progress.
-- Ví dụ: thu gọn → "Progress · 3/4 · Dựng section Stashed Sessions ở cột trái".
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-123 — Expand the Progress Strip — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-123 — Expand the Progress Strip
-When the user expands a collapsed Progress Strip, the system shall show its Checkpoint rows again.
-- Ví dụ: dải đang một dòng, bấm mở → hiện lại các dòng Checkpoint, tối đa 4 dòng (SRS-FR-120).
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-124 — Update after each turn — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-124 — Update after each turn
-When Claude Code finishes a turn in a session whose Progress Tracking is on, the system shall update its Checkpoint List within 30 seconds.
-- Giải thích: chỉ cập nhật sau lượt, không cập nhật giữa lượt (PO chốt 2026-10-25); lượt không có gì mới thì không gọi tóm tắt.
-- Ví dụ: lượt xong lúc 15:00:00 → Progress Strip đổi trước 15:00:30.
-- Ví dụ âm: lượt đang chạy 20 phút → Checkpoint List không đổi tới khi lượt xong.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-125 — Turn tracking off — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-125 — Turn tracking off
-When the user turns Progress Tracking off for a session, the system shall hide its Progress Strip and stop updating its Checkpoint List.
-- Giải thích: Checkpoint List được giữ; bật lại thì hiện lại và cập nhật tiếp (SRS-FR-117).
-- Ví dụ âm: tắt rồi chạy 3 lượt → không có lần gọi tóm tắt nào.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-126 — New Checkpoint only for new major work — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-126 — New Checkpoint only for new major work
-When the system updates a Checkpoint List, the system shall add a new Checkpoint only for work that RULE-10 counts as a new Checkpoint.
-- Giải thích: kiểm theo A-12.
-- Ví dụ: đang "Thêm nút Stash", agent đọc 3 file, chạy test, sửa lỗi gõ nhầm → vẫn một Checkpoint.
-- Ví dụ: agent chuyển sang "Viết migration lưu stash" → thêm Checkpoint mới.
-- Kiểm chứng: Analysis
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-127 — Done only on evidence — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-127 — Done only on evidence
-The system shall mark a Checkpoint `Done` only when the session history shows that its work finished per RULE-11.
-- Ví dụ âm: agent sang việc khác khi việc cũ còn test đỏ → việc cũ vẫn `In progress`.
-- Kiểm chứng: Analysis
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-128 — Report update failure — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-128 — Report update failure
-If an update of a Checkpoint List fails, then the system shall keep the current Checkpoint List and show "Couldn't update" in the header of its Progress Strip.
-- Giải thích: chữ biến mất ở lần cập nhật thành công sau; không bao giờ xoá Checkpoint List vì lỗi; ghi vào diagnostic log.
-- Ví dụ: mất mạng sau lượt → danh sách cũ còn nguyên, đầu dải có "Couldn't update".
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-129 — Keep progress across launches — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-129 — Keep progress across launches
-The system shall keep the Progress Record of each session between application launches.
-- Giải thích: lịch sử phiên không còn (Thùng rác theo SRS-FR-047, SRS-FR-073, hoặc xoá ngoài app) thì bỏ Progress Record.
-- Ví dụ: bật theo dõi, có 4 Checkpoint, thoát app, mở lại → ô mở lại hiện đúng 4 Checkpoint và trạng thái thu gọn.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-130 — Resume a session without a Progress Record — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-FR-130 — Resume a session without a Progress Record
-When the user resumes a session that has no Progress Record, the system shall keep Progress Tracking off for that session.
-- Giải thích: không hiện Tracking Prompt; muốn bật thì dùng Tracking button (SRS-FR-116).
-- Ví dụ âm: Resume phiên có từ trước CR-012 → không Tracking Prompt, không Progress Strip.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
-
-### SRS-FR-131 — Tracking after /clear
-When Claude Code starts a new session in a pane after `/clear`, the system shall apply the Progress Tracking choice of the previous session in that pane to the new session.
-- Giải thích: phiên mới có Checkpoint List rỗng, như Session Goal mới (SRS-FR-091).
-- Ví dụ: phiên đang bật, `/clear` → phiên mới bật, Progress Strip ẩn tới khi xong lượt đầu.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-FR-131 — Tracking after /clear — Deleted (CR-015)
+Không còn Progress Tracking.
 
 ## 2.17 Tóm tắt trạng thái đầu cửa sổ — Deleted (CR-014)
 
@@ -1294,33 +1161,18 @@ Không còn Status Summary.
 | Lý do | Thao tác chờ duyệt hoặc loại lỗi | Khi `Needs Approval` hoặc `Error` | Theo RULE-04, RULE-06 |
 | Pane Shell | Có hay không, đang ẩn hay hiện, chiều cao | Không | Tối đa một mỗi ô (SRS-FR-055); không giữ lại giữa các lần mở app |
 
-### Status Change Record
-| Trường | Nghĩa | Bắt buộc | Ràng buộc nghiệp vụ |
-| --- | --- | --- | --- |
-| Phiên | Phiên đổi trạng thái | Có | Chỉ phiên mở trong ô |
-| Trạng thái mới | Trạng thái phiên chuyển sang | Có | Một trong năm trạng thái ở mục 5 |
-| Lúc Claude Code báo | Thời điểm Claude Code báo đổi trạng thái | Có | |
-| Lúc hiện Status Highlight | Thời điểm Status Highlight hiện thay đổi | Có | Không sớm hơn lúc Claude Code báo |
+### Status Change Record — Deleted (CR-015)
+App không ghi độ trễ trạng thái.
 
-Bản ghi chỉ cần giữ đủ 14 ngày gần nhất để đo BO-01.
-
-### Progress Record
-| Trường | Nghĩa | Bắt buộc | Ràng buộc nghiệp vụ |
-| --- | --- | --- | --- |
-| Phiên | Mã phiên được theo dõi | Có | Một Progress Record mỗi phiên |
-| Progress Tracking | Bật, tắt, hay chưa chọn | Có | Chưa chọn tính như tắt (SRS-FR-113) |
-| Checkpoint List | Các Checkpoint của phiên | Không | Chỉ app ghi; người dùng không sửa (SRS-FR-119) |
-| Thu gọn | Progress Strip đang thu gọn hay mở | Có | Mặc định mở |
-| Vị trí đã tóm tắt | Phần lịch sử phiên đã đưa đi tóm tắt | Không | Lần sau chỉ gửi phần mới (SRS-FR-124) |
+### Progress Record — Deleted (CR-015)
+Không còn Progress Tracking.
 
 ### App settings
 | Trường | Nghĩa | Bắt buộc | Ràng buộc nghiệp vụ |
 | --- | --- | --- | --- |
 | Text Size | Cỡ chữ của cả cửa sổ | Có | 50%–200%, bước 10%, mặc định 100%; giữ lại giữa các lần mở app (SRS-FR-071) |
 | Open Panes | Phiên của từng ô và bố cục (vị trí, tỉ lệ) | Không | Giữ lại giữa các lần mở app (SRS-FR-084); không gồm phóng to, Pane Shell |
-| Session Goals | Session Goal của từng phiên theo mã phiên | Không | Giữ lại giữa các lần mở app (SRS-FR-096); không ghi vào dữ liệu phiên của Claude Code (SRS-NFR-005) |
 | Stashed Sessions | Mã phiên, workspace, thời điểm stash của từng phiên để dành | Không | Giữ lại giữa các lần mở app (SRS-FR-111); không ghi vào dữ liệu phiên của Claude Code (SRS-NFR-005) |
-| Progress Records | Progress Record theo mã phiên | Không | Giữ lại giữa các lần mở app (SRS-FR-129); không ghi vào dữ liệu phiên của Claude Code (SRS-NFR-005) |
 
 Trạng thái ẩn của Sidebar không được lưu: mở app thì Sidebar luôn hiện (SRS-FR-090).
 
@@ -1339,8 +1191,8 @@ Session Selection không được lưu: bỏ khi đổi workspace hay đóng Ses
 | RULE-07 | Phiên ở `Ended` khi phiên đã thoát bình thường. | BR-06 |
 | RULE-08 | Phiên rời `Error` khi người dùng gửi yêu cầu mới trong phiên đó (sang `Running`) hoặc khi người dùng đóng ô của phiên. | BR-06 |
 | RULE-09 | Deleted (CR-010) | BR-09 |
-| RULE-10 | Một Checkpoint là một việc lớn phục vụ Session Goal; thao tác nhỏ cho việc đang làm (đọc file, chạy lệnh, test, sửa lỗi vặt của chính việc đó) thuộc Checkpoint đang làm; việc lớn khác hẳn việc đang làm là Checkpoint mới. | BR-10 |
-| RULE-11 | Checkpoint xong khi lịch sử phiên cho thấy việc đó đã kết thúc: Claude Code báo đã xong, đã commit, hoặc kiểm chứng của việc đó đạt; sang việc khác mà không có dấu hiệu xong thì việc cũ vẫn `In progress`. | BR-10 |
+| RULE-10 | Deleted (CR-015) | BR-10 |
+| RULE-11 | Deleted (CR-015) | BR-10 |
 
 ## 5. Trạng thái
 
@@ -1363,30 +1215,27 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Claude Code (phiên tương tác) | Chạy phiên mới hoặc tiếp tục phiên cũ trong một ô; nhận phím, trả nội dung hiển thị | Khi mở ô (SRS-FR-013, SRS-FR-018) | Không khởi động được → SRS-FR-017 |
 | Claude Code (tín hiệu trạng thái) | Sự kiện đổi trạng thái của phiên trong ô | Liên tục khi ô còn mở | Không theo dõi được → SRS-FR-036 |
 | Shell mặc định của hệ điều hành | Nhận phím, trả nội dung hiển thị | Khi mở Pane Shell (SRS-FR-055) | Không khởi động được → SRS-FR-065 |
-| Claude Code (tóm tắt tiến độ) | Gửi Session Goal, Checkpoint List và phần lịch sử phiên mới; nhận Checkpoint List mới | Sau mỗi lượt của phiên bật Progress Tracking (SRS-FR-124) | Lỗi → SRS-FR-128 |
 
 ## 7. Màn hình
 
 | Màn hình | Làm gì | SRS-FR |
 | --- | --- | --- |
 | Cửa sổ chính · Workspace List | Thêm, bỏ, chọn folder; nhãn `Missing`; Status Highlight của folder; tint riêng của section | SRS-FR-001, SRS-FR-002, SRS-FR-003, SRS-FR-004, SRS-FR-005, SRS-FR-006, SRS-FR-034, SRS-FR-040, SRS-FR-054, SRS-NFR-009 |
-| Cửa sổ chính · Active Sessions | Phiên đang mở trong ô của mọi folder, Status Highlight, dòng phụ "giờ · lý do", bấm dòng để tới ô, Row Focus Mark của ô đang focus; tint riêng của section | SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-038, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-FR-099, SRS-NFR-009 |
+| Cửa sổ chính · Active Sessions | Phiên đang mở trong ô của mọi folder, Status Highlight, dòng phụ "giờ · lý do", bấm dòng để tới ô, Row Focus Mark của ô đang focus; tint riêng của section | SRS-FR-032, SRS-FR-033, SRS-FR-034, SRS-FR-035, SRS-FR-037, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-FR-099, SRS-NFR-009 |
 | Cửa sổ chính · Stashed Sessions | Phiên để dành của mọi folder, bấm dòng để mở lại, × để gỡ; tint riêng của section | SRS-FR-106, SRS-FR-107, SRS-FR-108, SRS-FR-109, SRS-FR-110, SRS-FR-111, SRS-FR-112, SRS-NFR-010 |
 | Cửa sổ chính · Session History Panel | Lịch sử phiên của folder đang chọn, nhãn `Live`, Resume, New Session, xoá một hoặc nhiều phiên, đóng khung | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-016, SRS-FR-018, SRS-FR-019, SRS-FR-020, SRS-FR-047, SRS-FR-048, SRS-FR-049, SRS-FR-050, SRS-FR-054, SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079, SRS-NFR-003 |
-| Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô qua Close Dialog (có thể chuyển phiên vào Thùng rác), ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, Target Box hiện và sửa Session Goal, nút Stash và Stash Dialog, Tracking button, Tracking Prompt, Progress Strip | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-100, SRS-FR-101, SRS-FR-102, SRS-FR-103, SRS-FR-104, SRS-FR-105, SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131 |
+| Cửa sổ chính · Pane Grid | Làm việc với các phiên, kéo thả ô, đóng ô qua Close Dialog (có thể chuyển phiên vào Thùng rác), ô tự đóng khi phiên thoát bình thường, mở lại các ô khi mở app, phóng to/thu về (nút hoặc nhấp đúp tiêu đề), badge của ô phóng to, Pane Shell dưới phiên, Focus Outline của ô đang focus, nút Stash và Stash Dialog | SRS-FR-014, SRS-FR-015, SRS-FR-017, SRS-FR-021, SRS-FR-023, SRS-FR-024, SRS-FR-025, SRS-FR-026, SRS-FR-027, SRS-FR-028, SRS-FR-029, SRS-FR-030, SRS-FR-036, SRS-FR-041, SRS-FR-042, SRS-FR-043, SRS-FR-044, SRS-FR-045, SRS-FR-046, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-062, SRS-FR-063, SRS-FR-064, SRS-FR-065, SRS-FR-066, SRS-FR-067, SRS-FR-072, SRS-FR-080, SRS-FR-081, SRS-FR-082, SRS-FR-083, SRS-FR-084, SRS-FR-085, SRS-FR-086, SRS-FR-087, SRS-FR-100, SRS-FR-101, SRS-FR-102, SRS-FR-103, SRS-FR-104, SRS-FR-105 |
 | Cửa sổ chính · toàn cửa sổ | Phóng to, thu nhỏ, về mặc định cỡ chữ của mọi chữ trong cửa sổ; ẩn/hiện Sidebar bằng Sidebar Toggle hoặc Sidebar shortcut | SRS-FR-068, SRS-FR-069, SRS-FR-070, SRS-FR-071, SRS-FR-088, SRS-FR-089, SRS-FR-090 |
 
 ## 8. Báo cáo
 
 | Báo cáo | Chỉ số | Lọc | Tần suất | Ai xem | FR | BO |
 | --- | --- | --- | --- | --- | --- | --- |
-| Status Latency | Số lần đổi trạng thái có Status Highlight hiện ≤ 3 giây / tổng số lần đổi trạng thái | 14 ngày gần nhất | Khi PO đo | PO | SRS-FR-038 | BO-01 |
+| Status Latency | Deleted (CR-015) | | | | | BO-01 |
 
-Status Latency không có màn hình trong app (CR-014): PO tính tỉ lệ từ file bản ghi.
+BO-01 không có báo cáo trong app và app không ghi độ trễ (CR-015): PO tự kiểm khi dùng; SRS-FR-034 kiểm bằng Test.
 
 BO-02 (≤ 3 thao tác) không có báo cáo trong app: kiểm bằng kịch bản demo theo A-09.
-
-BO-04 không có báo cáo trong app: kiểm theo A-12.
 
 ## 9. Yêu cầu phi chức năng
 
@@ -1436,8 +1285,8 @@ The system shall not change the user's machine-wide Claude Code settings.
 - Nguồn: BRD mục 8 (ràng buộc)
 
 ### SRS-NFR-007 — Data stays on the machine
-The system shall not send session content or session history to any network destination except through Claude Code for a session whose Progress Tracking is on.
-- Giải thích: theo A-07. Claude Code tự gọi máy chủ của nó thì không tính. Ngoại lệ là lần gọi tóm tắt (SRS-NFR-013); phiên tắt Progress Tracking vẫn không có dữ liệu nào ra khỏi máy do app. Sửa ở CR-012: trước không có ngoại lệ.
+The system shall not send session content or session history to any network destination.
+- Giải thích: theo A-07. Claude Code tự gọi máy chủ của nó thì không tính. Sửa ở CR-015: bỏ ngoại lệ tóm tắt tiến độ của CR-012.
 - Ví dụ âm: theo dõi kết nối mạng của app trong một phiên làm việc 30 phút → không có kết nối nào do app mở ra.
 - Kiểm chứng: Inspection
 - Ưu tiên: Must
@@ -1469,27 +1318,14 @@ The system shall give the Stashed Sessions section a background tint different f
 - Ưu tiên: Should
 - Nguồn: BR-03
 
-### SRS-NFR-011 — Pane session untouched
-The system shall not add any instruction, tool or text to the Claude Code session running in a pane for Progress Tracking.
-- Ví dụ âm: so lịch sử phiên khi bật và khi tắt Progress Tracking → không có dòng nào do app thêm.
-- Kiểm chứng: Inspection
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-NFR-011 — Pane session untouched — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-NFR-012 — No history from summaries
-The system shall not create any Claude Code session history when it updates a Checkpoint List.
-- Ví dụ âm: 20 lần cập nhật → Session History Panel không có phiên mới, folder lịch sử phiên của Claude Code không thêm file.
-- Kiểm chứng: Test
-- Ưu tiên: Should
-- Nguồn: BR-10
+### SRS-NFR-012 — No history from summaries — Deleted (CR-015)
+Không còn Progress Tracking.
 
-### SRS-NFR-013 — Summary model and login
-The system shall update Checkpoint Lists with the Claude Haiku model through the user's existing Claude Code login.
-- Giải thích: không cần khoá API; lần gọi đó không chạy CLAUDE.md, hook, MCP của người dùng.
-- Ví dụ âm: máy không có `ANTHROPIC_API_KEY` → cập nhật vẫn chạy.
-- Kiểm chứng: Inspection
-- Ưu tiên: Should
-- Nguồn: BRD mục 8 (ràng buộc)
+### SRS-NFR-013 — Summary model and login — Deleted (CR-015)
+Không còn Progress Tracking.
 
 ## 10. Ràng buộc thiết kế
 
@@ -1501,9 +1337,9 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 
 | SRS-ID | Cách | Tiêu chí đậu |
 | --- | --- | --- |
-| SRS-FR-001 đến SRS-FR-140 (trừ SRS-FR-022, SRS-FR-031, SRS-FR-039, SRS-FR-094, SRS-FR-095, SRS-FR-098, SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
+| SRS-FR-001 đến SRS-FR-140 (trừ SRS-FR-022, SRS-FR-031, SRS-FR-038, SRS-FR-039, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-094, SRS-FR-095, SRS-FR-096, SRS-FR-097, SRS-FR-098, SRS-FR-113, SRS-FR-114, SRS-FR-115, SRS-FR-116, SRS-FR-117, SRS-FR-118, SRS-FR-119, SRS-FR-120, SRS-FR-121, SRS-FR-122, SRS-FR-123, SRS-FR-124, SRS-FR-125, SRS-FR-126, SRS-FR-127, SRS-FR-128, SRS-FR-129, SRS-FR-130, SRS-FR-131, SRS-FR-132, SRS-FR-133, SRS-FR-134, SRS-FR-135, SRS-FR-136, SRS-FR-137, SRS-FR-138, SRS-FR-139, SRS-FR-140 đã xoá) | Theo dòng Kiểm chứng của từng FR | Mọi Ví dụ và Ví dụ âm của FR cho đúng kết quả ghi trong FR |
 | SRS-FR-034 | Test | 20 lần đổi trạng thái liên tiếp, mọi lần Status Highlight hiện ≤ 3 giây |
-| SRS-NFR-001 đến SRS-NFR-013 | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
+| SRS-NFR-001 đến SRS-NFR-013 (trừ SRS-NFR-011, SRS-NFR-012, SRS-NFR-013 đã xoá) | Theo dòng Kiểm chứng của từng NFR | Đạt đúng con số trong câu SHALL |
 
 ## 12. Bảng truy vết
 
@@ -1547,7 +1383,7 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | SRS-FR-035 | BR-06 | | Test | Baselined |
 | SRS-FR-036 | BR-06 | | Test | Baselined |
 | SRS-FR-037 | BR-07 | | Demo | Baselined |
-| SRS-FR-038 | BR-06 | | Test | Baselined |
+| SRS-FR-038 | BR-06 | | Test | Deleted (CR-015) |
 | SRS-FR-039 | BR-06 | | Test | Deleted (CR-014) |
 | SRS-FR-040 | BR-06 | | Test | Baselined |
 | SRS-FR-041 | BR-05 | | Demo | Baselined |
@@ -1600,13 +1436,13 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | SRS-FR-088 | BR-05 | | Test | Baselined |
 | SRS-FR-089 | BR-05 | | Test | Baselined |
 | SRS-FR-090 | BR-05 | | Test | Baselined |
-| SRS-FR-091 | BR-09 | | Test | Baselined |
-| SRS-FR-092 | BR-09 | | Demo | Baselined |
-| SRS-FR-093 | BR-09 | | Test | Baselined |
+| SRS-FR-091 | BR-09 | | Test | Deleted (CR-015) |
+| SRS-FR-092 | BR-09 | | Demo | Deleted (CR-015) |
+| SRS-FR-093 | BR-09 | | Test | Deleted (CR-015) |
 | SRS-FR-094 | BR-09 | | Test | Deleted (CR-010) |
 | SRS-FR-095 | BR-09 | | Inspection | Deleted (CR-010) |
-| SRS-FR-096 | BR-09 | | Test | Baselined |
-| SRS-FR-097 | BR-09 | | Test | Baselined |
+| SRS-FR-096 | BR-09 | | Test | Deleted (CR-015) |
+| SRS-FR-097 | BR-09 | | Test | Deleted (CR-015) |
 | SRS-FR-098 | BR-09 | | Test | Deleted (CR-010) |
 | SRS-FR-099 | BR-05 | | Test | Baselined |
 | SRS-FR-100 | BR-05 | | Test | Baselined |
@@ -1622,25 +1458,25 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | SRS-FR-110 | BR-03 | | Test | Baselined |
 | SRS-FR-111 | BR-03 | | Test | Baselined |
 | SRS-FR-112 | BR-03 | | Test | Baselined |
-| SRS-FR-113 | BR-10 | | Demo | Baselined |
-| SRS-FR-114 | BR-10 | | Test | Baselined |
-| SRS-FR-115 | BR-10 | | Test | Baselined |
-| SRS-FR-116 | BR-10 | | Demo | Baselined |
-| SRS-FR-117 | BR-10 | | Test | Baselined |
-| SRS-FR-118 | BR-10 | | Demo | Baselined |
-| SRS-FR-119 | BR-10 | | Demo | Baselined |
-| SRS-FR-120 | BR-10 | | Demo | Baselined |
-| SRS-FR-121 | BR-10 | | Test | Baselined |
-| SRS-FR-122 | BR-10 | | Test | Baselined |
-| SRS-FR-123 | BR-10 | | Test | Baselined |
-| SRS-FR-124 | BR-10 | | Test | Baselined |
-| SRS-FR-125 | BR-10 | | Test | Baselined |
-| SRS-FR-126 | BR-10 | | Analysis | Baselined |
-| SRS-FR-127 | BR-10 | | Analysis | Baselined |
-| SRS-FR-128 | BR-10 | | Test | Baselined |
-| SRS-FR-129 | BR-10 | | Test | Baselined |
-| SRS-FR-130 | BR-10 | | Test | Baselined |
-| SRS-FR-131 | BR-10 | | Test | Baselined |
+| SRS-FR-113 | BR-10 | | Demo | Deleted (CR-015) |
+| SRS-FR-114 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-115 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-116 | BR-10 | | Demo | Deleted (CR-015) |
+| SRS-FR-117 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-118 | BR-10 | | Demo | Deleted (CR-015) |
+| SRS-FR-119 | BR-10 | | Demo | Deleted (CR-015) |
+| SRS-FR-120 | BR-10 | | Demo | Deleted (CR-015) |
+| SRS-FR-121 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-122 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-123 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-124 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-125 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-126 | BR-10 | | Analysis | Deleted (CR-015) |
+| SRS-FR-127 | BR-10 | | Analysis | Deleted (CR-015) |
+| SRS-FR-128 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-129 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-130 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-FR-131 | BR-10 | | Test | Deleted (CR-015) |
 | SRS-FR-132 | BR-06 | | Test | Deleted (CR-014) |
 | SRS-FR-133 | BR-06 | | Test | Deleted (CR-014) |
 | SRS-FR-134 | BR-06 | | Test | Deleted (CR-014) |
@@ -1660,15 +1496,15 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | SRS-NFR-008 | BR-06 | | Inspection | Baselined |
 | SRS-NFR-009 | BR-06 | | Analysis | Baselined |
 | SRS-NFR-010 | BR-03 | | Analysis | Baselined |
-| SRS-NFR-011 | BR-10 | | Inspection | Baselined |
-| SRS-NFR-012 | BR-10 | | Test | Baselined |
-| SRS-NFR-013 | BRD mục 8 (ràng buộc) | | Inspection | Baselined |
+| SRS-NFR-011 | BR-10 | | Inspection | Deleted (CR-015) |
+| SRS-NFR-012 | BR-10 | | Test | Deleted (CR-015) |
+| SRS-NFR-013 | BRD mục 8 (ràng buộc) | | Inspection | Deleted (CR-015) |
 
 ## 13. Câu hỏi mở
 
 | ID | Câu hỏi | Người trả lời | Trạng thái | Chặn gate |
 | --- | --- | --- | --- | --- |
-| Q-01 | Đo BO-01 (≤ 3 giây) và BO-02 (≤ 3 thao tác) bằng cách nào? | PO | Đã trả lời 2026-10-15: BO-01 báo cáo Status Latency trong app, từ CR-014 đọc file bản ghi độ trễ; BO-02 kịch bản demo (A-09) | Có |
+| Q-01 | Đo BO-01 (≤ 3 giây) và BO-02 (≤ 3 thao tác) bằng cách nào? | PO | Đã trả lời 2026-10-15: BO-01 báo cáo Status Latency trong app, từ CR-014 đọc file bản ghi độ trễ, từ CR-015 PO tự kiểm khi dùng (app không ghi độ trễ); BO-02 kịch bản demo (A-09) | Có |
 | Q-02 | Tình huống nào tính là `Error`, và lỗi được xoá khỏi bảng lúc nào? | PO | Đã trả lời 2026-10-15: chỉ lỗi làm dừng lượt hoặc phiên (RULE-06); hết lỗi khi gửi yêu cầu mới hoặc đóng ô (RULE-08) | Có |
 | Q-03 | Số ô chạy cùng lúc, độ trễ gõ phím, thời gian tải danh sách phiên tối thiểu là bao nhiêu? | PO | Đã trả lời 2026-10-15: ≥ 4 ô; ≤ 100 ms p95; 200 phiên ≤ 3 giây | Có |
 | Q-04 | Bản đầu phải chạy trên phiên bản macOS và Windows nào? | PO | Đã trả lời 2026-10-15: macOS 14 trở lên, Windows 11 | Có |
@@ -1693,3 +1529,4 @@ The system shall update Checkpoint Lists with the Claude Haiku model through the
 | v1.12 | 2026-10-25 | PO | CR-012: Progress Tracking bật theo phiên (Tracking Prompt, Tracking button), Progress Strip dưới Target Box chỉ đọc, Checkpoint List cập nhật sau mỗi lượt ≤ 30 giây bằng Claude Haiku qua login Claude Code, giữ giữa các lần mở app; sửa SRS-NFR-007, A-07; thêm SRS-FR-113 đến SRS-FR-131, SRS-NFR-011 đến SRS-NFR-013, RULE-10, RULE-11, A-12 và thuật ngữ; theo BRD v5.0 |
 | v1.13 | 2026-11-20 | PO | CR-013: Status Summary ở đầu cửa sổ (headline "N need you" / "All clear" / "Agent Deck · No sessions running", số đếm theo trạng thái, Go-to button, thu gọn khi focus ở ô hoặc cửa sổ < 1100 px, ẩn khi phóng to); thêm SRS-FR-132 đến SRS-FR-140; theo BRD v5.1 |
 | v1.14 | 2026-11-22 | PO | CR-014: bỏ Status Summary và báo cáo Status Latency trong app (xoá SRS-FR-039, SRS-FR-132 đến SRS-FR-140); vẫn ghi độ trễ (SRS-FR-038); theo BRD v5.2 |
+| v1.15 | 2026-11-23 | PO | CR-015: bỏ Target Box và Session Goal, Progress Tracking, ghi độ trễ trạng thái (xoá SRS-FR-038, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-113 đến SRS-FR-131, SRS-NFR-011 đến SRS-NFR-013, RULE-10, RULE-11, A-12); SRS-NFR-007, A-07 về lại không có ngoại lệ; theo BRD v6.0 |
