@@ -201,7 +201,9 @@ pub fn session_env(base: &[(String, String)], resolved_path: &str) -> Vec<(Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::fs;
+    #[cfg(unix)]
     use std::time::{Duration, Instant};
 
     #[test]

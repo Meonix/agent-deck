@@ -591,6 +591,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[test]
     fn symlinked_start_folder_matches() {
         let root = TempDir::new().unwrap();
