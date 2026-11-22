@@ -2,9 +2,7 @@
 
 ## Purpose
 Defines the visual signals of the main window that the user relies on to spot sessions needing attention, and the visual guarantees that hold whatever the palette.
-
 ## Requirements
-
 ### Requirement: Attention panes stand out
 The system SHALL draw a 2px Needs Approval border with an inner glow around a pane whose session needs approval, and a 2px Error border around a pane whose session is in Error. Neither pane SHALL be dimmed.
 
@@ -32,7 +30,7 @@ Every control that shows only an icon SHALL keep an accessible name and a toolti
 
 #### Scenario: Pane header buttons
 - **WHEN** a screen reader reads a pane header
-- **THEN** it announces "Track progress", "Stash session", "Maximize pane" or "Restore pane", and "Close pane"
+- **THEN** it announces "Stash session", "Maximize pane" or "Restore pane", and "Close pane"
 
 #### Scenario: Sidebar folder buttons
 - **GIVEN** the Workspace List contains `alpha`
@@ -60,3 +58,4 @@ Section titles in the Sidebar and the secondary text of a hovered Sidebar row SH
 - **GIVEN** the tokens `--section-label`, `--section-hover`, `--section-folders`, `--section-active`, `--section-stash` and `--muted-foreground` in light and dark
 - **WHEN** `--section-label` is measured against each section tint and `--muted-foreground` against `--section-hover`
 - **THEN** every ratio is at least 4.5:1
+
