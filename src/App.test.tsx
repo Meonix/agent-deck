@@ -710,53 +710,6 @@ describe("Status Highlight on folder rows (2.2)", () => {
   });
 });
 
-describe("Status latency (2.1, 2.2)", () => {
-  afterEach(() => vi.restoreAllMocks());
-
-  async function openPane() {
-    const sessions = fakeSessions();
-    const ctx = setup([ws("a", "agent-deck")], sessions);
-    await selectAndStart(ctx.user, "agent-deck");
-    await screen.findByTestId("pane-grid");
-    return { ...ctx, stream: sessions.opened[0].stream };
-  }
-
-  it("records a state change with the time its Status Highlight was committed", async () => {
-    const { sessions, stream } = await openPane();
-    vi.spyOn(Date, "now").mockReturnValue(1_000_450);
-    act(() => stream.status({ state: "Needs Approval", reason: "Edit src/main.rs", reportedAt: 1_000_200 }));
-    expect(sessions.recordStatusShown).toHaveBeenCalledTimes(1);
-    expect(sessions.recordStatusShown).toHaveBeenCalledWith("s1", "Needs Approval", 1_000_200, 1_000_450);
-  });
-
-  it("records each change that arrives in the same batch, in order", async () => {
-    const { sessions, stream } = await openPane();
-    vi.spyOn(Date, "now").mockReturnValue(5_000_000);
-    act(() => {
-      stream.status({ state: "Running", reportedAt: 4_999_000 });
-      stream.status({ state: "Needs Approval", reason: "Bash npm test", reportedAt: 4_999_500 });
-    });
-    expect(vi.mocked(sessions.recordStatusShown).mock.calls).toEqual([
-      ["s1", "Running", 4_999_000, 5_000_000],
-      ["s1", "Needs Approval", 4_999_500, 5_000_000],
-    ]);
-  });
-
-  it("does not record a message that only marks the pane tracked", async () => {
-    const { sessions, stream } = await openPane();
-    act(() => stream.status({ state: "Idle", reportedAt: null }));
-    act(() => stream.status({ state: "Running", tracked: false, reportedAt: 7 }));
-    expect(sessions.recordStatusShown).not.toHaveBeenCalled();
-  });
-
-  it("never records a shown time earlier than the report time", async () => {
-    const { sessions, stream } = await openPane();
-    vi.spyOn(Date, "now").mockReturnValue(1_999_000);
-    act(() => stream.status({ state: "Running", reportedAt: 2_000_000 }));
-    expect(sessions.recordStatusShown).toHaveBeenCalledWith("s1", "Running", 2_000_000, 2_000_000);
-  });
-});
-
 describe("Session list (2.1, 2.2)", () => {
   afterEach(() => vi.restoreAllMocks());
   const now = new Date(2026, 9, 16, 14, 0).getTime();

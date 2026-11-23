@@ -2,7 +2,6 @@ mod commands;
 pub mod diag;
 mod diag_commands;
 pub mod hooks;
-mod latency_commands;
 pub mod launcher;
 mod pane_commands;
 pub mod pane_status;
@@ -14,7 +13,6 @@ pub mod session_title;
 pub mod session_trash;
 pub mod shell;
 pub mod status;
-pub mod status_latency;
 pub mod watchdog;
 pub mod workspace;
 
@@ -29,7 +27,6 @@ use hooks::HookServer;
 use pane_commands::LaunchLookup;
 use panes::PaneRegistry;
 use shell::ShellRegistry;
-use status_latency::StatusLatencyLog;
 use workspace::WorkspaceStore;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -60,16 +57,9 @@ pub fn run() {
                 ),
             );
             let data_dir = app.path().app_data_dir()?;
-            let store = WorkspaceStore::new(data_dir.clone());
+            let store = WorkspaceStore::new(data_dir);
             let list = store.load()?;
             let launch = Arc::new(LaunchLookup::start());
-            let latency = StatusLatencyLog::new(data_dir);
-            if let Err(e) = latency.prune(pane_status::now_ms()) {
-                diag::error(
-                    "latency",
-                    &format!("status latency records could not be pruned: {e}"),
-                );
-            }
             app.manage(AppState {
                 list: Mutex::new(list),
                 store,
@@ -82,7 +72,6 @@ pub fn run() {
                     })
                     .ok()
                     .map(Arc::new),
-                latency: Mutex::new(latency),
                 watchdog: Mutex::new(watchdog::Watchdog::new()),
             });
             diag_commands::start_sampler(app.handle().clone());
@@ -106,7 +95,6 @@ pub fn run() {
             pane_commands::shell_write,
             pane_commands::shell_resize,
             pane_commands::shell_activity,
-            latency_commands::record_status_shown,
             session_commands::list_sessions,
             session_commands::delete_session,
             diag_commands::diag_log,

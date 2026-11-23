@@ -1016,9 +1016,7 @@ mod tests {
         }
         assert_eq!(
             *statuses.0.lock().unwrap(),
-            [
-                r#"{"status":{"state":"Idle","since":1,"reason":null,"tracked":true,"reportedAt":null}}"#
-            ]
+            [r#"{"status":{"state":"Idle","since":1,"reason":null,"tracked":true}}"#]
         );
 
         process.write(b"\n").unwrap();

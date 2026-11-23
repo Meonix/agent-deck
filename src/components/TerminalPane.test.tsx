@@ -16,7 +16,7 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
     ended: false,
     title: UNTITLED,
     graceOver: false,
-    status: { state: "Idle", since: 1, reason: null, tracked: false, reportedAt: null },
+    status: { state: "Idle", since: 1, reason: null, tracked: false },
     shell: null,
     shellFailed: false,
     prompted: false,
@@ -155,7 +155,7 @@ describe("TerminalPane (5.3)", () => {
   });
 
   it("shows the state chip with the state name", () => {
-    renderPane(entry(fakeAdapter(), { status: { state: "Running", since: 1, reason: null, tracked: true, reportedAt: null } }));
+    renderPane(entry(fakeAdapter(), { status: { state: "Running", since: 1, reason: null, tracked: true } }));
     expect(screen.getByText("Running")).toBeInTheDocument();
   });
 
@@ -182,7 +182,7 @@ describe("TerminalPane (5.3)", () => {
 
   it("keeps the Error chip and border after an abnormal exit (M1)", () => {
     renderPane(
-      entry(fakeAdapter(), { ended: true, status: { state: "Error", since: 1, reason: "exit code 1", tracked: true, reportedAt: null } }),
+      entry(fakeAdapter(), { ended: true, status: { state: "Error", since: 1, reason: "exit code 1", tracked: true } }),
     );
     expect(screen.getByText("Error", { selector: "span.border" })).toBeInTheDocument();
     expect(screen.queryByText("Ended", { selector: "span.border" })).not.toBeInTheDocument();
@@ -191,7 +191,7 @@ describe("TerminalPane (5.3)", () => {
   });
 
   it("shows the Ended badge after a normal exit", () => {
-    renderPane(entry(fakeAdapter(), { ended: true, status: { state: "Ended", since: 1, reason: null, tracked: true, reportedAt: null } }));
+    renderPane(entry(fakeAdapter(), { ended: true, status: { state: "Ended", since: 1, reason: null, tracked: true } }));
     expect(screen.getByText("Ended", { selector: "span.border" })).toBeInTheDocument();
     expect(screen.getByRole("region").className).not.toContain("border-error");
   });
@@ -203,7 +203,7 @@ describe("TerminalPane (5.3)", () => {
       view.unmount();
       return cls;
     };
-    const s = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked, reportedAt: null });
+    const s = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked });
     expect(at(s("Needs Approval"))).toContain("border-approval");
     expect(at(s("Needs Approval"))).toContain("border-2");
     expect(at(s("Running"))).toContain("border-running");
@@ -216,7 +216,7 @@ describe("TerminalPane (5.3)", () => {
 
   it("puts the Focus Outline outside the status border of the focused pane only (SRS-FR-087)", () => {
     const at = (state: PaneEntry["status"]["state"], focused: boolean) => {
-      const status = { state, since: 1, reason: null, tracked: true, reportedAt: null };
+      const status = { state, since: 1, reason: null, tracked: true };
       const { view } = renderPane(entry(fakeAdapter(), { status }), undefined, undefined, focused);
       const cls = screen.getByRole("region").className.split(/\s+/);
       view.unmount();
@@ -231,7 +231,7 @@ describe("TerminalPane (5.3)", () => {
 
 describe("TerminalPane attention and dimming (app-theme)", () => {
   const classes = (state: PaneEntry["status"]["state"], focused: boolean, maximized = false) => {
-    const status = { state, since: 1, reason: null, tracked: true, reportedAt: null };
+    const status = { state, since: 1, reason: null, tracked: true };
     const view = render(
       <TerminalPane entry={entry(fakeAdapter(), { status })} client={fakeSessions()} focused={focused} maximized={maximized} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
     );
@@ -301,7 +301,7 @@ describe("TerminalPane header (One UI)", () => {
   });
 
   it("leads the title with the round mark of the pane's state", () => {
-    const status = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked, reportedAt: null });
+    const status = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked });
     const { view } = renderPane(entry(fakeAdapter(), { status: status("Needs Approval") }));
     expect(mark()).toHaveClass("bg-approval");
     view.unmount();

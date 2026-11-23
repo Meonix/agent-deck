@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
-import type { OpenedPane, PaneStatus, SessionState, SessionsClient } from "../api/sessions";
+import type { PaneStatus, SessionsClient } from "../api/sessions";
 import type { Workspace } from "../api/workspaces";
 import { latencyLogEnabled, withLatencyLog } from "./latencyLog";
 import { readSnapshot, rebuildLayout, snapshotOf, writeSnapshot } from "./paneSnapshot";
@@ -76,21 +76,6 @@ export function useSessionPanes(
       })),
     [],
   );
-
-  // SRS-FR-038: a change counts as shown once its commit has reached the Status Highlight. Passive
-  // effects run after the browser paints, and unlike requestAnimationFrame they are not held
-  // back while the window is hidden, so time the user spends away is not counted as latency.
-  const unrecorded = useRef<{ pane: OpenedPane; state: SessionState; reportedAt: number }[]>([]);
-  useEffect(() => {
-    if (unrecorded.current.length === 0) return;
-    const changes = unrecorded.current;
-    unrecorded.current = [];
-    const shownAt = Date.now();
-    for (const { pane, state, reportedAt } of changes) {
-      // A lost record must never disturb the panes.
-      client.recordStatusShown(pane.sessionId, state, reportedAt, Math.max(shownAt, reportedAt)).catch(() => {});
-    }
-  }, [client, layout]);
 
   // One interval per live pane, started once and stopped when the pane ends or closes,
   // so other panes opening never restart it. A failed lookup keeps the last title.
@@ -187,7 +172,7 @@ export function useSessionPanes(
   const startPane = useCallback(
     async (workspace: Workspace, measuring: TerminalAdapter, openedSize: TerminalSize, resumed?: { id: string; title: string }) => {
       const { pane, stream } = await client.open(workspace.id, openedSize.cols, openedSize.rows, resumed?.id);
-      const status: PaneStatus = { state: "Idle", since: Date.now(), reason: null, tracked: false, reportedAt: null };
+      const status: PaneStatus = { state: "Idle", since: Date.now(), reason: null, tracked: false };
       const entry: PaneEntry = {
         pane,
         workspaceId: workspace.id,
@@ -214,9 +199,6 @@ export function useSessionPanes(
     ({ pane, stream, adapter }: PaneEntry) => {
       if (adapter) stream.onOutput((bytes) => adapter.write(bytes));
       stream.onStatus((next) => {
-        if (next.tracked && next.reportedAt !== null) {
-          unrecorded.current.push({ pane, state: next.state, reportedAt: next.reportedAt });
-        }
         // A prompt was sent, so the session now has a history to resume (SRS-FR-084).
         const prompted = next.state === "Running" || next.state === "Needs Approval";
         update(pane.paneId, (e) => ({ status: next, prompted: e.prompted || prompted }));

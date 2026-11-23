@@ -70,7 +70,7 @@ describe("tauriSessionsClient (5.1)", () => {
   });
 
   it("queues a status sent before onStatus and delivers it, then later ones live", async () => {
-    const status = { state: "Needs Approval", since: 1760000000000, reason: "Edit src/main.rs", tracked: true, reportedAt: 1760000000000 };
+    const status = { state: "Needs Approval", since: 1760000000000, reason: "Edit src/main.rs", tracked: true };
     tauri.invoke.mockImplementation(async () => {
       send({ status });
       return opened;
@@ -217,5 +217,20 @@ describe("no progress API (CR-015)", () => {
     stream.onSession(seen);
     send({ progress: { tracking: "on", checkpoints: [], collapsed: false, updating: false, failed: false } });
     expect(seen).not.toHaveBeenCalled();
+  });
+});
+
+describe("no status latency recording (CR-015)", () => {
+  it("has no recordStatusShown", () => {
+    expect("recordStatusShown" in tauriSessionsClient).toBe(false);
+  });
+
+  it("parses a status without reportedAt, even when the message carries one", async () => {
+    tauri.invoke.mockResolvedValue(opened);
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen: object[] = [];
+    stream.onStatus((s) => seen.push(s));
+    send({ status: { state: "Running", since: 5, reason: null, tracked: true, reportedAt: 5 } });
+    expect(seen).toEqual([{ state: "Running", since: 5, reason: null, tracked: true }]);
   });
 });

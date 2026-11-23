@@ -72,7 +72,7 @@ export function fakeStream(): FakeStream {
     emit: (text) => outputCb?.(new TextEncoder().encode(text)),
     exit: (code) => exitCb?.(code),
     session: (id) => sessionCb?.(id),
-    status: (status) => statusCb?.({ since: Date.now(), reason: null, tracked: true, reportedAt: null, ...status }),
+    status: (status) => statusCb?.({ since: Date.now(), reason: null, tracked: true, ...status }),
   };
 }
 
@@ -99,7 +99,6 @@ export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean
     resize: vi.fn(async () => {}),
     close: vi.fn(async () => {}),
     title: vi.fn(async () => titles[Math.min(titleCall++, titles.length - 1)]),
-    recordStatusShown: vi.fn(async () => {}),
     list: vi.fn(async () => ({ sessions: [], unreadable: 0 })),
     deleteSession: vi.fn(async () => {}),
     openShell: vi.fn(async (paneId: string) => {

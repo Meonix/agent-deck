@@ -7,7 +7,6 @@ use crate::hooks::HookServer;
 use crate::pane_commands::LaunchLookup;
 use crate::panes::PaneRegistry;
 use crate::shell::ShellRegistry;
-use crate::status_latency::StatusLatencyLog;
 use crate::workspace::{
     AddOutcome, DiskProbe, OpenPanes, RemoveError, WorkspaceId, WorkspaceList, WorkspaceStore,
     WorkspaceView,
@@ -22,8 +21,6 @@ pub struct AppState {
     pub launch: Arc<LaunchLookup>,
     /// None when the hook listener could not start; panes then run untracked.
     pub hooks: Option<Arc<HookServer>>,
-    /// Status change timing records; no other lock is held while it is used.
-    pub latency: Mutex<StatusLatencyLog>,
     pub watchdog: Mutex<crate::watchdog::Watchdog>,
 }
 
