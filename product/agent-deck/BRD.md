@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v6.0 (2026-11-23)
+status: Approved v7.0 (2026-11-24)
 ---
 # BRD — agent-deck
 
@@ -14,6 +14,7 @@ agent-deck là ứng dụng desktop dùng cá nhân, cài và chạy trên máy 
 Nó gom việc làm với Claude Code về một chỗ: các folder hay làm việc, lịch sử phiên của từng folder,
 nhiều phiên Claude Code tương tác cùng lúc trong một cửa sổ, và dấu báo trạng thái ở cột trái cho
 biết phiên nào đang chạy, phiên nào đang chờ mình duyệt, phiên nào đang lỗi. Mỗi ô hiện việc chính của phiên bằng chữ đỏ, người dùng tự đối chiếu để phiên chỉ làm đúng việc đó. Với phiên người dùng bật theo dõi, ô hiện danh sách các việc lớn phiên đã làm và đang làm, để quay lại phiên dài là nắm ngay tiến độ.
+Từ CR-016, giao diện theo agent-deck-remote: cột trái là cây folder với các phiên đang mở lồng bên dưới; mỗi ô chuyển được giữa hội thoại (Chat), terminal phiên (Term), terminal thường (Shell) và kế hoạch (Plan); gửi prompt từ ô nhập riêng, duyệt quyền và trả lời câu hỏi của Claude Code bằng nút; nhãn tiếng Việt.
 
 ## 2. Vấn đề và lý do
 
@@ -24,6 +25,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 - Lịch sử phiên của từng folder nằm rải rác trên máy, không có chỗ xem lại và mở lại nhanh.
 - Một phiên Claude Code dễ bị kéo sang việc thứ hai, thứ ba; ngữ cảnh lẫn lộn và việc chính không xong gọn.
 - Phiên chạy dài, quay lại sau vài giờ thì không nhớ phiên đã làm những gì và đang dừng ở đâu; đọc lại log tool thì quá dài.
+- Làm việc với phiên chỉ qua terminal: duyệt quyền phải nhớ phím, không đọc lại hội thoại ở dạng dễ đọc, không thấy kế hoạch và file đã đổi; agent-deck-remote đã có cách làm dễ dùng hơn mà người dùng quen hằng ngày.
 
 ## 3. Stakeholder
 
@@ -39,6 +41,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BO-02 | Quay lại làm tiếp một phiên cũ thật nhanh | Số thao tác từ lúc mở app đến lúc gõ tiếp được vào một phiên cũ bất kỳ | ≤ 3 thao tác | Đạt trong 2 tuần dùng thử ngay sau khi có MVP |
 | BO-03 | Deleted (CR-015) | Deleted (CR-015) | Deleted (CR-015) | Deleted (CR-015) |
 | BO-04 | Deleted (CR-015) | Deleted (CR-015) | Deleted (CR-015) | Deleted (CR-015) |
+| BO-05 | Làm việc với phiên mà không phải gõ trong terminal | Số việc trong BR-11 đến BR-16 làm được mà không mở tab Term, kiểm trên cả macOS và Windows | 6/6 việc | Đạt trong 2 tuần dùng thử sau khi xong các mục backlog của CR-016 |
 
 ## 5. Phạm vi
 
@@ -54,6 +57,7 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 - Ẩn/hiện cột trái bằng nút hoặc phím tắt; viền nổi bật cho ô đang focus.
 - Hiện việc chính của mỗi phiên trên ô, sửa trực tiếp được.
 - Theo dõi tiến độ từng phiên bằng danh sách việc lớn đã làm và đang làm, bật hay tắt theo phiên.
+- Xem phiên dạng hội thoại; gửi prompt từ ô nhập riêng có gợi ý lệnh, gợi ý file và đính kèm file; duyệt quyền và trả lời câu hỏi bằng nút; xem kế hoạch và file đã đổi của phiên; xem file trong folder; trang Cài đặt.
 
 ### Ngoài phạm vi
 
@@ -62,6 +66,8 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 - Linux.
 - Theo dõi trạng thái phiên Claude Code mở ngoài agent-deck (Terminal, VS Code…). Các phiên này vẫn hiện trong lịch sử (BR-02) nhưng không có trạng thái.
 - Nhắc hay ràng buộc Claude Code theo việc chính; phân loại prompt bằng dịch vụ AI riêng; chặn cứng prompt lạc đề; nút kết thúc việc để sang phiên mới.
+- Các tính năng của agent-deck-remote cần một máy chủ luôn bật hoặc mở app ra mạng: xem trình duyệt từ xa, chiếu màn hình điện thoại, thông báo đẩy, đăng nhập và quản lý thiết bị, cài như web app.
+- Ghim hay tắt cập nhật phiên bản Claude Code.
 
 ## 6. Yêu cầu nghiệp vụ (BR)
 
@@ -71,12 +77,18 @@ PO chọn "không sót phiên chờ" làm mục tiêu chính (Q-01), xác nhận
 | BR-02 | Người dùng xem danh sách phiên Claude Code đã có trên máy của folder đang chọn, mỗi phiên có tiêu đề và thời điểm hoạt động gần nhất | BO-02 | Must |
 | BR-03 | Người dùng mở lại một phiên cũ để làm tiếp; các phiên đang mở trong ô lúc thoát app tự mở lại đúng chỗ khi mở app; người dùng để dành một phiên đang dở (đóng ô của nó) vào một danh sách riêng và mở lại từ danh sách đó | BO-02 | Must |
 | BR-04 | Người dùng bắt đầu một phiên Claude Code mới trong folder đang chọn | BO-02 | Must |
-| BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, kéo thả ô để đặt nó sang trái, phải, trên hoặc dưới một ô khác, ô tự đóng khi phiên thoát bình thường, phóng to một ô ra cả cửa sổ, mở một terminal thường dưới phiên trong cùng ô và ẩn nó đi mà vẫn chạy, phóng to hoặc thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt, thấy rõ ô đang focus, ẩn cột trái để nhường chỗ cho các ô, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
+| BR-05 | Người dùng làm việc với nhiều phiên cùng lúc trong một cửa sổ, kéo thả ô để đặt nó sang trái, phải, trên hoặc dưới một ô khác, ô tự đóng khi phiên thoát bình thường, phóng to một ô ra cả cửa sổ, chuyển mỗi ô giữa hội thoại, terminal phiên, terminal thường và kế hoạch, các phần không đang xem vẫn chạy, phóng to hoặc thu nhỏ cỡ chữ của cả cửa sổ bằng phím tắt, thấy rõ ô đang focus, ẩn cột trái để nhường chỗ cho các ô, thao tác đầy đủ như trong terminal thường | BO-01 | Must |
 | BR-06 | Người dùng thấy ngay trên danh sách folder và danh sách phiên đang mở phiên nào đang chạy, phiên nào cần duyệt, phiên nào lỗi | BO-01 | Must |
 | BR-07 | Từ dấu báo trạng thái, người dùng chuyển thẳng tới ô của phiên đó | BO-01 | Should |
 | BR-08 | Người dùng xoá một hoặc nhiều phiên cũ của folder cùng lúc, hoặc xoá phiên ngay lúc đóng ô của nó, bằng cách chuyển chúng vào Thùng rác | BO-02 | Should |
 | BR-09 | Deleted (CR-015) | BO-03 | Should |
 | BR-10 | Deleted (CR-015) | BO-04 | Should |
+| BR-11 | Người dùng xem phiên dạng hội thoại gồm prompt, trả lời, việc Claude Code làm bằng công cụ và kết quả, cùng công cụ đang chạy và phần context đã dùng | BO-05 | Must |
+| BR-12 | Người dùng gửi prompt từ ô nhập riêng của ô, có gợi ý lệnh khi gõ "/", gợi ý file khi gõ "@", đính kèm file bằng dán hoặc kéo thả; prompt không bao giờ được gửi khi Claude Code đang không chờ prompt | BO-05 | Must |
+| BR-13 | Người dùng duyệt hoặc từ chối một yêu cầu quyền và trả lời câu hỏi chọn phương án của Claude Code bằng nút, sau khi thấy rõ công cụ và lệnh đang xin | BO-05 | Must |
+| BR-14 | Người dùng xem kế hoạch của phiên: các bước, bước đang làm, file đã đổi và phần thay đổi của từng file | BO-05 | Should |
+| BR-15 | Người dùng xem folder con và file trong một folder làm việc và chép được đường dẫn; chỉ xem | BO-05 | Could |
+| BR-16 | Người dùng chọn chế độ quyền mặc định cho phiên, xem phiên bản Claude Code đang dùng và xoá file đính kèm prompt do app giữ | BO-05 | Should |
 
 ## 7. Quy trình và luật nghiệp vụ
 
@@ -84,15 +96,16 @@ Quy trình chính:
 
 1. Người dùng chọn một folder trong danh sách.
 2. App hiện các phiên đã có của folder đó.
-3. Người dùng mở lại một phiên cũ, hoặc bắt đầu phiên mới; phiên mở ra trong một ô.
+3. Người dùng mở lại một phiên cũ, hoặc bắt đầu phiên mới; phiên mở ra trong một ô, ở chế độ hội thoại.
 4. Người dùng mở thêm ô, ở cùng folder hoặc folder khác.
 5. Khi một phiên cần duyệt hoặc gặp lỗi, dòng của nó trong danh sách phiên đang mở và dòng folder của nó ở cột trái đổi màu và hiện badge.
-6. Người dùng bấm vào dòng đó để tới đúng ô và xử lý.
+6. Người dùng bấm vào dòng đó để tới đúng ô, duyệt bằng nút hoặc trả lời trong ô.
 
 Luật nghiệp vụ:
 
 - Một phiên ở đúng một trạng thái tại một thời điểm: đang chạy, cần duyệt, rảnh, lỗi, hoặc đã kết thúc.
 - Phiên thuộc về folder mà nó được bắt đầu trong đó.
+- Prompt từ ô nhập chỉ được gửi khi chắc chắn Claude Code đang chờ prompt; không chắc thì ô nhập khoá, người dùng gõ trong terminal phiên.
 
 ## 8. Ràng buộc
 
@@ -101,12 +114,15 @@ Luật nghiệp vụ:
 - Bản đầu dùng hằng ngày trên macOS; phải build ra được bản chạy trên Windows.
 - Không sửa dữ liệu phiên của Claude Code trên máy; chỉ được chuyển cả một phiên vào Thùng rác khi người dùng chọn xoá phiên đó (BR-08).
 - Không thay đổi cấu hình Claude Code dùng chung toàn máy của người dùng.
+- File đính kèm prompt do app giữ trong thư mục dữ liệu của app, ngoài mọi repo; dọn file chỉ xoá các file đó, không làm rỗng Thùng rác.
 
 ## 9. Giả định (A)
 
 | ID | Giả định | Ai cần xác nhận |
 | --- | --- | --- |
 | A-01 | Máy đã cài sẵn Claude Code và đã đăng nhập | PO |
+| A-02 | Giao diện tiếng Việt như agent-deck-remote | PO |
+| A-03 | Ô mở ở chế độ hội thoại | PO |
 
 ## 10. Rủi ro
 
@@ -115,6 +131,7 @@ Luật nghiệp vụ:
 | Claude Code đổi cách lưu phiên giữa các phiên bản (nhà phát triển ghi rõ là định dạng nội bộ) | Danh sách phiên hiển thị sai hoặc trống | Kiểm lại mỗi khi Claude Code lên phiên bản; báo rõ khi không đọc được thay vì im lặng |
 | Hành vi trên Windows khác macOS | Bản Windows chạy lỗi dù macOS ổn | Chạy thử trên Windows ngay từ mốc đầu, không để cuối |
 | Đã có sản phẩm làm gần giống (Nimbalyst, Superset, cmux) | Công sức bỏ ra không cần thiết | Dùng thử Nimbalyst trước khi bắt đầu xây |
+| Claude Code đổi giao diện màn hình giữa các phiên bản | Ô nhập không nhận ra lúc Claude Code chờ prompt | Khoá ô nhập khi không khớp mẫu, người dùng gõ ở Term; kiểm lại mẫu mỗi khi Claude Code lên phiên bản |
 
 ## 11. Chỉ số thành công
 
@@ -122,6 +139,7 @@ Luật nghiệp vụ:
 - BO-02: trong 2 tuần dùng thử sau khi có MVP, mở lại bất kỳ phiên cũ nào trong ≤ 3 thao tác (chọn folder, chọn phiên, mở).
 - BO-03: Deleted (CR-015)
 - BO-04: Deleted (CR-015)
+- BO-05: trong 2 tuần dùng thử sau khi xong CR-016, PO làm đủ 6 việc của BR-11 đến BR-16 mà không mở tab Term, trên cả macOS và Windows; baseline 0/6.
 
 ## 12. Câu hỏi mở (Q)
 
@@ -155,6 +173,7 @@ Luật nghiệp vụ:
 | 2026-11-20 | CR-013: phần tóm tắt trạng thái ở đầu cửa sổ dùng chữ gì? | "N need you" khi có phiên cần duyệt hoặc lỗi; "All clear" khi không phiên nào cần mình; "Agent Deck" + "No sessions running" khi chưa mở phiên nào; khung lịch sử rỗng giữ "No sessions yet" |
 | 2026-11-22 | CR-014: bỏ phần tóm tắt ở đầu cửa sổ thì đo BO-01 ở đâu? | Bỏ cả phần tóm tắt và nút Status Latency; vẫn ghi độ trễ, PO đọc thẳng file bản ghi |
 | 2026-11-23 | CR-015: bỏ ghi độ trễ thì đo BO-01 bằng gì? | Giữ BO-01 và ngưỡng 3 giây, PO tự kiểm khi dùng; Target Box và Progress Tracking bỏ hẳn cùng BO-03, BO-04 |
+| 2026-11-24 | CR-016: làm lại giao diện theo gì, tính năng nào thêm, đo bằng gì? | Theo agent-deck-remote; giữ chia nhiều ô; thêm các tính năng của remote chạy được trên máy local, bỏ các tính năng cần máy .26; ô nhập khoá khi màn hình không khớp mẫu; nghiệm thu trên Mac và Windows; thêm BO-05 |
 
 ## 14. Duyệt
 
@@ -175,3 +194,4 @@ Luật nghiệp vụ:
 | v5.1 | 2026-11-20 | PO | CR-013: BR-06 thêm phần tóm tắt trạng thái ở đầu cửa sổ |
 | v5.2 | 2026-11-22 | PO | CR-014: BR-06 bỏ phần tóm tắt trạng thái ở đầu cửa sổ; BO-01 đọc số từ file bản ghi độ trễ |
 | v6.0 | 2026-11-23 | PO | CR-015: xoá BO-03, BO-04, BR-09, BR-10; BO-01 PO tự kiểm, app không ghi độ trễ; bỏ ràng buộc tóm tắt qua login Claude Code |
+| v7.0 | 2026-11-24 | PO | CR-016: thêm BO-05 và BR-11 đến BR-16; BR-05 terminal thường thành một chế độ của ô; giao diện theo agent-deck-remote, tiếng Việt |
