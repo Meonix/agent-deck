@@ -20,14 +20,13 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
     shell: null,
     shellFailed: false,
     prompted: false,
-    goal: null,
     ...over,
   };
 }
 
-function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn(), setGoal: vi.fn() }, focused = true) {
+function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn() }, focused = true) {
   const view = render(
-    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={on.focus} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={on.setGoal} />,
+    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={on.focus} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
   );
   return { client, on, view };
 }
@@ -107,7 +106,7 @@ describe("TerminalPane (5.3)", () => {
     const { client, view } = renderPane(entry(adapter));
     await flush();
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
     );
     expect(screen.getByText("Session ended")).toBeInTheDocument();
     expect(screen.getByText("Ended")).toBeInTheDocument();
@@ -142,7 +141,7 @@ describe("TerminalPane (5.3)", () => {
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledWith("p1", "\x1b[M #!");
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
     );
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledTimes(1);
@@ -234,7 +233,7 @@ describe("TerminalPane attention and dimming (app-theme)", () => {
   const classes = (state: PaneEntry["status"]["state"], focused: boolean, maximized = false) => {
     const status = { state, since: 1, reason: null, tracked: true, reportedAt: null };
     const view = render(
-      <TerminalPane entry={entry(fakeAdapter(), { status })} client={fakeSessions()} focused={focused} maximized={maximized} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
+      <TerminalPane entry={entry(fakeAdapter(), { status })} client={fakeSessions()} focused={focused} maximized={maximized} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
     );
     const cls = screen.getByRole("region").className.split(/\s+/);
     view.unmount();
@@ -267,130 +266,13 @@ describe("TerminalPane header in a narrow pane", () => {
   });
 });
 
-describe("Target Box (SRS-FR-092)", () => {
-  const box = () => screen.getByRole("textbox", { name: "Session target" });
-
-  it("is empty with a placeholder before the session has a goal", () => {
-    renderPane(entry(fakeAdapter()));
-    expect(box()).toHaveValue("");
-    expect(box()).toHaveAttribute("placeholder", "Target — filled from your first prompt");
-  });
-
-  it("is empty with a placeholder for a cleared goal", () => {
-    renderPane(entry(fakeAdapter(), { goal: "" }));
-    expect(box()).toHaveValue("");
-  });
-
-  it("shows a multi-line goal whole, in red", () => {
-    const goal = "Fix resume\n1. read the log\n2. write a test\n3. fix\n4. ship";
-    renderPane(entry(fakeAdapter(), { goal }));
-    expect(box()).toHaveValue(goal);
-    expect(box()).toHaveClass("text-goal");
-  });
-
-  it("grows with its text up to 3 lines, then scrolls", () => {
-    const scrollHeight = vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockReturnValue(52);
-    renderPane(entry(fakeAdapter(), { goal: "a\nb\nc\nd\ne" }));
-    expect(box().style.height).toBe("52px");
-    expect(box()).toHaveClass("max-h-[calc(4.25rem+1px)]", "overflow-y-auto", "leading-5", "py-1", "border-b");
-    scrollHeight.mockRestore();
-  });
-
-  it("does not maximize on a double-click in the box", async () => {
-    const onMaximize = vi.fn();
-    render(
-      <TerminalPane entry={entry(fakeAdapter(), { goal: "Fix resume" })} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={onMaximize} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
-    );
-    await userEvent.dblClick(box());
-    expect(onMaximize).not.toHaveBeenCalled();
-  });
-});
-
-describe("Edit in the Target Box (SRS-FR-093)", () => {
-  const box = () => screen.getByRole("textbox", { name: "Session target" });
-
-  it("saves the trimmed text when the box loses focus", async () => {
-    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
-    await userEvent.clear(box());
-    await userEvent.type(box(), "  New goal  ");
-    expect(on.setGoal).not.toHaveBeenCalled();
-    await userEvent.click(document.body);
-    expect(on.setGoal).toHaveBeenCalledExactlyOnceWith("p1", "New goal");
-  });
-
-  it("does not save when the text did not change", async () => {
-    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
-    await userEvent.click(box());
-    await userEvent.click(document.body);
-    expect(on.setGoal).not.toHaveBeenCalled();
-  });
-
-  it("saves an empty text", async () => {
-    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
-    await userEvent.clear(box());
-    await userEvent.click(document.body);
-    expect(on.setGoal).toHaveBeenCalledExactlyOnceWith("p1", "");
-  });
-
-  it("saves text typed before the session has a goal", async () => {
-    const { on } = renderPane(entry(fakeAdapter()));
-    await userEvent.type(box(), "Fix resume");
-    await userEvent.click(document.body);
-    expect(on.setGoal).toHaveBeenCalledExactlyOnceWith("p1", "Fix resume");
-  });
-
-  it("Escape brings back the old text and saves nothing", async () => {
-    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old goal" }));
-    await userEvent.type(box(), "abc{Escape}");
-    expect(box()).toHaveValue("Old goal");
-    expect(box()).not.toHaveFocus();
-    expect(on.setGoal).not.toHaveBeenCalled();
-  });
-
-  it("Enter adds a line instead of saving", async () => {
-    const { on } = renderPane(entry(fakeAdapter(), { goal: "Fix" }));
-    await userEvent.type(box(), "{Enter}more");
-    expect(box()).toHaveValue("Fix\nmore");
-    expect(box()).toHaveFocus();
-    expect(on.setGoal).not.toHaveBeenCalled();
-  });
-
-  it("shows a new goal from the session while not editing, and keeps a draft while editing", async () => {
-    const e = entry(fakeAdapter(), { goal: null });
-    const { view } = renderPane(e);
-    const rerender = (goal: string) =>
-      view.rerender(
-        <TerminalPane entry={{ ...e, goal }} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={vi.fn()} />,
-      );
-    rerender("First prompt");
-    expect(box()).toHaveValue("First prompt");
-    await userEvent.type(box(), " edited");
-    rerender("Other");
-    expect(box()).toHaveValue("First prompt edited");
-  });
-
-  it("does not overwrite a goal that arrives while the box is focused but untouched", async () => {
-    const e = entry(fakeAdapter(), { goal: null });
-    const setGoal = vi.fn();
-    const pane = (goal: string | null) => (
-      <TerminalPane entry={{ ...e, goal }} client={fakeSessions()} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} onSetGoal={setGoal} />
-    );
-    const view = render(pane(null));
-    await userEvent.click(box());
-    view.rerender(pane("fix X"));
-    await userEvent.click(document.body);
-    expect(setGoal).not.toHaveBeenCalled();
-    expect(box()).toHaveValue("fix X");
-  });
-
-  it("saves an edit made after an Escape that fired no blur", async () => {
-    const { on } = renderPane(entry(fakeAdapter(), { goal: "Old" }));
-    const blur = vi.spyOn(HTMLTextAreaElement.prototype, "blur").mockImplementation(() => {});
-    await userEvent.type(box(), "x{Escape}");
-    blur.mockRestore();
-    await userEvent.type(box(), " new");
-    await userEvent.click(document.body);
-    expect(on.setGoal).toHaveBeenCalledExactlyOnceWith("p1", "Old new");
+describe("No Target Box (CR-015)", () => {
+  it("shows no Session target box, whatever goal the entry carries", () => {
+    for (const goal of ["Fix resume", null]) {
+      const { view } = renderPane({ ...entry(fakeAdapter()), goal } as unknown as PaneEntry);
+      expect(screen.queryByRole("textbox", { name: "Session target" })).toBeNull();
+      view.unmount();
+    }
   });
 });
 

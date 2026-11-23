@@ -1,5 +1,5 @@
 import { Archive, Maximize2, Minimize2, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
 import { ICON } from "./icon";
 import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
@@ -49,8 +49,6 @@ export type PaneEntry = {
   shellFailed: boolean;
   /** Resumed, or a prompt was sent: the session has a history to resume. */
   prompted: boolean;
-  /** The Session Goal; null until a prompt sets one (SRS-FR-092). */
-  goal: string | null;
 };
 
 // Like the session's, the shell's adapter outlives a hide: output keeps flowing into it (SRS-FR-057).
@@ -85,7 +83,6 @@ type Props = {
   onToggleShell(paneId: string): void;
   onResizeShell(paneId: string, ratio: number): void;
   onDismissShellFailure(paneId: string): void;
-  onSetGoal(paneId: string, text: string): void;
 };
 
 export function TerminalPane({
@@ -105,9 +102,8 @@ export function TerminalPane({
   onToggleShell,
   onResizeShell,
   onDismissShellFailure,
-  onSetGoal,
 }: Props) {
-  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, goal } = entry;
+  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed } = entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
   const endedRef = useRef(ended);
@@ -269,7 +265,6 @@ export function TerminalPane({
           </button>
         </span>
       </header>
-      <TargetBox goal={goal} onSave={(text) => onSetGoal(paneId, text)} />
       <div className="flex-1 min-h-0 min-w-0 flex flex-col">
         {pane.started ? (
           // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
@@ -299,66 +294,6 @@ export function TerminalPane({
       </div>
       {shellFailed && <ShellFailure onDismiss={() => onDismissShellFailure(paneId)} />}
     </section>
-  );
-}
-
-// Outside the header, which owns double-click and drag (SRS-FR-092).
-function TargetBox({ goal, onSave }: { goal: string | null; onSave(text: string): void }) {
-  const [draft, setDraft] = useState(goal ?? "");
-  const box = useRef<HTMLTextAreaElement>(null);
-  // Only a typed change is saved, so a goal that arrives while the box is focused is not overwritten.
-  const edited = useRef(false);
-
-  useEffect(() => {
-    if (document.activeElement !== box.current) setDraft(goal ?? "");
-  }, [goal]);
-
-  // Grows with its text, border included; the max-height class caps it at 3 lines, then it scrolls.
-  useLayoutEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const fit = () => {
-      el.style.height = "auto";
-      el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
-    };
-    fit();
-    if (typeof ResizeObserver === "undefined") return;
-    let width = el.clientWidth;
-    const observer = new ResizeObserver(() => {
-      if (el.clientWidth === width) return;
-      width = el.clientWidth;
-      fit();
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [draft]);
-
-  return (
-    <textarea
-      ref={box}
-      aria-label="Session target"
-      placeholder="Target — filled from your first prompt"
-      rows={1}
-      value={draft}
-      onChange={(e) => {
-        edited.current = true;
-        setDraft(e.target.value);
-      }}
-      onKeyDown={(e) => {
-        if (e.key !== "Escape" || e.nativeEvent.isComposing) return;
-        edited.current = false;
-        setDraft(goal ?? "");
-        e.currentTarget.blur();
-      }}
-      onBlur={() => {
-        if (!edited.current) return setDraft(goal ?? "");
-        edited.current = false;
-        const text = draft.trim();
-        if (text !== (goal ?? "")) onSave(text);
-        setDraft(text);
-      }}
-      className="block w-full resize-none max-h-[calc(4.25rem+1px)] overflow-y-auto px-3 py-1 border-b border-border bg-card font-mono text-xs leading-5 text-goal placeholder:text-goal/50 outline-none"
-    />
   );
 }
 

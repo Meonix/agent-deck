@@ -48,8 +48,6 @@ export type SessionPanes = PanesState & {
   toggleShell(paneId: string): Promise<void>;
   resizeShell(paneId: string, ratio: number): void;
   dismissShellFailure(paneId: string): void;
-  /** Asks for a new Session Goal; the pane shows it once the backend echoes it, and keeps the old one on failure. */
-  setGoal(paneId: string, text: string): void;
   /** Once per launch: resumes the panes remembered from the last one (SRS-FR-085, SRS-FR-086). */
   reopenPanes(workspaces: Workspace[]): Promise<void>;
   /** Counts for the diagnostic report. */
@@ -205,7 +203,6 @@ export function useSessionPanes(
         shell: null,
         shellFailed: false,
         prompted: resumed !== undefined,
-        goal: null,
       };
       return entry;
     },
@@ -224,7 +221,6 @@ export function useSessionPanes(
         const prompted = next.state === "Running" || next.state === "Needs Approval";
         update(pane.paneId, (e) => ({ status: next, prompted: e.prompted || prompted }));
       });
-      stream.onGoal((goal) => update(pane.paneId, () => ({ goal })));
       // After `/clear` the pane holds a new session; reopening must resume that one (SRS-FR-084).
       stream.onSession((sessionId) => update(pane.paneId, (e) => ({ pane: { ...e.pane, sessionId } })));
       // SRS-FR-083: a normal exit takes its pane along; any other exit, or a failed close, leaves
@@ -485,8 +481,6 @@ export function useSessionPanes(
     [],
   );
 
-  const setGoal = useCallback((paneId: string, text: string) => client.setGoal(paneId, text).catch(() => {}), [client]);
-
   return {
     ...layout,
     newSession,
@@ -501,7 +495,6 @@ export function useSessionPanes(
     toggleShell,
     resizeShell,
     dismissShellFailure,
-    setGoal,
     reopenPanes,
     diagnostics,
   };

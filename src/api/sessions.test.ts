@@ -176,35 +176,25 @@ describe("session messages (SRS-FR-084)", () => {
   });
 });
 
-describe("goal messages (SRS-FR-092)", () => {
-  it("queues a goal sent before onGoal, then delivers later ones live, null included", async () => {
-    tauri.invoke.mockImplementation(async () => {
-      send(JSON.stringify({ goal: "Fix resume" }));
-      return opened;
-    });
-    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
-    const seen: unknown[] = [];
-    stream.onGoal((g) => seen.push(g));
-    expect(seen).toEqual(["Fix resume"]);
-    send({ goal: null });
-    send({ goal: "Next" });
-    expect(seen).toEqual(["Fix resume", null, "Next"]);
-  });
-
-  it("ignores a goal of the wrong type", async () => {
+describe("no goal API (CR-015)", () => {
+  it("has no setGoal and no onGoal", async () => {
+    expect("setGoal" in tauriSessionsClient).toBe(false);
     tauri.invoke.mockResolvedValue(opened);
     const { stream } = await tauriSessionsClient.open("w1", 80, 24);
-    const seen: unknown[] = [];
-    stream.onGoal((g) => seen.push(g));
-    send({ goal: 5 });
-    send({ goals: "x" });
-    expect(seen).toEqual([]);
+    expect("onGoal" in stream).toBe(false);
   });
 
-  it("sets a goal through set_session_goal", async () => {
-    tauri.invoke.mockResolvedValue(undefined);
-    await tauriSessionsClient.setGoal("p1", "New");
-    expect(tauri.invoke).toHaveBeenCalledWith("set_session_goal", { paneId: "p1", text: "New" });
+  it("passes a goal message to no callback", async () => {
+    tauri.invoke.mockResolvedValue(opened);
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen = vi.fn();
+    stream.onOutput(seen);
+    stream.onExit(seen);
+    stream.onStatus(seen);
+    stream.onSession(seen);
+    send({ goal: "Fix resume" });
+    send(JSON.stringify({ goal: null }));
+    expect(seen).not.toHaveBeenCalled();
   });
 });
 
@@ -224,7 +214,6 @@ describe("no progress API (CR-015)", () => {
     stream.onOutput(seen);
     stream.onExit(seen);
     stream.onStatus(seen);
-    stream.onGoal(seen);
     stream.onSession(seen);
     send({ progress: { tracking: "on", checkpoints: [], collapsed: false, updating: false, failed: false } });
     expect(seen).not.toHaveBeenCalled();

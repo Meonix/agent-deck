@@ -50,7 +50,6 @@ export type FakeStream = PaneStream & {
   emit(text: string): void;
   exit(code: number | null): void;
   status(status: Partial<PaneStatus> & { state: PaneStatus["state"] }): void;
-  goal(goal: string | null): void;
   session(id: string): void;
 };
 
@@ -58,24 +57,20 @@ export function fakeStream(): FakeStream {
   let outputCb: ((bytes: Uint8Array) => void) | null = null;
   let exitCb: ((code: number | null) => void) | null = null;
   let statusCb: ((status: PaneStatus) => void) | null = null;
-  let goalCb: ((goal: string | null) => void) | null = null;
   let sessionCb: ((id: string) => void) | null = null;
   return {
     onOutput: (cb) => void (outputCb = cb),
     onExit: (cb) => void (exitCb = cb),
     onStatus: (cb) => void (statusCb = cb),
-    onGoal: (cb) => void (goalCb = cb),
     onSession: (cb) => void (sessionCb = cb),
     dispose: vi.fn(() => {
       sessionCb = null;
       outputCb = null;
       exitCb = null;
       statusCb = null;
-      goalCb = null;
     }),
     emit: (text) => outputCb?.(new TextEncoder().encode(text)),
     exit: (code) => exitCb?.(code),
-    goal: (goal) => goalCb?.(goal),
     session: (id) => sessionCb?.(id),
     status: (status) => statusCb?.({ since: Date.now(), reason: null, tracked: true, reportedAt: null, ...status }),
   };
@@ -105,7 +100,6 @@ export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean
     close: vi.fn(async () => {}),
     title: vi.fn(async () => titles[Math.min(titleCall++, titles.length - 1)]),
     recordStatusShown: vi.fn(async () => {}),
-    setGoal: vi.fn(async () => {}),
     list: vi.fn(async () => ({ sessions: [], unreadable: 0 })),
     deleteSession: vi.fn(async () => {}),
     openShell: vi.fn(async (paneId: string) => {

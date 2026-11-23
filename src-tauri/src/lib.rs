@@ -9,7 +9,6 @@ pub mod pane_status;
 pub mod panes;
 pub mod pty;
 mod session_commands;
-pub mod session_goal;
 pub mod session_list;
 pub mod session_title;
 pub mod session_trash;
@@ -63,7 +62,6 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             let store = WorkspaceStore::new(data_dir.clone());
             let list = store.load()?;
-            let goals = session_goal::GoalStore::load(data_dir.clone());
             let launch = Arc::new(LaunchLookup::start());
             let latency = StatusLatencyLog::new(data_dir);
             if let Err(e) = latency.prune(pane_status::now_ms()) {
@@ -78,7 +76,6 @@ pub fn run() {
                 panes: Mutex::new(PaneRegistry::new()),
                 shells: Mutex::new(ShellRegistry::new()),
                 launch,
-                goals: Arc::new(Mutex::new(goals)),
                 hooks: HookServer::start()
                     .map_err(|e| {
                         diag::error("hooks", &format!("hook listener could not start: {e}"))
@@ -104,7 +101,6 @@ pub fn run() {
             pane_commands::pane_write,
             pane_commands::pane_resize,
             pane_commands::pane_title,
-            pane_commands::set_session_goal,
             pane_commands::close_pane,
             pane_commands::open_shell,
             pane_commands::shell_write,

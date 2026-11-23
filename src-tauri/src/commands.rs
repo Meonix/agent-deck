@@ -6,7 +6,6 @@ use tauri::State;
 use crate::hooks::HookServer;
 use crate::pane_commands::LaunchLookup;
 use crate::panes::PaneRegistry;
-use crate::session_goal::GoalStore;
 use crate::shell::ShellRegistry;
 use crate::status_latency::StatusLatencyLog;
 use crate::workspace::{
@@ -14,16 +13,13 @@ use crate::workspace::{
     WorkspaceView,
 };
 
-/// Lock order: `list` before `panes` before `shells` whenever more than one is held; a pane's
-/// keeper session lock comes after `panes` and before `goals`.
+/// Lock order: `list` before `panes` before `shells` whenever more than one is held.
 pub struct AppState {
     pub list: Mutex<WorkspaceList>,
     pub store: WorkspaceStore,
     pub panes: Mutex<PaneRegistry>,
     pub shells: Mutex<ShellRegistry>,
     pub launch: Arc<LaunchLookup>,
-    /// Session goals, shared by every pane's keeper; taken last, after `list`, `panes` and the keeper's session lock.
-    pub goals: Arc<Mutex<GoalStore>>,
     /// None when the hook listener could not start; panes then run untracked.
     pub hooks: Option<Arc<HookServer>>,
     /// Status change timing records; no other lock is held while it is used.

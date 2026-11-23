@@ -341,7 +341,6 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
                   onToggleShell={(paneId) => void panes.toggleShell(paneId)}
                   onResizeShell={panes.resizeShell}
                   onDismissShellFailure={panes.dismissShellFailure}
-                  onSetGoal={panes.setGoal}
                 />
               ),
             }))}
