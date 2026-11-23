@@ -2481,7 +2481,8 @@ describe("Stashed Sessions (CR-011)", () => {
     expect(await screen.findByRole("region", { name: "agent-deck · Fix login bug" })).toBeInTheDocument();
     expect(sessions.open).toHaveBeenCalledWith("a", expect.any(Number), expect.any(Number), "old-1");
     expect(within(stashList()).getByText("No stashed sessions")).toBeInTheDocument();
-    expect(stored()).toEqual([]);
+    // useStash writes storage in an effect, which React may run after this render.
+    await vi.waitFor(() => expect(stored()).toEqual([]));
   });
 
   it("refuses a Missing folder with Folder not found and keeps the row (SRS-FR-108)", async () => {
