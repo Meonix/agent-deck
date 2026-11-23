@@ -4,9 +4,9 @@
 TBD - created by archiving change add-pane-split-layout. Update Purpose after archive.
 ## Requirements
 ### Requirement: Resize panes (SRS-FR-023)
-Traces: SRS-FR-023 ← BR-05 ← BO-01
-
 When the user drags the divider between two panes, the system SHALL resize both panes to follow the divider.
+
+Traces: SRS-FR-023 ← BR-05 ← BO-01
 
 #### Scenario: Drag the divider 200 px to the right
 - **GIVEN** two panes side by side, each 600 px wide
@@ -20,9 +20,9 @@ When the user drags the divider between two panes, the system SHALL resize both 
 - **THEN** the upper pane gets shorter and the lower pane taller by the same amount
 
 ### Requirement: Concurrent panes (SRS-NFR-001)
-Traces: SRS-NFR-001 ← BR-05 ← BO-01
-
 The system SHALL support at least 4 panes open at the same time while meeting SRS-NFR-002.
+
+Traces: SRS-NFR-001 ← BR-05 ← BO-01
 
 #### Scenario: Four busy panes
 - **GIVEN** 4 panes are open and all 4 sessions are `Running`, writing output
@@ -30,9 +30,9 @@ The system SHALL support at least 4 panes open at the same time while meeting SR
 - **THEN** each keystroke is echoed within 100 ms at the 95th percentile
 
 ### Requirement: Maximize pane (SRS-FR-041)
-Traces: SRS-FR-041 ← BR-05 ← BO-01
-
 When the user chooses Maximize on a pane, the system SHALL show that pane over the whole application window below the title bar, covering the Workspace List, Active Sessions, the Session History Panel and the other panes.
+
+Traces: SRS-FR-041 ← BR-05 ← BO-01
 
 #### Scenario: Maximize one of three panes
 - **GIVEN** three panes are open and pane 2 is one of them
@@ -46,9 +46,9 @@ When the user chooses Maximize on a pane, the system SHALL show that pane over t
 - **THEN** keyboard focus never reaches the Workspace List, Active Sessions, the Session History Panel or another pane
 
 ### Requirement: Restore pane (SRS-FR-042)
-Traces: SRS-FR-042 ← BR-05 ← BO-01
-
 When the user chooses Restore on the Maximized Pane, the system SHALL show the previous layout with the same pane sizes.
+
+Traces: SRS-FR-042 ← BR-05 ← BO-01
 
 #### Scenario: Sizes come back
 - **GIVEN** two panes split 30/70 and the left one is maximized
@@ -61,9 +61,9 @@ When the user chooses Restore on the Maximized Pane, the system SHALL show the p
 - **THEN** panes 1 and 3 are shown in their layout and nothing is maximized
 
 ### Requirement: Reflow on maximize (SRS-FR-043)
-Traces: SRS-FR-043 ← BR-05 ← BO-01
-
 When a pane is maximized or restored, the system SHALL fit the session's terminal content to the new pane size.
+
+Traces: SRS-FR-043 ← BR-05 ← BO-01
 
 #### Scenario: Maximized terminal grows
 - **GIVEN** a pane taking half the window
@@ -76,9 +76,9 @@ When a pane is maximized or restored, the system SHALL fit the session's termina
 - **THEN** its session is resized back to the size of its place in the layout
 
 ### Requirement: Restore before a new pane (SRS-FR-046)
-Traces: SRS-FR-046 ← BR-05 ← BO-01
-
 If a new pane opens while a pane is maximized, then the system SHALL restore the layout before placing the new pane.
+
+Traces: SRS-FR-046 ← BR-05 ← BO-01
 
 #### Scenario: Split from the maximized pane
 - **GIVEN** pane 1 is maximized
@@ -86,9 +86,9 @@ If a new pane opens while a pane is maximized, then the system SHALL restore the
 - **THEN** the previous layout shows again with the new pane to the right of pane 1
 
 ### Requirement: Maximize on header double-click (SRS-FR-066)
-Traces: SRS-FR-066 ← BR-05 ← BO-01
-
 When the user double-clicks the header of a pane that is not maximized, the system SHALL maximize that pane as in SRS-FR-041.
+
+Traces: SRS-FR-066 ← BR-05 ← BO-01
 
 #### Scenario: Double-click the header of one of three panes
 - **GIVEN** three panes are open and none is maximized
@@ -106,9 +106,9 @@ When the user double-clicks the header of a pane that is not maximized, the syst
 - **THEN** the pane is not maximized
 
 ### Requirement: Restore on header double-click (SRS-FR-067)
-Traces: SRS-FR-067 ← BR-05 ← BO-01
-
 When the user double-clicks the header of the Maximized Pane, the system SHALL restore the previous layout as in SRS-FR-042.
+
+Traces: SRS-FR-067 ← BR-05 ← BO-01
 
 #### Scenario: Double-click twice gives the layout back
 - **GIVEN** two panes split 30/70 and none is maximized
@@ -117,9 +117,9 @@ When the user double-clicks the header of the Maximized Pane, the system SHALL r
 - **THEN** the two panes are split 30/70 again and nothing is maximized
 
 ### Requirement: Show drop zones (SRS-FR-080)
-Traces: SRS-FR-080 ← BR-05 ← BO-01
-
 While the user drags the header of a pane over another pane, the system SHALL show the Drop Zones of that other pane.
+
+Traces: SRS-FR-080 ← BR-05 ← BO-01
 
 #### Scenario: Drag pane 1 over pane 2
 - **GIVEN** panes 1 and 2 side by side
@@ -136,9 +136,9 @@ While the user drags the header of a pane over another pane, the system SHALL sh
 - **THEN** no drag starts
 
 ### Requirement: Move a pane by drop (SRS-FR-081)
-Traces: SRS-FR-081 ← BR-05 ← BO-01
-
 When the user drops a pane on a Drop Zone of another pane, the system SHALL move the dropped pane to that side of the other pane, splitting the other pane in half.
+
+Traces: SRS-FR-081 ← BR-05 ← BO-01
 
 #### Scenario: Drop pane 1 below pane 2
 - **GIVEN** panes 1 and 2 side by side and pane 1 is `Running`
@@ -152,9 +152,9 @@ When the user drops a pane on a Drop Zone of another pane, the system SHALL move
 - **THEN** pane 2 takes the whole right half
 
 ### Requirement: Cancel a drag (SRS-FR-082)
-Traces: SRS-FR-082 ← BR-05 ← BO-01
-
 If the user releases a dragged pane outside any Drop Zone or presses Esc while dragging, then the system SHALL keep the layout unchanged.
+
+Traces: SRS-FR-082 ← BR-05 ← BO-01
 
 #### Scenario: Drop on itself
 - **WHEN** the user drags pane 1 and releases it over pane 1
@@ -166,9 +166,9 @@ If the user releases a dragged pane outside any Drop Zone or presses Esc while d
 - **THEN** the Drop Zones disappear and the layout is unchanged
 
 ### Requirement: Focused pane outline (SRS-FR-087)
-Traces: SRS-FR-087 ← BR-05 ← BO-01
-
 While a pane has keyboard focus, the system SHALL show the Focus Outline around that pane.
+
+Traces: SRS-FR-087 ← BR-05 ← BO-01
 
 #### Scenario: Click into one of three panes
 - **GIVEN** three panes are open

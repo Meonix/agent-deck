@@ -2,13 +2,11 @@
 
 ## Purpose
 TBD - created by archiving change add-status-board. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: Status update latency (SRS-FR-034)
-Traces: SRS-FR-034 ← BR-06 ← BO-01
-
 When a session open in a pane changes state, the system SHALL update every Status Highlight of that session within 3 seconds.
+
+Traces: SRS-FR-034 ← BR-06 ← BO-01
 
 #### Scenario: Permission prompt shown
 - **GIVEN** a pane of the selected folder is `Running`
@@ -16,9 +14,9 @@ When a session open in a pane changes state, the system SHALL update every Statu
 - **THEN** its session row and its folder row show the `Needs Approval` highlight before 14:02:03
 
 ### Requirement: Ignore inapplicable status signals (SRS-FR-035)
-Traces: SRS-FR-035 ← BR-06 ← BO-01
-
 If a status signal does not apply to the current state of a session per the table in SRS section 5, then the system SHALL keep the session in its current state.
+
+Traces: SRS-FR-035 ← BR-06 ← BO-01
 
 #### Scenario: Turn finished after the session ended
 - **GIVEN** the session in a pane is `Ended`
@@ -31,9 +29,9 @@ If a status signal does not apply to the current state of a session per the tabl
 - **THEN** the session stays `Needs Approval`
 
 ### Requirement: Report unavailable status (SRS-FR-036)
-Traces: SRS-FR-036 ← BR-06 ← BO-01
-
 If the system cannot track the state of a session open in a pane, then the system SHALL show `Status unavailable` in the header of that pane.
+
+Traces: SRS-FR-036 ← BR-06 ← BO-01
 
 #### Scenario: No status signal from Claude Code
 - **GIVEN** a pane is open and Claude Code has sent no status signal for it since it started
@@ -47,9 +45,9 @@ If the system cannot track the state of a session open in a pane, then the syste
 - **THEN** the header shows the session state instead
 
 ### Requirement: No machine-wide Claude Code configuration change (SRS-NFR-006)
-Traces: SRS-NFR-006 ← BRD §8 constraint
-
 The system SHALL NOT change the user's machine-wide Claude Code settings.
+
+Traces: SRS-NFR-006 ← BRD §8 constraint
 
 #### Scenario: Settings untouched after use
 - **GIVEN** the Claude Code settings files under `~/.claude/` before the app is used
@@ -57,9 +55,9 @@ The system SHALL NOT change the user's machine-wide Claude Code settings.
 - **THEN** those settings files are byte-for-byte the same as before
 
 ### Requirement: Highlight session rows (SRS-FR-032)
-Traces: SRS-FR-032 ← BR-06 ← BO-01
-
 While a session open in a pane is in the state `Running`, `Needs Approval` or `Error`, the system SHALL show the Status Highlight of that state on the row of that session in Active Sessions. The Status Highlight is the background of that state and a marker of that state. The state follows RULE-03 to RULE-08 and the transition table in SRS section 5; a pane starts in `Idle` (RULE-05: Claude Code waits for a request).
+
+Traces: SRS-FR-032 ← BR-06 ← BO-01
 
 #### Scenario: Three panes in three states
 - **GIVEN** `agent-deck` has pane 1 `Running`, `mokairo` has pane 2 `Needs Approval` and pane 3 `Idle`
@@ -108,9 +106,9 @@ While a session open in a pane is in the state `Running`, `Needs Approval` or `E
 - **AND** its row in the Session History Panel still shows `Live`, without a highlight (SRS-FR-012)
 
 ### Requirement: Status detail line (SRS-FR-033)
-Traces: SRS-FR-033 ← BR-06 ← BO-01
-
 While a session row shows the Status Highlight of `Needs Approval` or `Error`, the system SHALL show below the session title the time the session entered that state and the reason of that state.
+
+Traces: SRS-FR-033 ← BR-06 ← BO-01
 
 #### Scenario: Row waiting for an edit
 - **GIVEN** the session "Scaffold Tauri app" in the selected folder asked at 14:02 for permission to edit `src/main.rs`
@@ -129,9 +127,9 @@ While a session row shows the Status Highlight of `Needs Approval` or `Error`, t
 - **THEN** its detail line is "13:40"
 
 ### Requirement: Workspace status (SRS-FR-040)
-Traces: SRS-FR-040 ← BR-06 ← BO-01
-
 While at least one session of a workspace open in a pane is `Running`, `Needs Approval` or `Error`, the system SHALL show on that workspace's row the Status Highlight of its most urgent state and the number of its sessions in that state. The order of urgency is `Error`, then `Needs Approval`, then `Running`.
+
+Traces: SRS-FR-040 ← BR-06 ← BO-01
 
 #### Scenario: Error beats Running
 - **GIVEN** the folder `mokairo` has 1 session `Error` and 2 sessions `Running` open in panes
@@ -146,9 +144,9 @@ While at least one session of a workspace open in a pane is `Running`, `Needs Ap
 - **THEN** that folder row has no Status Highlight and no badge
 
 ### Requirement: Maximized pane status badge (SRS-FR-044)
-Traces: SRS-FR-044 ← BR-06 ← BO-01
-
 While a pane is maximized and at least one other session open in a pane is `Needs Approval` or `Error`, the system SHALL show in the header of the Maximized Pane a badge with the number of those sessions. The badge has the `Error` colour if at least one of them is `Error`, else the `Needs Approval` colour.
+
+Traces: SRS-FR-044 ← BR-06 ← BO-01
 
 #### Scenario: Another pane asks for approval
 - **GIVEN** pane 1 is maximized and pane 3 is `Running`
@@ -168,9 +166,9 @@ While a pane is maximized and at least one other session open in a pane is `Need
 - **THEN** the header of pane 1 shows no badge
 
 ### Requirement: Jump from the maximized badge (SRS-FR-045)
-Traces: SRS-FR-045 ← BR-07 ← BO-01
-
 When the user clicks the status badge of the Maximized Pane, the system SHALL restore the layout and move keyboard focus to the pane of the most urgent other session. `Error` comes before `Needs Approval`; within the same state the session that entered it first comes first.
+
+Traces: SRS-FR-045 ← BR-07 ← BO-01
 
 #### Scenario: Error before an older approval
 - **GIVEN** pane 1 is maximized, pane 2 is `Needs Approval` since 14:00 and pane 3 is `Error` since 14:05
@@ -183,9 +181,9 @@ When the user clicks the status badge of the Maximized Pane, the system SHALL re
 - **THEN** pane 3 has keyboard focus
 
 ### Requirement: Jump to pane from Active Sessions (SRS-FR-037)
-Traces: SRS-FR-037 ← BR-07 ← BO-01
-
 When the user clicks a row in Active Sessions, the system SHALL move keyboard focus to the pane of that session.
+
+Traces: SRS-FR-037 ← BR-07 ← BO-01
 
 #### Scenario: Answer an approval from its row
 - **GIVEN** the row "Scaffold Tauri app" in Active Sessions shows the `Needs Approval` highlight and another pane has keyboard focus
@@ -210,9 +208,9 @@ When the user clicks a row in Active Sessions, the system SHALL move keyboard fo
 - **THEN** keyboard focus stays where it was and the row shows its Resume button
 
 ### Requirement: List active sessions (SRS-FR-051)
-Traces: SRS-FR-051 ← BR-06 ← BO-01
-
 The system SHALL list in Active Sessions every session open in a pane across all workspaces, with its title and its workspace name.
+
+Traces: SRS-FR-051 ← BR-06 ← BO-01
 
 #### Scenario: Two folders
 - **GIVEN** `agent-deck` has the session "Scaffold Tauri app" open in a pane and `mokairo` has "Fix login bug" open in a pane
@@ -228,9 +226,9 @@ The system SHALL list in Active Sessions every session open in a pane across all
 - **THEN** its row stays in Active Sessions until the pane is closed
 
 ### Requirement: Order active sessions (SRS-FR-052)
-Traces: SRS-FR-052 ← BR-06 ← BO-01
-
 The system SHALL order Active Sessions by state urgency, `Error`, `Needs Approval`, `Running`, `Idle`, `Ended`, and within one state by the time the session entered that state, earliest first.
+
+Traces: SRS-FR-052 ← BR-06 ← BO-01
 
 #### Scenario: Error first
 - **GIVEN** pane 1 is `Running` since 14:00, pane 2 `Error` since 14:05 and pane 3 `Needs Approval` since 14:03
@@ -245,18 +243,18 @@ The system SHALL order Active Sessions by state urgency, `Error`, `Needs Approva
 - **THEN** its row is listed with the `Idle` rows and has no Status Highlight
 
 ### Requirement: Empty active sessions (SRS-FR-053)
-Traces: SRS-FR-053 ← BR-06 ← BO-01
-
 While no session is open in a pane, the system SHALL show the message "No active sessions" in Active Sessions.
+
+Traces: SRS-FR-053 ← BR-06 ← BO-01
 
 #### Scenario: App just opened
 - **GIVEN** no pane is open
 - **THEN** Active Sessions shows "No active sessions"
 
 ### Requirement: Sidebar section tints (SRS-NFR-009)
-Traces: SRS-NFR-009 ← BR-06 ← BO-01
-
 The system SHALL give the Workspace List section and the Active Sessions section two different background tints, each with a contrast ratio of at most 1.25:1 against the sidebar background and a text contrast of at least 4.5:1, in both light and dark themes.
+
+Traces: SRS-NFR-009 ← BR-06 ← BO-01
 
 #### Scenario: Tokens in both themes
 - **GIVEN** the tokens `--section-folders` and `--section-active` in `design/agent-deck/tokens.css`
@@ -266,9 +264,9 @@ The system SHALL give the Workspace List section and the Active Sessions section
 - **THEN** the Folders section has the background `--section-folders` and the Active Sessions section the background `--section-active`
 
 ### Requirement: Focused session row mark (SRS-FR-099)
-Traces: SRS-FR-099 ← BR-05 ← BO-01
-
 While a pane has the Focus Outline, the system SHALL show the Row Focus Mark on the row of that pane's session in Active Sessions.
+
+Traces: SRS-FR-099 ← BR-05 ← BO-01
 
 #### Scenario: Two idle panes
 - **GIVEN** two panes are open and both sessions are `Idle`
@@ -294,11 +292,12 @@ While a pane has the Focus Outline, the system SHALL show the Row Focus Mark on 
 - **THEN** no row shows the Row Focus Mark
 
 ### Requirement: Row Focus Mark contrast
-Traces: SRS-FR-099 ← BR-05
-
 The system SHALL draw the Row Focus Mark in a colour with a contrast ratio of at least 3:1 against the Active Sessions tint and against every Status Highlight fill, in both light and dark themes.
+
+Traces: SRS-FR-099 ← BR-05
 
 #### Scenario: Measured mark colour
 - **GIVEN** the `--row-focus` token in light and dark
 - **WHEN** its contrast is measured against `--section-active`, `--running-bg`, `--approval-bg` and `--error-bg` of the same theme
 - **THEN** every ratio is at least 3:1
+

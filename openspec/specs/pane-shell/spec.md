@@ -4,9 +4,9 @@
 TBD - created by archiving change add-pane-shell. Update Purpose after archive.
 ## Requirements
 ### Requirement: Open the pane shell (SRS-FR-055)
-Traces: SRS-FR-055 ← BR-05 ← BO-01
-
 When the user chooses Shell on a pane that has no Pane Shell, the system SHALL open a Pane Shell below the session in that pane, running the operating system's default shell in the workspace folder.
+
+Traces: SRS-FR-055 ← BR-05 ← BO-01
 
 #### Scenario: Shell opens in the workspace folder
 - **GIVEN** the pane "agent-deck · Scaffold Tauri app" has no Pane Shell
@@ -21,9 +21,9 @@ When the user chooses Shell on a pane that has no Pane Shell, the system SHALL o
 - **AND** on Windows it runs PowerShell
 
 ### Requirement: Hide the pane shell (SRS-FR-056)
-Traces: SRS-FR-056 ← BR-05 ← BO-01
-
 When the user chooses Shell on a pane whose Pane Shell is visible, the system SHALL hide the Pane Shell and keep its process running.
+
+Traces: SRS-FR-056 ← BR-05 ← BO-01
 
 #### Scenario: Hidden shell keeps serving
 - **GIVEN** the Pane Shell runs `npm run dev`
@@ -32,9 +32,9 @@ When the user chooses Shell on a pane whose Pane Shell is visible, the system SH
 - **AND** the server still answers at `localhost:1420`
 
 ### Requirement: Show the pane shell again (SRS-FR-057)
-Traces: SRS-FR-057 ← BR-05 ← BO-01
-
 When the user chooses Shell on a pane whose Pane Shell is hidden, the system SHALL show the Pane Shell with its previous output and height.
+
+Traces: SRS-FR-057 ← BR-05 ← BO-01
 
 #### Scenario: Output and height come back
 - **GIVEN** the Pane Shell was hidden at 40% of the pane while `npm run dev` kept printing
@@ -43,9 +43,9 @@ When the user chooses Shell on a pane whose Pane Shell is hidden, the system SHA
 - **AND** it shows the lines `npm run dev` printed while it was hidden
 
 ### Requirement: Hidden shell marker (SRS-FR-058)
-Traces: SRS-FR-058 ← BR-05 ← BO-01
-
 While a pane's Pane Shell is hidden, the system SHALL show a running marker on that pane's Shell button.
+
+Traces: SRS-FR-058 ← BR-05 ← BO-01
 
 #### Scenario: Marker with the running command
 - **GIVEN** the Pane Shell runs `npm run dev`
@@ -63,9 +63,9 @@ While a pane's Pane Shell is hidden, the system SHALL show a running marker on t
 - **THEN** neither shows a marker
 
 ### Requirement: Resize the pane shell (SRS-FR-059)
-Traces: SRS-FR-059 ← BR-05 ← BO-01
-
 When the user drags the divider between the session and the Pane Shell, the system SHALL resize both to follow the divider.
+
+Traces: SRS-FR-059 ← BR-05 ← BO-01
 
 #### Scenario: Drag the divider up
 - **GIVEN** a pane with a visible Pane Shell
@@ -73,9 +73,9 @@ When the user drags the divider between the session and the Pane Shell, the syst
 - **THEN** the Pane Shell is 100 px taller and the session area 100 px shorter
 
 ### Requirement: Reflow the pane shell (SRS-FR-060)
-Traces: SRS-FR-060 ← BR-05 ← BO-01
-
 When the Pane Shell changes size, the system SHALL fit the Pane Shell's content to its new size.
+
+Traces: SRS-FR-060 ← BR-05 ← BO-01
 
 #### Scenario: Divider drag resizes the shell terminal
 - **GIVEN** a visible Pane Shell
@@ -88,9 +88,9 @@ When the Pane Shell changes size, the system SHALL fit the Pane Shell's content 
 - **THEN** the shell process is resized to the larger terminal size
 
 ### Requirement: Shell exits (SRS-FR-061)
-Traces: SRS-FR-061 ← BR-05 ← BO-01
-
 When the Pane Shell's process exits, the system SHALL close the Pane Shell.
+
+Traces: SRS-FR-061 ← BR-05 ← BO-01
 
 #### Scenario: exit closes the shell area
 - **GIVEN** a visible Pane Shell
@@ -103,9 +103,9 @@ When the Pane Shell's process exits, the system SHALL close the Pane Shell.
 - **THEN** a new Pane Shell opens without the old output
 
 ### Requirement: Close pane ends its shell (SRS-FR-062)
-Traces: SRS-FR-062 ← BR-05 ← BO-01
-
 When the user closes a pane, the system SHALL end the Pane Shell process of that pane.
+
+Traces: SRS-FR-062 ← BR-05 ← BO-01
 
 #### Scenario: Hidden shell ends with its pane
 - **GIVEN** a hidden Pane Shell runs `npm run dev`
@@ -118,9 +118,9 @@ When the user closes a pane, the system SHALL end the Pane Shell process of that
 - **THEN** the shell process of that pane ends
 
 ### Requirement: Report shell start failure (SRS-FR-065)
-Traces: SRS-FR-065 ← BR-05 ← BO-01
-
 If the Pane Shell cannot start, then the system SHALL show the message "Shell could not start" in that pane and keep the session running.
+
+Traces: SRS-FR-065 ← BR-05 ← BO-01
 
 #### Scenario: Default shell cannot run
 - **GIVEN** the default shell cannot be started
@@ -129,9 +129,9 @@ If the Pane Shell cannot start, then the system SHALL show the message "Shell co
 - **AND** the session stays `Running` and the Shell button has no marker
 
 ### Requirement: Shell outlives an abnormal exit (SRS-FR-064)
-Traces: SRS-FR-064 ← BR-05 ← BO-01
-
 While the session in a pane has exited abnormally, the system SHALL keep that pane's Pane Shell running.
+
+Traces: SRS-FR-064 ← BR-05 ← BO-01
 
 #### Scenario: Crash leaves the shell running
 - **GIVEN** a pane whose Pane Shell runs `npm run dev`
@@ -145,9 +145,9 @@ While the session in a pane has exited abnormally, the system SHALL keep that pa
 - **THEN** the pane closes and its Pane Shell process has ended (SRS-FR-083)
 
 ### Requirement: Warn about a busy shell in the Close Dialog (SRS-FR-063)
-Traces: SRS-FR-063 ← BR-05 ← BO-01
-
 If the user chooses × on a pane whose Pane Shell is running a command, then the system SHALL show the warning "A command is still running in the shell." in the Close Dialog.
+
+Traces: SRS-FR-063 ← BR-05 ← BO-01
 
 #### Scenario: Busy hidden shell warns
 - **GIVEN** the session is `Idle` and the hidden Pane Shell runs `npm run dev`

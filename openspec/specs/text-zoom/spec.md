@@ -4,9 +4,9 @@
 TBD - created by archiving change add-text-zoom. Update Purpose after archive.
 ## Requirements
 ### Requirement: Increase text size (SRS-FR-068)
-Traces: SRS-FR-068 ← BR-05 ← BO-01
-
 When the user presses the Zoom shortcut to enlarge, the system SHALL increase the Text Size by 10 percentage points, up to 200%.
+
+Traces: SRS-FR-068 ← BR-05 ← BO-01
 
 #### Scenario: Enlarge twice
 - **GIVEN** the Text Size is 100%
@@ -31,9 +31,9 @@ When the user presses the Zoom shortcut to enlarge, the system SHALL increase th
 - **AND** the pane receives the key
 
 ### Requirement: Decrease text size (SRS-FR-069)
-Traces: SRS-FR-069 ← BR-05 ← BO-01
-
 When the user presses the Zoom shortcut to shrink, the system SHALL decrease the Text Size by 10 percentage points, down to 50%.
+
+Traces: SRS-FR-069 ← BR-05 ← BO-01
 
 #### Scenario: Shrink once
 - **GIVEN** the Text Size is 100%
@@ -46,9 +46,9 @@ When the user presses the Zoom shortcut to shrink, the system SHALL decrease the
 - **THEN** the Text Size stays 50%
 
 ### Requirement: Reset text size (SRS-FR-070)
-Traces: SRS-FR-070 ← BR-05 ← BO-01
-
 When the user presses the Zoom shortcut to reset, the system SHALL set the Text Size to 100%.
+
+Traces: SRS-FR-070 ← BR-05 ← BO-01
 
 #### Scenario: Reset from 150%
 - **GIVEN** the Text Size is 150%
@@ -56,9 +56,9 @@ When the user presses the Zoom shortcut to reset, the system SHALL set the Text 
 - **THEN** the Text Size is 100%
 
 ### Requirement: Persist text size (SRS-FR-071)
-Traces: SRS-FR-071 ← BR-05 ← BO-01
-
 The system SHALL keep the Text Size between application launches.
+
+Traces: SRS-FR-071 ← BR-05 ← BO-01
 
 #### Scenario: Size survives a restart
 - **GIVEN** the user set the Text Size to 130%
@@ -66,9 +66,9 @@ The system SHALL keep the Text Size between application launches.
 - **THEN** the Text Size is 130%
 
 ### Requirement: Reflow on text size change (SRS-FR-072)
-Traces: SRS-FR-072 ← BR-05 ← BO-01
-
 When the Text Size changes, the system SHALL fit the content of every session terminal and Pane Shell to its pane at the new Text Size.
+
+Traces: SRS-FR-072 ← BR-05 ← BO-01
 
 #### Scenario: Two panes refit
 - **GIVEN** two panes are open, one of them with a visible Pane Shell

@@ -4,9 +4,9 @@
 TBD - created by archiving change add-session-stash. Update Purpose after archive.
 ## Requirements
 ### Requirement: Stash button (SRS-FR-103)
-Traces: SRS-FR-103 ← BR-03 ← BO-02
-
 The system SHALL show a Stash button in the header of every pane immediately to the left of the Maximize button.
+
+Traces: SRS-FR-103 ← BR-03 ← BO-02
 
 #### Scenario: Button order
 - **GIVEN** a pane "agent-deck · Fix login bug" is open
@@ -19,9 +19,9 @@ The system SHALL show a Stash button in the header of every pane immediately to 
 - **THEN** the button is disabled and nothing happens
 
 ### Requirement: Stash a pane (SRS-FR-104)
-Traces: SRS-FR-104 ← BR-03 ← BO-02
-
 When the user chooses Stash on a pane that is not busy, the system SHALL close that pane and add its session to Stashed Sessions.
+
+Traces: SRS-FR-104 ← BR-03 ← BO-02
 
 #### Scenario: Stash an idle pane
 - **GIVEN** the pane of "Fix login bug" in `mokairo` is `Idle` and its shell runs no command
@@ -35,9 +35,9 @@ When the user chooses Stash on a pane that is not busy, the system SHALL close t
 - **THEN** "Fix login bug" is still listed
 
 ### Requirement: Confirm stashing a busy pane (SRS-FR-105)
-Traces: SRS-FR-105 ← BR-03 ← BO-02
-
 If the user chooses Stash on a pane whose session is `Running` or `Needs Approval` or whose Pane Shell is running a command, then the system SHALL show the Stash Dialog for that pane before stashing it.
+
+Traces: SRS-FR-105 ← BR-03 ← BO-02
 
 #### Scenario: Stash a running pane
 - **GIVEN** the session "Fix login bug" is `Running`
@@ -51,9 +51,9 @@ If the user chooses Stash on a pane whose session is `Running` or `Needs Approva
 - **THEN** the pane stays open and Stashed Sessions is unchanged
 
 ### Requirement: List stashed sessions (SRS-FR-106)
-Traces: SRS-FR-106 ← BR-03 ← BO-02
-
 The system SHALL list in Stashed Sessions every stashed session across all workspaces, with its title and its workspace name, most recently stashed first.
+
+Traces: SRS-FR-106 ← BR-03 ← BO-02
 
 #### Scenario: Newest first
 - **GIVEN** the user stashed "Fix login bug" in `mokairo` at 14:00 and "Scaffold Tauri app" in `agent-deck` at 14:10
@@ -66,9 +66,9 @@ The system SHALL list in Stashed Sessions every stashed session across all works
 - **THEN** that session is not in it
 
 ### Requirement: Empty stashed sessions (SRS-FR-107)
-Traces: SRS-FR-107 ← BR-03 ← BO-02
-
 While no session is stashed, the system SHALL show the message "No stashed sessions" in Stashed Sessions.
+
+Traces: SRS-FR-107 ← BR-03 ← BO-02
 
 #### Scenario: Nothing stashed
 - **GIVEN** no session was stashed
@@ -76,9 +76,9 @@ While no session is stashed, the system SHALL show the message "No stashed sessi
 - **THEN** Stashed Sessions shows "No stashed sessions"
 
 ### Requirement: Reopen a stashed session (SRS-FR-108)
-Traces: SRS-FR-108 ← BR-03 ← BO-02
-
 When the user chooses a row in Stashed Sessions, the system SHALL resume that session in a new pane.
+
+Traces: SRS-FR-108 ← BR-03 ← BO-02
 
 #### Scenario: Reopen
 - **GIVEN** "Fix login bug · mokairo" is in Stashed Sessions
@@ -92,9 +92,9 @@ When the user chooses a row in Stashed Sessions, the system SHALL resume that se
 - **AND** the row stays in Stashed Sessions
 
 ### Requirement: Unstash on open (SRS-FR-109)
-Traces: SRS-FR-109 ← BR-03 ← BO-02
-
 When a stashed session opens in a pane, the system SHALL remove that session from Stashed Sessions.
+
+Traces: SRS-FR-109 ← BR-03 ← BO-02
 
 #### Scenario: Opened from the row
 - **GIVEN** "Fix login bug" is in Stashed Sessions
@@ -107,9 +107,9 @@ When a stashed session opens in a pane, the system SHALL remove that session fro
 - **THEN** the row is no longer in Stashed Sessions
 
 ### Requirement: Remove from stash (SRS-FR-110)
-Traces: SRS-FR-110 ← BR-03 ← BO-02
-
 When the user chooses × on a row in Stashed Sessions, the system SHALL remove that session from Stashed Sessions without changing its history.
+
+Traces: SRS-FR-110 ← BR-03 ← BO-02
 
 #### Scenario: Remove a row
 - **GIVEN** "Fix login bug" is in Stashed Sessions
@@ -118,9 +118,9 @@ When the user chooses × on a row in Stashed Sessions, the system SHALL remove t
 - **AND** "Fix login bug" is still in the Session History Panel
 
 ### Requirement: Keep stash across launches (SRS-FR-111)
-Traces: SRS-FR-111 ← BR-03 ← BO-02
-
 The system SHALL keep Stashed Sessions and their order between application launches.
+
+Traces: SRS-FR-111 ← BR-03 ← BO-02
 
 #### Scenario: Relaunch
 - **GIVEN** two sessions are stashed
@@ -128,9 +128,9 @@ The system SHALL keep Stashed Sessions and their order between application launc
 - **THEN** Stashed Sessions shows the same two rows in the same order
 
 ### Requirement: Drop stashed sessions without history (SRS-FR-112)
-Traces: SRS-FR-112 ← BR-03 ← BO-02
-
 If the history of a stashed session no longer exists, then the system SHALL remove that session from Stashed Sessions.
+
+Traces: SRS-FR-112 ← BR-03 ← BO-02
 
 #### Scenario: Deleted in the app
 - **GIVEN** "Fix login bug" is in Stashed Sessions
@@ -143,9 +143,9 @@ If the history of a stashed session no longer exists, then the system SHALL remo
 - **THEN** its row is not in Stashed Sessions
 
 ### Requirement: Stashed Sessions tint (SRS-NFR-010)
-Traces: SRS-NFR-010 ← BR-03 ← BO-02
-
 The system SHALL give the Stashed Sessions section a background tint different from the Workspace List and Active Sessions tints, with a contrast ratio of at most 1.25:1 against the sidebar background and a text contrast of at least 4.5:1, in both light and dark themes.
+
+Traces: SRS-NFR-010 ← BR-03 ← BO-02
 
 #### Scenario: Measured tint
 - **GIVEN** the `--section-stash` token in light and dark

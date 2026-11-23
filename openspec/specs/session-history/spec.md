@@ -4,9 +4,9 @@
 TBD - created by archiving change add-session-history. Update Purpose after archive.
 ## Requirements
 ### Requirement: List sessions of a workspace (SRS-FR-007)
-Traces: SRS-FR-007 ← BR-02 ← BO-02
-
 When the user selects a workspace, the system SHALL open the Session History Panel listing every Claude Code session that belongs to that workspace per RULE-02. The Session History Panel is the column between the left column and the panes; its header shows the workspace name, New Session and Close.
+
+Traces: SRS-FR-007 ← BR-02 ← BO-02
 
 #### Scenario: Three sessions
 - **GIVEN** the workspace `agent-deck` has 3 Claude Code sessions started in `/Users/mionix/Project/personal/agent-deck`
@@ -29,18 +29,18 @@ When the user selects a workspace, the system SHALL open the Session History Pan
 - **THEN** no Session History Panel is shown and the panes take the width next to the left column
 
 ### Requirement: Show session title and last activity (SRS-FR-008)
-Traces: SRS-FR-008 ← BR-02 ← BO-02
-
 The system SHALL show the title per RULE-01 and the last activity time of each session in the Session History Panel.
+
+Traces: SRS-FR-008 ← BR-02 ← BO-02
 
 #### Scenario: Titled session active 2 minutes ago
 - **GIVEN** a session whose Claude Code title is "Scaffold Tauri app" and whose last activity was 2 minutes ago
 - **THEN** its row in the Session History Panel shows "Scaffold Tauri app" and "2 min ago"
 
 ### Requirement: Report unreadable sessions (SRS-FR-011)
-Traces: SRS-FR-011 ← BR-02 ← BO-02
-
 If one or more sessions of the selected workspace cannot be read, then the system SHALL show the notice "<N> sessions could not be read" in the Session History Panel.
+
+Traces: SRS-FR-011 ← BR-02 ← BO-02
 
 #### Scenario: Two broken sessions out of ten
 - **GIVEN** a workspace with 10 sessions, 2 of which cannot be read
@@ -48,9 +48,9 @@ If one or more sessions of the selected workspace cannot be read, then the syste
 - **THEN** the Session History Panel shows 8 sessions and the notice "2 sessions could not be read"
 
 ### Requirement: Mark live sessions (SRS-FR-012)
-Traces: SRS-FR-012 ← BR-02 ← BO-02
-
 While a session is open in a pane, the system SHALL mark that session as `Live` in the Session History Panel. The row carries no Status Highlight; the state shows in Active Sessions.
+
+Traces: SRS-FR-012 ← BR-02 ← BO-02
 
 #### Scenario: Session open in a pane
 - **GIVEN** the session "Scaffold Tauri app" is open in a pane
@@ -71,9 +71,9 @@ While a session is open in a pane, the system SHALL mark that session as `Live` 
 - **THEN** keyboard focus stays where it was and the row shows Resume and Delete
 
 ### Requirement: Session list load time (SRS-NFR-003)
-Traces: SRS-NFR-003 ← BR-02 ← BO-02
-
 When the user selects a workspace with up to 200 sessions, the system SHALL show its Session History Panel within 3 seconds.
+
+Traces: SRS-NFR-003 ← BR-02 ← BO-02
 
 #### Scenario: 200 sessions
 - **GIVEN** a workspace with 200 sessions
@@ -81,9 +81,9 @@ When the user selects a workspace with up to 200 sessions, the system SHALL show
 - **THEN** the Session History Panel shows the full list less than 3 seconds later
 
 ### Requirement: Read-only session history (SRS-NFR-005)
-Traces: SRS-NFR-005 ← BRD §8 constraint
-
 The system SHALL NOT modify any Claude Code session history on the machine other than moving a session the user deletes to the operating system's trash.
+
+Traces: SRS-NFR-005 ← BRD §8 constraint
 
 #### Scenario: Listing leaves files untouched
 - **GIVEN** the session files of a workspace
@@ -111,9 +111,9 @@ Traces: SRS-NFR-007 ← BRD §8 constraint
 - **THEN** the app sends none of that session's content anywhere, itself or through a Claude Code run it starts
 
 ### Requirement: Delete a session (SRS-FR-047)
-Traces: SRS-FR-047 ← BR-08 ← BO-02
-
 When the user confirms deleting a session, the system SHALL move that session's history to the operating system's trash and remove the session from the Session History Panel.
+
+Traces: SRS-FR-047 ← BR-08 ← BO-02
 
 #### Scenario: Session goes to the Trash
 - **GIVEN** the session "Scaffold Tauri app" in the selected folder
@@ -132,9 +132,9 @@ When the user confirms deleting a session, the system SHALL move that session's 
 - **THEN** no file is moved
 
 ### Requirement: Confirm deleting a session (SRS-FR-048)
-Traces: SRS-FR-048 ← BR-08 ← BO-02
-
 When the user chooses Delete on a row of the Session History Panel, the system SHALL ask "Move "<title>" to Trash?" before deleting.
+
+Traces: SRS-FR-048 ← BR-08 ← BO-02
 
 #### Scenario: Ask first
 - **GIVEN** the row "Scaffold Tauri app" is picked in the Session History Panel
@@ -147,9 +147,9 @@ When the user chooses Delete on a row of the Session History Panel, the system S
 - **THEN** the session is still in the Session History Panel and no file is moved
 
 ### Requirement: Delete an open session (SRS-FR-049)
-Traces: SRS-FR-049 ← BR-08 ← BO-02
-
 If the user confirms deleting a session that is open in a pane, then the system SHALL end that session and close its pane before moving its history to the trash.
+
+Traces: SRS-FR-049 ← BR-08 ← BO-02
 
 #### Scenario: Running session in pane 2
 - **GIVEN** "Research PTY crates" is `Running` in pane 2
@@ -159,9 +159,9 @@ If the user confirms deleting a session that is open in a pane, then the system 
 - **THEN** pane 2 closes and its session ends before its files are moved to the trash
 
 ### Requirement: Report delete failure (SRS-FR-050)
-Traces: SRS-FR-050 ← BR-08 ← BO-02
-
 If a session's history cannot be moved to the trash, then the system SHALL keep that session in the Session History Panel and show the message "Session could not be deleted".
+
+Traces: SRS-FR-050 ← BR-08 ← BO-02
 
 #### Scenario: File cannot be moved
 - **GIVEN** the session file of "Scaffold Tauri app" cannot be moved
@@ -170,18 +170,18 @@ If a session's history cannot be moved to the trash, then the system SHALL keep 
 - **AND** the message "Session could not be deleted" shows
 
 ### Requirement: Order session history (SRS-FR-009)
-Traces: SRS-FR-009 ← BR-02 ← BO-02
-
 The system SHALL order the Session History Panel by last activity time, newest first.
+
+Traces: SRS-FR-009 ← BR-02 ← BO-02
 
 #### Scenario: Newer above older
 - **GIVEN** session A was last active yesterday and session B 2 minutes ago
 - **THEN** B is listed above A
 
 ### Requirement: Empty session history (SRS-FR-010)
-Traces: SRS-FR-010 ← BR-02 ← BO-02
-
 If the selected workspace has no session, then the system SHALL show the message "No sessions yet" in the Session History Panel.
+
+Traces: SRS-FR-010 ← BR-02 ← BO-02
 
 #### Scenario: Brand-new folder
 - **GIVEN** a workspace where Claude Code has never run
@@ -189,9 +189,9 @@ If the selected workspace has no session, then the system SHALL show the message
 - **THEN** the Session History Panel shows "No sessions yet" and New Session
 
 ### Requirement: Add the new session to the session history (SRS-FR-019)
-Traces: SRS-FR-019 ← BR-04 ← BO-02
-
 When a new session starts in a pane, the system SHALL add that session to the Session History Panel of its workspace.
+
+Traces: SRS-FR-019 ← BR-04 ← BO-02
 
 #### Scenario: New Session in agent-deck
 - **GIVEN** the Session History Panel of `agent-deck` is open
@@ -199,9 +199,9 @@ When a new session starts in a pane, the system SHALL add that session to the Se
 - **THEN** the Session History Panel of `agent-deck` has one more row, at the top, labelled `Live`
 
 ### Requirement: Close the Session History Panel (SRS-FR-054)
-Traces: SRS-FR-054 ← BR-02 ← BO-02
-
 When the user chooses Close on the Session History Panel or clicks the selected workspace again, the system SHALL hide the Session History Panel.
+
+Traces: SRS-FR-054 ← BR-02 ← BO-02
 
 #### Scenario: Close button
 - **GIVEN** the Session History Panel of `agent-deck` is open
@@ -224,9 +224,9 @@ When the user chooses Close on the Session History Panel or clicks the selected 
 - **THEN** the Session History Panel stays open and shows the sessions of `mokairo`
 
 ### Requirement: Select a session (SRS-FR-073)
-Traces: SRS-FR-073 ← BR-08 ← BO-02
-
 When the user ticks the checkbox of a row in the Session History Panel, the system SHALL add that session to the Session Selection.
+
+Traces: SRS-FR-073 ← BR-08 ← BO-02
 
 #### Scenario: Tick two rows
 - **GIVEN** the Session History Panel lists "Scaffold Tauri app" and "Fix login bug"
@@ -244,9 +244,9 @@ When the user ticks the checkbox of a row in the Session History Panel, the syst
 - **THEN** the Session Selection holds only the other one
 
 ### Requirement: Delete selected action (SRS-FR-074)
-Traces: SRS-FR-074 ← BR-08 ← BO-02
-
 While the Session Selection is not empty, the system SHALL show the actions "Delete selected (<n>)" and "Select all" in the Session History Panel, where <n> is the number of selected sessions.
+
+Traces: SRS-FR-074 ← BR-08 ← BO-02
 
 #### Scenario: Two ticked rows
 - **GIVEN** two rows are ticked
@@ -257,9 +257,9 @@ While the Session Selection is not empty, the system SHALL show the actions "Del
 - **THEN** neither "Delete selected" nor "Select all" is shown
 
 ### Requirement: Select all sessions (SRS-FR-075)
-Traces: SRS-FR-075 ← BR-08 ← BO-02
-
 When the user chooses Select all, the system SHALL add every session listed in the Session History Panel to the Session Selection.
+
+Traces: SRS-FR-075 ← BR-08 ← BO-02
 
 #### Scenario: Select all from one
 - **GIVEN** the folder lists 5 sessions and 1 is ticked
@@ -267,9 +267,9 @@ When the user chooses Select all, the system SHALL add every session listed in t
 - **THEN** the panel shows "Delete selected (5)"
 
 ### Requirement: Clear the selection (SRS-FR-076)
-Traces: SRS-FR-076 ← BR-08 ← BO-02
-
 When the Session History Panel switches to another workspace or closes, the system SHALL empty the Session Selection.
+
+Traces: SRS-FR-076 ← BR-08 ← BO-02
 
 #### Scenario: Switch and come back
 - **GIVEN** two sessions of `agent-deck` are ticked
@@ -282,9 +282,9 @@ When the Session History Panel switches to another workspace or closes, the syst
 - **THEN** no row is ticked
 
 ### Requirement: Confirm deleting selected sessions (SRS-FR-077)
-Traces: SRS-FR-077 ← BR-08 ← BO-02
-
 When the user chooses Delete selected, the system SHALL ask "Move <n> sessions to Trash?" before deleting.
+
+Traces: SRS-FR-077 ← BR-08 ← BO-02
 
 #### Scenario: Nothing open
 - **GIVEN** 3 sessions are selected and none is open in a pane
@@ -303,9 +303,9 @@ When the user chooses Delete selected, the system SHALL ask "Move <n> sessions t
 - **AND** the 3 rows stay ticked
 
 ### Requirement: Delete selected sessions (SRS-FR-078)
-Traces: SRS-FR-078 ← BR-08 ← BO-02
-
 When the user confirms deleting the selected sessions, the system SHALL delete each selected session as in SRS-FR-047 and SRS-FR-049.
+
+Traces: SRS-FR-078 ← BR-08 ← BO-02
 
 #### Scenario: Three sessions, one running
 - **GIVEN** 3 sessions are selected and 1 of them is `Running` in pane 2
@@ -314,9 +314,9 @@ When the user confirms deleting the selected sessions, the system SHALL delete e
 - **AND** the Session Selection is empty
 
 ### Requirement: Report partial delete failure (SRS-FR-079)
-Traces: SRS-FR-079 ← BR-08 ← BO-02
-
 If some selected sessions cannot be moved to the trash, then the system SHALL keep those sessions in the Session History Panel and in the Session Selection and show the message "<k> of <n> sessions deleted".
+
+Traces: SRS-FR-079 ← BR-08 ← BO-02
 
 #### Scenario: One of three locked
 - **GIVEN** 3 sessions are selected and the file of 1 of them cannot be moved
@@ -325,9 +325,9 @@ If some selected sessions cannot be moved to the trash, then the system SHALL ke
 - **AND** the message "2 of 3 sessions deleted" is shown
 
 ### Requirement: Close and move to Trash (SRS-FR-101)
-Traces: SRS-FR-101 ← BR-08 ← BO-02
-
 When the user chooses Close and move to Trash in the Close Dialog, the system SHALL close that pane and then move that session's history to the operating system's trash.
+
+Traces: SRS-FR-101 ← BR-08 ← BO-02
 
 #### Scenario: Idle session trashed on close
 - **GIVEN** the session "Fix login bug" is `Idle` in a pane
@@ -342,9 +342,9 @@ When the user chooses Close and move to Trash in the Close Dialog, the system SH
 - **THEN** the session ends, the pane closes and the history is moved to the trash
 
 ### Requirement: Report delete failure after close (SRS-FR-102)
-Traces: SRS-FR-102 ← BR-08 ← BO-02
-
 If the history of a session closed with Close and move to Trash cannot be moved to the trash, then the system SHALL keep that session in the Session History Panel and show the message "Session could not be deleted".
+
+Traces: SRS-FR-102 ← BR-08 ← BO-02
 
 #### Scenario: Locked history file
 - **GIVEN** the history of the session in a pane cannot be moved to the trash

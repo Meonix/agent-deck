@@ -4,9 +4,9 @@
 TBD - created by archiving change add-sidebar-toggle. Update Purpose after archive.
 ## Requirements
 ### Requirement: Toggle sidebar by button (SRS-FR-088)
-Traces: SRS-FR-088 ← BR-05 ← BO-01
-
 When the user clicks the Sidebar Toggle, the system SHALL hide the Sidebar if it is shown and show it if it is hidden.
+
+Traces: SRS-FR-088 ← BR-05 ← BO-01
 
 #### Scenario: Hide the sidebar
 - **GIVEN** the Sidebar is shown and two panes are open side by side
@@ -21,9 +21,9 @@ When the user clicks the Sidebar Toggle, the system SHALL hide the Sidebar if it
 - **AND** "agent-deck" is still selected
 
 ### Requirement: Toggle sidebar by shortcut (SRS-FR-089)
-Traces: SRS-FR-089 ← BR-05 ← BO-01
-
 When the user presses the Sidebar shortcut, the system SHALL hide the Sidebar if it is shown and show it if it is hidden.
+
+Traces: SRS-FR-089 ← BR-05 ← BO-01
 
 #### Scenario: Cmd+B while typing in a pane on macOS
 - **GIVEN** the Sidebar is shown and pane 1 has keyboard focus on macOS
@@ -42,9 +42,9 @@ When the user presses the Sidebar shortcut, the system SHALL hide the Sidebar if
 - **THEN** the Sidebar does not change
 
 ### Requirement: Sidebar shown at launch (SRS-FR-090)
-Traces: SRS-FR-090 ← BR-05 ← BO-01
-
 When the application starts, the system SHALL show the Sidebar.
+
+Traces: SRS-FR-090 ← BR-05 ← BO-01
 
 #### Scenario: Hidden before quitting
 - **GIVEN** the user hid the Sidebar and quit the application

@@ -4,9 +4,9 @@
 TBD - created by archiving change add-session-resume. Update Purpose after archive.
 ## Requirements
 ### Requirement: Resume a session (SRS-FR-013)
-Traces: SRS-FR-013 ← BR-03 ← BO-02
-
 When the user resumes a session from the Session History Panel, the system SHALL open a new pane that continues that session in its workspace folder.
+
+Traces: SRS-FR-013 ← BR-03 ← BO-02
 
 #### Scenario: Resume "Scaffold Tauri app"
 - **GIVEN** the Session History Panel of `agent-deck` lists the session "Scaffold Tauri app", which is not open in any pane
@@ -21,9 +21,9 @@ When the user resumes a session from the Session History Panel, the system SHALL
 - **AND** it appears once in Active Sessions
 
 ### Requirement: Focus an already open session (SRS-FR-015)
-Traces: SRS-FR-015 ← BR-03 ← BO-02
-
 If the user resumes a session that is already open in a pane, then the system SHALL focus the existing pane without opening a second pane.
+
+Traces: SRS-FR-015 ← BR-03 ← BO-02
 
 #### Scenario: Resume a session open in pane 2
 - **GIVEN** "Scaffold Tauri app" is open in pane 2 of 3 panes
@@ -32,9 +32,9 @@ If the user resumes a session that is already open in a pane, then the system SH
 - **AND** there are still 3 panes
 
 ### Requirement: Reject resuming in a missing workspace (SRS-FR-016)
-Traces: SRS-FR-016 ← BR-03 ← BO-02
-
 If the user resumes a session of a `Missing` workspace, then the system SHALL reject the request and show the message "Folder not found".
+
+Traces: SRS-FR-016 ← BR-03 ← BO-02
 
 #### Scenario: Folder renamed after the list was shown
 - **GIVEN** the session list of `mokairo` is on screen

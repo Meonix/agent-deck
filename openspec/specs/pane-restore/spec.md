@@ -4,9 +4,9 @@
 TBD - created by archiving change add-pane-restore. Update Purpose after archive.
 ## Requirements
 ### Requirement: Remember open panes (SRS-FR-084)
-Traces: SRS-FR-084 ← BR-03 ← BO-02
-
 The system SHALL keep the session of every open pane and the pane layout between application launches.
+
+Traces: SRS-FR-084 ← BR-03 ← BO-02
 
 #### Scenario: Ended pane is not remembered
 - **GIVEN** three panes, and pane 3 shows "Session ended"
@@ -19,9 +19,9 @@ The system SHALL keep the session of every open pane and the pane layout between
 - **THEN** that pane is not reopened and is not counted as a failure
 
 ### Requirement: Reopen panes at launch (SRS-FR-085)
-Traces: SRS-FR-085 ← BR-03 ← BO-02
-
 When the application starts, the system SHALL resume each remembered session in a pane at its remembered position and size.
+
+Traces: SRS-FR-085 ← BR-03 ← BO-02
 
 #### Scenario: Two panes at 30/70
 - **GIVEN** the user quit with panes 1 and 2 side by side at 30/70
@@ -30,9 +30,9 @@ When the application starts, the system SHALL resume each remembered session in 
 - **AND** no pane is maximized and no Pane Shell is open
 
 ### Requirement: Report panes not reopened (SRS-FR-086)
-Traces: SRS-FR-086 ← BR-03 ← BO-02
-
 If a remembered session cannot be resumed at launch, then the system SHALL leave out its pane, give its space to the other panes and show the message "<k> sessions could not be reopened".
+
+Traces: SRS-FR-086 ← BR-03 ← BO-02
 
 #### Scenario: Folder of one pane is missing
 - **GIVEN** three panes were remembered and the folder of pane 2 is now `Missing`
