@@ -112,3 +112,18 @@ Chụp bằng Playwright ngày 2026-11-20, viewport 1440×900, full-page, chờ 
 | 23 | One UI Docs (trang web của Samsung) | https://developer.samsung.com/one-ui/index.html | `refs/oneui/dev-docs.png` | Ba thẻ trắng bo góc lớn (~24px) nổi trên nền xám nhạt, khoảng hở 20px, mục đang chọn nền xanh nhạt bo tròn — bản One UI cho màn rộng, gần agent-deck nhất |
 
 Đã thử nhưng bỏ: https://design.samsung.com/global/contents/one-ui/ (chỉ có hero chữ), https://www.samsung.com/us/one-ui/ và https://www.samsung.com/us/apps/dex/ (bị hộp cookie che, không thấy giao diện), https://www.samsung.com/global/galaxy/one-ui/ (trang lỗi "not available").
+
+## CR-016 · theo agent-deck-remote (2026-11-24)
+
+Reference chính: các thiết kế đã chốt của agent-deck-remote (đã mở, file trên máy): `agent-deck-remote/design/web-foundation`, `cot-trai`, `workspace`, `mo-lai-phien`, `tien-do`, `xem-file`. Ảnh chụp bên dưới ở `refs/cr016/`, chụp bằng Playwright 1440×900 ngày 2026-11-24, reference-only.
+
+nguồn · link · lấy gì
+cmux · https://cmux.com · tab dọc có chữ trạng thái, "notification rings" khi agent cần mình, chia ô ngang/dọc trong một tab
+Conductor · https://www.conductor.build · danh sách workspace có thời gian bên phải, hàng tab phiên gạch chân trên vùng chat, tool call gộp "▸ 5 tool calls", cột file đổi có +/−
+Superset (Paradev) · https://superset.sh · mục Pinned trong cột trái có chấm trạng thái nhỏ ở cuối dòng
+Happy · https://happy.engineering · cây task lồng dưới nhóm có +/− dòng code, ô nhập bo tròn có nút + đính kèm và nút gửi tròn ở chân
+Warp · https://www.warp.dev/agents · chia hai ô agent cạnh nhau, mỗi ô có tiêu đề riêng và nút thao tác ở góc phải
+Nimbalyst · https://www.nimbalyst.com · cột file dạng cây, khung chat có tên người gửi + giờ, "Finished in 2ms" dưới lượt trả lời
+VS Code · https://code.visualstudio.com/docs/copilot/chat/chat-sessions · danh sách phiên để mở lại, nhóm theo workspace (chỉ có chữ, không có ảnh giao diện)
+
+Đã mở mà không dùng: Linear (https://linear.app/features — trang chỉ có lưới icon, không có giao diện), Zed (https://zed.dev/agentic — ảnh editor quá mờ để lấy ý).

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<title>agent-deck CR-016 · Design</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.2.5/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.2.5/index.css">
+<link rel="stylesheet" href="../tokens.css">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  body { font-family: var(--font-sans); }
+  .frame { font-family: var(--font-sans); font-size: 13px; background: var(--background); color: var(--foreground); }
+  .frame svg { width: 14px; height: 14px; stroke-width: 1.75; flex-shrink: 0; }
+  .side { background: var(--card); border-right: 1px solid var(--border); }
+  .bar { background: var(--card); border-bottom: 1px solid var(--border); }
+  .sub { color: var(--muted-foreground); }
+  .side-label { color: var(--section-label); font-family: var(--font-mono); letter-spacing: .08em; font-size: 10px; text-transform: uppercase; }
+  .dot { width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; }
+  .dot-busy { background: var(--busy); } .dot-ready { background: var(--running); } .dot-err { background: var(--error); }
+  .dot-app { background: var(--approval); box-shadow: 0 0 0 1.5px var(--approval-foreground); }
+  .dot-ended { border: 1.5px solid var(--muted-foreground); } .dot-unknown { background: var(--muted-foreground); }
+  .w-busy { color: var(--busy-foreground); } .w-ready { color: var(--ready-foreground); } .w-app { color: var(--approval-foreground); } .w-err { color: var(--error-foreground); }
+  .row-app { background: var(--approval-bg); color: var(--approval-foreground); } .row-app .sub { color: var(--approval-foreground); }
+  .row-err { background: var(--error-bg); color: var(--error-foreground); } .row-err .sub { color: var(--error-foreground); }
+  .side-on { background: var(--section-active); box-shadow: inset 3px 0 0 var(--row-focus); }
+  .side-on.row-app { box-shadow: inset 3px 0 0 var(--approval-foreground); }
+  .side-on.row-err { box-shadow: inset 3px 0 0 var(--error-foreground); }
+  .chip { display:inline-block; padding:0 6px; border-radius:4px; font-size:11px; line-height:18px; font-weight:600; white-space:nowrap; }
+  .chip-app { background: var(--approval-bg); color: var(--approval-foreground); border:1px solid var(--approval-border); }
+  .chip-err { background: var(--error-bg); color: var(--error-foreground); }
+  .chip-idle { background: var(--muted); color: var(--muted-foreground); }
+  .seg { border:1px solid var(--border); border-radius:22px; display:flex; overflow:hidden; white-space:nowrap; font-size:12px; flex-shrink:0; }
+  .seg > span { padding: 2px 8px; color: var(--muted-foreground); }
+  .seg-on { background: var(--accent); color: var(--accent-foreground) !important; }
+  .field { background: var(--background); border:1px solid var(--border); border-radius:22px; color: var(--muted-foreground); }
+  .field-on { color: var(--foreground); }
+  .send { background: var(--primary); color: var(--primary-foreground); border-radius:22px; }
+  .send-off { background: var(--muted); color: var(--muted-foreground); border-radius:22px; }
+  .stop { background: var(--muted); color: var(--foreground); border:1px solid var(--border); border-radius:22px; }
+  .bubble { background: var(--primary); color: var(--primary-foreground); border-radius: 15px; }
+  .tool { color: var(--muted-foreground); border-left: 2px solid var(--border); }
+  .strip { background: var(--approval-bg); color: var(--approval-foreground); border-top: 2px solid var(--approval-border); }
+  .deny { border:1px solid var(--approval-foreground); border-radius:22px; color: var(--approval-foreground); }
+  .allow { background: var(--primary); color: var(--primary-foreground); border-radius:22px; }
+  .dlg { background: var(--card); border:1px solid var(--border); border-radius:14px; }
+  .menu { background: var(--card); border:1px solid var(--border); border-radius:10px; box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
+  .outline-btn { border:1px solid var(--border); border-radius:22px; }
+  .btn-danger { background: var(--error); color: var(--error-solid-foreground); border-radius:22px; }
+  .skel { background: var(--muted); }
+  .scrim { background: rgb(0 0 0 / .45); }
+  .act { color: var(--muted-foreground); }
+  .ctx-ok { color: var(--ctx-ok); } .del-n { color: var(--goal); }
+  .pane-app { box-shadow: inset 0 0 0 2px var(--approval); }
+  .pane-err { box-shadow: inset 0 0 0 2px var(--error); }
+  .pane-focus { outline: 2px solid var(--ring); outline-offset: -2px; }
+  .term { background: var(--background); font-family: var(--font-mono); font-size: 12px; line-height: 18px; }
+  .callout-err { background: var(--error-bg); color: var(--error-foreground); border:1px solid var(--error-border); border-radius:8px; }
+  .callout-info { background: var(--muted); color: var(--foreground); border:1px solid var(--border); border-radius:8px; }
+  .card { background: var(--card); border:1px solid var(--border); border-radius:8px; }
+  .pick-on { background: var(--accent); color: var(--accent-foreground); }
+  .radio { width:16px; height:16px; border-radius:9999px; border:2px solid var(--muted-foreground); flex-shrink:0; }
+  .radio-on { border-color: var(--row-focus); background: radial-gradient(circle, var(--row-focus) 0 3px, transparent 4px); }
+  .badge { min-width:16px; height:16px; padding:0 4px; border-radius:999px; background: var(--error); color: var(--error-solid-foreground); font-size:10px; line-height:16px; text-align:center; font-weight:600; }
+  .add-n { background: var(--running-bg); color: var(--running-foreground); } .del-l { background: var(--error-bg); color: var(--error-foreground); }
+  .toast { background: var(--foreground); color: var(--background); border-radius: 22px; }
+</style>
+</head>
+<body class="bg-gray-200 p-6 flex flex-col gap-12 items-start text-gray-900">
+
+<header class="max-w-[1280px]">
+  <h1 class="text-lg font-semibold">agent-deck · CR-016 · Bản chốt và trạng thái</h1>
+  <p class="text-gray-700 mt-1 text-[13px]">Bố cục A (wireframe) + bản màu v1 · Bản remote, chốt 2026-11-24. Token: <code>../tokens.css</code> (chép từ agent-deck-remote). Mỗi trạng thái có dark; bản chốt có thêm light. Nhãn theo Bảng nhãn SRS v1.16 mục 7. Không vẽ No permission (app một người dùng).</p>
+  <nav class="mt-2 text-[13px] flex flex-wrap gap-x-3 text-indigo-700">
+    <a href="#final">#final</a><a href="#final-light">#final-light</a><a href="#chooser">#chooser</a><a href="#views">#views</a><a href="#question">#question</a><a href="#composer-menus">#composer-menus</a><a href="#folder-menu">#folder-menu</a><a href="#dialogs">#dialogs</a><a href="#files-view">#files-view</a><a href="#settings">#settings</a><a href="#empty-no-folders">#empty-no-folders</a><a href="#empty-no-panes">#empty-no-panes</a><a href="#empty-chooser">#empty-chooser</a><a href="#loading">#loading</a><a href="#error">#error</a><a href="#dense-data">#dense-data</a><a href="#maximized">#maximized</a><a href="#narrow">#narrow</a>
+  </nav>
+</header>
+
+<div id="out" class="flex flex-col gap-12"></div>
+
+<script>
+const I = n => `<i data-lucide="${n}"></i>`;
+const ST = {
+  app:   { dot:'dot-app',  word:'Cần duyệt',  w:'w-app',   row:'row-app' },
+  err:   { dot:'dot-err',  word:'Lỗi',        w:'w-err',   row:'row-err' },
+  busy:  { dot:'dot-busy', word:'Đang chạy',  w:'w-busy',  row:'' },
+  ready: { dot:'dot-ready',word:'Xong lượt',  w:'w-ready', row:'' },
+  ended: { dot:'dot-ended',word:'Đã kết thúc',w:'sub',     row:'' },
+};
+function sessionRow(s){
+  const st = ST[s.state];
+  return `<div class="${st.row} ${s.on?'side-on':''}">
+    <div class="h-8 pl-8 pr-2 flex items-center gap-2"><span class="dot ${st.dot}"></span><span class="flex-1 truncate">${s.title}</span><span class="text-[11px] ${st.w} font-medium whitespace-nowrap">${st.word}</span><span class="act">${I('x')}</span></div>
+    ${s.sub?`<div class="pl-12 pr-2 pb-1.5 -mt-0.5 text-[11px] sub truncate">${s.sub}</div>`:''}
+  </div>`;
+}
+function folderRow(f){
+  const chip = f.chip ? `<span class="chip ${f.chipKind||'chip-idle'}">${f.chip}</span>` : '';
+  return `<div class="h-9 px-2 flex items-center gap-2"><span class="sub">${I(f.open===false?'chevron-right':'chevron-down')}</span><span class="flex-1 truncate ${f.missing?'sub line-through':''}">${f.name}</span>${f.missing?'<span class="chip chip-idle">Không còn</span>':''}${chip}<span class="sub">${I('plus')}</span><span class="sub">${I('ellipsis')}</span></div>${(f.sessions||[]).map(sessionRow).join('')}`;
+}
+function sidebar(o={}){
+  const folders = o.folders || DEFAULT_FOLDERS;
+  const empty = o.emptyFolders;
+  return `<aside class="side w-60 shrink-0 flex flex-col">
+    <div class="h-11 px-3 flex items-center font-semibold gap-2" style="border-bottom:1px solid var(--border)"><span class="flex-1">Agent Deck</span><span class="act">${I('panel-left-close')}</span></div>
+    <div class="flex-1 overflow-hidden py-1">
+      ${empty ? `<div class="px-3 py-3 text-[12px] sub">Chưa có folder nào.</div>` : folders.map(folderRow).join('')}
+      ${!empty && o.other!==0 ? `<div class="h-9 px-2 flex items-center gap-2 sub">${I(o.otherOpen?'chevron-down':'chevron-right')}<span class="side-label flex-1">Folder khác (${o.other??3})</span></div>` : ''}
+      ${!empty && o.otherOpen ? ['notes','dotfiles','blog'].map(n=>`<div class="h-9 pl-8 pr-2 flex items-center gap-2"><span class="flex-1 truncate">${n}</span><span class="sub">${I('plus')}</span><span class="sub">${I('ellipsis')}</span></div>`).join('') : ''}
+      ${!empty && o.stash!==false ? `<div class="h-9 px-2 flex items-center gap-2 sub">${I('chevron-down')}<span class="side-label flex-1">Để dành (1)</span></div>
+      <div class="h-9 pl-8 pr-2 flex items-center gap-2"><span class="sub">${I('archive')}</span><span class="flex-1 truncate">Write release notes <span class="sub">· notes</span></span><span class="act">${I('x')}</span></div>` : ''}
+      <div class="h-9 px-3 flex items-center gap-2 sub">${I('folder-plus')}Thêm folder</div>
+    </div>
+    <div class="h-10 px-3 flex items-center gap-2 sub" style="border-top:1px solid var(--border)">${I('settings')}<span class="text-[12px]">Cài đặt</span></div>
+  </aside>`;
+}
+const DEFAULT_FOLDERS = [
+  { name:'mokairo', chip:'1', chipKind:'chip-app', sessions:[{title:'Fix login bug', state:'app', sub:'14:02 · Bash npm install', on:true}] },
+  { name:'agent-deck', chip:'2', sessions:[{title:'Scaffold Tauri app', state:'busy'},{title:'Refactor status hook', state:'ready'}] },
+];
+function seg(view, shell, plan){
+  const items = [['Chat','Chat'],['Term','Term'],['Shell', shell?`Shell · ${shell}`:'Shell'],['Plan', plan?`Plan ${plan}`:'Plan']];
+  return `<span class="seg">${items.map(([k,l])=>`<span class="${k===view?'seg-on':''}">${l}</span>`).join('')}</span>`;
+}
+function header(p){
+  const st = ST[p.state];
+  return `<div class="bar h-10 px-3 flex items-center gap-2 shrink-0">
+    <span class="dot ${p.unknown?'dot-unknown':st.dot}"></span>
+    <span class="truncate font-medium min-w-[88px]">${p.ws} · ${p.title}</span>
+    ${p.unknown?'<span class="chip chip-idle truncate min-w-0">Không theo dõi được trạng thái</span>': (p.state==='app'?'<span class="chip chip-app">Cần duyệt</span>': p.state==='err'?'<span class="chip chip-err">Lỗi</span>':'')}
+    ${p.badge?`<span class="badge">${p.badge}</span>`:''}
+    <span class="flex-1"></span>
+    ${seg(p.view||'Chat', p.shell, p.plan)}
+    <span class="flex gap-2 shrink-0 act">${I('archive')}${I(p.max?'minimize-2':'maximize-2')}${I('x')}</span>
+  </div>`;
+}
+function composer(c={}){
+  if (c.hidden) return '';
+  const locked = c.locked;
+  return `<div class="px-3 py-2 flex items-center gap-2 shrink-0" style="border-top:1px solid var(--border); background:var(--card)">
+    <span class="act">${I('paperclip')}</span>
+    <span class="field ${c.text?'field-on':''} flex-1 px-3 py-1.5 truncate">${c.text || c.placeholder || 'Nhắn cho Claude… (/ lệnh, @ file)'}</span>
+    ${c.running ? `<span class="stop w-8 h-8 flex items-center justify-center">${I('square')}</span>` : `<span class="${locked?'send-off':'send'} w-8 h-8 flex items-center justify-center">${I('arrow-up')}</span>`}
+  </div>`;
+}
+function activity(a){ return a ? `<div class="px-3 h-7 flex items-center gap-3 text-[11px] sub shrink-0" style="border-top:1px solid var(--border)"><span class="dot dot-busy"></span><span>${a.tool}</span><span class="flex-1"></span><span class="ctx-ok">context ${a.ctx}</span>${a.bg?`<span>${a.bg}</span>`:''}</div>` : ''; }
+function strip(s){ return s ? `<div class="strip px-3 py-2 flex items-center gap-2 shrink-0">${I('hand')}<span class="flex-1 truncate"><b>${s.tool}</b> · <span class="font-mono">${s.cmd}</span></span><span class="deny px-3 py-1">Từ chối</span><span class="allow px-3 py-1">Cho phép</span></div>` : ''; }
+const chatBody = (msgs) => `<div class="flex-1 overflow-hidden p-4 flex flex-col gap-3">${msgs}</div>`;
+const CHAT1 = `<div class="bubble self-end max-w-[70%] px-3 py-2">Sửa lỗi đăng nhập khi token hết hạn</div>
+  <div class="max-w-[85%] leading-relaxed">Tôi sẽ cài lại dependency rồi chạy test đăng nhập để xem lỗi còn không.</div>
+  <div class="tool pl-3 py-1 flex items-center gap-2">${I('file-text')}Read <span class="font-mono text-[12px]">src/auth/login.ts</span></div>
+  <div class="tool pl-3 py-1 flex items-center gap-2">${I('pencil')}Edit <span class="font-mono text-[12px]">src/auth/login.ts</span><span class="ctx-ok text-[12px]">+4</span><span class="del-n text-[12px]">−2</span></div>`;
+const CHAT2 = `<div class="bubble self-end max-w-[70%] px-3 py-2">Tạo khung app Tauri có cột trái và lưới ô</div>
+  <div class="max-w-[85%] leading-relaxed">Tôi tạo project Tauri 2, thêm React và Tailwind, rồi dựng khung cửa sổ.</div>
+  <div class="tool pl-3 py-1 flex items-center gap-2">${I('file-plus')}Write <span class="font-mono text-[12px]">src-tauri/src/main.rs</span></div>
+  <div class="tool pl-3 py-1 flex items-center gap-2">${I('terminal')}Bash <span class="font-mono text-[12px]">cargo build</span><span class="sub text-[12px]">đang chạy…</span></div>`;
+const CHAT3 = `<div class="bubble self-end max-w-[70%] px-3 py-2">Đổi tên hàm statusOf thành readStatus</div>
+  <div class="max-w-[85%] leading-relaxed">Đã đổi tên ở 6 file và chạy lại test, tất cả đều qua.</div>
+  <div class="tool pl-3 py-1 flex items-center gap-2">${I('check')}Bash <span class="font-mono text-[12px]">npm test</span><span class="ctx-ok text-[12px]">48 passed</span></div>`;
+function pane(p){
+  const cls = [p.state==='app'?'pane-app':'', p.state==='err'?'pane-err':'', p.focus?'pane-focus':''].join(' ');
+  return `<div class="${cls} flex-1 min-w-0 min-h-0 flex flex-col ${p.edge||''}" style="${p.style||''}">
+    ${header(p)}
+    ${p.body || chatBody(p.chat||CHAT1)}
+    ${p.view==='Chat'||!p.view||p.view==='Plan' ? activity(p.activity) + strip(p.strip) + (p.extra||'') + composer(p.composer||{}) : ''}
+  </div>`;
+}
+function frame({dark=true, w=1280, h=800, side, main, overlay=''}){
+  return `<div class="${dark?'dark':''}"><div class="frame relative overflow-hidden flex border border-gray-400" style="width:${w}px;height:${h}px">${side??sidebar()}<main class="flex-1 min-w-0 flex relative">${main}</main>${overlay}</div></div>`;
+}
+const P1 = { ws:'mokairo', title:'Fix login bug', state:'app', focus:true, plan:'2/5', strip:{tool:'Bash',cmd:'npm install'}, composer:{locked:true, placeholder:'Claude Code đang chờ duyệt'}, edge:'', style:'border-right:1px solid var(--border)' };
+const P2 = { ws:'agent-deck', title:'Scaffold Tauri app', state:'busy', shell:'dev', chat:CHAT2, activity:{tool:'Bash · <span class="font-mono">cargo build</span>', ctx:'42%', bg:'1 shell nền'}, composer:{running:true} };
+
+function section(id, title, note, frames){
+  return `<section id="${id}" class="flex flex-col gap-3"><h2 class="text-sm font-semibold">${title}</h2>${note?`<p class="text-[13px] text-gray-700 max-w-[1280px]">${note}</p>`:''}<div class="flex flex-wrap gap-6 items-start">${frames}</div></section>`;
+}
+
+/* ---------- views ---------- */
+const TERM = `<div class="term flex-1 overflow-hidden p-3"><div class="sub">╭─────────────────────────────────────────╮</div><div>│ ✻ Welcome to Claude Code                │</div><div class="sub">╰─────────────────────────────────────────╯</div><div class="mt-2">&gt; Sửa lỗi đăng nhập khi token hết hạn</div><div class="sub mt-1">⏺ Read(src/auth/login.ts)</div><div class="mt-2" style="color:var(--approval-foreground)">Do you want to run npm install?</div><div>❯ 1. Yes</div><div>&nbsp; 2. No, and tell Claude what to do differently</div></div>`;
+const SHELL = `<div class="term flex-1 overflow-hidden p-3"><div><span class="ctx-ok">mionix@mac</span> <span class="w-busy">~/Project/agent-deck</span> $ npm run dev</div><div class="sub">&gt; agent-deck@0.1.0 dev</div><div class="sub">&gt; vite</div><div class="mt-1">  VITE v8.0.16  ready in 412 ms</div><div>  ➜  Local:   http://localhost:1420/</div></div>`;
+const PLAN = `<div class="flex-1 overflow-hidden flex">
+  <div class="w-[240px] shrink-0 p-3 flex flex-col gap-1" style="border-right:1px solid var(--border)">
+    <div class="side-label mb-1">Các bước · 2/5</div>
+    <div class="flex items-center gap-2 py-1"><span class="ctx-ok">${I('circle-check')}</span><span class="sub line-through">Đọc luồng đăng nhập</span></div>
+    <div class="flex items-center gap-2 py-1"><span class="ctx-ok">${I('circle-check')}</span><span class="sub line-through">Viết test token hết hạn</span></div>
+    <div class="flex items-center gap-2 py-1 px-1 -mx-1 rounded pick-on">${I('loader')}<span class="font-medium">Sửa refresh token</span></div>
+    <div class="flex items-center gap-2 py-1 sub">${I('circle')}<span>Chạy lại test</span></div>
+    <div class="flex items-center gap-2 py-1 sub">${I('circle')}<span>Cập nhật CHANGELOG</span></div>
+    <div class="side-label mt-3 mb-1">File đã đổi · 2</div>
+    <div class="flex items-center gap-2 py-1 font-mono text-[12px]"><span class="flex-1 truncate">src/auth/login.ts</span><span class="ctx-ok">+4</span><span class="del-n">−2</span></div>
+    <div class="flex items-center gap-2 py-1 font-mono text-[12px]"><span class="flex-1 truncate">src/auth/login.test.ts</span><span class="ctx-ok">+31</span></div>
+  </div>
+  <div class="flex-1 min-w-0 p-3 flex flex-col gap-1 font-mono text-[12px]">
+    <div class="sub mb-1">src/auth/login.ts</div>
+    <div class="px-2 sub">@@ -40,6 +40,8 @@</div>
+    <div class="px-2">  if (!session) return redirect('/login')</div>
+    <div class="px-2 del-l">- if (session.expired) throw new Error('expired')</div>
+    <div class="px-2 add-n">+ if (session.expired) {</div>
+    <div class="px-2 add-n">+   session = await refresh(session)</div>
+    <div class="px-2 add-n">+ }</div>
+    <div class="px-2">  return session</div>
+  </div></div>`;
+
+/* ---------- chooser ---------- */
+function chooser(o={}){
+  const rows = o.empty ? `<div class="px-4 py-6 text-center sub">Chưa có phiên nào</div>` : o.loading ? [1,2,3,4].map(()=>`<div class="h-10 px-4 flex items-center gap-2"><span class="skel w-4 h-4 rounded-sm"></span><span class="skel h-3 flex-1 rounded"></span><span class="skel h-3 w-12 rounded"></span></div>`).join('') : `
+    <div class="h-10 px-4 flex items-center gap-2"><span class="w-4 h-4 rounded-sm" style="border:1px solid var(--border)"></span><span class="flex-1 truncate">Scaffold Tauri app</span><span class="chip chip-idle">Đang mở</span></div>
+    <div class="h-10 px-4 flex items-center gap-2" style="background:var(--section-active)"><span class="w-4 h-4 rounded-sm flex items-center justify-center" style="background:var(--primary);color:var(--primary-foreground)">${I('check')}</span><span class="flex-1 truncate">Fix sidebar toggle</span><span class="text-[11px] sub">2 giờ trước</span><span class="sub">${I('trash-2')}</span></div>
+    <div class="h-10 px-4 flex items-center gap-2"><span class="w-4 h-4 rounded-sm flex items-center justify-center" style="background:var(--primary);color:var(--primary-foreground)">${I('check')}</span><span class="flex-1 truncate">Add text zoom</span><span class="text-[11px] sub">hôm qua</span></div>
+    <div class="h-10 px-4 flex items-center gap-2"><span class="w-4 h-4 rounded-sm" style="border:1px solid var(--border)"></span><span class="flex-1 truncate">Status board spike</span><span class="text-[11px] sub">3 ngày trước</span></div>
+    ${o.unreadable?`<div class="mx-4 mt-2 callout-info px-3 py-2 text-[12px] flex gap-2">${I('info')}2 phiên không đọc được</div>`:''}
+    <div class="mt-2 px-4 py-2 flex items-center gap-2" style="border-top:1px solid var(--border)"><span class="text-[12px] sub flex-1">Chọn tất cả</span><span class="btn-danger px-3 py-1 text-[12px] font-medium">Xoá đã chọn (2)</span></div>`;
+  return `<div class="absolute inset-0 scrim"></div><div class="absolute inset-0 flex items-center justify-center"><div class="dlg w-[440px] flex flex-col overflow-hidden">
+    <div class="h-12 px-4 flex items-center" style="border-bottom:1px solid var(--border)"><b class="flex-1">agent-deck</b><span class="sub">${I('x')}</span></div>
+    <div class="p-3"><div class="send h-10 flex items-center justify-center gap-2 font-medium">${I('plus')}Phiên mới</div></div>
+    <div class="px-4 pt-1 pb-1 side-label">Mở lại phiên cũ</div>
+    ${rows}<div class="h-2"></div></div></div>`;
+}
+
+const out = [];
+const twoPanes = (a=P1,b=P2) => pane(a) + pane(b);
+
+out.push(section('final','Bản chốt · v1 Bản remote · dark · 1280×800','Ô trái Cần duyệt: viền vàng 2px trong ô, Focus Outline iris, Approval Strip nền vàng, Composer khoá với lý do. Ô phải Đang chạy: thanh hoạt động (tool, context, shell nền), nút Dừng. Cột trái: folder có phiên cần duyệt lên đầu, dòng tô vàng + dải 3px, dòng phụ "giờ · lý do".', frame({main:twoPanes()})));
+out.push(section('final-light','Bản chốt · light · 1280×800', 'Viền vàng của ô Cần duyệt ở light chỉ 1.50:1 trên nền (có từ CR-001, đã chấp nhận); chip "Cần duyệt", dòng tô vàng và Approval Strip vẫn báo đủ.', frame({dark:false, main:twoPanes()})));
+out.push(section('chooser','Session Chooser · bấm + trên dòng folder · dark và light', 'Bấm dòng phiên = mở lại (đóng hộp). Ô vuông bên trái để tick xoá nhiều; tick ít nhất một thì hiện "Chọn tất cả" và "Xoá đã chọn (n)". Phiên đang mở có nhãn "Đang mở".', frame({w:640,h:520, side:'', main:'', overlay:chooser()}) + frame({dark:false,w:640,h:520, side:'', main:'', overlay:chooser()})));
+out.push(section('views','Bốn chế độ của ô · Term · Shell · Plan (Chat ở #final)', 'Term: terminal Claude Code như cũ, không có Composer. Shell: shell mặc định của folder; khi chuyển chế độ khác mà lệnh vẫn chạy thì mục Shell hiện tên lệnh ("Shell · dev"). Plan: các bước + file đã đổi bên trái, diff bên phải, có Composer.',
+  frame({w:1280,h:520, main: pane({...P1, view:'Term', body:TERM}) + pane({...P2, view:'Shell', body:SHELL})}) +
+  frame({w:1280,h:560, side:'', main: pane({...P1, view:'Plan', focus:true, body:PLAN, strip:null, state:'busy', activity:{tool:'Edit · <span class="font-mono">src/auth/login.ts</span>', ctx:'61%'}, composer:{running:true}})})));
+const QCARD = `<div class="mx-3 mb-2 card p-3 flex flex-col gap-2 shrink-0" style="border-color:var(--approval-border)">
+  <div class="text-[11px] side-label">Claude Code hỏi</div>
+  <div class="font-medium">Lưu refresh token ở đâu?</div>
+  <div class="flex items-center gap-2 px-2 py-1.5 rounded pick-on"><span class="radio radio-on"></span><span class="flex-1">Cookie httpOnly <span class="sub">— an toàn hơn, cần sửa server</span></span></div>
+  <div class="flex items-center gap-2 px-2 py-1.5 rounded"><span class="radio"></span><span class="flex-1">localStorage <span class="sub">— nhanh, dễ bị XSS đọc</span></span></div>
+  <div class="field px-3 py-1.5 text-[12px]">Khác…</div>
+  <div class="flex justify-end gap-2"><span class="outline-btn px-3 py-1">Bỏ qua</span><span class="allow px-3 py-1">Gửi</span></div></div>`;
+const PCARD = `<div class="mx-3 mb-2 card p-3 flex flex-col gap-2 shrink-0" style="border-color:var(--approval-border)">
+  <div class="text-[11px] side-label">Kế hoạch chờ duyệt</div>
+  <div class="text-[12px] leading-relaxed">1. Thêm hàm refresh() · 2. Gọi refresh khi token hết hạn · 3. Viết test · 4. Cập nhật CHANGELOG</div>
+  <div class="field px-3 py-1.5 text-[12px]">Góp ý để lên kế hoạch tiếp…</div>
+  <div class="flex justify-end gap-2"><span class="outline-btn px-3 py-1">Tiếp tục lên kế hoạch</span><span class="allow px-3 py-1">Duyệt kế hoạch</span></div></div>`;
+out.push(section('question','Question Card và duyệt kế hoạch', 'Câu hỏi chọn phương án (AskUserQuestion) và duyệt kế hoạch (ExitPlanMode) thay Approval Strip, cùng chỗ trên Composer. Trả lời trong Term vẫn được; trả lời xong thẻ tự biến mất.',
+  frame({w:1280,h:640, main: pane({...P1, plan:null, strip:null, extra:QCARD, chat:CHAT1}) + pane({...P2, state:'app', shell:null, chat:CHAT2, activity:null, extra:PCARD, composer:{locked:true, placeholder:'Claude Code đang chờ duyệt'}})})));
+const SLASH = `<div class="absolute left-[290px] bottom-[52px] menu w-[360px] py-1">
+  <div class="px-3 py-1 side-label">Lệnh</div>
+  <div class="px-3 h-8 flex items-center gap-2 pick-on"><span class="font-mono">/clear</span><span class="sub text-[12px] truncate">Xoá hội thoại, bắt đầu lại</span></div>
+  <div class="px-3 h-8 flex items-center gap-2"><span class="font-mono">/compact</span><span class="sub text-[12px] truncate">Rút gọn hội thoại</span></div>
+  <div class="px-3 h-8 flex items-center gap-2"><span class="font-mono">/commit</span><span class="sub text-[12px] truncate">skill · commit theo nhóm</span></div>
+  <div class="px-3 h-8 flex items-center gap-2"><span class="font-mono">/code-review</span><span class="sub text-[12px] truncate">plugin · review diff</span></div></div>`;
+const AT = `<div class="absolute left-[810px] bottom-[112px] menu w-[380px] py-1">
+  <div class="px-3 py-1 side-label">File trong agent-deck</div>
+  <div class="px-3 h-8 flex items-center gap-2 pick-on">${I('file')}<span class="font-mono text-[12px] truncate">src/components/PaneGrid.tsx</span></div>
+  <div class="px-3 h-8 flex items-center gap-2">${I('file')}<span class="font-mono text-[12px] truncate">src/components/paneTree.ts</span></div>
+  <div class="px-3 h-8 flex items-center gap-2">${I('folder')}<span class="font-mono text-[12px] truncate">src/components/</span></div></div>`;
+const ATTACH = `<div class="px-3 pt-2 flex flex-wrap gap-2 shrink-0" style="border-top:1px solid var(--border); background:var(--card)"><span class="chip chip-idle whitespace-nowrap" style="display:flex;align-items:center;gap:4px">${I('image')}screenshot.png · 214 KB ${I('x')}</span><span class="chip chip-err whitespace-nowrap" style="display:flex;align-items:center;gap:4px">${I('triangle-alert')}video.mov · File lớn hơn 50 MB</span></div>`;
+out.push(section('composer-menus','Composer · gợi ý "/" và "@", đính kèm file', 'Gõ "/" đầu ô nhập: lệnh có sẵn, skill, plugin đang bật. Gõ "@": tối đa 8 file/folder của folder phiên, bỏ file ẩn và file git bỏ qua. Dán hoặc kéo file vào ô nhập: hiện chip trên ô nhập; file quá 50 MB bị từ chối.',
+  frame({w:1280,h:520, main: pane({...P1, state:'ready', strip:null, focus:false, chat:CHAT3, composer:{text:'/c'}}) + pane({...P2, state:'ready', activity:null, focus:true, chat:CHAT3, extra:ATTACH, composer:{text:'Xem lại @src/comp'}}), overlay: SLASH + AT})));
+const FMENU = `<div class="absolute left-[200px] top-[150px] menu w-[220px] py-1">
+  <div class="px-3 h-8 flex items-center gap-2">${I('folder-open')}Xem file</div>
+  <div class="px-3 h-8 flex items-center gap-2">${I('copy')}Chép đường dẫn</div>
+  <div class="px-3 h-8 flex items-center gap-2 w-err">${I('folder-minus')}Bỏ folder</div></div>`;
+out.push(section('folder-menu','Folder Menu (⋯ trên dòng folder) và nhóm Folder khác mở ra', 'Bỏ folder còn phiên đang mở → toast "Đóng các phiên đang mở của folder này trước".',
+  frame({w:760,h:560, side: sidebar({otherOpen:true}), main:`<div class="flex-1"></div>`, overlay:FMENU})));
+const CLOSE = `<div class="absolute inset-0 scrim"></div><div class="absolute inset-0 flex items-center justify-center"><div class="dlg w-[400px] p-4 flex flex-col gap-3">
+  <div class="font-semibold">Đóng "Fix login bug"?</div>
+  <div class="callout-err px-3 py-2 text-[12px] flex gap-2">${I('triangle-alert')}<div>Phiên vẫn đang chạy.<br>Shell vẫn đang chạy một lệnh.</div></div>
+  <div class="flex justify-end gap-2 flex-wrap"><span class="outline-btn px-3 py-1.5">Huỷ</span><span class="outline-btn px-3 py-1.5">Đóng</span><span class="btn-danger px-3 py-1.5 font-medium">Đóng và chuyển vào Thùng rác</span></div></div></div>`;
+const STASH = `<div class="absolute inset-0 scrim"></div><div class="absolute inset-0 flex items-center justify-center"><div class="dlg w-[400px] p-4 flex flex-col gap-3">
+  <div class="font-semibold">Để dành "Scaffold Tauri app"?</div>
+  <div class="callout-err px-3 py-2 text-[12px] flex gap-2">${I('triangle-alert')}Phiên vẫn đang chạy.</div>
+  <div class="flex justify-end gap-2"><span class="outline-btn px-3 py-1.5">Huỷ</span><span class="allow px-3 py-1.5 font-medium">Để dành</span></div></div></div>`;
+const DEL = `<div class="absolute inset-0 scrim"></div><div class="absolute inset-0 flex items-center justify-center"><div class="dlg w-[400px] p-4 flex flex-col gap-3">
+  <div class="font-semibold">Đóng 1 phiên đang mở và chuyển 2 phiên vào Thùng rác?</div>
+  <div class="text-[12px] sub">Khôi phục được từ Thùng rác của hệ điều hành.</div>
+  <div class="flex justify-end gap-2"><span class="outline-btn px-3 py-1.5">Huỷ</span><span class="btn-danger px-3 py-1.5 font-medium">Chuyển vào Thùng rác</span></div></div></div>`;
+out.push(section('dialogs','Hộp thoại · Đóng ô · Để dành · Xoá nhiều phiên', 'Hộp giữa màn hình, nền đen 45%, bo 14px. Nút Huỷ viền; xác nhận đổ đầy (iris, hoặc đỏ khi chuyển vào Thùng rác). Cảnh báo bận nằm trong hộp.',
+  frame({w:560,h:340, side:'', main:'', overlay:CLOSE}) + frame({w:560,h:340, side:'', main:'', overlay:STASH}) + frame({w:560,h:340, side:'', main:'', overlay:DEL})));
+const FILES = `<div class="flex-1 min-w-0 flex flex-col">
+  <div class="bar h-12 px-4 flex items-center gap-2"><span class="sub">${I('arrow-left')}</span><span class="sub">agent-deck</span><span class="sub">/</span><span class="font-medium">src</span><span class="sub">/</span><span class="font-medium" style="color:var(--primary)">components</span><span class="flex-1"></span><span class="outline-btn px-3 py-1 text-[12px] flex items-center gap-1">${I('copy')}Chép đường dẫn</span></div>
+  <div class="flex-1 overflow-hidden">
+    ${[['folder','__tests__','12 file · 1 folder'],['folder','icons','6 file']].map(([i,n,c])=>`<div class="h-10 px-4 flex items-center gap-3" style="border-bottom:1px solid var(--border)">${I(i)}<span class="flex-1">${n}</span><span class="text-[12px] sub">${c}</span><span class="sub">${I('chevron-right')}</span></div>`).join('')}
+    ${[['PaneGrid.tsx','8.2 KB'],['PaneShell.tsx','4.9 KB'],['TerminalPane.tsx','10.1 KB'],['WorkspaceSidebar.tsx','7.4 KB'],['paneTree.ts','3.3 KB']].map(([n,s],k)=>`<div class="h-10 px-4 flex items-center gap-3" style="border-bottom:1px solid var(--border);${k===1?'background:var(--section-active)':''}">${I('file')}<span class="flex-1 font-mono text-[12px]">${n}</span><span class="text-[12px] sub">${s}</span><span class="sub">${I('copy')}</span></div>`).join('')}
+  </div></div>`;
+out.push(section('files-view','Files View · Xem file từ Folder Menu', 'Chỉ xem: folder con trước (kèm số file và folder bên trong), rồi file. Chép đường dẫn của folder đang xem hoặc từng file. Thay chỗ lưới ô cho tới khi bấm quay lại; các phiên vẫn chạy.',
+  frame({w:1280,h:520, main:FILES})));
+const SETTINGS = `<div class="flex-1 min-w-0 flex flex-col">
+  <div class="bar h-14 px-4 flex items-center gap-3"><span class="sub">${I('arrow-left')}</span><div><div class="font-semibold">Cài đặt</div><div class="text-[11px] sub">Áp cho phiên mở sau khi đổi</div></div></div>
+  <div class="flex-1 overflow-hidden p-4 flex flex-col gap-3 max-w-[720px]">
+    <div class="card p-3 flex flex-col gap-2"><div class="font-medium">Chế độ quyền mặc định</div>
+      <div class="flex items-center gap-2 px-2 py-1.5 rounded pick-on"><span class="radio radio-on"></span><span>default <span class="sub">— hỏi trước khi sửa file hay chạy lệnh</span></span></div>
+      <div class="flex items-center gap-2 px-2 py-1.5"><span class="radio"></span><span>acceptEdits <span class="sub">— tự sửa file, vẫn hỏi lệnh</span></span></div>
+      <div class="flex items-center gap-2 px-2 py-1.5"><span class="radio"></span><span>auto <span class="sub">— Claude Code tự quyết</span></span></div></div>
+    <div class="card p-3 flex items-center gap-3"><div class="flex-1"><div class="font-medium">Phiên bản Claude Code</div><div class="text-[12px] sub font-mono">2.1.322</div></div><span class="chip chip-app">Khác bản đã kiểm 2.1.300</span></div>
+    <div class="card p-3 flex items-center gap-3"><div class="flex-1"><div class="font-medium">Dọn file đính kèm</div><div class="text-[12px] sub">File đính kèm cũ hơn 1 giờ, không ô nào dùng · 38 file · 212 MB</div></div><span class="outline-btn px-3 py-1.5">Dọn file đính kèm</span></div>
+  </div></div>`;
+out.push(section('settings','Settings Page · nút Cài đặt ở chân cột trái', 'Dọn chỉ xoá file đính kèm do app giữ; không đụng Thùng rác, lịch sử phiên hay ~/.claude.', frame({w:1280,h:520, main:SETTINGS})));
+
+/* ---------- states ---------- */
+const EMPTY_NOF = `<div class="flex-1 flex items-center justify-center"><div class="text-center flex flex-col items-center gap-3"><span class="sub" style="transform:scale(2)">${I('folder-plus')}</span><div class="font-semibold mt-2">Chưa có folder nào</div><div class="sub max-w-[320px]">Thêm folder bạn hay làm việc với Claude Code để mở phiên.</div><span class="send px-4 py-2 font-medium flex items-center gap-2">${I('folder-plus')}Thêm folder</span></div></div>`;
+out.push(section('empty-no-folders','Empty · chưa có folder', '', frame({w:1280,h:520, side:sidebar({emptyFolders:true}), main:EMPTY_NOF})));
+const EMPTY_NOP = `<div class="flex-1 flex items-center justify-center"><div class="text-center flex flex-col items-center gap-3"><span class="sub" style="transform:scale(2)">${I('message-square-plus')}</span><div class="font-semibold mt-2">Chưa mở phiên nào</div><div class="sub max-w-[340px]">Bấm + trên dòng folder để mở phiên mới hoặc mở lại phiên cũ.</div></div></div>`;
+out.push(section('empty-no-panes','Empty · có folder, chưa mở phiên nào', 'Mọi folder đều vào "Folder khác (N)" vì chưa có phiên đang mở; nhóm này mở sẵn khi không còn gì khác trên cây.', frame({w:1280,h:520, side:sidebar({folders:[], other:3, otherOpen:true, stash:false}), main:EMPTY_NOP})));
+out.push(section('empty-chooser','Empty · folder chưa có phiên nào (Session Chooser)', '', frame({w:640,h:360, side:'', main:'', overlay:chooser({empty:true})})));
+const LOADING_CHAT = `<div class="flex-1 overflow-hidden p-4 flex flex-col gap-3"><div class="skel self-end h-8 w-1/2 rounded-[15px]"></div><div class="skel h-3 w-3/4 rounded"></div><div class="skel h-3 w-2/3 rounded"></div><div class="skel h-3 w-1/2 rounded"></div></div>`;
+out.push(section('loading','Loading · Session Chooser đang đọc lịch sử, Chat đang dựng hội thoại', 'Chỉ hiện thanh xương; không có chữ "Đang tải". Composer dùng được ngay khi phiên Input Ready.',
+  frame({w:640,h:420, side:'', main:'', overlay:chooser({loading:true})}) + frame({w:640,h:420, side:'', main: pane({...P2, state:'ready', body:LOADING_CHAT, activity:null, composer:{}})})));
+const ERR_CHAT = `<div class="flex-1 p-4 flex flex-col gap-3"><div class="callout-err px-3 py-2 text-[12px] flex gap-2">${I('triangle-alert')}Không đọc được hội thoại, xem ở Term</div></div>`;
+const ERR_START = `<div class="flex-1 p-4 flex flex-col gap-3"><div class="callout-err px-3 py-2 text-[12px] flex gap-2">${I('triangle-alert')}Không khởi động được Claude Code</div></div>`;
+const TOAST = `<div class="absolute left-1/2 -translate-x-1/2 bottom-[72px] toast px-4 py-2 text-[12px] flex items-center gap-2">${I('triangle-alert')}Không tìm thấy folder</div>`;
+out.push(section('error','Error · hội thoại không đọc được · Composer khoá vì không nhận ra màn hình · không khởi động được Claude Code · không theo dõi được trạng thái · folder không còn',
+  'Composer khoá thì ô nhập báo lý do và nút gửi xám; người dùng gõ trong Term. Lỗi phiên: viền đỏ trong ô, dòng tô đỏ ở cột trái với "giờ · loại lỗi".',
+  frame({w:1280,h:640, side: sidebar({folders:[{name:'mokairo', chip:'1', chipKind:'chip-err', sessions:[{title:'Fix login bug', state:'err', sub:'14:05 · Hết hạn mức', on:true}]},{name:'old-api', missing:true},{name:'agent-deck', chip:'2', sessions:[{title:'Scaffold Tauri app', state:'busy'},{title:'Refactor status hook', state:'ready'}]}]}),
+    main: pane({ws:'mokairo', title:'Fix login bug', state:'err', focus:true, body:ERR_START, composer:{locked:true, placeholder:'Không nhận ra màn hình Claude Code — gõ ở Term'}, style:'border-right:1px solid var(--border)'}) +
+          `<div class="flex-1 min-w-0 flex flex-col">${pane({...P2, unknown:true, state:'ready', body:ERR_CHAT, activity:null, composer:{locked:true, placeholder:'Không nhận ra màn hình Claude Code — gõ ở Term'}})}</div>`, overlay:TOAST})));
+/* dense */
+const mini = (p) => pane(p);
+out.push(section('dense-data','Dense · 4 ô, 5 folder · ô Cần duyệt, ô Lỗi, ô Plan, ô Xong lượt', 'Mỗi ô ~520×380: tên phiên cắt ngắn trước, nút gộp và nút góc giữ nguyên. Cột trái: folder có phiên Lỗi/Cần duyệt lên đầu.',
+  frame({w:1280,h:800, side: sidebar({folders:[
+      {name:'mokairo', chip:'2', chipKind:'chip-err', sessions:[{title:'Fix login bug', state:'err', sub:'14:05 · Quá tải máy chủ'},{title:'Payment webhook', state:'app', sub:'14:07 · Edit src/pay/hook.ts', on:true}]},
+      {name:'agent-deck', chip:'2', sessions:[{title:'Scaffold Tauri app', state:'busy'},{title:'Refactor status hook', state:'ready'}]},
+      {name:'blog', chip:'1', sessions:[{title:'Draft CR-016 post', state:'ended'}]}], other:2}),
+    main: `<div class="flex-1 min-w-0 grid grid-cols-2 grid-rows-2">
+      <div class="flex min-h-0" style="border-right:1px solid var(--border);border-bottom:1px solid var(--border)">${mini({ws:'mokairo', title:'Payment webhook', state:'app', focus:true, strip:{tool:'Edit', cmd:'src/pay/hook.ts'}, composer:{locked:true, placeholder:'Claude Code đang chờ duyệt'}, chat:CHAT1})}</div>
+      <div class="flex min-h-0" style="border-bottom:1px solid var(--border)">${mini({ws:'mokairo', title:'Fix login bug', state:'err', body:ERR_START, composer:{}})}</div>
+      <div class="flex min-h-0" style="border-right:1px solid var(--border)">${mini({ws:'agent-deck', title:'Scaffold Tauri app', state:'busy', view:'Plan', plan:'3/6', body:PLAN, activity:{tool:'Bash · cargo build', ctx:'78%'}, composer:{running:true}})}</div>
+      <div class="flex min-h-0">${mini({ws:'agent-deck', title:'Refactor status hook', state:'ready', chat:CHAT3, composer:{}})}</div></div>`})));
+out.push(section('maximized','Ô phóng to · badge đếm phiên khác Cần duyệt/Lỗi', 'Ô phóng to che cột trái và các ô khác; badge đỏ vì có ít nhất một phiên Lỗi. Bấm badge → thu về và tới phiên gấp nhất.',
+  frame({w:1280,h:560, side:'', main: pane({...P2, max:true, focus:true, badge:'2'})})));
+out.push(section('narrow','Cửa sổ hẹp · 900×640, cột trái ẩn (Ctrl+B)', 'Hai ô ~450px: tên phiên cắt còn vài chữ, nút gộp thu "Plan 2/5" về "Plan"; Approval Strip vẫn đủ chỗ cho cả hai nút.',
+  frame({w:900,h:640, side:'', main: twoPanes({...P1, plan:null}, {...P2, shell:null})})));
+
+document.getElementById('out').innerHTML = out.join('');
+lucide.createIcons();
+</script>
+</body></html>

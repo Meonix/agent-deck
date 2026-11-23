@@ -37,6 +37,10 @@
   --error-solid-foreground: #000000; /* chữ trên nền --error · 5.37 AA (trắng chỉ 3.91) */
 
   --goal: #ce2c31;                   /* red-11 — Target Box chữ đỏ FR-092 · 4.95 AA trên --card */
+  --ctx-ok: #1f7f54;                 /* green-11 tối thêm · 4.72 AA trên --card (green-11 #218358 chỉ 4.48) */
+  --busy: #0090ff;                   /* blue-9 — chấm phiên đang chạy · 3.10 trên --card */
+  --busy-foreground: #0a5fb8;        /* blue-11 tối thêm — chữ trạng thái chạy · 5.97 AA trên --card, 4.90 trên --section-active */
+  --ready-foreground: #16704a;       /* green-11 tối thêm — chữ Xong lượt/Sẵn sàng · 5.78 AA trên --card, 4.74 trên --section-active */
 
   /* SRS-NFR-009/010: tint ba section, đo so với --card (nền cột trái). Sidebar Refresh vòng 2: bộ thép "Сталь" user chọn, không phải thang Radix */
   --section-folders: #e7edf2;         /* thép (palette "Сталь" #E7EDF2) · 1.12:1 · --foreground 13.81 · --muted-foreground 5.01 · nhãn 8.13 */
@@ -95,6 +99,10 @@
   --error-solid-foreground: #000000; /* 5.37 AA trên --error */
 
   --goal: #ff9592;                   /* red-dark-11 · 8.34 AA trên --card (red-9 chỉ 4.49) */
+  --ctx-ok: #3dd68c;                 /* green-dark-11 · 9.37 AA trên --card */
+  --busy: #0090ff;                   /* blue-dark-9 · 5.39 trên --card */
+  --busy-foreground: #70b8ff;        /* blue-dark-11 · 8.36 AA trên --card, 6.77 trên --section-active */
+  --ready-foreground: #3dd68c;       /* green-dark-11 · 9.37 AA trên --card, 7.59 trên --section-active */
 
   --section-folders: #18212a;         /* thép, pha #1F2C38 + #10161C · 1.08:1 · --foreground 14.03 · --muted-foreground 7.85 · nhãn 5.51 */
   --section-active: #1f2c38;          /* palette "Сталь" #1F2C38 · 1.24:1 · --foreground 12.27 · --muted-foreground 6.86 · nhãn 4.81 · --row-focus 3.24 */

@@ -166,3 +166,30 @@ Thử nghiệm, chưa có CR, chưa lên code. File: `oneui/design.html`, `oneui
 - Còn hở (từ trước, không do One UI): viền vàng light 1.38 trên canvas; ANSI bright-black dark 4.46. Progress Strip bị cắt ở ô hẹp.
 - Chữ đề xuất ngoài SRS, cần PO xác nhận: "All clear", "No sessions running", "No sessions in this folder yet.".
 - Trạng thái: `#final`, `#final-collapsed`, `#all-clear`, `#empty-no-folders`, `#empty-no-sessions`, `#loading`, `#error`, `#close-confirm`, `#maximized`, `#dense-data`, `#narrow`. Không vẽ No permission.
+
+## Phạm vi CR-016 · theo agent-deck-remote (2026-11-24)
+
+Nguồn: `product/agent-deck/BRD.md` Approved v7.0, `SRS.md` Baselined v1.16 mục 7, CR-016. Thay mục Cảm giác, Signal Deck và One UI ở trên cho mọi việc từ nay. Bỏ hẳn lớp One UI (`oneui/`).
+
+- Nền tảng: như trên (Tauri 2, React/TS, macOS 14+ và Windows 11). Nhãn tiếng Việt theo Bảng nhãn SRS mục 7 (SRS-NFR-008 sửa ở CR-016).
+- Người dùng: như trên — một lập trình viên, cũng là PO, chạy song song nhiều phiên Claude Code; dùng agent-deck-remote hằng ngày nên đã quen giao diện đó.
+- Giá trị cốt lõi:
+  1. Không sót phiên chờ duyệt / lỗi (BO-01) — chấm + chữ trạng thái trên Session Row, tô cả dòng khi Cần duyệt / Lỗi, folder có phiên cần mình lên đầu cây.
+  2. Mở lại phiên cũ ≤ 3 thao tác (BO-02) — nút + trên dòng folder → Session Chooser → bấm dòng phiên.
+  3. Làm việc với phiên không phải gõ trong terminal (BO-05) — Chat, Composer, Approval Strip, Question Card, Plan trong từng ô.
+- Cảm giác: giống agent-deck-remote — phẳng, sát mép, ngăn bằng viền 1px, bo 4px, dòng dày h-9, Inter + JetBrains Mono, Lucide. Giữ chia nhiều ô kéo thả của agent-deck (khác remote chỉ một phiên).
+- Màn hình (SRS mục 7 v1.16): Sidebar (tiêu đề Agent Deck, Folder Tree, Other Folders, nhóm Để dành, Folder Menu, Thêm folder, nút Cài đặt) · Session Chooser · Pane Grid (header ô có View Switch Chat · Term · Shell · Plan; Chat; Composer; Approval Strip; Question Card; Activity Bar; Plan; Shell; ô phóng to có badge) · Files View · Settings Page · Close/Stash/Delete Dialog · Toast.
+- Thiết kế gốc đã chốt bên remote (dùng làm reference chính, đã mở): `agent-deck-remote/design/web-foundation`, `cot-trai`, `workspace`, `mo-lai-phien`, `tien-do`, `xem-file`.
+- Token (bước 4, dự kiến): lấy `agent-deck-remote/web/src/tokens.css` (bộ hiện tại cộng `--busy`, `--busy-foreground`, `--ready-foreground`, `--ctx-ok`); giữ màu và font; bỏ `--goal` (Target Box đã xoá ở CR-015) và `oneui/tokens-oneui.css`.
+- Ràng buộc SRS giữ: Focus Outline 2px iris (FR-087); Row Focus Mark thành dải iris 3px mép trái Session Row; thứ tự Để dành · Phóng to · × (FR-103); chữ trạng thái và dòng tô ≥ 4.5:1 cả light/dark (SRS-NFR-014).
+- Trạng thái cần vẽ (bước 7): Empty (chưa có folder · chưa mở phiên nào · folder chưa có phiên trong Session Chooser), Loading (Session Chooser, Chat), Error (Không đọc được hội thoại · Không tìm thấy folder · Không khởi động được Claude Code · Không theo dõi được trạng thái · Composer khoá vì không nhận ra màn hình), Dense (4 ô, ô Cần duyệt có Approval Strip, ô có Question Card, nhiều folder), ô phóng to có badge, cửa sổ hẹp, light. Không vẽ No permission (app một người dùng).
+
+## Đã chốt cho CR-016 (2026-11-24)
+
+- Bố cục: wireframe A · Header một dòng (`cr016/design.html#final`). Cột trái 240px là cây folder: phiên lồng dưới folder, dòng h-8/h-9, chấm 8px + chữ trạng thái bên phải, × đóng phiên; "Folder khác (N)" và "Để dành (N)" là nhãn in hoa mono; "Thêm folder" cuối cây; nút Cài đặt ở chân cột. Tiêu đề ô `.bar` h-10: chấm · "folder · tiêu đề" · chip trạng thái · nút gộp Chat | Term | Shell | Plan (bo 22px) · Để dành · Phóng to · ×. Session Chooser là hộp 440px giữa màn hình, nền đen 45%.
+- Màu: v1 · Bản remote — dùng đúng class của agent-deck-remote (`web/src/index.css`): `.side`, `.bar`, `.side-on` + dải 3px, `.row-app`/`.row-err` tô cả dòng, `.seg-on` nền `--accent`, `.bubble` nền `--primary`, `.strip` (= `.app` của remote) nền `--approval-bg` viền trên 2px, `.allow`/`.deny`, `.send`/`.stop`, `.dlg` bo 14px, `.menu` bo 10px, `.btn-danger`. Ô Cần duyệt: viền trong 2px `--approval`; ô Lỗi: 2px `--error`; Focus Outline 2px `--ring`.
+- Token: `tokens.css` = bản của agent-deck-remote (thêm `--busy`, `--busy-foreground`, `--ready-foreground`, `--ctx-ok`); `tailwind.preset.js` không đổi. Bỏ lớp One UI: `oneui/tokens-oneui.css` gỡ khỏi `src/index.css` ở backlog mục 34, xoá thư mục `oneui/` sau khi code không còn import.
+- Contrast: mọi cặp chữ/nền ≥ 4.61; chấm Đang chạy 3.10 light / 5.39 dark. Còn hở từ CR-001: viền vàng ô Cần duyệt ở light 1.50:1.
+- Trạng thái: `#chooser`, `#views`, `#question`, `#composer-menus`, `#folder-menu`, `#dialogs`, `#files-view`, `#settings`, `#empty-no-folders`, `#empty-no-panes`, `#empty-chooser`, `#loading`, `#error`, `#dense-data`, `#maximized`, `#narrow`. Không vẽ No permission (app một người dùng).
+- Chữ đề xuất ngoài Bảng nhãn SRS, cần PO xác nhận khi làm code: "Chưa có folder nào", "Chưa mở phiên nào", "Bấm + trên dòng folder để mở phiên mới hoặc mở lại phiên cũ.", "Mở lại phiên cũ", "Claude Code hỏi", "Kế hoạch chờ duyệt", "Bỏ qua", "Nhắn cho Claude… (/ lệnh, @ file)", "Claude Code đang chờ duyệt", "Áp cho phiên mở sau khi đổi", "Khác bản đã kiểm".
+- Reference: `references.md` mục CR-016, ảnh ở `refs/cr016/`.
