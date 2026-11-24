@@ -55,14 +55,14 @@ Traces: SRS-NFR-006 ← BRD §8 constraint
 - **THEN** those settings files are byte-for-byte the same as before
 
 ### Requirement: Highlight session rows (SRS-FR-032)
-While a session open in a pane is in the state `Running`, `Needs Approval` or `Error`, the system SHALL show the Status Highlight of that state on the row of that session in Active Sessions. The Status Highlight is the background of that state and a marker of that state. The state follows RULE-03 to RULE-08 and the transition table in SRS section 5; a pane starts in `Idle` (RULE-05: Claude Code waits for a request).
+While a session open in a pane is in the state `Running`, `Needs Approval` or `Error`, the system SHALL show the Status Highlight of that state on the row of that session in Active Sessions. The Status Highlight is a marker of that state; for `Needs Approval` and `Error` it also tints the whole row with that state's background, while a `Running` row keeps the sidebar background. The state follows RULE-03 to RULE-08 and the transition table in SRS section 5; a pane starts in `Idle` (RULE-05: Claude Code waits for a request).
 
 Traces: SRS-FR-032 ← BR-06 ← BO-01
 
 #### Scenario: Three panes in three states
 - **GIVEN** `agent-deck` has pane 1 `Running`, `mokairo` has pane 2 `Needs Approval` and pane 3 `Idle`
 - **AND** `agent-deck` is the selected folder
-- **THEN** in Active Sessions the row of pane 2 has the `Needs Approval` background and the row of pane 1 the `Running` background
+- **THEN** in Active Sessions the row of pane 2 has the `Needs Approval` background and the row of pane 1 the blue `Running` marker without a background
 - **AND** the row of pane 3 has no Status Highlight
 
 #### Scenario: Ended session has no highlight
@@ -104,6 +104,11 @@ Traces: SRS-FR-032 ← BR-06 ← BO-01
 - **GIVEN** the session "Scaffold Tauri app" is open in a pane and `Needs Approval`
 - **THEN** its row in Active Sessions shows the `Needs Approval` highlight
 - **AND** its row in the Session History Panel still shows `Live`, without a highlight (SRS-FR-012)
+
+#### Scenario: Running is blue, not green
+- **GIVEN** a pane is `Running`
+- **THEN** its row shows the `--busy` dot and no `--running-bg` background
+- **AND** green (`--running`) is left to the `Idle` ("Xong lượt") marker
 
 ### Requirement: Status detail line (SRS-FR-033)
 While a session row shows the Status Highlight of `Needs Approval` or `Error`, the system SHALL show below the session title the time the session entered that state and the reason of that state.
@@ -251,18 +256,6 @@ Traces: SRS-FR-053 ← BR-06 ← BO-01
 - **GIVEN** no pane is open
 - **THEN** Active Sessions shows "No active sessions"
 
-### Requirement: Sidebar section tints (SRS-NFR-009)
-The system SHALL give the Workspace List section and the Active Sessions section two different background tints, each with a contrast ratio of at most 1.25:1 against the sidebar background and a text contrast of at least 4.5:1, in both light and dark themes.
-
-Traces: SRS-NFR-009 ← BR-06 ← BO-01
-
-#### Scenario: Tokens in both themes
-- **GIVEN** the tokens `--section-folders` and `--section-active` in `design/agent-deck/tokens.css`
-- **THEN** each one measures at most 1.25:1 against `--card` and gives `--foreground` and `--muted-foreground` at least 4.5:1, in `:root` and in `.dark`
-
-#### Scenario: Sections use the tints
-- **THEN** the Folders section has the background `--section-folders` and the Active Sessions section the background `--section-active`
-
 ### Requirement: Focused session row mark (SRS-FR-099)
 While a pane has the Focus Outline, the system SHALL show the Row Focus Mark on the row of that pane's session in Active Sessions.
 
@@ -300,4 +293,14 @@ Traces: SRS-FR-099 ← BR-05
 - **GIVEN** the `--row-focus` token in light and dark
 - **WHEN** its contrast is measured against `--section-active`, `--running-bg`, `--approval-bg` and `--error-bg` of the same theme
 - **THEN** every ratio is at least 3:1
+
+### Requirement: Status word contrast (SRS-NFR-014)
+The system SHALL show every status word and status-tinted row with a text contrast of at least 4.5:1 in both light and dark themes.
+
+Traces: SRS-NFR-014 ← BR-06 ← BO-01
+
+#### Scenario: Measured status colours
+- **GIVEN** the tokens of `design/agent-deck/tokens.css` in `:root` and in `.dark`
+- **WHEN** `--busy-foreground` and `--ready-foreground` are measured against `--card` and `--section-active`, and `--approval-foreground`, `--error-foreground` and `--running-foreground` against `--approval-bg`, `--error-bg` and `--running-bg`
+- **THEN** every ratio is at least 4.5:1
 

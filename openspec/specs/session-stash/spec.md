@@ -142,14 +142,3 @@ Traces: SRS-FR-112 ← BR-03 ← BO-02
 - **WHEN** the application starts
 - **THEN** its row is not in Stashed Sessions
 
-### Requirement: Stashed Sessions tint (SRS-NFR-010)
-The system SHALL give the Stashed Sessions section a background tint different from the Workspace List and Active Sessions tints, with a contrast ratio of at most 1.25:1 against the sidebar background and a text contrast of at least 4.5:1, in both light and dark themes.
-
-Traces: SRS-NFR-010 ← BR-03 ← BO-02
-
-#### Scenario: Measured tint
-- **GIVEN** the `--section-stash` token in light and dark
-- **WHEN** its contrast is measured against `--card`, and `--foreground` and `--muted-foreground` against it
-- **THEN** the background ratio is at most 1.25:1 and both text ratios are at least 4.5:1
-- **AND** the colour differs from `--section-folders` and `--section-active`
-
