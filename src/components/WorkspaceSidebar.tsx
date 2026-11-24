@@ -1,16 +1,17 @@
-import { Plus, X } from "lucide-react";
+import { FolderPlus, X } from "lucide-react";
+import { labels } from "../labels";
 import { ICON, ICON_SM } from "./icon";
 import type { StashedSession } from "./stash";
 import type { ActiveSession, FolderHighlight } from "./statusHighlight";
-import { RoundMark, StateMarker, tone } from "./statusTone";
+import { RoundMark, tone } from "./statusTone";
 import type { WorkspacesState } from "./useWorkspaces";
 
-// The label sits inside the tinted block, where --section-label is measured (SRS-NFR-010).
-const SECTION = "rounded-group p-1";
-const SECTION_LABEL = "text-[13px] font-medium text-section-label";
-const SECTION_HEAD = "px-3 pt-2 pb-1.5";
+// Sections share the sidebar's --card, where --section-label is measured; only their labels set them apart.
+const SECTION = "py-1";
+const SECTION_LABEL = "side-label text-[10px] uppercase";
+const SECTION_HEAD = "px-3 pt-2 pb-1";
 const CHIP = "max-w-[45%] shrink-0 truncate text-[11px] text-muted-foreground";
-const ROW = "rounded-row py-2 pl-3 pr-3";
+const ROW = "py-2 pl-3 pr-3";
 const EMPTY = "px-3 pb-2 text-[13px] text-muted-foreground";
 
 type Props = {
@@ -43,21 +44,21 @@ export function WorkspaceSidebar({
 }: Props) {
   const { items, selected, select, addFolder, removeFolder } = workspaces;
   return (
-    <aside aria-label="Workspaces" hidden={hidden} inert={covered} className="flex min-h-0 flex-col overflow-hidden rounded-card bg-sidebar">
+    <aside aria-label={labels.sidebar} hidden={hidden} inert={covered} className="side flex min-h-0 flex-col overflow-hidden">
       {/* SRS-FR-088: this list area keeps its scroll position while the sidebar is hidden. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-2">
-        <section className={`${SECTION} bg-section-folders`}>
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto py-1">
+        <section className={SECTION}>
           <div className={SECTION_HEAD}>
-            <span className={SECTION_LABEL}>Folders</span>
+            <span className={SECTION_LABEL}>{labels.folders}</span>
           </div>
-          <ul aria-label="Folders">
+          <ul aria-label={labels.folders}>
             {(items ?? []).map((w) => {
               const highlight = folderHighlights.get(w.id);
               return (
                 <li
                   key={w.id}
                   aria-current={w.id === selected?.id ? "true" : undefined}
-                  className={`group flex min-h-11 items-center justify-between gap-2 rounded-row border-l-2 py-1.5 pl-[10px] pr-2 text-[13px] transition-colors ${folderLook(highlight, w.id === selected?.id)}`}
+                  className={`group flex min-h-9 items-center justify-between gap-2 border-l-2 py-1 pl-[10px] pr-2 text-[13px] transition-colors ${folderLook(highlight, w.id === selected?.id)}`}
                 >
                   <button
                     onClick={() => select(w.id)}
@@ -67,26 +68,25 @@ export function WorkspaceSidebar({
                       <RoundMark mark={{ kind: "folder", missing: w.missing }} />
                       <span className="flex min-w-0 flex-col">
                         <span className={`truncate ${w.missing ? "text-muted-foreground" : ""}`}>{w.name}</span>
-                        {w.missing && <span className="text-[11px] text-error-foreground">Missing</span>}
+                        {w.missing && <span className="text-[11px] text-error-foreground">{labels.missing}</span>}
                       </span>
                     </span>
                     {highlight && (
                       <span
                         role="img"
-                        aria-label={`${highlight.count} ${highlight.state}`}
-                        className={`inline-flex h-5 shrink-0 items-center gap-1 rounded-full border px-2 text-[11px] font-medium ${tone[highlight.state].chip}`}
+                        aria-label={labels.folderStatus(highlight.count, highlight.state)}
+                        className={`shrink-0 ${tone[highlight.state].chip}`}
                       >
-                        <StateMarker state={highlight.state} />
                         {highlight.count}
                       </span>
                     )}
                   </button>
                   {/* Shown on hover, and kept reachable by keyboard like the stash ×. */}
                   <button
-                    aria-label={`Remove ${w.name}`}
-                    title={`Remove ${w.name}`}
+                    aria-label={labels.removeFolder(w.name)}
+                    title={labels.removeFolder(w.name)}
                     onClick={() => void removeFolder(w.id)}
-                    className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 hover:bg-section-hover hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 transition-opacity"
+                    className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 transition-opacity"
                   >
                     <X {...ICON_SM} />
                   </button>
@@ -95,29 +95,29 @@ export function WorkspaceSidebar({
             })}
           </ul>
         </section>
-        <section className={`${SECTION} bg-section-active`}>
+        <section className={SECTION}>
           <div className={SECTION_HEAD}>
             <span className={SECTION_LABEL}>
-              Active Sessions · {active.length}
+              {labels.activeCount(active.length)}
             </span>
           </div>
-          <ul aria-label="Active sessions">
+          <ul aria-label={labels.activeSessions}>
             {active.length === 0 ? (
-              <li className={EMPTY}>No active sessions</li>
+              <li className={EMPTY}>{labels.noActiveSessions}</li>
             ) : (
               active.map((row) => <ActiveRow key={row.paneId} row={row} focused={row.paneId === focusedPaneId} onJump={onJump} />)
             )}
           </ul>
         </section>
-        <section className={`${SECTION} bg-section-stash`}>
+        <section className={SECTION}>
           <div className={SECTION_HEAD}>
             <span className={SECTION_LABEL}>
-              Stashed Sessions · {stashed.length}
+              {labels.stashedCount(stashed.length)}
             </span>
           </div>
-          <ul aria-label="Stashed sessions">
+          <ul aria-label={labels.stashedSessions}>
             {stashed.length === 0 ? (
-              <li className={EMPTY}>No stashed sessions</li>
+              <li className={EMPTY}>{labels.noStashedSessions}</li>
             ) : (
               stashed.map((row) => (
                 <StashedRow
@@ -132,15 +132,15 @@ export function WorkspaceSidebar({
           </ul>
         </section>
       </div>
-      <div className="shrink-0 px-2 pb-2">
+      <div className="shrink-0 border-t border-border">
         <button
-          aria-label="+ Add Folder"
-          title="+ Add Folder"
+          aria-label={labels.addFolder}
+          title={labels.addFolder}
           onClick={() => void addFolder()}
-          className="flex h-9 w-full items-center justify-center gap-1.5 rounded-full bg-surface px-3 text-[13px] font-medium text-foreground hover:bg-section-hover transition-colors"
+          className="flex h-10 w-full items-center gap-2 px-3 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
-          <Plus {...ICON} />
-          Add Folder
+          <FolderPlus {...ICON} />
+          {labels.addFolder}
         </button>
       </div>
     </aside>
@@ -164,19 +164,19 @@ function ActiveRow({ row, focused, onJump }: { row: ActiveSession; focused: bool
           e.preventDefault();
           onJump(row.paneId);
         }}
-        className="flex w-full items-center gap-3 rounded-row text-left text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-full items-center gap-3 rounded text-left text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span role="img" aria-label={row.state} className="inline-flex shrink-0">
+        <span role="img" aria-label={labels.state[row.state]} className="inline-flex shrink-0">
           <RoundMark mark={{ kind: "state", state: row.state }} />
         </span>
-        <span className="min-w-0 flex-1 truncate">{row.title}</span>
+        <span className="min-w-0 flex-1 truncate">{labels.title(row.title)}</span>
         <span className={CHIP}>
           {row.workspaceName}
         </span>
       </button>
       {detail && (
         <div className={`pl-10 text-[11px] truncate ${tone[row.state].text}`}>
-          {clock(row.since) + (row.reason ? ` · ${row.reason}` : "")}
+          {clock(row.since) + (row.reason ? ` · ${labels.reason(row.reason)}` : "")}
         </div>
       )}
     </li>
@@ -190,21 +190,21 @@ function StashedRow({ row, workspaceName, onReopen, onUnstash }: {
   onUnstash(sessionId: string): void;
 }) {
   return (
-    <li className={`group flex items-center gap-1 ${ROW} hover:bg-section-hover transition-colors`}>
+    <li className={`group flex items-center gap-1 ${ROW} hover:bg-muted transition-colors`}>
       <button
         onClick={() => onReopen(row)}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-row text-left text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded text-left text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <RoundMark mark={{ kind: "stashed" }} />
-        <span className="min-w-0 flex-1 truncate">{row.title}</span>
+        <span className="min-w-0 flex-1 truncate">{labels.title(row.title)}</span>
         <span className={CHIP}>
           {workspaceName}
         </span>
       </button>
       {/* Shown on hover, and kept reachable by keyboard (SRS-FR-110). */}
       <button
-        aria-label={`Remove ${row.title} from stash`}
-        title="Remove from stash"
+        aria-label={labels.unstash(labels.title(row.title))}
+        title={labels.unstashTip}
         onClick={() => onUnstash(row.sessionId)}
         className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
       >
@@ -223,5 +223,5 @@ function clock(ms: number): string {
 function folderLook(highlight: FolderHighlight | undefined, selected: boolean): string {
   const bar = selected ? "border-l-row-focus font-medium" : "border-l-transparent";
   if (highlight) return `${tone[highlight.state].fill} text-foreground ${bar}`;
-  return selected ? `${bar} bg-accent text-accent-foreground` : `${bar} text-foreground hover:bg-section-hover`;
+  return selected ? `${bar} bg-section-active text-foreground` : `${bar} text-foreground hover:bg-muted`;
 }

@@ -24,10 +24,9 @@ type Props = {
   onMove(id: string, targetId: string, side: Side): void;
 };
 
-const MAXIMIZED = "fixed inset-x-0 bottom-0 top-0 z-10 flex flex-col min-h-0 min-w-0 px-gap pt-gap pb-gap bg-canvas [&>*]:flex-1";
-// Each pane wrapper pads half the gap, so cards sit a full gap apart with the dividers in between;
-// the grid reaches half a gap past the main area so the outer cards still line up with the sidebar.
-const HALF_GAP = "p-[calc(var(--oneui-gap)/2)]";
+const MAXIMIZED = "fixed inset-0 z-10 flex flex-col min-h-0 min-w-0 bg-background [&>*]:flex-1";
+// Panes sit edge to edge; each divider draws the 1px line between them in the middle of its hit area.
+const LINE = "before:absolute before:bg-border before:content-['']";
 
 export function PaneGrid({ layout, panes, maximizedId, onResize, onMove }: Props) {
   const grid = useRef<HTMLDivElement>(null);
@@ -117,7 +116,7 @@ export function PaneGrid({ layout, panes, maximizedId, onResize, onMove }: Props
   };
 
   return (
-    <div className="h-[calc(100%+var(--oneui-gap))] -m-[calc(var(--oneui-gap)/2)]">
+    <div className="h-full">
       <div
         ref={grid}
         data-testid="pane-grid"
@@ -139,7 +138,7 @@ export function PaneGrid({ layout, panes, maximizedId, onResize, onMove }: Props
               key={id}
               data-pane-id={id}
               inert={covered}
-              className={`absolute flex flex-col min-h-0 min-w-0 ${HALF_GAP} [&>*]:flex-1 ${covered ? "invisible" : ""} ${drag?.active && drag.id === id ? "opacity-50" : ""}`}
+              className={`absolute flex flex-col min-h-0 min-w-0 [&>*]:flex-1 ${covered ? "invisible" : ""} ${drag?.active && drag.id === id ? "opacity-50" : ""}`}
               style={{
                 left: `${r.x * 100}%`,
                 top: `${r.y * 100}%`,
@@ -182,7 +181,11 @@ function Divider({ divider, ratioAt, onResize }: DividerProps) {
     <div
       role="separator"
       aria-orientation={right ? "vertical" : "horizontal"}
-      className={right ? "absolute touch-none select-none cursor-col-resize" : "absolute touch-none select-none cursor-row-resize"}
+      className={
+        right
+          ? `absolute touch-none select-none cursor-col-resize ${LINE} before:inset-y-0 before:left-1/2 before:w-px`
+          : `absolute touch-none select-none cursor-row-resize ${LINE} before:inset-x-0 before:top-1/2 before:h-px`
+      }
       style={
         right
           ? { left: `calc(${at * 100}% - ${DIVIDER_SIZE / 2}px)`, top: `${box.y * 100}%`, width: DIVIDER_SIZE, height: `${box.height * 100}%` }
@@ -225,10 +228,10 @@ function DropZones({ target, box, side }: { target: string; box: Rect; side: Sid
     <div
       aria-hidden
       data-drop-target={target}
-      className={`absolute pointer-events-none ${HALF_GAP}`}
+      className="absolute pointer-events-none p-1"
       style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.width * 100}%`, height: `${box.height * 100}%` }}
     >
-      <div className="relative h-full w-full rounded-card border border-dashed border-primary/40">
+      <div className="relative h-full w-full rounded border border-dashed border-primary/40">
         {SIDES.map((s) => (
           <div
             key={s}
@@ -236,8 +239,8 @@ function DropZones({ target, box, side }: { target: string; box: Rect; side: Sid
             data-active={s === side || undefined}
             className={
               s === side
-                ? "absolute rounded-card border border-primary bg-primary/20"
-                : "absolute rounded-card border border-dashed border-primary/40 bg-primary/5"
+                ? "absolute rounded border border-primary bg-primary/20"
+                : "absolute rounded border border-dashed border-primary/40 bg-primary/5"
             }
             style={band(s, s === side ? "50%" : "25%")}
           />

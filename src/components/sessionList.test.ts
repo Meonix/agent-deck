@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { labels } from "../labels";
 import { formatWhen, mergeSessions } from "./sessionList";
 
 describe("formatWhen", () => {
@@ -6,25 +7,25 @@ describe("formatWhen", () => {
   const at = (y: number, m: number, d: number, h: number, min = 0) => new Date(y, m, d, h, min).getTime();
 
   it("labels recent times like the design", () => {
-    expect(formatWhen(now - 20_000, now)).toBe("Just now");
-    expect(formatWhen(now - 2 * 60_000, now)).toBe("2 min ago");
-    expect(formatWhen(now - 59 * 60_000, now)).toBe("59 min ago");
-    expect(formatWhen(now - 60 * 60_000, now)).toBe("1 h ago");
-    expect(formatWhen(at(2026, 9, 15, 15), now)).toBe("23 h ago");
-    expect(formatWhen(at(2026, 9, 15, 9), now)).toBe("Yesterday");
-    expect(formatWhen(at(2026, 9, 13, 9), now)).toBe("3 days ago");
-    expect(formatWhen(at(2026, 9, 7, 9), now)).toBe("Last week");
-    expect(formatWhen(at(2026, 9, 2, 9), now)).toBe("Oct 2");
-    expect(formatWhen(at(2025, 11, 30, 9), now)).toBe("Dec 30, 2025");
+    expect(formatWhen(now - 20_000, now)).toBe(labels.justNow);
+    expect(formatWhen(now - 2 * 60_000, now)).toBe(labels.minutesAgo(2));
+    expect(formatWhen(now - 59 * 60_000, now)).toBe(labels.minutesAgo(59));
+    expect(formatWhen(now - 60 * 60_000, now)).toBe(labels.hoursAgo(1));
+    expect(formatWhen(at(2026, 9, 15, 15), now)).toBe(labels.hoursAgo(23));
+    expect(formatWhen(at(2026, 9, 15, 9), now)).toBe(labels.yesterday);
+    expect(formatWhen(at(2026, 9, 13, 9), now)).toBe(labels.daysAgo(3));
+    expect(formatWhen(at(2026, 9, 7, 9), now)).toBe(labels.lastWeek);
+    expect(formatWhen(at(2026, 9, 2, 9), now)).toBe(labels.date(2, 10));
+    expect(formatWhen(at(2025, 11, 30, 9), now)).toBe(labels.dateWithYear(30, 12, 2025));
   });
 
-  it("says hours, not Yesterday, for a time earlier the same day (the branch a 25-hour DST day needs)", () => {
+  it("says hours, not yesterday, for a time earlier the same day (the branch a 25-hour DST day needs)", () => {
     const longDay = new Date(2026, 9, 25, 23, 50).getTime();
-    expect(formatWhen(new Date(2026, 9, 25, 0, 10).getTime(), longDay)).toMatch(/h ago$/);
+    expect(formatWhen(new Date(2026, 9, 25, 0, 10).getTime(), longDay)).toMatch(new RegExp(`^${labels.hoursAgo(0).replace("0", "\\d+")}$`));
   });
 
   it("treats a time in the future as now", () => {
-    expect(formatWhen(now + 5_000, now)).toBe("Just now");
+    expect(formatWhen(now + 5_000, now)).toBe(labels.justNow);
   });
 });
 

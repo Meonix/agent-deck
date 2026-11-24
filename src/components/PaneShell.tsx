@@ -1,5 +1,6 @@
 import { SquareTerminal, X } from "lucide-react";
 import { type PointerEvent, useEffect, useRef } from "react";
+import { labels } from "../labels";
 import { ICON_SM } from "./icon";
 import type { SessionsClient } from "../api/sessions";
 import type { ShellEntry, TerminalSize } from "./TerminalPane";
@@ -11,7 +12,7 @@ const MIN_HEIGHT = 80;
 const CHIP = "inline-flex min-w-0 max-w-[150px] items-center gap-1 rounded-md border px-1.5 text-[11px] transition-colors";
 
 export function ShellChip({ shell, onToggle }: { shell: ShellEntry | null; onToggle(): void }) {
-  const label = shell === null ? "Open shell" : shell.visible ? "Hide shell" : "Show shell";
+  const label = shell === null ? labels.openShell : shell.visible ? labels.hideShell : labels.showShell;
   if (shell && !shell.visible) {
     const command = shell.activity?.busy ? shell.activity.command : null;
     return (
@@ -22,7 +23,7 @@ export function ShellChip({ shell, onToggle }: { shell: ShellEntry | null; onTog
         className={`${CHIP} border-primary text-accent-foreground`}
       >
         <span className="size-1.5 shrink-0 rounded-full bg-primary" />
-        <span className={command ? "font-mono truncate" : "truncate"}>{command ?? "Shell"}</span>
+        <span className={command ? "font-mono truncate" : "truncate"}>{command ?? labels.shell}</span>
       </button>
     );
   }
@@ -34,7 +35,7 @@ export function ShellChip({ shell, onToggle }: { shell: ShellEntry | null; onTog
       className={`${CHIP} ${shell ? "border-ring bg-accent text-accent-foreground" : "border-border text-muted-foreground"}`}
     >
       <SquareTerminal {...ICON_SM} />
-      Shell
+      {labels.shell}
     </button>
   );
 }
@@ -144,9 +145,9 @@ export function ShellArea({ paneId, shell, client, maximized, textSize, onResize
 
 export function ShellFailure({ onDismiss }: { onDismiss(): void }) {
   return (
-    <div className="mx-2 mb-2 flex items-center justify-between rounded-md border border-error-border bg-error-bg px-3 py-1.5 text-xs text-error-foreground">
-      <span>Shell could not start</span>
-      <button aria-label="Dismiss" title="Dismiss" onClick={onDismiss} className="rounded-sm p-0.5 hover:bg-error-border/40">
+    <div className="mx-2 mb-2 flex items-center justify-between callout-err px-3 py-1.5 text-xs">
+      <span>{labels.shellFailed}</span>
+      <button aria-label={labels.dismiss} title={labels.dismiss} onClick={onDismiss} className="rounded-sm p-0.5 hover:bg-error-border/40">
         <X {...ICON_SM} />
       </button>
     </div>

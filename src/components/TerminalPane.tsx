@@ -1,13 +1,11 @@
 import { Archive, Maximize2, Minimize2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
+import { labels } from "../labels";
 import { ICON } from "./icon";
 import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
 import type { MaximizedBadge } from "./statusHighlight";
 import { type Mark, RoundMark, tone } from "./statusTone";
-
-/** No --oneui-radius-* token is 16px; the terminal well sits between row (12) and group (18). */
-const TERM_RADIUS = "rounded-[16px]";
 
 const ICON_BTN_BASE =
   "inline-flex size-7 shrink-0 items-center justify-center rounded-full hover:bg-muted hover:text-foreground transition-colors";
@@ -169,34 +167,31 @@ export function TerminalPane({
   // After an abnormal exit the header keeps the Error chip, matching the session row.
   const endedBadge = ended && !(status.tracked && status.state === "Error");
   const badge = !pane.started
-    ? "Not started"
+    ? labels.notStarted
     : endedBadge
-      ? "Ended"
+      ? labels.state.Ended
       : !status.tracked && graceOver
-        ? "Status unavailable"
+        ? labels.statusUnavailable
         : null;
-  const quiet =
-    !pane.started || endedBadge || !status.tracked || status.state === "Idle" || status.state === "Ended";
   const mark: Mark =
-    badge === "Status unavailable" ? { kind: "unavailable" } : quiet ? { kind: "history" } : { kind: "state", state: status.state };
-  const border = quiet ? "border-border" : tone[status.state].ring;
-  const attention = !quiet && (status.state === "Needs Approval" || status.state === "Error");
-  // On an overlay: an inset shadow on the section itself is hidden under its opaque children.
-  const glow =
-    !quiet && status.state === "Needs Approval"
-      ? "after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-approval-glow"
-      : "";
+    badge === labels.statusUnavailable
+      ? { kind: "unavailable" }
+      : !pane.started || !status.tracked
+        ? { kind: "history" }
+        : { kind: "state", state: endedBadge ? "Ended" : status.state };
+  const attention = pane.started && !endedBadge && status.tracked && (status.state === "Needs Approval" || status.state === "Error");
+  const frame = !attention ? "" : status.state === "Error" ? "pane-err" : "pane-app";
   const dim = focused || maximized || attention ? "" : "opacity-pane-dim";
-  // A box-shadow outside the status border, so focus never hides the state colour (SRS-FR-087).
-  const outline = focused ? "ring-2 ring-ring ring-offset-1 ring-offset-canvas" : "";
+  const outline = focused ? "pane-focus" : "";
+  const chip = status.state === "Needs Approval" || status.state === "Error";
   const toggleMaximized = () => (maximized ? onRestore() : onMaximize(paneId));
   const headerPressed = useRef(false);
 
   return (
     <section
-      aria-label={`${workspaceName} · ${title}`}
+      aria-label={`${workspaceName} · ${labels.title(title)}`}
       onFocus={() => onFocus(paneId)}
-      className={`relative flex flex-col min-h-0 min-w-0 rounded-card border ${border} ${attention ? "border-2" : ""} ${glow} ${outline} ${dim} bg-surface overflow-hidden transition-opacity`}
+      className={`pane-frame ${frame} ${outline} ${dim} relative flex flex-col min-h-0 min-w-0 bg-background overflow-hidden transition-opacity`}
     >
       <header
         data-drag-handle
@@ -209,38 +204,36 @@ export function TerminalPane({
         onDoubleClick={(e) => {
           if (headerPressed.current && !onButton(e.target)) toggleMaximized();
         }}
-        className="flex h-11 shrink-0 items-center justify-between gap-2 pl-3 pr-2 font-sans select-none"
+        className="bar flex h-10 shrink-0 items-center justify-between gap-2 pl-3 pr-2 font-sans select-none"
       >
         <span className="flex min-w-0 items-center gap-2">
           <RoundMark mark={mark} small />
           <span className="min-w-0 truncate text-[13px] font-medium text-foreground">
-            <span className="font-normal text-muted-foreground">{workspaceName} ·</span> {title}
+            <span className="font-normal text-muted-foreground">{workspaceName} ·</span> {labels.title(title)}
           </span>
         </span>
         <span className="flex min-w-0 items-center gap-1 text-[11px] whitespace-nowrap">
           {othersBadge && (
             <button
-              aria-label={`${othersBadge.count} ${othersBadge.count === 1 ? "session needs" : "sessions need"} you`}
+              aria-label={labels.othersBadge(othersBadge.count)}
               onClick={() => onBadge(othersBadge.paneId)}
-              className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border pl-0.5 pr-3 font-medium ${tone[othersBadge.state].chip}`}
+              className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full pl-2 pr-3 font-medium ${othersBadge.state === "Error" ? "chip-err" : "chip-app"}`}
             >
               <RoundMark mark={{ kind: "state", state: othersBadge.state }} small />
-              {othersBadge.count} need you
+              {labels.othersBadgeText(othersBadge.count)}
             </button>
           )}
           {badge ? (
-            <span className="min-w-0 shrink-[10] truncate border border-border rounded-full px-2 text-muted-foreground">
-              {badge}
-            </span>
+            <span className="chip chip-idle min-w-0 shrink-[10] truncate">{badge}</span>
           ) : (
-            <span className={`min-w-0 shrink-[10] truncate border rounded-full px-2 ${tone[status.state].chip}`}>
-              {status.state}
+            <span className={`min-w-0 shrink-[10] truncate ${chip ? tone[status.state].chip : `font-medium ${tone[status.state].word}`}`}>
+              {labels.state[status.state]}
             </span>
           )}
           <ShellChip shell={shell} onToggle={() => onToggleShell(paneId)} />
           <button
-            aria-label="Stash session"
-            title="Stash session"
+            aria-label={labels.stashSession}
+            title={labels.stashSession}
             disabled={!canStash}
             onClick={() => onStash(paneId)}
             className={`${ICON_BTN} disabled:opacity-40 disabled:hover:bg-transparent`}
@@ -248,16 +241,16 @@ export function TerminalPane({
             <Archive {...ICON} />
           </button>
           <button
-            aria-label={maximized ? "Restore pane" : "Maximize pane"}
-            title={maximized ? "Restore pane" : "Maximize pane"}
+            aria-label={maximized ? labels.restorePane : labels.maximizePane}
+            title={maximized ? labels.restorePane : labels.maximizePane}
             onClick={toggleMaximized}
             className={ICON_BTN}
           >
             {maximized ? <Minimize2 {...ICON} /> : <Maximize2 {...ICON} />}
           </button>
           <button
-            aria-label="Close pane"
-            title="Close pane"
+            aria-label={labels.closePane}
+            title={labels.closePane}
             onClick={() => onClose(paneId)}
             className={ICON_BTN}
           >
@@ -269,17 +262,17 @@ export function TerminalPane({
         {pane.started ? (
           // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
           // so the padding sits on a wrapper and xterm gets an unpadded container.
-          <div className={`flex-1 min-h-0 min-w-0 flex mx-2 mb-2 ${TERM_RADIUS} bg-term p-2`}>
+          <div className="flex-1 min-h-0 min-w-0 flex bg-background p-2">
             <div ref={body} data-pane-body={paneId} className="flex-1 min-h-0 min-w-0" />
           </div>
         ) : (
-          <div className={`flex-1 mx-2 mb-2 ${TERM_RADIUS} bg-term p-3 font-mono text-xs leading-5 text-foreground`}>
-            <div>Claude Code could not be started</div>
-            <div className="mt-5">Check that Claude Code is installed and on your PATH.</div>
+          <div className="flex-1 bg-background p-3 font-mono text-xs leading-5 text-foreground">
+            <div>{labels.startFailed}</div>
+            <div className="mt-5">{labels.startFailedHint}</div>
           </div>
         )}
         {ended && (
-          <div className="mx-2 mb-2 rounded-row bg-muted px-3 py-1.5 text-xs text-muted-foreground">Session ended</div>
+          <div className="border-t border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground">{labels.sessionEnded}</div>
         )}
         {shell && (
           <ShellArea

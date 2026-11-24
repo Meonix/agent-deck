@@ -1,6 +1,7 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import type { PaneStatus, SessionsClient } from "../api/sessions";
 import type { Workspace } from "../api/workspaces";
+import { labels } from "../labels";
 import { latencyLogEnabled, withLatencyLog } from "./latencyLog";
 import { readSnapshot, rebuildLayout, snapshotOf, writeSnapshot } from "./paneSnapshot";
 import { SHELL_OPEN_SIZE } from "./PaneShell";
@@ -14,7 +15,6 @@ const SHELL_ACTIVITY_MS = 1_000;
 const SHELL_RATIO = 0.3;
 // How long a pane may stay untracked before the UI says its status is unavailable.
 const STATUS_GRACE_MS = 5_000;
-const FOLDER_NOT_FOUND = "Folder not found";
 // Used when the pane area cannot be measured; the pane fits itself right after
 // mounting and resizes the session to match.
 const FALLBACK_SIZE: TerminalSize = { cols: 80, rows: 24 };
@@ -147,7 +147,7 @@ export function useSessionPanes(
       try {
         await client.close(paneId);
       } catch (e) {
-        showToast(`Could not close session: ${errorDetail(e)}`);
+        showToast(`${labels.closeFailed}: ${errorDetail(e)}`);
         return false;
       }
       clearTimeout(graceTimers.current.get(paneId));
@@ -223,7 +223,7 @@ export function useSessionPanes(
   const openPane = useCallback(
     async (workspace: Workspace, target: string | null, resumed?: { id: string; title: string }) => {
       if (workspace.missing) {
-        showToast(FOLDER_NOT_FOUND);
+        showToast(labels.folderNotFound);
         return;
       }
       if (resumed) {
@@ -253,13 +253,13 @@ export function useSessionPanes(
       } catch (e) {
         const holder = e === "already_open" && resumed ? openHolder(entries.current, resumed.id) : undefined;
         if (e === "folder_missing") {
-          showToast(FOLDER_NOT_FOUND);
+          showToast(labels.folderNotFound);
           onFolderMissing();
         } else if (holder) {
           focusHolder(holder);
         } else {
           const detail = e === "already_open" || e === "invalid_session" ? "" : errorDetail(e);
-          showToast(detail ? `Could not open session: ${detail}` : "Could not open session");
+          showToast(detail ? `${labels.openFailed}: ${detail}` : labels.openFailed);
         }
       } finally {
         if (!kept) measuring.dispose();
@@ -329,7 +329,7 @@ export function useSessionPanes(
           maximizedId: null,
         });
         started.forEach(wirePane);
-        if (failed > 0) showToast(`${failed} sessions could not be reopened`);
+        if (failed > 0) showToast(labels.reopenFailed(failed));
       } finally {
         opening.current = false;
         setReopened(true);

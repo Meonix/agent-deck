@@ -19,6 +19,8 @@ export default defineConfig(() => ({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     passWithNoTests: true,
+    // Vitest empties CSS imports; tests that measure the stylesheet or the tokens import them as `?raw` text.
+    css: { include: [/\.css\?raw$/] },
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

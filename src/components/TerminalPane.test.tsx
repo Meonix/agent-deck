@@ -2,7 +2,9 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeAdapter, fakeSessions, fakeStream, type FakeAdapter } from "../test/fakes";
+import css from "../index.css?raw";
 import { TerminalPane, UNTITLED, type PaneEntry } from "./TerminalPane";
+import { labels } from "../labels";
 
 function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): PaneEntry {
   return {
@@ -96,9 +98,9 @@ describe("TerminalPane (5.3)", () => {
   it("explains a start failure and takes no input", async () => {
     renderPane(entry(null));
     await flush();
-    expect(screen.getByText("Claude Code could not be started")).toBeInTheDocument();
-    expect(screen.getByText("Check that Claude Code is installed and on your PATH.")).toBeInTheDocument();
-    expect(screen.getByText("Not started")).toBeInTheDocument();
+    expect(screen.getByText(labels.startFailed)).toBeInTheDocument();
+    expect(screen.getByText(labels.startFailedHint)).toBeInTheDocument();
+    expect(screen.getByText(labels.notStarted)).toBeInTheDocument();
   });
 
   it("keeps the terminal and shows Session ended once the session has ended", async () => {
@@ -108,8 +110,8 @@ describe("TerminalPane (5.3)", () => {
     view.rerender(
       <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
     );
-    expect(screen.getByText("Session ended")).toBeInTheDocument();
-    expect(screen.getByText("Ended")).toBeInTheDocument();
+    expect(screen.getByText(labels.sessionEnded)).toBeInTheDocument();
+    expect(screen.getByText(labels.state["Ended"])).toBeInTheDocument();
     expect(adapter.dispose).not.toHaveBeenCalled();
     adapter.type("x");
     expect(client.write).not.toHaveBeenCalled();
@@ -150,13 +152,13 @@ describe("TerminalPane (5.3)", () => {
   it("asks the parent to close it from the close button", async () => {
     const user = userEvent.setup();
     const { on } = renderPane(entry(fakeAdapter()));
-    await user.click(screen.getByRole("button", { name: "Close pane" }));
+    await user.click(screen.getByRole("button", { name: labels.closePane }));
     expect(on.close).toHaveBeenCalledWith("p1");
   });
 
   it("shows the state chip with the state name", () => {
     renderPane(entry(fakeAdapter(), { status: { state: "Running", since: 1, reason: null, tracked: true } }));
-    expect(screen.getByText("Running")).toBeInTheDocument();
+    expect(screen.getByText(labels.state["Running"])).toBeInTheDocument();
   });
 
   it("shows the pane title from the entry", () => {
@@ -166,55 +168,53 @@ describe("TerminalPane (5.3)", () => {
 
   it("shows Status unavailable once the grace period is over for an untracked pane", () => {
     renderPane(entry(fakeAdapter(), { graceOver: true }));
-    expect(screen.getByText("Status unavailable")).toBeInTheDocument();
-    expect(screen.queryByText("Idle")).not.toBeInTheDocument();
+    expect(screen.getByText(labels.statusUnavailable)).toBeInTheDocument();
+    expect(screen.queryByText(labels.state["Idle"])).not.toBeInTheDocument();
   });
 
   it("prefers Not started, then Ended, over Status unavailable", () => {
     const first = renderPane(entry(null, { graceOver: true }));
-    expect(screen.getByText("Not started")).toBeInTheDocument();
-    expect(screen.queryByText("Status unavailable")).not.toBeInTheDocument();
+    expect(screen.getByText(labels.notStarted)).toBeInTheDocument();
+    expect(screen.queryByText(labels.statusUnavailable)).not.toBeInTheDocument();
     first.view.unmount();
     renderPane(entry(fakeAdapter(), { graceOver: true, ended: true }));
-    expect(screen.getByText("Ended", { selector: "span.border" })).toBeInTheDocument();
-    expect(screen.queryByText("Status unavailable")).not.toBeInTheDocument();
+    expect(screen.getByText(labels.state["Ended"], { selector: "span.chip" })).toBeInTheDocument();
+    expect(screen.queryByText(labels.statusUnavailable)).not.toBeInTheDocument();
   });
 
   it("keeps the Error chip and border after an abnormal exit (M1)", () => {
     renderPane(
       entry(fakeAdapter(), { ended: true, status: { state: "Error", since: 1, reason: "exit code 1", tracked: true } }),
     );
-    expect(screen.getByText("Error", { selector: "span.border" })).toBeInTheDocument();
-    expect(screen.queryByText("Ended", { selector: "span.border" })).not.toBeInTheDocument();
-    expect(screen.getByRole("region").className).toContain("border-error");
-    expect(screen.getByText("Session ended")).toBeInTheDocument();
+    expect(screen.getByText(labels.state["Error"], { selector: "span.chip" })).toBeInTheDocument();
+    expect(screen.queryByText(labels.state["Ended"], { selector: "span.chip" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region")).toHaveClass("pane-err");
+    expect(screen.getByText(labels.sessionEnded)).toBeInTheDocument();
   });
 
   it("shows the Ended badge after a normal exit", () => {
     renderPane(entry(fakeAdapter(), { ended: true, status: { state: "Ended", since: 1, reason: null, tracked: true } }));
-    expect(screen.getByText("Ended", { selector: "span.border" })).toBeInTheDocument();
-    expect(screen.getByRole("region").className).not.toContain("border-error");
+    expect(screen.getByText(labels.state["Ended"], { selector: "span.chip" })).toBeInTheDocument();
+    expect(screen.getByRole("region")).not.toHaveClass("pane-err");
   });
 
-  it("colours the border by state and doubles it for Needs Approval", () => {
+  it("frames only a Needs Approval or Error pane, and only while its status is tracked", () => {
     const at = (status: PaneEntry["status"]) => {
-      const { view } = renderPane(entry(fakeAdapter(), { status }));
-      const cls = screen.getByRole("region").className;
+      const { view } = renderPane(entry(fakeAdapter(), { status }), undefined, undefined, false);
+      const cls = screen.getByRole("region").className.split(/\s+/);
       view.unmount();
       return cls;
     };
     const s = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked });
-    expect(at(s("Needs Approval"))).toContain("border-approval");
-    expect(at(s("Needs Approval"))).toContain("border-2");
-    expect(at(s("Running"))).toContain("border-running");
-    expect(at(s("Error"))).toContain("border-error");
-    expect(at(s("Running"))).not.toContain("border-2");
-    expect(at(s("Idle"))).toContain("border-border");
-    expect(at(s("Running", false))).toContain("border-border");
-    expect(at(s("Idle"))).not.toContain("border-ring");
+    expect(at(s("Needs Approval"))).toContain("pane-app");
+    expect(at(s("Error"))).toContain("pane-err");
+    for (const cls of [at(s("Running")), at(s("Idle")), at(s("Needs Approval", false))]) {
+      expect(cls).not.toContain("pane-app");
+      expect(cls).not.toContain("pane-err");
+    }
   });
 
-  it("puts the Focus Outline outside the status border of the focused pane only (SRS-FR-087)", () => {
+  it("puts the Focus Outline on the focused pane only (SRS-FR-087)", () => {
     const at = (state: PaneEntry["status"]["state"], focused: boolean) => {
       const status = { state, since: 1, reason: null, tracked: true };
       const { view } = renderPane(entry(fakeAdapter(), { status }), undefined, undefined, focused);
@@ -222,10 +222,26 @@ describe("TerminalPane (5.3)", () => {
       view.unmount();
       return cls;
     };
-    expect(at("Idle", true)).toEqual(expect.arrayContaining(["ring-2", "ring-ring", "ring-offset-1"]));
-    expect(at("Idle", false)).not.toContain("ring-2");
-    expect(at("Needs Approval", true)).toEqual(expect.arrayContaining(["border-approval", "border-2", "ring-2", "ring-ring"]));
-    expect(at("Error", false)).not.toContain("ring-2");
+    expect(at("Idle", true)).toContain("pane-focus");
+    expect(at("Idle", false)).not.toContain("pane-focus");
+    expect(at("Needs Approval", true)).toEqual(expect.arrayContaining(["pane-app", "pane-focus"]));
+    expect(at("Error", false)).not.toContain("pane-focus");
+  });
+});
+
+describe("Pane frames in index.css (app-theme)", () => {
+  const rule = (selector: string) => css.match(new RegExp(`${selector.replace(/\./g, "\\.")}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+
+  it("draws the Needs Approval and Error frames as a 2px inset line with no glow", () => {
+    expect(rule(".pane-app::after")).toMatch(/inset 0 0 0 2px var\(--approval\)/);
+    expect(rule(".pane-err::after")).toMatch(/inset 0 0 0 2px var\(--error\)/);
+    expect(css).not.toMatch(/approval-glow/);
+  });
+
+  it("keeps the Focus Outline outside the Needs Approval frame (SRS-FR-087)", () => {
+    expect(rule(".pane-focus::after")).toMatch(/inset 0 0 0 2px var\(--ring\)/);
+    expect(rule(".pane-focus.pane-app::after")).toMatch(/inset 0 0 0 2px var\(--ring\),\s*inset 0 0 0 4px var\(--approval\)/);
+    expect(rule(".pane-focus.pane-err::after")).toMatch(/inset 0 0 0 2px var\(--ring\),\s*inset 0 0 0 4px var\(--error\)/);
   });
 });
 
@@ -240,10 +256,10 @@ describe("TerminalPane attention and dimming (app-theme)", () => {
     return cls;
   };
 
-  it("adds the glow to a Needs Approval pane and doubles the Error border", () => {
-    expect(classes("Needs Approval", false)).toEqual(expect.arrayContaining(["border-2", "after:shadow-approval-glow"]));
-    expect(classes("Error", false)).toEqual(expect.arrayContaining(["border-error", "border-2"]));
-    expect(classes("Running", false)).not.toContain("after:shadow-approval-glow");
+  it("frames a Needs Approval pane with no glow, and an Error pane", () => {
+    expect(classes("Needs Approval", false)).toContain("pane-app");
+    expect(classes("Needs Approval", false).join(" ")).not.toMatch(/glow/);
+    expect(classes("Error", false)).toContain("pane-err");
   });
 
   it("dims a pane that is neither focused, maximized, Needs Approval nor Error", () => {
@@ -259,10 +275,10 @@ describe("TerminalPane attention and dimming (app-theme)", () => {
 describe("TerminalPane header in a narrow pane", () => {
   it("never shrinks the buttons and lets the chip truncate first", () => {
     renderPane(entry(fakeAdapter()));
-    for (const name of ["Maximize pane", "Close pane"]) {
+    for (const name of [labels.maximizePane, labels.closePane]) {
       expect(screen.getByRole("button", { name })).toHaveClass("shrink-0");
     }
-    expect(screen.getByText("Idle")).toHaveClass("min-w-0", "truncate");
+    expect(screen.getByText(labels.state["Idle"])).toHaveClass("min-w-0", "truncate");
   });
 });
 
@@ -290,9 +306,22 @@ describe("No Progress Tracking (CR-015)", () => {
   });
 });
 
-describe("TerminalPane header (One UI)", () => {
+describe("TerminalPane header", () => {
+  it("names the state as a chip when it needs the user, as a coloured word otherwise (SRS-NFR-014)", () => {
+    const look = (state: PaneEntry["status"]["state"]) => {
+      const { view } = renderPane(entry(fakeAdapter(), { status: { state, since: 1, reason: null, tracked: true } }));
+      const cls = screen.getByText(labels.state[state]).className.split(/\s+/);
+      view.unmount();
+      return cls;
+    };
+    expect(look("Needs Approval")).toEqual(expect.arrayContaining(["chip", "chip-app"]));
+    expect(look("Error")).toEqual(expect.arrayContaining(["chip", "chip-err"]));
+    expect(look("Running")).toContain("w-busy");
+    expect(look("Idle")).toContain("w-ready");
+  });
+
   const header = () => screen.getByRole("region").querySelector("header")!;
-  const mark = () => header().querySelector("[aria-hidden='true'].rounded-full")!;
+  const mark = () => header().querySelector("[aria-hidden='true']")!;
 
   it("sets the header text in the UI font, not the terminal one (Fonts work offline)", () => {
     renderPane(entry(fakeAdapter()));
@@ -300,12 +329,13 @@ describe("TerminalPane header (One UI)", () => {
     expect(header()).not.toHaveClass("font-mono");
   });
 
-  it("leads the title with the round mark of the pane's state", () => {
+  it("leads the title with the state dot, or a muted icon when the status is unavailable", () => {
     const status = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked });
     const { view } = renderPane(entry(fakeAdapter(), { status: status("Needs Approval") }));
-    expect(mark()).toHaveClass("bg-approval");
+    expect(mark()).toHaveClass("dot", "dot-app");
     view.unmount();
     renderPane(entry(fakeAdapter(), { graceOver: true, status: status("Running", false) }));
-    expect(mark()).toHaveClass("bg-muted-foreground");
+    expect(mark()).toHaveClass("text-muted-foreground");
+    expect(mark()).not.toHaveClass("rounded-full");
   });
 });

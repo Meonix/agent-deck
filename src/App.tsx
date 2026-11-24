@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SessionsClient } from "./api/sessions";
 import type { WorkspacesClient } from "./api/workspaces";
@@ -16,10 +16,11 @@ import { useStash } from "./components/useStash";
 import { useTextZoom } from "./components/useTextZoom";
 import { useWorkspaces } from "./components/useWorkspaces";
 import { mergeSessions, type OpenSession } from "./components/sessionList";
-import { ICON_SM } from "./components/icon";
+import { ICON, ICON_SM } from "./components/icon";
 import { useMinuteClock, useSessionList } from "./components/useSessionList";
 import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
 import { countTerminals, type DiagClient } from "./diagnostics";
+import { labels } from "./labels";
 
 type Deps = {
   workspaces: WorkspacesClient;
@@ -37,7 +38,7 @@ function App(deps: Deps) {
   const textSize = useTextZoom(deps.zoom, deps.mac ?? false);
   const sidebar = useSidebarToggle(deps.mac ?? false);
   return (
-    <div className="h-screen relative flex flex-col bg-canvas text-foreground font-sans">
+    <div className="h-screen relative flex flex-col bg-background text-foreground font-sans">
       <ToastProvider>
         <Workbench {...deps} textSize={textSize} sidebar={sidebar} />
       </ToastProvider>
@@ -162,7 +163,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   const reopenStashed = (row: StashedSession) => {
     const workspace = workspaces.items?.find((w) => w.id === row.workspaceId);
     if (workspace) void panes.resume(workspace, { id: row.sessionId, title: row.title });
-    else showToast("Folder not found");
+    else showToast(labels.folderNotFound);
   };
   // SRS-FR-109: whatever opened it, a session running in a pane is no longer put aside.
   const { remove: unstash } = stash;
@@ -220,7 +221,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   const confirmDelete = async (deleting: Deleting) => {
     setDeleting(null);
     if (await deleteOne(deleting)) setReloads((n) => n + 1);
-    else showToast("Session could not be deleted");
+    else showToast(labels.deleteFailed);
   };
 
   const [deletingMany, setDeletingMany] = useState<Deleting[] | null>(null);
@@ -241,48 +242,51 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     setDeletingSelection(false);
     setReloads((n) => n + 1);
     setSelection(kept);
-    if (kept.length > 0) showToast(`${targets.length - kept.length} of ${targets.length} sessions deleted`);
+    if (kept.length > 0) showToast(labels.deletedSome(targets.length - kept.length, targets.length));
   };
 
   const dialog = deleting ? (
     <ConfirmDialog
-      title={deleting.live ? `Close “${deleting.title}” and move it to Trash?` : `Move “${deleting.title}” to Trash?`}
-      detail={deleting.live ? "The session will be ended and its pane closed." : "You can restore it from the Trash."}
-      action={deleting.live ? "Close and move" : "Move to Trash"}
+      title={deleting.live ? labels.closeAndTrashTitle(labels.title(deleting.title)) : labels.trashTitle(labels.title(deleting.title))}
+      detail={deleting.live ? labels.endsSession : labels.restoreHint}
+      action={deleting.live ? labels.closeAndMove : labels.moveToTrash}
+      danger
       onCancel={cancelDelete}
       onConfirm={() => void confirmDelete(deleting)}
     />
   ) : deletingMany ? (
     <ConfirmDialog
       {...deleteManyText(deletingMany)}
+      danger
       onCancel={cancelDeleteMany}
       onConfirm={() => void confirmDeleteMany(deletingMany)}
     />
   ) : stashing && stashingEntry ? (
     <ConfirmDialog
-      title={`Stash “${stashingEntry.title}”?`}
+      title={labels.stashTitle(labels.title(stashingEntry.title))}
       detail={closeWarnings(!stashingEntry.ended && isBusy(stashingEntry), stashing.shell)}
-      action="Stash"
+      action={labels.stash}
       onConfirm={() => void stashPane(stashingEntry)}
       onCancel={cancelStash}
     />
   ) : closing && closingEntry ? (
     <ConfirmDialog
-      title={`Close “${closingEntry.title}”?`}
+      title={labels.closeTitle(labels.title(closingEntry.title))}
       detail={closeWarnings(!closingEntry.ended && isBusy(closingEntry), closing.shell)}
       {...(hasHistory(closingEntry)
         ? {
-            action: "Close and move to Trash",
-            extra: { label: "Close", onChoose: () => closeOnly(closingEntry.pane.paneId) },
+            action: labels.closeAndTrash,
+            danger: true,
+            extra: { label: labels.close, onChoose: () => closeOnly(closingEntry.pane.paneId) },
             onConfirm: () => closeAndTrash(closingEntry),
           }
-        : { action: "Close", onConfirm: () => closeOnly(closingEntry.pane.paneId) })}
+        : { action: labels.close, onConfirm: () => closeOnly(closingEntry.pane.paneId) })}
       onCancel={cancelClose}
     />
   ) : null;
 
   return (
-    <div className={`flex-1 min-h-0 relative grid gap-gap px-gap pt-gap pb-gap ${gridColumns(sidebar.shown, historyShown)}`}>
+    <div className={`flex-1 min-h-0 relative grid ${gridColumns(sidebar.shown, historyShown)}`}>
       <WorkspaceSidebar
         hidden={!sidebar.shown}
         workspaces={workspaces}
@@ -347,20 +351,20 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           />
         ) : workspaces.items === null ? null : workspaces.items.length === 0 ? (
           <CenteredState
-            title="No folders yet"
-            hint="Add a folder you work in with Claude Code."
-            action="+ Add Folder"
+            title={labels.noFolders}
+            hint={labels.noFoldersHint}
+            action={labels.addFolder}
             onAction={() => void workspaces.addFolder()}
           />
         ) : (
           <CenteredState
-            title="No open sessions"
+            title={labels.noPanes}
             hint={
               workspaces.selected === null
-                ? "Select a folder to see its sessions."
-                : "Resume a session from its history, or start a new one."
+                ? labels.pickFolderHint
+                : labels.noPanesHint
             }
-            action="New Session"
+            action={labels.newSession}
             disabled={workspaces.selected === null}
             onAction={newSession}
           />
@@ -380,11 +384,11 @@ function deleteManyText(targets: Deleting[]) {
   const n = targets.length;
   return open > 0
     ? {
-        title: `Close ${open} open sessions and move ${n} sessions to Trash?`,
-        detail: "Their sessions will be ended and their panes closed.",
-        action: "Close and move",
+        title: labels.closeAndTrashManyTitle(open, n),
+        detail: labels.endsSessions,
+        action: labels.closeAndMove,
       }
-    : { title: `Move ${n} sessions to Trash?`, detail: "You can restore them from the Trash.", action: "Move to Trash" };
+    : { title: labels.trashManyTitle(n), detail: labels.restoreHint, action: labels.moveToTrash };
 }
 
 type CenteredStateProps = { title: string; hint: string; action: string; disabled?: boolean; onAction(): void };
@@ -397,21 +401,24 @@ function hasHistory({ pane, title }: PaneEntry): boolean {
 function closeWarnings(sessionBusy: boolean, shell: { command: string | null } | null) {
   if (!sessionBusy && !shell) return null;
   return (
-    <>
-      {sessionBusy && <p>Session is still running.</p>}
-      {shell && <p>A command is still running in the shell.</p>}
-      {shell && (
-        <p>
-          {shell.command ? (
-            <>
-              <span className="font-mono">{shell.command}</span> will be stopped.
-            </>
-          ) : (
-            "The shell command will be stopped."
-          )}
-        </p>
-      )}
-    </>
+    <div className="callout-err flex gap-2 px-3 py-2">
+      <TriangleAlert {...ICON} className="mt-0.5 shrink-0" />
+      <div>
+        {sessionBusy && <p>{labels.sessionBusy}</p>}
+        {shell && <p>{labels.shellBusy}</p>}
+        {shell && (
+          <p>
+            {shell.command ? (
+              <>
+                <span className="font-mono">{shell.command}</span> {labels.commandStops}
+              </>
+            ) : (
+              labels.shellCommandStops
+            )}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -421,14 +428,14 @@ function isBusy({ status }: PaneEntry): boolean {
 
 function CenteredState({ title, hint, action, disabled = false, onAction }: CenteredStateProps) {
   return (
-    <div className="h-full flex items-center justify-center p-2 rounded-card bg-surface">
+    <div className="h-full flex items-center justify-center p-2 bg-background">
       <div className="text-center space-y-2 max-w-sm">
         <div className="text-base font-medium text-foreground">{title}</div>
         <div className="text-sm text-muted-foreground">{hint}</div>
         <button
           onClick={onAction}
           disabled={disabled}
-          className="mt-2 text-sm font-medium bg-primary text-primary-foreground rounded-full px-4 py-1.5 hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="send mt-2 text-sm font-medium px-4 py-2 hover:opacity-90 transition-opacity"
         >
           {action}
         </button>
@@ -440,19 +447,19 @@ function CenteredState({ title, hint, action, disabled = false, onAction }: Cent
 export default App;
 
 function gridColumns(sidebarShown: boolean, historyShown: boolean): string {
-  if (sidebarShown) return historyShown ? "grid-cols-[260px_280px_1fr]" : "grid-cols-[260px_1fr]";
+  if (sidebarShown) return historyShown ? "grid-cols-[var(--sidebar-w)_280px_1fr]" : "grid-cols-[var(--sidebar-w)_1fr]";
   return historyShown ? "grid-cols-[280px_1fr]" : "grid-cols-[1fr]";
 }
 
-// Below the maximized pane's z-10, which covers it (SRS-FR-088). Shown, it sits in the gap right of the sidebar card.
+// Below the maximized pane's z-10, which covers it (SRS-FR-088). Shown, it straddles the sidebar's right border.
 function SidebarToggle({ shown, covered, onToggle }: { shown: boolean; covered: boolean; onToggle(): void }) {
   return (
     <button
       onClick={onToggle}
       inert={covered}
-      aria-label={shown ? "Hide sidebar" : "Show sidebar"}
+      aria-label={shown ? labels.hideSidebar : labels.showSidebar}
       aria-expanded={shown}
-      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 w-4 flex items-center justify-center rounded-full border border-border bg-surface text-muted-foreground hover:text-foreground transition-colors ${shown ? "left-[calc(260px+var(--oneui-gap)*1.5)] -translate-x-1/2" : "left-0 rounded-l-none border-l-0"}`}
+      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 w-4 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${shown ? "left-[var(--sidebar-w)] -translate-x-1/2" : "left-0 rounded-l-none border-l-0"}`}
     >
       {shown ? <ChevronLeft {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}
     </button>

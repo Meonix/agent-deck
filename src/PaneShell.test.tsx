@@ -6,6 +6,7 @@ import type { WorkspacesClient } from "./api/workspaces";
 import App from "./App";
 import type { TerminalSize } from "./components/TerminalPane";
 import { fakeAdapter, fakeSessions, type FakeAdapter, type FakeSessions } from "./test/fakes";
+import { labels } from "./labels";
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -30,18 +31,18 @@ function setup(sessions: FakeSessions, sizes: TerminalSize[] = []) {
   return { user: userEvent.setup(), sessions, adapters, createTerminal };
 }
 
-const folderRow = () => within(screen.getByRole("list", { name: "Folders" })).getByText("agent-deck");
+const folderRow = () => within(screen.getByRole("list", { name: labels.folders })).getByText("agent-deck");
 const newSessionButton = () =>
-  within(screen.getByRole("region", { name: "Session history" })).getByRole("button", { name: "New Session" });
+  within(screen.getByRole("region", { name: labels.sessionHistory })).getByRole("button", { name: labels.newSession });
 const paneAt = (i = 0) => within(screen.getByTestId("pane-grid")).getAllByRole("region")[i];
-const chip = (i = 0) => within(paneAt(i)).getByRole("button", { name: /^(Open|Hide|Show) shell$/ });
+const chip = (i = 0) => within(paneAt(i)).getByRole("button", { name: new RegExp(`^(${labels.openShell}|${labels.hideShell}|${labels.showShell})$`) });
 const marker = (i = 0) => chip(i).querySelector(".bg-primary");
 const shellArea = (i = 0) => within(paneAt(i)).queryByRole("separator")?.parentElement ?? null;
 const heightOf = (area: HTMLElement | null) => parseFloat(area!.style.height);
 
 async function openPane(sessions = fakeSessions(), sizes: TerminalSize[] = []) {
   const ctx = setup(sessions, sizes);
-  await within(await screen.findByRole("list", { name: "Folders" })).findByText("agent-deck");
+  await within(await screen.findByRole("list", { name: labels.folders })).findByText("agent-deck");
   await ctx.user.click(folderRow());
   await ctx.user.click(newSessionButton());
   await screen.findByTestId("pane-grid");
@@ -64,9 +65,9 @@ afterEach(() => vi.useRealTimers());
 describe("Pane Shell chip and toggle (3.1)", () => {
   it("opens a shell for the pane below the session, 30% of the pane high (SRS-FR-055)", async () => {
     const { user, sessions, adapters } = await openPane();
-    expect(chip()).toHaveAccessibleName("Open shell");
+    expect(chip()).toHaveAccessibleName(labels.openShell);
     expect(chip()).toHaveClass("border-border", "text-muted-foreground");
-    expect(chip()).toHaveTextContent(/^Shell$/);
+    expect(chip()).toHaveTextContent(new RegExp(`^${labels.shell}$`));
     expect(chip().querySelector("svg")).not.toBeNull();
     expect(shellArea()).toBeNull();
 
@@ -78,7 +79,7 @@ describe("Pane Shell chip and toggle (3.1)", () => {
     expect(shellArea()).toHaveClass("border-t", "border-border", "bg-card");
     expect(shellArea()).not.toHaveClass("hidden");
     expect(heightOf(shellArea())).toBeCloseTo(30, 5);
-    expect(chip()).toHaveAccessibleName("Hide shell");
+    expect(chip()).toHaveAccessibleName(labels.hideShell);
     expect(chip()).toHaveClass("border-ring", "bg-accent", "text-accent-foreground");
     act(() => sessions.shells[0].stream.emit("~/agent-deck $ "));
     expect(adapters[1].written).toEqual(["~/agent-deck $ "]);
@@ -98,7 +99,7 @@ describe("Pane Shell chip and toggle (3.1)", () => {
     const { user, sessions, shell, shellTerminal } = await paneWithShell();
     await user.click(chip());
     expect(shellArea()).toHaveClass("hidden");
-    expect(chip()).toHaveAccessibleName("Show shell");
+    expect(chip()).toHaveAccessibleName(labels.showShell);
     expect(shellTerminal.dispose).not.toHaveBeenCalled();
     expect(shell.dispose).not.toHaveBeenCalled();
     expect(sessions.close).not.toHaveBeenCalled();
@@ -112,7 +113,7 @@ describe("Pane Shell chip and toggle (3.1)", () => {
     await user.click(chip());
 
     expect(shellArea()).not.toHaveClass("hidden");
-    expect(chip()).toHaveAccessibleName("Hide shell");
+    expect(chip()).toHaveAccessibleName(labels.hideShell);
     expect(heightOf(shellArea())).toBeCloseTo(30, 5);
     expect(shellTerminal.written).toEqual(["page reload src/App.tsx"]);
     expect(createTerminal).toHaveBeenCalledTimes(2);
@@ -144,19 +145,19 @@ describe("Pane Shell chip and toggle (3.1)", () => {
     const { user } = await paneWithShell(sessions);
     await user.click(chip());
     expect(marker()).not.toBeNull();
-    expect(chip()).toHaveTextContent(/^Shell$/);
+    expect(chip()).toHaveTextContent(new RegExp(`^${labels.shell}$`));
     await act(async () => answer({ busy: false, command: null }));
     expect(marker()).not.toBeNull();
-    expect(chip()).toHaveTextContent(/^Shell$/);
-    expect(within(chip()).getByText("Shell")).not.toHaveClass("font-mono");
+    expect(chip()).toHaveTextContent(new RegExp(`^${labels.shell}$`));
+    expect(within(chip()).getByText(labels.shell)).not.toHaveClass("font-mono");
   });
 
   it("shows no marker on a pane without a shell or with a visible shell (SRS-FR-058)", async () => {
     const { user } = await paneWithShell();
     await user.click(newSessionButton());
     await vi.waitFor(() => expect(within(screen.getByTestId("pane-grid")).getAllByRole("region")).toHaveLength(2));
-    expect(chip(0)).toHaveAccessibleName("Hide shell");
-    expect(chip(1)).toHaveAccessibleName("Open shell");
+    expect(chip(0)).toHaveAccessibleName(labels.hideShell);
+    expect(chip(1)).toHaveAccessibleName(labels.openShell);
     expect(marker(0)).toBeNull();
     expect(marker(1)).toBeNull();
   });
@@ -264,11 +265,11 @@ describe("Pane Shell divider and refit (3.2)", () => {
   it("resizes the shell to the new size on maximize and back on restore (SRS-FR-060)", async () => {
     const { user, sessions, shellTerminal } = await paneWithShell();
     shellTerminal.size = { cols: 200, rows: 15 };
-    await user.click(within(paneAt()).getByRole("button", { name: "Maximize pane" }));
+    await user.click(within(paneAt()).getByRole("button", { name: labels.maximizePane }));
     expect(sessions.shellResize).toHaveBeenLastCalledWith("p1", 200, 15);
 
     shellTerminal.size = { cols: 80, rows: 7 };
-    await user.click(within(paneAt()).getByRole("button", { name: "Restore pane" }));
+    await user.click(within(paneAt()).getByRole("button", { name: labels.restorePane }));
     expect(sessions.shellResize).toHaveBeenLastCalledWith("p1", 80, 7);
   });
 
@@ -277,7 +278,7 @@ describe("Pane Shell divider and refit (3.2)", () => {
     await user.click(chip());
     adapters[0].size = { cols: 80, rows: 30 };
     shellTerminal.size = { cols: 200, rows: 15 };
-    await user.click(within(paneAt()).getByRole("button", { name: "Maximize pane" }));
+    await user.click(within(paneAt()).getByRole("button", { name: labels.maximizePane }));
     expect(sessions.shellResize).not.toHaveBeenCalled();
     // The session took the whole pane when the shell hid.
     expect(sessions.resize).toHaveBeenLastCalledWith("p1", 80, 30);
@@ -304,7 +305,7 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
     act(() => shell.exit(0));
 
     expect(shellArea()).toBeNull();
-    expect(chip()).toHaveAccessibleName("Open shell");
+    expect(chip()).toHaveAccessibleName(labels.openShell);
     expect(marker()).toBeNull();
     expect(shellTerminal.dispose).toHaveBeenCalled();
 
@@ -332,7 +333,7 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
     const { sessions, session, shellTerminal } = await paneWithShell();
     act(() => session.exit(1));
 
-    expect(within(paneAt()).getByText("Session ended")).toBeInTheDocument();
+    expect(within(paneAt()).getByText(labels.sessionEnded)).toBeInTheDocument();
     expect(shellArea()).not.toBeNull();
     expect(shellTerminal.dispose).not.toHaveBeenCalled();
     shellTerminal.type("ls\r");
@@ -346,18 +347,18 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
 
     await user.click(chip());
 
-    const strip = await within(paneAt()).findByText("Shell could not start");
-    expect(strip.parentElement).toHaveClass("border-error-border", "bg-error-bg", "text-error-foreground");
+    const strip = await within(paneAt()).findByText(labels.shellFailed);
+    expect(strip.parentElement).toHaveClass("callout-err");
     expect(adapters[1].dispose).toHaveBeenCalled();
     expect(shellArea()).toBeNull();
-    expect(chip()).toHaveAccessibleName("Open shell");
+    expect(chip()).toHaveAccessibleName(labels.openShell);
     expect(marker()).toBeNull();
-    expect(within(paneAt()).getByText("Running")).toBeInTheDocument();
+    expect(within(paneAt()).getByText(labels.state["Running"])).toBeInTheDocument();
     expect(adapters[0].dispose).not.toHaveBeenCalled();
     expect(sessions.close).not.toHaveBeenCalled();
 
-    await user.click(within(paneAt()).getByRole("button", { name: "Dismiss" }));
-    expect(within(paneAt()).queryByText("Shell could not start")).not.toBeInTheDocument();
+    await user.click(within(paneAt()).getByRole("button", { name: labels.dismiss }));
+    expect(within(paneAt()).queryByText(labels.shellFailed)).not.toBeInTheDocument();
   });
 
   it("ignores a second open that finds the shell already open", async () => {
@@ -365,7 +366,7 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
     const { user, adapters } = await openPane(sessions);
     await user.click(chip());
     await vi.waitFor(() => expect(adapters[1].dispose).toHaveBeenCalled());
-    expect(within(paneAt()).queryByText("Shell could not start")).not.toBeInTheDocument();
+    expect(within(paneAt()).queryByText(labels.shellFailed)).not.toBeInTheDocument();
   });
 
   it("clears the failure once a shell opens", async () => {
@@ -374,11 +375,11 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
     sessions.openShell = vi.fn(async () => Promise.reject("shell_failed"));
     const { user } = await openPane(sessions);
     await user.click(chip());
-    await within(paneAt()).findByText("Shell could not start");
+    await within(paneAt()).findByText(labels.shellFailed);
 
     sessions.openShell = succeed;
     await openShell(user);
-    expect(within(paneAt()).queryByText("Shell could not start")).not.toBeInTheDocument();
+    expect(within(paneAt()).queryByText(labels.shellFailed)).not.toBeInTheDocument();
   });
 
   it("drops a shell that finishes opening after its pane closed", async () => {
@@ -392,8 +393,8 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
     );
     const { user, adapters } = await openPane(sessions);
     await user.click(chip());
-    await user.click(within(paneAt()).getByRole("button", { name: "Close pane" }));
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    await user.click(within(paneAt()).getByRole("button", { name: labels.closePane }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: labels.close }));
     await vi.waitFor(() => expect(screen.queryByTestId("pane-grid")).not.toBeInTheDocument());
 
     await act(async () => finish());
@@ -404,11 +405,11 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
 });
 
 describe("Closing a pane with a shell (3.4)", () => {
-  const closeButton = () => within(paneAt()).getByRole("button", { name: "Close pane" });
+  const closeButton = () => within(paneAt()).getByRole("button", { name: labels.closePane });
   const chooseClose = (user: ReturnType<typeof userEvent.setup>) =>
-    user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    user.click(within(screen.getByRole("dialog")).getByRole("button", { name: labels.close }));
   const busy = (command: string | null) => vi.fn(async () => ({ busy: true, command }));
-  const SHELL_WARNING = "A command is still running in the shell.";
+  const SHELL_WARNING = labels.shellBusy;
 
   it("ends the shell with its pane: stream and terminal disposed, no separate shell call (SRS-FR-062)", async () => {
     const { user, sessions, shell, shellTerminal } = await paneWithShell();
@@ -431,12 +432,12 @@ describe("Closing a pane with a shell (3.4)", () => {
 
     await user.click(closeButton());
 
-    const dialog = await screen.findByRole("dialog", { name: "Close “Fix login”?" });
+    const dialog = await screen.findByRole("dialog", { name: labels.closeTitle("Fix login") });
     expect(within(dialog).getByText(SHELL_WARNING)).toBeInTheDocument();
-    expect(dialog).toHaveTextContent("npm run dev will be stopped.");
+    expect(dialog).toHaveTextContent(`npm run dev ${labels.commandStops}`);
     expect(within(dialog).getByText("npm run dev")).toHaveClass("font-mono");
-    expect(dialog).not.toHaveTextContent("Session is still running.");
-    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(dialog).not.toHaveTextContent(labels.sessionBusy);
+    await user.click(within(dialog).getByRole("button", { name: labels.cancel }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(sessions.close).not.toHaveBeenCalled();
     expect(shellArea()).not.toBeNull();
@@ -459,7 +460,7 @@ describe("Closing a pane with a shell (3.4)", () => {
     const sessions = fakeSessions({ shellActivity: busy(null) });
     const { user } = await paneWithShell(sessions);
     await user.click(closeButton());
-    expect(await screen.findByRole("dialog")).toHaveTextContent("The shell command will be stopped.");
+    expect(await screen.findByRole("dialog")).toHaveTextContent(labels.shellCommandStops);
   });
 
   it("warns when the shell's activity cannot be read", async () => {
@@ -499,7 +500,7 @@ describe("Closing a pane with a shell (3.4)", () => {
 
     const dialogs = screen.getAllByRole("dialog");
     expect(dialogs).toHaveLength(1);
-    expect(within(dialogs[0]).getByText("Session is still running.")).toBeInTheDocument();
+    expect(within(dialogs[0]).getByText(labels.sessionBusy)).toBeInTheDocument();
     expect(within(dialogs[0]).getByText(SHELL_WARNING)).toBeInTheDocument();
   });
 
@@ -516,7 +517,7 @@ describe("Closing a pane with a shell (3.4)", () => {
     await act(async () => {});
 
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("Session is still running.")).toBeInTheDocument();
+    expect(within(dialog).getByText(labels.sessionBusy)).toBeInTheDocument();
     expect(dialog).not.toHaveTextContent("shell");
   });
 

@@ -1,5 +1,6 @@
+import { TriangleAlert } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { RoundMark } from "./statusTone";
+import { ICON } from "./icon";
 
 const TOAST_MS = 4000;
 
@@ -25,9 +26,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {toast && (
         <div
           role="alert"
-          className="absolute z-20 bottom-6 left-1/2 -translate-x-1/2 flex min-h-11 w-max max-w-[min(560px,calc(100vw-2rem))] items-center gap-2 rounded-[22px] bg-foreground py-2 pl-2 pr-4 text-[13px] text-background shadow-oneui"
+          className="toast absolute z-20 bottom-6 left-1/2 -translate-x-1/2 flex min-h-11 w-max max-w-[min(560px,calc(100vw-2rem))] items-center gap-2 px-4 py-2 text-[13px]"
         >
-          <RoundMark mark={{ kind: "state", state: "Error" }} />
+          <TriangleAlert {...ICON} className="shrink-0" />
           <span className="min-w-0 break-words">{toast}</span>
         </div>
       )}

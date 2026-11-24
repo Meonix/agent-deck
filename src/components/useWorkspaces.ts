@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Workspace, WorkspacesClient } from "../api/workspaces";
+import { labels } from "../labels";
 import { useToast } from "./Toast";
-
-const BLOCKED_REMOVE_MESSAGE = "Close the open sessions of this folder first";
 
 export type WorkspacesState = {
   items: Workspace[] | null;
@@ -68,7 +67,7 @@ export function useWorkspaces(client: WorkspacesClient): WorkspacesState {
       (e) => {
         if (!live) return;
         setItems([]);
-        fail("Could not load folders", e);
+        fail(labels.loadFoldersFailed, e);
       },
     );
     return () => {
@@ -88,7 +87,7 @@ export function useWorkspaces(client: WorkspacesClient): WorkspacesState {
       setSelections((n) => n + 1);
       await refresh();
     } catch (e) {
-      fail("Could not add folder", e);
+      fail(labels.addFolderFailed, e);
     } finally {
       busy.current = false;
     }
@@ -104,12 +103,12 @@ export function useWorkspaces(client: WorkspacesClient): WorkspacesState {
           setSelectedId((cur) => (cur === id ? null : cur));
           await refresh();
         } else if (result.reason === "has_open_panes") {
-          showToast(BLOCKED_REMOVE_MESSAGE);
+          showToast(labels.closeOpenSessionsFirst);
         } else {
-          fail("Could not remove folder", result.message);
+          fail(labels.removeFolderFailed, result.message);
         }
       } catch (e) {
-        fail("Could not remove folder", e);
+        fail(labels.removeFolderFailed, e);
       } finally {
         busy.current = false;
       }

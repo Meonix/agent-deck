@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "../design/agent-deck/tokens.css";
-@import "../design/agent-deck/oneui/tokens-oneui.css";
 @config "../design/agent-deck/tailwind.preset.js";
 @source "./";
 
@@ -8,17 +7,52 @@
   --default-transition-duration: var(--duration);
 }
 
-/* One UI shape layer; inline, so dark mode's --oneui-* values apply where the class is used. */
-@theme inline {
-  --color-canvas: var(--oneui-canvas);
-  --color-surface: var(--oneui-surface);
-  --color-term: var(--oneui-term);
-  --color-sidebar: var(--oneui-sidebar);
-  --color-dim: var(--oneui-dim);
-  --radius-card: var(--oneui-radius-card);
-  --radius-group: var(--oneui-radius-group);
-  --radius-row: var(--oneui-radius-row);
-  --spacing-gap: var(--oneui-gap);
-  --shadow-oneui: var(--oneui-shadow);
-  --blur-oneui: var(--oneui-blur);
-}
+:root { --sidebar-w: 240px; }
+
+body { background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
+
+/* Semantic classes copied from agent-deck-remote (web/src/index.css), so both apps share one look. */
+.bar { background: var(--card); border-bottom: 1px solid var(--border); }
+.sub { color: var(--muted-foreground); }
+.side { background: var(--card); border-right: 1px solid var(--border); }
+.side-label { color: var(--section-label); font-family: var(--font-mono); letter-spacing: 0.08em; }
+.allow { background: var(--primary); color: var(--primary-foreground); border-radius: 22px; }
+.allow:disabled { opacity: 0.5; }
+.outline-btn { border: 1px solid var(--border); border-radius: 22px; }
+.btn-danger { background: var(--error); color: var(--error-solid-foreground); border-radius: 22px; }
+.send { background: var(--primary); color: var(--primary-foreground); border-radius: 22px; }
+.send:disabled { background: var(--muted); color: var(--muted-foreground); cursor: not-allowed; }
+.scrim { background: rgb(0 0 0 / 0.45); border: 0; }
+.dlg { background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+.toast { background: var(--foreground); color: var(--background); border-radius: 22px; }
+.skel { background: var(--muted); }
+.callout-err { background: var(--error-bg); color: var(--error-foreground); border: 1px solid var(--error-border); border-radius: 8px; }
+
+.chip { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 11px; line-height: 18px; font-weight: 600; white-space: nowrap; }
+.chip-app { background: var(--approval-bg); color: var(--approval-foreground); border: 1px solid var(--approval-border); }
+.chip-err { background: var(--error-bg); color: var(--error-foreground); }
+.chip-idle { background: var(--muted); color: var(--muted-foreground); }
+
+/* Status dot and status word, as in design/agent-deck/cr016: Running is blue, Idle green. */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; }
+.dot-busy { background: var(--busy); }
+.dot-ready { background: var(--running); }
+.dot-err { background: var(--error); }
+.dot-app { background: var(--approval); box-shadow: 0 0 0 1.5px var(--approval-foreground); }
+.dot-ended { border: 1.5px solid var(--muted-foreground); }
+.w-busy { color: var(--busy-foreground); }
+.w-ready { color: var(--ready-foreground); }
+.w-app { color: var(--approval-foreground); }
+.w-err { color: var(--error-foreground); }
+
+/*
+ * Pane frames are drawn on an overlay: an inset shadow on the pane itself would sit under its opaque header and body.
+ * Focused, the Focus Outline takes the outer 2px and the status frame moves inside it (SRS-FR-087).
+ */
+.pane-frame { isolation: isolate; }
+.pane-frame::after { content: ""; position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+.pane-app::after { box-shadow: inset 0 0 0 2px var(--approval); }
+.pane-err::after { box-shadow: inset 0 0 0 2px var(--error); }
+.pane-focus::after { box-shadow: inset 0 0 0 2px var(--ring); }
+.pane-focus.pane-app::after { box-shadow: inset 0 0 0 2px var(--ring), inset 0 0 0 4px var(--approval); }
+.pane-focus.pane-err::after { box-shadow: inset 0 0 0 2px var(--ring), inset 0 0 0 4px var(--error); }
