@@ -4,15 +4,22 @@
 TBD - created by archiving change add-pane-shell. Update Purpose after archive.
 ## Requirements
 ### Requirement: Open the pane shell (SRS-FR-055)
-When the user chooses Shell on a pane that has no Pane Shell, the system SHALL open a Pane Shell below the session in that pane, running the operating system's default shell in the workspace folder.
+When the user chooses Shell in the View Switch of a pane that has no Pane Shell, the system SHALL start a Pane Shell running the operating system's default shell in the workspace folder and show it over the whole pane body.
 
 Traces: SRS-FR-055 ← BR-05 ← BO-01
 
+The default shell is the user's login shell on macOS and PowerShell on Windows. The pane switches to the Shell view once the Pane Shell has started; until then it keeps showing its current view.
+
 #### Scenario: Shell opens in the workspace folder
-- **GIVEN** the pane "agent-deck · Scaffold Tauri app" has no Pane Shell
-- **WHEN** the user chooses Shell on that pane
-- **THEN** a Pane Shell appears below the session, 30% of the pane high
+- **GIVEN** the pane "agent-deck · Scaffold Tauri app" shows Term and has no Pane Shell
+- **WHEN** the user chooses Shell in its View Switch
+- **THEN** the pane body shows a shell prompt in the `agent-deck` folder over the whole body, with no divider and no session terminal next to it
 - **AND** typing `pwd` in it prints the path of the `agent-deck` folder
+
+#### Scenario: Input goes to the shell
+- **GIVEN** a pane shows its Pane Shell
+- **WHEN** the user types `ls` and Enter
+- **THEN** the Pane Shell receives `ls` and the Claude Code session receives nothing
 
 #### Scenario: Default shell of the platform
 - **GIVEN** the app runs on macOS
@@ -21,81 +28,90 @@ Traces: SRS-FR-055 ← BR-05 ← BO-01
 - **AND** on Windows it runs PowerShell
 
 ### Requirement: Hide the pane shell (SRS-FR-056)
-When the user chooses Shell on a pane whose Pane Shell is visible, the system SHALL hide the Pane Shell and keep its process running.
+When the user switches a pane from Shell to another view, the system SHALL hide the Pane Shell and keep its process running.
 
 Traces: SRS-FR-056 ← BR-05 ← BO-01
 
 #### Scenario: Hidden shell keeps serving
-- **GIVEN** the Pane Shell runs `npm run dev`
-- **WHEN** the user chooses Shell
-- **THEN** the Pane Shell is no longer visible and the session takes the whole pane
+- **GIVEN** a pane shows Shell and its Pane Shell runs `npm run dev`
+- **WHEN** the user chooses Term in its View Switch
+- **THEN** the pane body shows the session terminal and the Pane Shell is not visible
 - **AND** the server still answers at `localhost:1420`
 
 ### Requirement: Show the pane shell again (SRS-FR-057)
-When the user chooses Shell on a pane whose Pane Shell is hidden, the system SHALL show the Pane Shell with its previous output and height.
+When the user chooses Shell in the View Switch of a pane whose Pane Shell is hidden, the system SHALL show the Pane Shell with its previous output.
 
 Traces: SRS-FR-057 ← BR-05 ← BO-01
 
-#### Scenario: Output and height come back
-- **GIVEN** the Pane Shell was hidden at 40% of the pane while `npm run dev` kept printing
+#### Scenario: Output comes back
+- **GIVEN** a pane's Pane Shell runs `npm run dev` and the user switched the pane to Term
+- **WHEN** `npm run dev` prints more lines and the user chooses Shell
+- **THEN** the pane body shows the Pane Shell with the lines printed before and while it was hidden
+- **AND** no second Pane Shell is started
+
+#### Scenario: Keyboard goes to the shown shell
+- **GIVEN** a pane shows Term and has a hidden Pane Shell
 - **WHEN** the user chooses Shell
-- **THEN** the Pane Shell shows again at 40% of the pane
-- **AND** it shows the lines `npm run dev` printed while it was hidden
+- **THEN** keyboard focus is in the Pane Shell
 
 ### Requirement: Hidden shell marker (SRS-FR-058)
-While a pane's Pane Shell is hidden, the system SHALL show a running marker on that pane's Shell button.
+While a pane's Pane Shell is hidden and running a command, the system SHALL show the name of that command on the Shell item of the View Switch.
 
 Traces: SRS-FR-058 ← BR-05 ← BO-01
 
-#### Scenario: Marker with the running command
-- **GIVEN** the Pane Shell runs `npm run dev`
-- **WHEN** the user hides it
-- **THEN** the Shell button shows a marker and the text `npm run dev`
+#### Scenario: Command name on the Shell item
+- **GIVEN** a pane's Pane Shell runs `npm run dev`
+- **WHEN** the user switches the pane to Term
+- **THEN** the Shell item of its View Switch reads "Shell · npm run dev"
 
-#### Scenario: Marker at the prompt
-- **GIVEN** the Pane Shell waits at its prompt
-- **WHEN** the user hides it
-- **THEN** the Shell button shows a marker and the text "Shell"
+#### Scenario: Hidden shell at the prompt
+- **GIVEN** a pane's Pane Shell waits at its prompt
+- **WHEN** the user switches the pane to Term
+- **THEN** the Shell item reads "Shell" with no command name
 
-#### Scenario: No marker without a hidden shell
-- **GIVEN** a pane with no Pane Shell, and a pane whose Pane Shell is visible
-- **WHEN** the user looks at their Shell buttons
-- **THEN** neither shows a marker
-
-### Requirement: Resize the pane shell (SRS-FR-059)
-When the user drags the divider between the session and the Pane Shell, the system SHALL resize both to follow the divider.
-
-Traces: SRS-FR-059 ← BR-05 ← BO-01
-
-#### Scenario: Drag the divider up
-- **GIVEN** a pane with a visible Pane Shell
-- **WHEN** the user drags the divider up by 100 px
-- **THEN** the Pane Shell is 100 px taller and the session area 100 px shorter
+#### Scenario: No command name without a hidden shell
+- **GIVEN** a pane with no Pane Shell, and a pane that shows its Pane Shell running `npm run dev`
+- **WHEN** the user looks at their View Switches
+- **THEN** both Shell items read "Shell"
 
 ### Requirement: Reflow the pane shell (SRS-FR-060)
 When the Pane Shell changes size, the system SHALL fit the Pane Shell's content to its new size.
 
 Traces: SRS-FR-060 ← BR-05 ← BO-01
 
-#### Scenario: Divider drag resizes the shell terminal
-- **GIVEN** a visible Pane Shell
-- **WHEN** the user drags the divider
-- **THEN** the shell process is resized to the new terminal size of the Pane Shell
+This covers changing the pane size (SRS-FR-023) and maximizing and restoring the pane (SRS-FR-041, SRS-FR-042); the session terminal still follows SRS-FR-024.
 
 #### Scenario: Maximize resizes the shell terminal
-- **GIVEN** a pane with a visible Pane Shell running `htop`
+- **GIVEN** a pane shows its Pane Shell running `htop`
 - **WHEN** the user maximizes the pane
-- **THEN** the shell process is resized to the larger terminal size
+- **THEN** the shell process is resized to the larger terminal size and `htop` redraws to fit it
+
+#### Scenario: Pane divider resizes the shell terminal
+- **GIVEN** two panes side by side and the left one shows its Pane Shell
+- **WHEN** the user drags the divider between the panes 200 px to the right
+- **THEN** the shell process of the left pane is resized to its wider terminal size
+
+#### Scenario: Hidden shell after a resize
+- **GIVEN** a pane shows Term and has a hidden Pane Shell
+- **WHEN** the user maximizes the pane and then chooses Shell
+- **THEN** the shell process has the terminal size of the maximized pane body by the time the Pane Shell shows
 
 ### Requirement: Shell exits (SRS-FR-061)
 When the Pane Shell's process exits, the system SHALL close the Pane Shell.
 
 Traces: SRS-FR-061 ← BR-05 ← BO-01
 
-#### Scenario: exit closes the shell area
-- **GIVEN** a visible Pane Shell
-- **WHEN** the user types `exit` in it
-- **THEN** the Pane Shell closes, the session takes the whole pane and the Shell button has no marker
+A pane that showed the Pane Shell returns to the view it showed before Shell, which is Term while Chat and Plan are disabled.
+
+#### Scenario: exit returns to the previous view
+- **GIVEN** a pane switched from Term to Shell
+- **WHEN** the user types `exit` in the Pane Shell
+- **THEN** the pane shows Term and the Shell item reads "Shell" with no command name
+
+#### Scenario: Hidden shell exits
+- **GIVEN** a pane shows Term and has a hidden Pane Shell
+- **WHEN** the shell process exits, for example because it is killed
+- **THEN** the pane keeps showing Term and the Shell item reads "Shell"
 
 #### Scenario: A new shell after exit
 - **GIVEN** the Pane Shell of a pane has exited
@@ -124,9 +140,9 @@ Traces: SRS-FR-065 ← BR-05 ← BO-01
 
 #### Scenario: Default shell cannot run
 - **GIVEN** the default shell cannot be started
-- **WHEN** the user chooses Shell on a `Running` pane
-- **THEN** the pane shows "Shell could not start"
-- **AND** the session stays `Running` and the Shell button has no marker
+- **WHEN** the user chooses Shell on a `Running` pane that shows Term
+- **THEN** the pane shows "Không khởi động được shell"
+- **AND** the pane still shows Term, the session stays `Running` and the Shell item reads "Shell" with no command name
 
 ### Requirement: Shell outlives an abnormal exit (SRS-FR-064)
 While the session in a pane has exited abnormally, the system SHALL keep that pane's Pane Shell running.
@@ -134,10 +150,10 @@ While the session in a pane has exited abnormally, the system SHALL keep that pa
 Traces: SRS-FR-064 ← BR-05 ← BO-01
 
 #### Scenario: Crash leaves the shell running
-- **GIVEN** a pane whose Pane Shell runs `npm run dev`
+- **GIVEN** a pane shows Term and its hidden Pane Shell runs `npm run dev`
 - **WHEN** the Claude Code process of that pane is killed
-- **THEN** the pane shows "Session ended"
-- **AND** the Pane Shell still runs and accepts input
+- **THEN** the Term view shows "Session ended"
+- **AND** choosing Shell shows the Pane Shell still running `npm run dev` and accepting input
 
 #### Scenario: /exit ends the shell with the pane
 - **GIVEN** a pane whose Pane Shell runs `npm run dev`

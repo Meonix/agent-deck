@@ -98,12 +98,12 @@ Traces: SRS-FR-066 ← BR-05 ← BO-01
 #### Scenario: Double-click inside the terminal
 - **GIVEN** a pane that is not maximized
 - **WHEN** the user double-clicks a word inside its terminal
-- **THEN** the pane is not maximized
+- **THEN** the word is selected and the pane is not maximized
 
 #### Scenario: Double-click a header button
-- **GIVEN** a pane that is not maximized
-- **WHEN** the user double-clicks its Shell button
-- **THEN** the pane is not maximized
+- **GIVEN** a pane that is not maximized and shows Term
+- **WHEN** the user double-clicks the Shell item of its View Switch, or its Để dành, Phóng to or × button
+- **THEN** only that control does its own action (for the Shell item: the pane shows Shell) and the header double-click does not maximize the pane
 
 ### Requirement: Restore on header double-click (SRS-FR-067)
 When the user double-clicks the header of the Maximized Pane, the system SHALL restore the previous layout as in SRS-FR-042.
@@ -132,8 +132,8 @@ Traces: SRS-FR-080 ← BR-05 ← BO-01
 - **THEN** no Drop Zone is shown
 
 #### Scenario: Press on a header button
-- **WHEN** the user presses Close, Shell or Maximize on a header and moves the pointer
-- **THEN** no drag starts
+- **WHEN** the user presses an item of the View Switch, Để dành, Phóng to or × on a header and moves the pointer over another pane
+- **THEN** no drag starts and no Drop Zone is shown
 
 ### Requirement: Move a pane by drop (SRS-FR-081)
 When the user drops a pane on a Drop Zone of another pane, the system SHALL move the dropped pane to that side of the other pane, splitting the other pane in half.
