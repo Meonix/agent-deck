@@ -31,7 +31,7 @@ Traces: SRS-FR-104 ← BR-03 ← BO-02
 
 #### Scenario: History is kept
 - **GIVEN** the user stashed "Fix login bug"
-- **WHEN** the user opens the Session History Panel of `mokairo`
+- **WHEN** the user opens the Session Chooser of `mokairo`
 - **THEN** "Fix login bug" is still listed
 
 ### Requirement: Confirm stashing a busy pane (SRS-FR-105)
@@ -112,10 +112,10 @@ Traces: SRS-FR-109 ← BR-03 ← BO-02
 - **WHEN** the user clicks its row and the pane opens
 - **THEN** the row is no longer in Stashed Sessions
 
-#### Scenario: Opened from history
+#### Scenario: Opened from the Session Chooser
 - **GIVEN** "Fix login bug" is in Stashed Sessions
-- **WHEN** the user resumes it from the Session History Panel
-- **THEN** the row is no longer in Stashed Sessions
+- **WHEN** the user clicks the row "Fix login bug" in the Session Chooser of `mokairo`
+- **THEN** a pane opens and the row is no longer in Stashed Sessions
 
 ### Requirement: Remove from stash (SRS-FR-110)
 When the user chooses × on a row in Stashed Sessions, the system SHALL remove that session from Stashed Sessions without changing its history.
@@ -128,7 +128,7 @@ The × shows while the row is hovered or has keyboard focus; there is no confirm
 - **GIVEN** "Fix login bug · mokairo" and one other row are in the "Để dành (2)" group
 - **WHEN** the user chooses × on "Fix login bug"
 - **THEN** the row is gone, the group reads "Để dành (1)" and no pane opens
-- **AND** "Fix login bug" is still in the Session History Panel of `mokairo`
+- **AND** "Fix login bug" is still in the Session Chooser of `mokairo`
 
 #### Scenario: × on demand
 - **GIVEN** "Fix login bug" is in the "Để dành" group
@@ -153,7 +153,7 @@ Traces: SRS-FR-112 ← BR-03 ← BO-02
 
 #### Scenario: Deleted in the app
 - **GIVEN** "Fix login bug" is in Stashed Sessions
-- **WHEN** the user deletes it from the Session History Panel
+- **WHEN** the user deletes it from the Session Chooser of `mokairo`
 - **THEN** its row is gone from Stashed Sessions
 
 #### Scenario: Deleted outside the app

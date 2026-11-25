@@ -4,14 +4,22 @@
 TBD - created by archiving change add-session-pane. Update Purpose after archive.
 ## Requirements
 ### Requirement: Start a new session (SRS-FR-018)
-When the user starts a new session in the selected workspace, the system SHALL open a new pane that runs a new Claude Code session in that workspace folder.
+When the user chooses Phiên mới in the Session Chooser, the system SHALL close the Session Chooser and open a new pane that runs a new Claude Code session in that workspace folder.
 
 Traces: SRS-FR-018 ← BR-04 ← BO-02
 
-#### Scenario: New Session in agent-deck
-- **GIVEN** the workspace `agent-deck` at `/Users/mionix/Project/personal/agent-deck` is selected
-- **WHEN** the user presses "New Session"
-- **THEN** a new pane opens running Claude Code with working folder `/Users/mionix/Project/personal/agent-deck`
+"Phiên mới" is the primary button at the top of the Session Chooser and holds keyboard focus when the chooser opens. The empty pane area has no "Phiên mới" button.
+
+#### Scenario: New session in agent-deck
+- **GIVEN** the workspace `agent-deck` is at `/Users/mionix/Project/personal/agent-deck`
+- **WHEN** the user chooses + on the row `agent-deck` and then "Phiên mới"
+- **THEN** the Session Chooser closes
+- **AND** a new pane opens running Claude Code with working folder `/Users/mionix/Project/personal/agent-deck` and keyboard focus in it
+
+#### Scenario: Enter right after opening
+- **GIVEN** the user just chose + on the row `agent-deck`
+- **WHEN** the user presses Enter
+- **THEN** a new session starts in `agent-deck` as with a click on "Phiên mới"
 
 ### Requirement: Reject a new session in a missing workspace (SRS-FR-020)
 If the user starts a new session in a `Missing` workspace, then the system SHALL reject the request and show the message "Folder not found".
@@ -20,9 +28,9 @@ Traces: SRS-FR-020 ← BR-04 ← BO-02
 
 #### Scenario: Missing workspace
 - **GIVEN** the workspace `mokairo` is `Missing`
-- **WHEN** the user presses "New Session" with `mokairo` selected
+- **WHEN** the user chooses + on the row `mokairo` and then "Phiên mới"
 - **THEN** no pane opens
-- **AND** the message "Folder not found" is shown
+- **AND** the message "Không tìm thấy folder" is shown
 
 ### Requirement: Focus the new pane (SRS-FR-014)
 When a pane opens, the system SHALL move keyboard focus to that pane.
@@ -112,7 +120,7 @@ Traces: SRS-FR-029 ← BR-05 ← BO-01
 #### Scenario: Close keeps the history
 - **GIVEN** the session "Fix login bug" is open in a pane
 - **WHEN** the user presses the pane's close button and chooses Close
-- **THEN** "Fix login bug" is still listed in the Session History Panel
+- **THEN** "Fix login bug" is still listed in the Session Chooser of its workspace, without the chip "Đang mở"
 
 ### Requirement: Pane header (SRS-FR-030)
 The system SHALL show the workspace name and the session title in the header of each pane.
@@ -208,5 +216,5 @@ Traces: SRS-FR-100 ← BR-05 ← BO-01
 #### Scenario: /exit does not ask
 - **WHEN** the user types `/exit` in a pane
 - **THEN** the pane closes with no Close Dialog (SRS-FR-083)
-- **AND** the session is still listed in the Session History Panel
+- **AND** the session is still listed in the Session Chooser of its workspace
 

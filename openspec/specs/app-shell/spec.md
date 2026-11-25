@@ -26,6 +26,6 @@ Traces: SRS-NFR-008 ← BR-06 ← BO-01
 - **THEN** every label and message is in Vietnamese, such as "Thêm folder", "Không còn" and "Đóng các phiên đang mở của folder này trước"
 
 #### Scenario: No English label left
-- **WHEN** the user opens a pane, the Session History Panel and the Close Dialog
-- **THEN** buttons and messages read "Phiên mới", "Mở lại", "Xoá", "Huỷ", "Đóng" and "Đóng và chuyển vào Thùng rác", not their English originals
+- **WHEN** the user opens a pane, the Session Chooser and the Close Dialog
+- **THEN** buttons and messages read "Phiên mới", "Mở lại phiên cũ", "Đang mở", "Huỷ", "Đóng" and "Đóng và chuyển vào Thùng rác", not their English originals
 

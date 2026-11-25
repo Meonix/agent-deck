@@ -30,7 +30,7 @@ Traces: SRS-NFR-001 ← BR-05 ← BO-01
 - **THEN** each keystroke is echoed within 100 ms at the 95th percentile
 
 ### Requirement: Maximize pane (SRS-FR-041)
-When the user chooses Maximize on a pane, the system SHALL show that pane over the whole application window below the title bar, covering the Workspace List, Active Sessions, the Session History Panel and the other panes.
+When the user chooses Maximize on a pane, the system SHALL show that pane over the whole application window below the title bar, covering the Sidebar and the other panes.
 
 Traces: SRS-FR-041 ← BR-05 ← BO-01
 
@@ -41,9 +41,9 @@ Traces: SRS-FR-041 ← BR-05 ← BO-01
 - **AND** panes 1 and 3 keep running and keep their size
 
 #### Scenario: Covered controls cannot be reached
-- **GIVEN** the Session History Panel is open and pane 2 is maximized
+- **GIVEN** pane 2 is maximized
 - **WHEN** the user presses Tab
-- **THEN** keyboard focus never reaches the Workspace List, Active Sessions, the Session History Panel or another pane
+- **THEN** keyboard focus never reaches the Sidebar, the + of a workspace row or another pane
 
 ### Requirement: Restore pane (SRS-FR-042)
 When the user chooses Restore on the Maximized Pane, the system SHALL show the previous layout with the same pane sizes.

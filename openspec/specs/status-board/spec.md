@@ -111,7 +111,7 @@ The state follows RULE-03 to RULE-08 and the transition table in SRS section 5; 
 - **GIVEN** the session "Scaffold Tauri app" is open in a pane
 - **WHEN** it changes to `Needs Approval`
 - **THEN** its Session Row in the Folder Tree shows "Cần duyệt" with the yellow tint
-- **AND** its row in the Session History Panel still shows `Live`, without a highlight (SRS-FR-012)
+- **AND** its row in the Session Chooser still shows "Đang mở", without a highlight (SRS-FR-012)
 
 ### Requirement: Status detail line (SRS-FR-033)
 While a Session Row shows the Status Highlight of `Needs Approval` or `Error`, the system SHALL show below the session title the time the session entered that state and the reason of that state.
@@ -274,10 +274,10 @@ Traces: SRS-FR-037 ← BR-07 ← BO-01
 - **WHEN** the user clicks that row
 - **THEN** the pane of "Refactor API client" is focused
 
-#### Scenario: History row does not jump
-- **GIVEN** the row of a session in the Session History Panel
-- **WHEN** the user clicks it
-- **THEN** keyboard focus stays where it was and the row shows its Resume button
+#### Scenario: Chooser row of an open session
+- **GIVEN** "Refactor API client" is open in a pane and another pane has keyboard focus
+- **WHEN** the user clicks its "Đang mở" row in the Session Chooser
+- **THEN** the Session Chooser closes and the pane of "Refactor API client" is focused, without a second pane (SRS-FR-015)
 
 ### Requirement: List open sessions in the Folder Tree (SRS-FR-051)
 The system SHALL list every session open in a pane as a Session Row under the row of its workspace in the Folder Tree.
