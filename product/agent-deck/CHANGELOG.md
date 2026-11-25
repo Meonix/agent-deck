@@ -953,3 +953,18 @@ Backlog — thêm (áp sau GATE CR):
 - 45 · Trang Cài đặt · add-settings-page · SRS-FR-145, SRS-FR-177, SRS-FR-178, SRS-FR-179, SRS-FR-180 · phụ thuộc 42 · Should; CR-016; → /dev-feature.
 
 Việc tiếp theo: /design-ui cập nhật `design/agent-deck/` theo thiết kế của agent-deck-remote (bỏ One UI) → /dev-update update-ui-foundation (mục 34) → 35, 36, 37 (/dev-update) → 38 đến 45 (/dev-feature).
+
+## CR-017 — "Folder khác" tự mở khi không folder nào đang mở phiên
+Ngày: 2026-11-24
+Yêu cầu: "Cho "Folder khác" tự mở khi cây không có folder nào đang mở phiên" — PO chọn ở GATE 3 của update-folder-tree, sau khi chạy thử app thật thấy màn trống bảo "Chọn một folder" mà mọi folder đều nằm trong nhóm đang thu gọn.
+Status: Approved (2026-11-25)
+Ảnh hưởng:
+- SRS-FR-141 (backlog mục 35, change `update-folder-tree` đang mở → sửa trực tiếp trong change đó, làm tay vì không có /opsx:update).
+- Không đụng BO, BR. Code: `src/components/WorkspaceSidebar.tsx`, `src/components/statusHighlight.ts`.
+Diff đề xuất:
+Phiên bản: SRS v1.16 → v1.17. BRD không đổi.
+- SRS-FR-141 câu SHALL: "While a workspace has no session open in a pane, the system shall list it in the group "Folder khác (<n>)" at the end of the Folder Tree, collapsed by default." → "While a workspace has no session open in a pane, the system shall list it in the group "Folder khác (<n>)" at the end of the Folder Tree, collapsed by default unless no workspace has a session open in a pane."
+- SRS-FR-141 Giải thích thêm: "Sửa ở CR-017: khi cây không còn folder nào có phiên mở, nhóm mở sẵn để người dùng thấy folder mà chọn; người dùng thu gọn lại thì giữ thu gọn tới khi có phiên mở rồi đóng hết."
+- SRS-FR-141 thêm Ví dụ: "Mở app, chưa ô nào mở, Workspace List có 3 folder → nhóm "Folder khác (3)" mở sẵn, thấy cả 3 folder."
+- Mục 14: v1.17 · 2026-11-24 · PO · CR-017: SRS-FR-141 nhóm Folder khác mở sẵn khi không folder nào có phiên mở.
+Việc tiếp theo: sửa delta spec FR-141 trong `update-folder-tree` → code → archive cùng change đó.

@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.16 (2026-11-24)
+status: Baselined v1.17 (2026-11-25)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -1173,10 +1173,11 @@ Không còn Status Summary.
 - Luồng thay thế: A1 người dùng bấm nút Cài đặt ở chân Sidebar → Settings Page (2.25) → SRS-FR-145
 
 ### SRS-FR-141 — Other Folders
-While a workspace has no session open in a pane, the system shall list it in the group "Folder khác (<n>)" at the end of the Folder Tree, collapsed by default.
-- Giải thích: <n> là số workspace trong nhóm; nhóm nằm trên nhóm "Để dành" (SRS-FR-106), nhóm đó luôn ở cuối cây.
+While a workspace has no session open in a pane, the system shall list it in the group "Folder khác (<n>)" at the end of the Folder Tree, collapsed by default unless no workspace has a session open in a pane.
+- Giải thích: <n> là số workspace trong nhóm; nhóm nằm trên nhóm "Để dành" (SRS-FR-106), nhóm đó luôn ở cuối cây. Sửa ở CR-017: khi cây không còn folder nào có phiên mở, nhóm mở sẵn để người dùng thấy folder mà chọn; người dùng thu gọn lại thì giữ thu gọn tới khi có phiên mở rồi đóng hết.
 - Ví dụ: Workspace List có `agent-deck`, `mokairo`, `notes`; chỉ `agent-deck` có ô đang mở → cây có dòng `agent-deck` với Session Row bên dưới, rồi nhóm thu gọn "Folder khác (2)" chứa `mokairo`, `notes`.
 - Ví dụ âm: mở một phiên của `mokairo` → `mokairo` rời nhóm, nhóm còn "Folder khác (1)".
+- Ví dụ: mở app, chưa ô nào mở, Workspace List có 3 folder → nhóm "Folder khác (3)" mở sẵn, thấy cả 3 folder.
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-01
@@ -2022,3 +2023,4 @@ The system shall show every status word and status-tinted row with a text contra
 | v1.14 | 2026-11-22 | PO | CR-014: bỏ Status Summary và báo cáo Status Latency trong app (xoá SRS-FR-039, SRS-FR-132 đến SRS-FR-140); vẫn ghi độ trễ (SRS-FR-038); theo BRD v5.2 |
 | v1.15 | 2026-11-23 | PO | CR-015: bỏ Target Box và Session Goal, Progress Tracking, ghi độ trễ trạng thái (xoá SRS-FR-038, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-113 đến SRS-FR-131, SRS-NFR-011 đến SRS-NFR-013, RULE-10, RULE-11, A-12); SRS-NFR-007, A-07 về lại không có ngoại lệ; theo BRD v6.0 |
 | v1.16 | 2026-11-24 | PO | CR-016: giao diện theo agent-deck-remote; Folder Tree thay Workspace List, Active Sessions; Session Chooser thay Session History Panel; View Switch Chat · Term · Shell · Plan, Pane Shell thành chế độ Shell; nhãn tiếng Việt; thêm SRS-FR-141 đến SRS-FR-180, SRS-NFR-014, RULE-12, A-13, A-14, A-15; xoá SRS-FR-053, SRS-FR-059, SRS-NFR-009, SRS-NFR-010; theo BRD v7.0 |
+| v1.17 | 2026-11-25 | PO | CR-017: SRS-FR-141 nhóm Folder khác mở sẵn khi không folder nào có phiên mở; theo BRD v7.0 |
