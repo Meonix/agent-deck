@@ -21,6 +21,8 @@ function e(id: string, workspaceId: string, status: Partial<PaneStatus>, session
     shell: null,
     shellFailed: false,
     prompted: false,
+    view: "term",
+    returnView: "term",
   };
 }
 

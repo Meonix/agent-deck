@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeAdapter, fakeSessions, fakeStream, type FakeAdapter } from "../test/fakes";
@@ -22,33 +22,35 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
     shell: null,
     shellFailed: false,
     prompted: false,
+    view: "term",
+    returnView: "term",
     ...over,
   };
 }
 
 function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn() }, focused = true) {
   const view = render(
-    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={on.focus} onClose={on.close} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={on.focus} onClose={on.close} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} />,
   );
   return { client, on, view };
 }
 
 const flush = () => act(async () => {});
 
-/** Returns a function that fires the observer callback, as a layout change would. */
+/** Returns a function that fires every observer callback, as a layout change would. */
 function stubResizeObserver() {
-  let callback: () => void = () => {};
+  const callbacks: (() => void)[] = [];
   vi.stubGlobal(
     "ResizeObserver",
     class {
       constructor(cb: () => void) {
-        callback = cb;
+        callbacks.push(cb);
       }
       observe() {}
       disconnect() {}
     },
   );
-  return () => callback();
+  return () => callbacks.forEach((cb) => cb());
 }
 
 afterEach(() => {
@@ -108,7 +110,7 @@ describe("TerminalPane (5.3)", () => {
     const { client, view } = renderPane(entry(adapter));
     await flush();
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} />,
     );
     expect(screen.getByText(labels.sessionEnded)).toBeInTheDocument();
     expect(screen.getByText(labels.state["Ended"])).toBeInTheDocument();
@@ -143,7 +145,7 @@ describe("TerminalPane (5.3)", () => {
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledWith("p1", "\x1b[M #!");
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} />,
     );
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledTimes(1);
@@ -249,7 +251,7 @@ describe("TerminalPane attention and dimming (app-theme)", () => {
   const classes = (state: PaneEntry["status"]["state"], focused: boolean, maximized = false) => {
     const status = { state, since: 1, reason: null, tracked: true };
     const view = render(
-      <TerminalPane entry={entry(fakeAdapter(), { status })} client={fakeSessions()} focused={focused} maximized={maximized} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onToggleShell={vi.fn()} onResizeShell={vi.fn()} onDismissShellFailure={vi.fn()} />,
+      <TerminalPane entry={entry(fakeAdapter(), { status })} client={fakeSessions()} focused={focused} maximized={maximized} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} />,
     );
     const cls = screen.getByRole("region").className.split(/\s+/);
     view.unmount();
@@ -337,5 +339,85 @@ describe("TerminalPane header", () => {
     renderPane(entry(fakeAdapter(), { graceOver: true, status: status("Running", false) }));
     expect(mark()).toHaveClass("text-muted-foreground");
     expect(mark()).not.toHaveClass("rounded-full");
+  });
+});
+
+describe("Pane header with View Switch (SRS-FR-030)", () => {
+  const header = () => screen.getByRole("region").querySelector("header")!;
+  const viewSwitch = () => within(header()).getByRole("group", { name: labels.viewSwitch });
+  const before = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
+  it("reads the title, then the state chip, the View Switch, Để dành, Phóng to and × in that order", () => {
+    renderPane(entry(fakeAdapter(), { title: "Scaffold Tauri app", status: { state: "Running", since: 1, reason: null, tracked: true } }));
+    expect(header()).toHaveTextContent(/^agent-deck · Scaffold Tauri app/);
+    const order = [
+      screen.getByText(labels.state["Running"]),
+      viewSwitch(),
+      screen.getByRole("button", { name: labels.stashSession }),
+      screen.getByRole("button", { name: labels.maximizePane }),
+      screen.getByRole("button", { name: labels.closePane }),
+    ];
+    for (let i = 1; i < order.length; i++) expect(before(order[i - 1], order[i])).toBe(true);
+  });
+
+  it("lets the title give way first, then the state chip, then the View Switch, never the buttons", () => {
+    renderPane(entry(fakeAdapter()));
+    expect(screen.getByText(/^agent-deck ·/).parentElement).toHaveClass("flex-1", "basis-0", "min-w-0", "truncate");
+    expect(screen.getByText(labels.state["Idle"])).toHaveClass("min-w-0", "shrink-[10]", "truncate");
+    expect(viewSwitch()).toHaveClass("min-w-0");
+    expect(viewSwitch()).not.toHaveClass("shrink-0");
+  });
+
+  it("drops Chat and Plan in a narrow header and keeps Để dành, Phóng to and ×", async () => {
+    const observe = stubResizeObserver();
+    renderPane(entry(fakeAdapter()));
+    await flush();
+    const width = vi.spyOn(header(), "getBoundingClientRect");
+    const items = () => within(viewSwitch()).getAllByRole("button").map((b) => b.textContent);
+
+    width.mockReturnValue(new DOMRect(0, 0, 250, 40));
+    act(() => observe());
+    expect(items()).toEqual([labels.views.term, labels.views.shell]);
+    for (const name of [labels.stashSession, labels.maximizePane, labels.closePane]) {
+      expect(within(header()).getByRole("button", { name })).toBeInTheDocument();
+    }
+
+    width.mockReturnValue(new DOMRect(0, 0, 600, 40));
+    act(() => observe());
+    expect(items()).toEqual(["Chat", "Term", "Shell", "Plan"]);
+  });
+
+  it("shows Term pressed on a new pane", () => {
+    renderPane(entry(fakeAdapter()));
+    expect(within(viewSwitch()).getByRole("button", { name: labels.views.term })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("Shell view focus", () => {
+  function paneWith(view: "term" | "shell", adapter: FakeAdapter, shellAdapter: FakeAdapter, client = fakeSessions()) {
+    const e = entry(adapter, { view, shell: { adapter: shellAdapter, stream: fakeStream(), activity: null } });
+    return (
+      <TerminalPane entry={e} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} />
+    );
+  }
+
+  // No user path shows Shell without an action in its own pane today; this guards the effect directly.
+  it("leaves the keyboard in another pane when Shell is shown", async () => {
+    const adapter = fakeAdapter();
+    const shellAdapter = fakeAdapter();
+    const client = fakeSessions();
+    const other = document.body.appendChild(document.createElement("section"));
+    other.setAttribute("data-pane", "p2");
+    const elsewhere = other.appendChild(document.createElement("textarea"));
+    try {
+      const { rerender } = render(paneWith("term", adapter, shellAdapter, client));
+      await flush();
+      elsewhere.focus();
+      rerender(paneWith("shell", adapter, shellAdapter, client));
+      await flush();
+      expect(elsewhere).toHaveFocus();
+    } finally {
+      other.remove();
+    }
   });
 });

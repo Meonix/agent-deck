@@ -8,11 +8,11 @@ import { SHELL_OPEN_SIZE } from "./PaneShell";
 import { type Layout, type Side, type SplitPath, movePane as moveInLayout, paneOrder, removePane, setRatio, splitPane } from "./paneTree";
 import { type PaneEntry, type ShellEntry, type TerminalAdapter, type TerminalAdapterFactory, type TerminalSize, UNTITLED } from "./TerminalPane";
 import { useToast } from "./Toast";
+import { isAvailable, type PaneView } from "./ViewSwitch";
 import { errorDetail } from "./useWorkspaces";
 
 const TITLE_REFRESH_MS = 10_000;
 const SHELL_ACTIVITY_MS = 1_000;
-const SHELL_RATIO = 0.3;
 // How long a pane may stay untracked before the UI says its status is unavailable.
 const STATUS_GRACE_MS = 5_000;
 // Used when the pane area cannot be measured; the pane fits itself right after
@@ -46,9 +46,8 @@ export type SessionPanes = PanesState & {
   resizeSplit(path: SplitPath, ratio: number): void;
   /** Puts the pane on one side of the target, which it splits in half; the moved pane gets the keyboard. */
   movePane(paneId: string, targetId: string, side: Side): void;
-  /** Opens the pane's shell when it has none, else hides or shows it. */
-  toggleShell(paneId: string): Promise<void>;
-  resizeShell(paneId: string, ratio: number): void;
+  /** Shell starts the pane's shell when it has none; Chat and Plan are not built yet and only give the keyboard back. */
+  chooseView(paneId: string, view: PaneView): Promise<void>;
   dismissShellFailure(paneId: string): void;
   /** Once per launch: resumes the panes remembered from the last one (SRS-FR-085, SRS-FR-086). */
   reopenPanes(workspaces: Workspace[]): Promise<void>;
@@ -131,7 +130,7 @@ export function useSessionPanes(
   const focusHolder = useCallback(
     (holder: PaneEntry) => {
       focusPane(holder.pane.paneId);
-      holder.adapter?.focus();
+      shownTerminal(holder)?.focus();
     },
     [focusPane],
   );
@@ -190,6 +189,8 @@ export function useSessionPanes(
         shell: null,
         shellFailed: false,
         prompted: resumed !== undefined,
+        view: "term",
+        returnView: "term",
       };
       return entry;
     },
@@ -387,17 +388,32 @@ export function useSessionPanes(
     [],
   );
 
-  const shellOpening = useRef(new Set<string>());
-  const toggleShell = useCallback(
-    async (paneId: string) => {
+  // Per pane while its shell starts: whether to show it once started.
+  const shellOpening = useRef(new Map<string, { show: boolean }>());
+  const chooseView = useCallback(
+    async (paneId: string, view: PaneView) => {
       const entry = entries.current.find((e) => e.pane.paneId === paneId);
       if (!entry) return;
-      if (entry.shell) {
-        update(paneId, (e) => (e.shell ? { shell: { ...e.shell, visible: !e.shell.visible } } : {}));
+      // Another view chosen while the shell starts: the user no longer waits for it.
+      const starting = shellOpening.current.get(paneId);
+      if (starting && view !== "shell") starting.show = false;
+      // A view that changes takes the keyboard in TerminalPane once it is shown.
+      if (entry.view === view || !isAvailable(view)) {
+        shownTerminal(entry)?.focus();
+        return;
+      }
+      if (view === "term" || entry.shell) {
+        update(paneId, (e) =>
+          view === "shell"
+            ? // The last answer goes stale while shown; the next hide waits for a new one.
+              { view, shell: e.shell && { ...e.shell, activity: null } }
+            : { view, returnView: view },
+        );
         return;
       }
       if (shellOpening.current.has(paneId)) return;
-      shellOpening.current.add(paneId);
+      const start = { show: true };
+      shellOpening.current.set(paneId, start);
       const adapter = createTerminal();
       try {
         const { stream } = await client.openShell(paneId, SHELL_OPEN_SIZE.cols, SHELL_OPEN_SIZE.rows);
@@ -407,14 +423,17 @@ export function useSessionPanes(
           adapter.dispose();
           return;
         }
-        const shell: ShellEntry = { adapter, stream, visible: true, ratio: SHELL_RATIO, activity: null };
-        update(paneId, () => ({ shell, shellFailed: false }));
+        const shell: ShellEntry = { adapter, stream, activity: null };
+        // The pane stays on its view until the shell has started (SRS-FR-055).
+        update(paneId, (e) => ({ shell, shellFailed: false, view: start.show ? "shell" : e.view }));
         // Registered after the insert so an exit already queued finds the shell.
         stream.onOutput((bytes) => adapter.write(bytes));
         stream.onExit(() => {
           stream.dispose();
           adapter.dispose();
-          update(paneId, (e) => (e.shell?.stream === stream ? { shell: null } : {}));
+          update(paneId, (e) =>
+            e.shell?.stream === stream ? { shell: null, view: e.view === "shell" ? e.returnView : e.view } : {},
+          );
         });
       } catch (e) {
         adapter.dispose();
@@ -427,16 +446,11 @@ export function useSessionPanes(
     [client, createTerminal, update],
   );
 
-  const resizeShell = useCallback(
-    (paneId: string, ratio: number) => update(paneId, (e) => (e.shell ? { shell: { ...e.shell, ratio } } : {})),
-    [update],
-  );
-
   const dismissShellFailure = useCallback((paneId: string) => update(paneId, () => ({ shellFailed: false })), [update]);
 
   // SRS-FR-058: one interval asks for every hidden shell; a failed call keeps the last answer.
   const hiddenShells = layout.entries
-    .filter((e) => e.shell && !e.shell.visible)
+    .filter((e) => e.shell && e.view !== "shell")
     .map((e) => e.pane.paneId)
     .join(",");
   useEffect(() => {
@@ -479,12 +493,16 @@ export function useSessionPanes(
     restore,
     resizeSplit,
     movePane,
-    toggleShell,
-    resizeShell,
+    chooseView,
     dismissShellFailure,
     reopenPanes,
     diagnostics,
   };
+}
+
+/** The terminal of the view the pane shows; the other layer is inert and cannot take focus. */
+function shownTerminal(entry: PaneEntry): TerminalAdapter | null {
+  return entry.view === "shell" ? (entry.shell?.adapter ?? null) : entry.adapter;
 }
 
 function openHolder(entries: PaneEntry[], sessionId: string): PaneEntry | undefined {

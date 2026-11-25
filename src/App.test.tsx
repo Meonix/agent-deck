@@ -67,6 +67,9 @@ const chooser = (name = "agent-deck") => screen.getByRole("dialog", { name });
 const chooserList = (name = "agent-deck") => within(chooser(name)).getByRole("list", { name: labels.oldSessions });
 const chooserRow = (title: string, name = "agent-deck") => within(chooser(name)).getByText(title).closest("li")!;
 const panes = () => within(screen.getByTestId("pane-grid")).getAllByRole("region");
+/** An item of the pane's View Switch; the Shell item may carry " · <command>". */
+const viewItem = (pane: HTMLElement, name: string) =>
+  within(within(pane).getByRole("group", { name: labels.viewSwitch })).getByRole("button", { name: new RegExp(`^${name}`) });
 const GRID = new DOMRect(0, 0, 1200, 800);
 type DropSide = "left" | "right" | "top" | "bottom";
 
@@ -1774,7 +1777,7 @@ describe("Reopen panes at launch (2.2 to 2.4)", () => {
     fireEvent.pointerDown(divider, { clientX: 600, pointerId: 1 });
     fireEvent.pointerMove(divider, { clientX: 360, pointerId: 1 });
     fireEvent.pointerUp(divider, { clientX: 360, pointerId: 1 });
-    await first.user.click(within(paneNamed("p1")).getByRole("button", { name: labels.openShell }));
+    await first.user.click(viewItem(paneNamed("p1"), labels.views.shell));
     await first.user.click(within(paneNamed("p2")).getByRole("button", { name: labels.maximizePane }));
 
     const { sessions } = relaunch();
@@ -2018,8 +2021,9 @@ describe("Maximize pane (2.1 to 2.4)", () => {
     const { user } = await threePanes();
 
     await user.dblClick(paneNamed("p2").querySelector("[data-pane-body]")!);
-    await user.dblClick(within(paneNamed("p2")).getByRole("button", { name: new RegExp(`^(${labels.openShell}|${labels.hideShell}|${labels.showShell})$`) }));
+    await user.dblClick(viewItem(paneNamed("p2"), labels.views.shell));
 
+    await vi.waitFor(() => expect(viewItem(paneNamed("p2"), labels.views.shell)).toHaveAttribute("aria-pressed", "true"));
     expect(wrapper("p2")).not.toHaveClass("fixed");
     expect(sidebar()).not.toHaveAttribute("inert");
     expect(button("p2", labels.maximizePane)).toBeInTheDocument();
@@ -2153,7 +2157,7 @@ describe("Text Size (2.1, 2.2)", () => {
     const { user, sessions, adapters } = zoomSetup();
     await newSessionIn(user, "agent-deck");
     const pane = await screen.findByRole("region", { name: /^agent-deck · / });
-    await user.click(within(pane).getByRole("button", { name: labels.openShell }));
+    await user.click(viewItem(pane, labels.views.shell));
     await vi.waitFor(() => expect(adapters).toHaveLength(2));
     const [session, shell] = adapters;
     session.size = { cols: 72, rows: 20 };
@@ -2163,6 +2167,20 @@ describe("Text Size (2.1, 2.2)", () => {
 
     await vi.waitFor(() => expect(sessions.resize).toHaveBeenLastCalledWith(sessions.opened[0].pane.paneId, 72, 20));
     expect(sessions.shellResize).toHaveBeenLastCalledWith(sessions.opened[0].pane.paneId, 72, 6);
+  });
+
+  it("fits the hidden Pane Shell after a change while Term is shown (SRS-FR-072)", async () => {
+    const { user, sessions, adapters } = zoomSetup();
+    await newSessionIn(user, "agent-deck");
+    const pane = await screen.findByRole("region", { name: /^agent-deck · / });
+    await user.click(viewItem(pane, labels.views.shell));
+    await vi.waitFor(() => expect(adapters).toHaveLength(2));
+    await user.click(viewItem(pane, labels.views.term));
+    adapters[1].size = { cols: 72, rows: 6 };
+
+    await press("=");
+
+    await vi.waitFor(() => expect(sessions.shellResize).toHaveBeenLastCalledWith(sessions.opened[0].pane.paneId, 72, 6));
   });
 });
 
@@ -2935,7 +2953,7 @@ describe("Stashed Sessions (CR-011)", () => {
     const { user } = await openPane(
       fakeSessions({ titles: ["Fix login bug"], shellActivity: vi.fn(async () => ({ busy: true, command: "npm run dev" })) }),
     );
-    await user.click(screen.getByRole("button", { name: labels.openShell }));
+    await user.click(viewItem(panes()[0], labels.views.shell));
     await user.click(stashButton());
     const dialog = await screen.findByRole("dialog", { name: labels.stashTitle("Fix login bug") });
     expect(within(dialog).getByText(labels.shellBusy)).toBeInTheDocument();
@@ -3210,5 +3228,159 @@ describe("Remote shapes, no One UI (app-theme)", () => {
     await user.click(within(panes()[0]).getByRole("button", { name: labels.closePane }));
     await screen.findByRole("dialog");
     expect(oneUiClasses()).toEqual([]);
+  });
+});
+
+describe("View Switch (CR-016)", () => {
+  const paneNamed = (title: string) => screen.getByRole("region", { name: `agent-deck · ${title}` });
+  const pressed = (title: string) =>
+    within(within(paneNamed(title)).getByRole("group", { name: labels.viewSwitch }))
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-pressed") === "true")
+      .map((b) => b.textContent);
+  const zones = () => document.querySelector("[data-drop-target]");
+
+  async function start(count: number, sessions = fakeSessions()) {
+    sessions.title = vi.fn(async (id: string) => id);
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    for (let n = 1; n <= count; n++) {
+      await newSessionIn(ctx.user);
+      await screen.findByRole("region", { name: `agent-deck · p${n}` });
+    }
+    return ctx;
+  }
+
+  it("opens a new pane in Term with the keyboard in its session terminal (SRS-FR-014)", async () => {
+    const { adapters } = await start(1);
+    expect(pressed("p1")).toEqual([labels.views.term]);
+    expect(adapters[0].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("switches only the pane whose View Switch is used (SRS-FR-146)", async () => {
+    const { user, adapters } = await start(2);
+    await user.click(viewItem(paneNamed("p1"), labels.views.shell));
+    await vi.waitFor(() => expect(pressed("p1")).toEqual([labels.views.shell]));
+    expect(pressed("p2")).toEqual([labels.views.term]);
+    expect(adapters[2].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("moves the keyboard into the session terminal when Term is chosen (SRS-FR-146)", async () => {
+    const { user, adapters } = await start(1);
+    await user.click(viewItem(paneNamed("p1"), labels.views.shell));
+    await vi.waitFor(() => expect(pressed("p1")).toEqual([labels.views.shell]));
+    await user.click(viewItem(paneNamed("p1"), labels.views.term));
+    expect(pressed("p1")).toEqual([labels.views.term]);
+    expect(adapters[0].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("puts the keyboard back in the terminal when the current item is chosen again (SRS-FR-146)", async () => {
+    const { user, adapters } = await start(1);
+    await user.click(viewItem(paneNamed("p1"), labels.views.term));
+    expect(adapters[0].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("reopens panes in Term without a shell after a relaunch (SRS-FR-085)", async () => {
+    const { user } = await start(1);
+    await vi.waitFor(() => expect(readSnapshot()).not.toBeNull());
+    await user.click(viewItem(paneNamed("p1"), labels.views.shell));
+    await vi.waitFor(() => expect(pressed("p1")).toEqual([labels.views.shell]));
+
+    cleanup();
+    const sessions = fakeSessions();
+    sessions.title = vi.fn(async (id: string) => id);
+    setup([ws("a", "agent-deck")], sessions);
+
+    await screen.findByRole("region", { name: "agent-deck · p1" });
+    expect(pressed("p1")).toEqual([labels.views.term]);
+    expect(sessions.openShell).not.toHaveBeenCalled();
+  });
+
+  async function p1InShellThenP2Focused() {
+    const ctx = await start(2);
+    await ctx.user.click(viewItem(paneNamed("p1"), labels.views.shell));
+    await vi.waitFor(() => expect(pressed("p1")).toEqual([labels.views.shell]));
+    await ctx.user.click(viewItem(paneNamed("p2"), labels.views.term));
+    expect(ctx.adapters[1].container).toContainElement(document.activeElement as HTMLElement);
+    return { ...ctx, shellTerminal: ctx.adapters[2] };
+  }
+
+  it("jumps from a Session Row into the shell of a pane showing Shell (SRS-FR-037)", async () => {
+    const { user, shellTerminal } = await p1InShellThenP2Focused();
+    await user.click(within(sessionRow("p1")).getByRole("button"));
+    expect(shellTerminal.container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("puts the keyboard in the shell when a pane showing Shell is maximized (SRS-FR-041)", async () => {
+    const { user, shellTerminal } = await p1InShellThenP2Focused();
+    await user.click(within(paneNamed("p1")).getByRole("button", { name: labels.maximizePane }));
+    expect(shellTerminal.container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("leaves the keyboard in another pane when a shown shell exits (SRS-FR-061)", async () => {
+    const { sessions, adapters } = await p1InShellThenP2Focused();
+    act(() => sessions.shells[0].stream.exit(0));
+    expect(pressed("p1")).toEqual([labels.views.term]);
+    expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("gives the keyboard to Term when the shown shell exits with the keyboard in it (SRS-FR-061)", async () => {
+    const { user, sessions, adapters } = await start(1);
+    await user.click(viewItem(paneNamed("p1"), labels.views.shell));
+    await vi.waitFor(() => expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement));
+    act(() => sessions.shells[0].stream.exit(0));
+    expect(adapters[0].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("leaves the keyboard in another pane when a slow shell start finishes (SRS-FR-055)", async () => {
+    let finish: () => void = () => {};
+    const sessions = fakeSessions();
+    const opened = sessions.openShell;
+    sessions.openShell = vi.fn((paneId: string, cols: number, rows: number) =>
+      new Promise<Awaited<ReturnType<FakeSessions["openShell"]>>>((resolve) => {
+        finish = () => void opened(paneId, cols, rows).then(resolve);
+      }),
+    );
+    const { user, adapters } = await start(2, sessions);
+    await user.click(viewItem(paneNamed("p1"), labels.views.shell));
+    await user.click(viewItem(paneNamed("p2"), labels.views.term));
+    await act(async () => finish());
+    expect(pressed("p1")).toEqual([labels.views.shell]);
+    expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("moves the keyboard into the shell on Enter on the Shell item (SRS-FR-146)", async () => {
+    const { user, adapters } = await start(1);
+    viewItem(paneNamed("p1"), labels.views.shell).focus();
+    await user.keyboard("{Enter}");
+    await vi.waitFor(() => expect(pressed("p1")).toEqual([labels.views.shell]));
+    expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("puts the keyboard back in the shown terminal on a click on Chat or Plan (SRS-FR-146)", async () => {
+    const { user, adapters } = await start(1);
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    expect(pressed("p1")).toEqual([labels.views.term]);
+    expect(adapters[0].container).toContainElement(document.activeElement as HTMLElement);
+
+    await user.click(viewItem(paneNamed("p1"), labels.views.shell));
+    await vi.waitFor(() => expect(pressed("p1")).toEqual([labels.views.shell]));
+    await user.click(viewItem(paneNamed("p1"), labels.views.plan));
+    expect(pressed("p1")).toEqual([labels.views.shell]);
+    expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("does not maximize on a double-click on a View Switch item (SRS-FR-066)", async () => {
+    const { user } = await start(2);
+    await user.dblClick(viewItem(paneNamed("p2"), labels.views.term));
+    expect(paneNamed("p2").parentElement).not.toHaveClass("fixed");
+    expect(within(paneNamed("p2")).getByRole("button", { name: labels.maximizePane })).toBeInTheDocument();
+  });
+
+  it("starts no drag from a View Switch item (SRS-FR-080)", async () => {
+    await start(2);
+    vi.spyOn(screen.getByTestId("pane-grid"), "getBoundingClientRect").mockReturnValue(GRID);
+    fireEvent.pointerDown(viewItem(paneNamed("p1"), labels.views.term), { clientX: 400, clientY: 10, button: 0, pointerId: 1 });
+    fireEvent.pointerMove(window, { ...sidePoint("p2", "bottom"), pointerId: 1 });
+    expect(zones()).toBeNull();
   });
 });

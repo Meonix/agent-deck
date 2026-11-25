@@ -93,10 +93,11 @@ export const labels = {
   startFailedHint: "Kiểm tra Claude Code đã được cài và có trong PATH.",
   sessionEnded: "Phiên đã kết thúc",
 
-  shell: "Shell",
-  openShell: "Mở shell",
-  showShell: "Hiện shell",
-  hideShell: "Ẩn shell",
+  viewSwitch: "Chế độ của ô",
+  views: { chat: "Chat", term: "Term", shell: "Shell", plan: "Plan" },
+  /** The Shell item of a hidden busy shell: the lead, then the command in the terminal font. */
+  shellRunning: (command: string) => ["Shell ·", command] as const,
+  viewNotReady: "Chưa có",
   shellFailed: "Không khởi động được shell",
   dismiss: "Đóng thông báo",
 

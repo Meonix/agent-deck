@@ -325,8 +325,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
                   canStash={hasHistory(entry)}
                   onStash={(paneId) => void requestStash(paneId)}
                   onClose={(paneId) => void requestClose(paneId)}
-                  onToggleShell={(paneId) => void panes.toggleShell(paneId)}
-                  onResizeShell={panes.resizeShell}
+                  onChooseView={(paneId, view) => void panes.chooseView(paneId, view)}
                   onDismissShellFailure={panes.dismissShellFailure}
                 />
               ),

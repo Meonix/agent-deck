@@ -1,15 +1,20 @@
 import { Archive, Maximize2, Minimize2, X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
 import { labels } from "../labels";
 import { ICON } from "./icon";
-import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
+import { mayTakeFocus } from "./paneFocus";
+import { ShellArea, ShellFailure } from "./PaneShell";
 import { type MaximizedBadge, needsUser } from "./statusHighlight";
 import { type Mark, RoundMark, tone } from "./statusTone";
+import { ViewLayer } from "./ViewLayer";
+import { type PaneView, ViewSwitch } from "./ViewSwitch";
 
 const ICON_BTN_BASE =
   "inline-flex size-7 shrink-0 items-center justify-center rounded-full hover:bg-muted hover:text-foreground transition-colors";
 const ICON_BTN = `${ICON_BTN_BASE} text-muted-foreground`;
+// Below this header width the full View Switch would push Phóng to and × out of a pane at the grid's minimum.
+const COMPACT_HEADER_PX = 360;
 
 export type TerminalSize = { cols: number; rows: number };
 
@@ -47,15 +52,16 @@ export type PaneEntry = {
   shellFailed: boolean;
   /** Resumed, or a prompt was sent: the session has a history to resume. */
   prompted: boolean;
+  /** Per pane and never saved: reopened panes show Term. */
+  view: PaneView;
+  /** Where the pane goes back to when its shell exits (SRS-FR-061). */
+  returnView: PaneView;
 };
 
 // Like the session's, the shell's adapter outlives a hide: output keeps flowing into it (SRS-FR-057).
 export type ShellEntry = {
   adapter: TerminalAdapter;
   stream: ShellStream;
-  visible: boolean;
-  /** Share of the pane body the shell takes. */
-  ratio: number;
   /** Last answer of the activity poll; null until the first one. */
   activity: ShellActivity | null;
 };
@@ -78,8 +84,7 @@ type Props = {
   canStash: boolean;
   onStash(paneId: string): void;
   onClose(paneId: string): void;
-  onToggleShell(paneId: string): void;
-  onResizeShell(paneId: string, ratio: number): void;
+  onChooseView(paneId: string, view: PaneView): void;
   onDismissShellFailure(paneId: string): void;
 };
 
@@ -97,15 +102,16 @@ export function TerminalPane({
   canStash,
   onStash,
   onClose,
-  onToggleShell,
-  onResizeShell,
+  onChooseView,
   onDismissShellFailure,
 }: Props) {
-  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed } = entry;
+  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, view } = entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
   const endedRef = useRef(ended);
   endedRef.current = ended;
+  const header = useRef<HTMLElement>(null);
+  const [compact, setCompact] = useState(false);
   const lastSize = useRef(openedSize);
   const refit = useRef<(() => void) | null>(null);
 
@@ -139,6 +145,20 @@ export function TerminalPane({
     };
   }, [adapter, client, paneId]);
 
+  useEffect(() => {
+    const bar = header.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    // A width of 0 means not laid out yet, not narrow.
+    const measure = () => {
+      const { width } = bar.getBoundingClientRect();
+      setCompact(width > 0 && width < COMPACT_HEADER_PX);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
+
   // SRS-FR-043: fit as soon as the maximized class is committed rather than waiting for the observer.
   const wasMaximized = useRef(maximized);
   useEffect(() => {
@@ -155,14 +175,16 @@ export function TerminalPane({
     refit.current?.();
   }, [textSize]);
 
-  // The session body changes size with the shell area; fit on the commit rather than waiting for the observer.
-  const shellLayout = shell === null ? "none" : shell.visible ? `shown ${shell.ratio}` : "hidden";
-  const lastShellLayout = useRef(shellLayout);
+  // Showing Term refits it, as it may have missed an observation while hidden, and gives it the keyboard;
+  // after the commit, as a hidden element cannot take focus.
+  const lastView = useRef(view);
   useEffect(() => {
-    if (lastShellLayout.current === shellLayout) return;
-    lastShellLayout.current = shellLayout;
+    if (lastView.current === view) return;
+    lastView.current = view;
+    if (view !== "term") return;
     refit.current?.();
-  }, [shellLayout]);
+    if (mayTakeFocus(body.current)) adapter?.focus();
+  }, [adapter, view]);
 
   // After an abnormal exit the header keeps the Error chip, matching the session row.
   const endedBadge = ended && !(status.tracked && status.state === "Error");
@@ -189,11 +211,13 @@ export function TerminalPane({
 
   return (
     <section
+      data-pane={paneId}
       aria-label={`${workspaceName} · ${labels.title(title)}`}
       onFocus={() => onFocus(paneId)}
       className={`pane-frame ${frame} ${outline} ${dim} relative flex flex-col min-h-0 min-w-0 bg-background overflow-hidden transition-opacity`}
     >
       <header
+        ref={header}
         data-drag-handle
         // dblclick lands on whatever is under the second press, which the first click may have moved there,
         // so both presses must hit this header outside its buttons (SRS-FR-066).
@@ -204,13 +228,12 @@ export function TerminalPane({
         onDoubleClick={(e) => {
           if (headerPressed.current && !onButton(e.target)) toggleMaximized();
         }}
-        className="bar flex h-10 shrink-0 items-center justify-between gap-2 pl-3 pr-2 font-sans select-none"
+        className="bar flex h-10 shrink-0 items-center gap-2 pl-3 pr-2 font-sans select-none"
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <RoundMark mark={mark} small />
-          <span className="min-w-0 truncate text-[13px] font-medium text-foreground">
-            <span className="font-normal text-muted-foreground">{workspaceName} ·</span> {labels.title(title)}
-          </span>
+        <RoundMark mark={mark} small />
+        {/* Basis 0: the title takes only the room the controls leave, so it gives way first. */}
+        <span className="flex-1 basis-0 min-w-0 truncate text-[13px] font-medium text-foreground">
+          <span className="font-normal text-muted-foreground">{workspaceName} ·</span> {labels.title(title)}
         </span>
         <span className="flex min-w-0 items-center gap-1 text-[11px] whitespace-nowrap">
           {othersBadge && (
@@ -230,7 +253,12 @@ export function TerminalPane({
               {labels.state[status.state]}
             </span>
           )}
-          <ShellChip shell={shell} onToggle={() => onToggleShell(paneId)} />
+          <ViewSwitch
+            view={view}
+            shellCommand={shell && view !== "shell" && shell.activity?.busy ? shell.activity.command : null}
+            compact={compact}
+            onChoose={(v) => onChooseView(paneId, v)}
+          />
           <button
             aria-label={labels.stashSession}
             title={labels.stashSession}
@@ -258,31 +286,27 @@ export function TerminalPane({
           </button>
         </span>
       </header>
-      <div className="flex-1 min-h-0 min-w-0 flex flex-col">
-        {pane.started ? (
-          // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
-          // so the padding sits on a wrapper and xterm gets an unpadded container.
-          <div className="flex-1 min-h-0 min-w-0 flex bg-background p-2">
-            <div ref={body} data-pane-body={paneId} className="flex-1 min-h-0 min-w-0" />
-          </div>
-        ) : (
-          <div className="flex-1 bg-background p-3 font-mono text-xs leading-5 text-foreground">
-            <div>{labels.startFailed}</div>
-            <div className="mt-5">{labels.startFailedHint}</div>
-          </div>
-        )}
-        {ended && (
-          <div className="border-t border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground">{labels.sessionEnded}</div>
-        )}
+      {/* Both views stay laid out while hidden, so each terminal keeps its size and output (SRS-FR-148). */}
+      <div className="relative flex-1 min-h-0 min-w-0">
+        <ViewLayer view="term" shown={view === "term"} className="flex flex-col">
+          {pane.started ? (
+            // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
+            // so the padding sits on a wrapper and xterm gets an unpadded container.
+            <div className="flex-1 min-h-0 min-w-0 flex bg-background p-2">
+              <div ref={body} data-pane-body={paneId} className="flex-1 min-h-0 min-w-0" />
+            </div>
+          ) : (
+            <div className="flex-1 bg-background p-3 font-mono text-xs leading-5 text-foreground">
+              <div>{labels.startFailed}</div>
+              <div className="mt-5">{labels.startFailedHint}</div>
+            </div>
+          )}
+          {ended && (
+            <div className="border-t border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground">{labels.sessionEnded}</div>
+          )}
+        </ViewLayer>
         {shell && (
-          <ShellArea
-            paneId={paneId}
-            shell={shell}
-            client={client}
-            maximized={maximized}
-            textSize={textSize}
-            onResize={(ratio) => onResizeShell(paneId, ratio)}
-          />
+          <ShellArea paneId={paneId} shell={shell} client={client} shown={view === "shell"} maximized={maximized} textSize={textSize} />
         )}
       </div>
       {shellFailed && <ShellFailure onDismiss={() => onDismissShellFailure(paneId)} />}

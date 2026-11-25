@@ -43,3 +43,12 @@ describe("Session Chooser labels (CR-016)", () => {
     expect(labels.noPanesHint).toBe("Bấm + trên dòng folder để mở phiên mới hoặc mở lại phiên cũ.");
   });
 });
+
+describe("View Switch labels (CR-016)", () => {
+  it("names the View Switch, its items and a hidden busy shell", () => {
+    expect(labels.viewSwitch).toBe("Chế độ của ô");
+    expect(labels.views).toEqual({ chat: "Chat", term: "Term", shell: "Shell", plan: "Plan" });
+    expect(labels.shellRunning("npm run dev")).toEqual(["Shell ·", "npm run dev"]);
+    expect(labels.viewNotReady).toBe("Chưa có");
+  });
+});

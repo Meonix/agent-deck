@@ -40,7 +40,11 @@ export function fakeAdapter(size: TerminalSize = { cols: 80, rows: 24 }): FakeAd
         if (binaryCb === cb) binaryCb = null;
       };
     }),
-    focus: vi.fn(() => adapter.container?.querySelector("textarea")?.focus()),
+    // jsdom ignores `inert`; a browser does not focus inside it.
+    focus: vi.fn(() => {
+      if (adapter.container?.closest("[inert]")) return;
+      adapter.container?.querySelector("textarea")?.focus();
+    }),
     fit: vi.fn(() => ({ ...adapter.size })),
     dispose: vi.fn(),
     type: (data) => dataCb?.(data),
