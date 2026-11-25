@@ -5,9 +5,12 @@ import type { Workspace, WorkspacesClient } from "../api/workspaces";
 import App from "../App";
 import { fakeAdapter, fakeSessions } from "../test/fakes";
 import { labels } from "../labels";
-import { LEAD_BOX, TREE_ROW } from "./WorkspaceSidebar";
+import type { FolderTree } from "./statusHighlight";
+import { ToastProvider } from "./Toast";
+import type { WorkspacesState } from "./useWorkspaces";
+import { LEAD_BOX, TREE_ROW, WorkspaceSidebar } from "./WorkspaceSidebar";
 
-// Folder names also head the Session History Panel once a folder is selected, so rows are found inside the Sidebar.
+// Folder names also head the Session Chooser while it is open, so rows are found inside the Sidebar.
 const sidebar = () => screen.getByRole("complementary", { name: labels.sidebar });
 const OTHER_FOLDERS = new RegExp(`^${labels.otherFolders(0).replace("(0)", "\\(\\d+\\)")}$`);
 const otherFolders = () => within(sidebar()).getByRole("button", { name: OTHER_FOLDERS });
@@ -23,9 +26,8 @@ const menu = () => screen.getByRole("menu");
 const item = (name: string) => within(menu()).getByRole("menuitem", { name });
 
 async function openPaneIn(user: ReturnType<typeof userEvent.setup>, name: string) {
-  await user.click(nameButton(name));
-  const history = screen.getByRole("region", { name: labels.sessionHistory });
-  await user.click(within(history).getByRole("button", { name: labels.newSession }));
+  await user.click(within(sidebar()).getByRole("button", { name: labels.openChooser(name) }));
+  await user.click(within(screen.getByRole("dialog", { name })).getByRole("button", { name: labels.newSession }));
   await within(sidebar()).findByRole("button", { name: labels.collapse(name) });
 }
 
@@ -241,16 +243,6 @@ describe("Folder Tree rows (2.6)", () => {
     expect(add).toHaveFocus();
     // Inside the scrolling tree, not a bar pinned to the Sidebar foot.
     expect(add.closest(".overflow-auto")).not.toBeNull();
-  });
-
-  it("still selects a workspace and opens its Session History Panel on a click of its name", async () => {
-    const user = userEvent.setup();
-    renderSidebar(fakeClient([ws("a", "alpha"), ws("b", "beta")]));
-    await openOtherFolders(user);
-    await user.click(nameButton("beta"));
-    expect(nameButton("beta").closest("li")).toHaveAttribute("aria-current", "true");
-    expect(nameButton("alpha").closest("li")).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("region", { name: labels.sessionHistory })).toBeInTheDocument();
   });
 
   it("starts every group header and workspace row with the same lead box, so their text lines up", async () => {
@@ -519,5 +511,66 @@ describe("Folder Menu (3.1 to 3.3)", () => {
     await user.click(moreButton("mokairo"));
     await user.click(item(labels.copyPath));
     expect(await screen.findByText(labels.copyPathFailed)).toBeInTheDocument();
+  });
+});
+
+describe("Open the Session Chooser (CR-016)", () => {
+  const open = ws("a", "agent-deck");
+  const notes = ws("n", "notes");
+  const gone = ws("g", "gone", true);
+  const tree: FolderTree = {
+    open: [{ workspace: open, rows: [], count: { n: 1, tone: "grey" } }],
+    other: [notes, gone],
+    stash: [],
+  };
+  function renderTree(onOpenChooser = vi.fn()) {
+    const workspaces = { items: [open, notes, gone], selected: null, select: vi.fn(), addFolder: vi.fn(), removeFolder: vi.fn(), refresh: vi.fn() };
+    render(
+      <ToastProvider>
+        <WorkspaceSidebar
+          workspaces={workspaces as unknown as WorkspacesState}
+          tree={tree}
+          focusedPaneId={null}
+          onJump={vi.fn()}
+          onReopen={vi.fn()}
+          onUnstash={vi.fn()}
+          onOpenChooser={onOpenChooser}
+          covered={false}
+          hidden={false}
+        />
+      </ToastProvider>,
+    );
+    return onOpenChooser;
+  }
+  const plus = (name: string) => within(sidebar()).getByRole("button", { name: labels.openChooser(name) });
+  const before = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
+  it("puts a + between the count and ⋯ on a tree row and between the name and ⋯ inside Folder khác, Missing rows too (SRS-FR-007)", async () => {
+    const user = userEvent.setup();
+    renderTree();
+    await openOtherFolders(user);
+    const count = within(sidebar()).getByRole("img", { name: labels.folderCount(1, "grey") });
+    expect(before(count, plus("agent-deck"))).toBe(true);
+    expect(before(plus("agent-deck"), moreButton("agent-deck"))).toBe(true);
+    for (const name of ["notes", "gone"]) {
+      expect(before(nameButton(name), plus(name))).toBe(true);
+      expect(before(plus(name), moreButton(name))).toBe(true);
+    }
+  });
+
+  it("calls onOpenChooser with the workspace and the clicked + or name (SRS-FR-007, GATE 1)", async () => {
+    const user = userEvent.setup();
+    const onOpenChooser = renderTree();
+    await openOtherFolders(user);
+
+    await user.click(plus("agent-deck"));
+    expect(onOpenChooser).toHaveBeenLastCalledWith(open, plus("agent-deck"));
+    await user.click(nameButton("agent-deck"));
+    expect(onOpenChooser).toHaveBeenLastCalledWith(open, nameButton("agent-deck"));
+    await user.click(plus("notes"));
+    expect(onOpenChooser).toHaveBeenLastCalledWith(notes, plus("notes"));
+    await user.click(nameButton("gone"));
+    expect(onOpenChooser).toHaveBeenLastCalledWith(gone, nameButton("gone"));
+    expect(onOpenChooser).toHaveBeenCalledTimes(4);
   });
 });

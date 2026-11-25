@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, FolderPlus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderPlus, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Workspace } from "../api/workspaces";
 import { labels } from "../labels";
@@ -24,14 +24,16 @@ type Props = {
   onJump(paneId: string): void;
   onReopen(row: StashedSession): void;
   onUnstash(sessionId: string): void;
+  /** + on a workspace row, or its name: opens that workspace's Session Chooser (SRS-FR-007). */
+  onOpenChooser(workspace: Workspace, opener: HTMLElement): void;
   /** A maximized pane is drawn over the sidebar; keep keyboard focus out of it. */
   covered: boolean;
   /** SRS-FR-088: kept mounted, so its scroll and state survive a hide. */
   hidden: boolean;
 };
 
-export function WorkspaceSidebar({ workspaces, tree, focusedPaneId, onJump, onReopen, onUnstash, covered, hidden }: Props) {
-  const { items, selected, select, addFolder, removeFolder } = workspaces;
+export function WorkspaceSidebar({ workspaces, tree, focusedPaneId, onJump, onReopen, onUnstash, onOpenChooser, covered, hidden }: Props) {
+  const { items, selected, addFolder, removeFolder } = workspaces;
   // Fold state lives only as long as the app runs: a fresh launch shows every Session Row (SRS-FR-142).
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   // SRS-FR-141 (CR-017): with no pane open "Folder khác" holds every folder, so it starts open;
@@ -74,7 +76,7 @@ export function WorkspaceSidebar({ workspaces, tree, focusedPaneId, onJump, onRe
               folded={folded.has(node.workspace.id)}
               focusedPaneId={focusedPaneId}
               onToggle={() => toggle(node.workspace.id)}
-              onSelect={select}
+              onOpenChooser={onOpenChooser}
               onJump={onJump}
               onRemove={remove}
               hidden={hidden}
@@ -97,7 +99,8 @@ export function WorkspaceSidebar({ workspaces, tree, focusedPaneId, onJump, onRe
                   <li key={w.id} aria-current={w.id === selected?.id ? "true" : undefined}>
                     <div className={`${TREE_ROW} h-9 ${rowLook(w.id === selected?.id)}`}>
                       <span className={LEAD_BOX} />
-                      <NameButton workspace={w} onSelect={select} />
+                      <NameButton workspace={w} onOpenChooser={onOpenChooser} />
+                      <PlusButton workspace={w} onOpenChooser={onOpenChooser} />
                       <FolderMenu workspace={w} onRemove={remove} hidden={hidden} />
                     </div>
                   </li>
@@ -144,22 +147,37 @@ function rowLook(selected: boolean): string {
   return selected ? "bg-section-active" : "hover:bg-muted";
 }
 
-function NameButton({ workspace: w, onSelect }: { workspace: Workspace; onSelect(id: string): void }) {
+type OpenChooser = { workspace: Workspace; onOpenChooser(workspace: Workspace, opener: HTMLElement): void };
+
+// PO decision at GATE 1: the name opens the chooser as + does.
+function NameButton({ workspace: w, onOpenChooser }: OpenChooser) {
   return (
-    <button onClick={() => onSelect(w.id)} className={`flex min-w-0 flex-1 items-center gap-2 rounded text-left ${FOCUS}`}>
+    <button onClick={(e) => onOpenChooser(w, e.currentTarget)} className={`flex min-w-0 flex-1 items-center gap-2 rounded text-left ${FOCUS}`}>
       <span className={`truncate ${w.missing ? "text-muted-foreground line-through" : "text-foreground"}`}>{w.name}</span>
       {w.missing && <span className="chip chip-idle">{labels.missing}</span>}
     </button>
   );
 }
 
-function WorkspaceItem({ node, selected, folded, focusedPaneId, onToggle, onSelect, onJump, onRemove, hidden }: {
+function PlusButton({ workspace: w, onOpenChooser }: OpenChooser) {
+  return (
+    <button
+      aria-label={labels.openChooser(w.name)}
+      onClick={(e) => onOpenChooser(w, e.currentTarget)}
+      className={`inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground ${FOCUS}`}
+    >
+      <Plus {...ICON} />
+    </button>
+  );
+}
+
+function WorkspaceItem({ node, selected, folded, focusedPaneId, onToggle, onOpenChooser, onJump, onRemove, hidden }: {
   node: WorkspaceNode;
   selected: boolean;
   folded: boolean;
   focusedPaneId: string | null;
   onToggle(): void;
-  onSelect(id: string): void;
+  onOpenChooser(workspace: Workspace, opener: HTMLElement): void;
   onJump(paneId: string): void;
   onRemove(id: string): void;
   hidden: boolean;
@@ -176,7 +194,7 @@ function WorkspaceItem({ node, selected, folded, focusedPaneId, onToggle, onSele
         >
           {folded ? <ChevronRight {...ICON} /> : <ChevronDown {...ICON} />}
         </button>
-        <NameButton workspace={w} onSelect={onSelect} />
+        <NameButton workspace={w} onOpenChooser={onOpenChooser} />
         <span
           role="img"
           aria-label={labels.folderCount(count.n, count.tone)}
@@ -184,6 +202,7 @@ function WorkspaceItem({ node, selected, folded, focusedPaneId, onToggle, onSele
         >
           {count.n}
         </span>
+        <PlusButton workspace={w} onOpenChooser={onOpenChooser} />
         <FolderMenu workspace={w} onRemove={onRemove} hidden={hidden} />
       </div>
       {!folded && (

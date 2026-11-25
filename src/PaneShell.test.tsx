@@ -31,15 +31,20 @@ function setup(sessions: FakeSessions, sizes: TerminalSize[] = []) {
   return { user: userEvent.setup(), sessions, adapters, createTerminal };
 }
 
-/** The "agent-deck" name in the Sidebar; opens "Folder khác", where it sits while it has no open session. */
-function folderRow(): HTMLElement {
+/** The + on the "agent-deck" row; opens "Folder khác", where the row sits while it has no open session. */
+function plusButton(): HTMLElement {
   const sidebar = within(screen.getByRole("complementary", { name: labels.sidebar }));
   const other = sidebar.queryByRole("button", { name: labels.otherFolders(1) });
   if (other?.getAttribute("aria-expanded") === "false") fireEvent.click(other);
-  return sidebar.getByRole("button", { name: "agent-deck" });
+  return sidebar.getByRole("button", { name: labels.openChooser("agent-deck") });
 }
 const newSessionButton = () =>
-  within(screen.getByRole("region", { name: labels.sessionHistory })).getByRole("button", { name: labels.newSession });
+  within(screen.getByRole("dialog", { name: "agent-deck" })).getByRole("button", { name: labels.newSession });
+/** + on "agent-deck", then "Phiên mới". */
+async function newSessionIn(user: User) {
+  await user.click(await vi.waitFor(plusButton));
+  await user.click(newSessionButton());
+}
 const paneAt = (i = 0) => within(screen.getByTestId("pane-grid")).getAllByRole("region")[i];
 const chip = (i = 0) => within(paneAt(i)).getByRole("button", { name: new RegExp(`^(${labels.openShell}|${labels.hideShell}|${labels.showShell})$`) });
 const marker = (i = 0) => chip(i).querySelector(".bg-primary");
@@ -48,8 +53,7 @@ const heightOf = (area: HTMLElement | null) => parseFloat(area!.style.height);
 
 async function openPane(sessions = fakeSessions(), sizes: TerminalSize[] = []) {
   const ctx = setup(sessions, sizes);
-  await ctx.user.click(await vi.waitFor(folderRow));
-  await ctx.user.click(newSessionButton());
+  await newSessionIn(ctx.user);
   await screen.findByTestId("pane-grid");
   return { ...ctx, session: sessions.opened[0].stream };
 }
@@ -159,7 +163,7 @@ describe("Pane Shell chip and toggle (3.1)", () => {
 
   it("shows no marker on a pane without a shell or with a visible shell (SRS-FR-058)", async () => {
     const { user } = await paneWithShell();
-    await user.click(newSessionButton());
+    await newSessionIn(user);
     await vi.waitFor(() => expect(within(screen.getByTestId("pane-grid")).getAllByRole("region")).toHaveLength(2));
     expect(chip(0)).toHaveAccessibleName(labels.hideShell);
     expect(chip(1)).toHaveAccessibleName(labels.openShell);
@@ -177,7 +181,7 @@ describe("Pane Shell chip and toggle (3.1)", () => {
     setup(sessions);
     const settle = () => act(async () => vi.advanceTimersByTimeAsync(0));
     await settle();
-    fireEvent.click(folderRow());
+    fireEvent.click(plusButton());
     fireEvent.click(newSessionButton());
     await settle();
     fireEvent.click(chip());
@@ -542,7 +546,7 @@ describe("Closing a pane with a shell (3.4)", () => {
     render(<App workspaces={workspacesClient()} sessions={sessions} createTerminal={() => fakeAdapter()} diag={diag} />);
     const settle = () => act(async () => vi.advanceTimersByTimeAsync(0));
     await settle();
-    fireEvent.click(folderRow());
+    fireEvent.click(plusButton());
     fireEvent.click(newSessionButton());
     await settle();
     fireEvent.click(chip());

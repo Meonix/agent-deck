@@ -5,13 +5,9 @@ import { useToast } from "./Toast";
 
 export type WorkspacesState = {
   items: Workspace[] | null;
+  /** The row marked aria-current: the folder whose Session Chooser opened last, or one added twice (SRS-FR-003). */
   selected: Workspace | null;
-  selections: number;
-  /** The Session History Panel of the selected folder is shown (SRS-FR-054). */
-  historyOpen: boolean;
-  /** Selects a folder and opens its history; on the selected folder with the history open, closes it. */
   select(id: string): void;
-  closeHistory(): void;
   addFolder(): Promise<void>;
   /** Resolves true once the folder is gone from the list. */
   removeFolder(id: string): Promise<boolean>;
@@ -25,22 +21,7 @@ export function errorDetail(e: unknown): string {
 export function useWorkspaces(client: WorkspacesClient): WorkspacesState {
   const [items, setItems] = useState<Workspace[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Bumped on every selection that opens the history, also of the folder already selected, so its sessions are read again.
-  const [selections, setSelections] = useState(0);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const select = useCallback(
-    (id: string) => {
-      if (id === selectedId && historyOpen) {
-        setHistoryOpen(false);
-        return;
-      }
-      setSelectedId(id);
-      setHistoryOpen(true);
-      setSelections((n) => n + 1);
-    },
-    [selectedId, historyOpen],
-  );
-  const closeHistory = useCallback(() => setHistoryOpen(false), []);
+  const select = useCallback((id: string) => setSelectedId(id), []);
   const showToast = useToast();
 
   const busy = useRef(false);
@@ -84,8 +65,6 @@ export function useWorkspaces(client: WorkspacesClient): WorkspacesState {
       if (path === null) return;
       const result = await client.add(path);
       setSelectedId(result.id);
-      setHistoryOpen(true);
-      setSelections((n) => n + 1);
       await refresh();
     } catch (e) {
       fail(labels.addFolderFailed, e);
@@ -120,5 +99,5 @@ export function useWorkspaces(client: WorkspacesClient): WorkspacesState {
   );
 
   const selected = items?.find((w) => w.id === selectedId) ?? null;
-  return { items, selected, selections, historyOpen, select, closeHistory, addFolder, removeFolder, refresh };
+  return { items, selected, select, addFolder, removeFolder, refresh };
 }

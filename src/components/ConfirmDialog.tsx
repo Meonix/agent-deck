@@ -1,5 +1,6 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useRef } from "react";
 import { labels } from "../labels";
+import { useModalFocus } from "./useModalFocus";
 
 type Props = {
   title: string;
@@ -16,37 +17,8 @@ type Props = {
 export function ConfirmDialog({ title, detail, action, extra, danger = false, onCancel, onConfirm }: Props) {
   const dialog = useRef<HTMLDivElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
-  // Focus returns to where it was, so closing the dialog does not strand it on body.
-  useEffect(() => {
-    const opener = document.activeElement;
-    return () => {
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
-    };
-  }, []);
-  useEffect(() => {
-    cancel.current?.focus();
-    // Capture phase on the document, so neither Escape nor Tab reaches the terminal
-    // behind the overlay: an Escape there would interrupt the turn the user keeps.
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" && e.key !== "Tab") return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.key === "Escape") return onCancel();
-      const buttons = [...(dialog.current?.querySelectorAll("button") ?? [])];
-      const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
-      const next = at === -1 ? (e.shiftKey ? buttons.length - 1 : 0) : at + (e.shiftKey ? -1 : 1);
-      buttons[(next + buttons.length) % buttons.length]?.focus();
-    };
-    const onFocus = (e: FocusEvent) => {
-      if (!dialog.current?.contains(e.target as Node)) cancel.current?.focus();
-    };
-    document.addEventListener("keydown", onKey, true);
-    document.addEventListener("focusin", onFocus);
-    return () => {
-      document.removeEventListener("keydown", onKey, true);
-      document.removeEventListener("focusin", onFocus);
-    };
-  }, [onCancel]);
+  // An Escape reaching the terminal behind would interrupt the turn the user keeps.
+  useModalFocus(dialog, cancel, onCancel);
   return (
     <div className="scrim absolute inset-0 z-10 flex items-center justify-center">
       <div

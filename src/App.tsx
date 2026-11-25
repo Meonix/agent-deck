@@ -5,10 +5,11 @@ import type { WorkspacesClient } from "./api/workspaces";
 import type { ZoomClient } from "./api/zoom";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PaneGrid } from "./components/PaneGrid";
+import { SessionChooser } from "./components/SessionChooser";
 import { TerminalPane, UNTITLED, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
 import { ToastProvider, useToast } from "./components/Toast";
-import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
 import { folderTree, maximizedBadge } from "./components/statusHighlight";
+import { useSessionChooser } from "./components/useSessionChooser";
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useSidebarToggle } from "./components/useSidebarToggle";
 import type { StashedSession } from "./components/stash";
@@ -36,20 +37,16 @@ const REPORT_MS = 60_000;
 
 function App(deps: Deps) {
   const textSize = useTextZoom(deps.zoom, deps.mac ?? false);
-  const sidebar = useSidebarToggle(deps.mac ?? false);
   return (
     <div className="h-screen relative flex flex-col bg-background text-foreground font-sans">
       <ToastProvider>
-        <Workbench {...deps} textSize={textSize} sidebar={sidebar} />
+        <Workbench {...deps} textSize={textSize} />
       </ToastProvider>
     </div>
   );
 }
 
-function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag, textSize, sidebar }: Deps & {
-  textSize: number;
-  sidebar: { shown: boolean; toggle(): void };
-}) {
+function Workbench({ workspaces: workspacesClient, sessions, createTerminal: makeTerminal, diag, mac, textSize }: Deps & { textSize: number }) {
   const terminals = useMemo(() => countTerminals(makeTerminal), [makeTerminal]);
   const createTerminal = terminals.factory;
   const workspaces = useWorkspaces(workspacesClient);
@@ -73,32 +70,32 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
     }, REPORT_MS);
     return () => clearInterval(timer);
   }, [diag, diagnostics, terminals]);
+  const chooser = useSessionChooser(workspaces.items, workspaces.select);
+  const chooserWorkspace = chooser.workspace;
+
   const newSession = () => {
-    if (workspaces.selected) void panes.newSession(workspaces.selected);
+    const workspace = chooserWorkspace;
+    chooser.leave(async () => workspace !== null && panes.newSession(workspace));
   };
 
   const resume = (workspaceId: string, row: { id: string; title: string }) => {
     const workspace = workspaces.items?.find((w) => w.id === workspaceId);
-    if (workspace) void panes.resume(workspace, row);
+    chooser.leave(async () => workspace !== undefined && panes.resume(workspace, row));
   };
 
   const openSessions: OpenSession[] = panes.entries
     .filter((e) => e.pane.started && !e.ended)
     .map((e) => ({ sessionId: e.pane.sessionId, workspaceId: e.workspaceId, title: e.title, openedAt: e.openedAt }));
-  const selectedId = workspaces.selected?.id ?? null;
+  const chooserId = chooserWorkspace?.id ?? null;
   const openHere = openSessions
-    .filter((o) => o.workspaceId === selectedId)
+    .filter((o) => o.workspaceId === chooserId)
     .map((o) => o.sessionId)
     .sort()
     .join(",");
   const [reloads, setReloads] = useState(0);
-  const sessionList = useSessionList(sessions, workspaces.selected, workspaces.selections, openHere, reloads);
+  const sessionList = useSessionList(sessions, chooserWorkspace, chooser.opens, openHere, reloads);
   const now = useMinuteClock();
-  const historyShown = workspaces.historyOpen && workspaces.selected !== null;
   const othersBadge = panes.maximizedId === null ? null : maximizedBadge(panes.entries, panes.maximizedId);
-  const [selection, setSelection] = useState<string[]>([]);
-  // SRS-FR-076: a switch of folder or a close starts the next view of the panel with nothing ticked.
-  useEffect(() => setSelection([]), [selectedId, historyShown]);
 
   // `shell`: what the shell answered when × was clicked, null when it ran nothing.
   const [closing, setClosing] = useState<{ paneId: string; shell: { command: string | null } | null } | null>(null);
@@ -237,11 +234,13 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   const confirmDeleteMany = async (targets: Deleting[]) => {
     setDeletingMany(null);
     setDeletingSelection(true);
+    // Closed or reopened meanwhile: a fresh chooser starts with nothing ticked (SRS-FR-076).
+    const keepTicked = chooser.selectLater();
     const kept: string[] = [];
     for (const t of targets) if (!(await deleteOne(t))) kept.push(t.id);
     setDeletingSelection(false);
     setReloads((n) => n + 1);
-    setSelection(kept);
+    keepTicked(kept);
     if (kept.length > 0) showToast(labels.deletedSome(targets.length - kept.length, targets.length));
   };
 
@@ -284,9 +283,11 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
       onCancel={cancelClose}
     />
   ) : null;
+  // Hidden under a dialog, the Sidebar would take the opener that closing hands focus back to.
+  const sidebar = useSidebarToggle(mac ?? false, chooserWorkspace !== null || dialog !== null);
 
   return (
-    <div className={`flex-1 min-h-0 relative grid ${gridColumns(sidebar.shown, historyShown)}`}>
+    <div className={`flex-1 min-h-0 relative grid ${gridColumns(sidebar.shown)}`}>
       <WorkspaceSidebar
         hidden={!sidebar.shown}
         workspaces={workspaces}
@@ -295,27 +296,11 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
         onJump={panes.jumpTo}
         onReopen={reopenStashed}
         onUnstash={stash.remove}
+        onOpenChooser={chooser.open}
         covered={panes.maximizedId !== null}
       />
       {/* After the Sidebar, so Tab reaches its rows first; absolute, so it takes no grid column. */}
       <SidebarToggle shown={sidebar.shown} covered={panes.maximizedId !== null} onToggle={sidebar.toggle} />
-      {historyShown && workspaces.selected && (
-        <SessionHistoryPanel
-          workspaceName={workspaces.selected.name}
-          sessions={sessionList}
-          openSessions={openSessions}
-          covered={panes.maximizedId !== null}
-          now={now}
-          onNewSession={newSession}
-          onClose={workspaces.closeHistory}
-          onResume={resume}
-          onDelete={requestDelete}
-          selected={selection}
-          onSelect={setSelection}
-          onDeleteSelected={requestDeleteMany}
-          deletingSelection={deletingSelection}
-        />
-      )}
       <main ref={paneArea} className="min-h-0 min-w-0">
         {panes.layout ? (
           <PaneGrid
@@ -351,23 +336,30 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
           <CenteredState
             title={labels.noFolders}
             hint={labels.noFoldersHint}
-            action={labels.addFolder}
-            onAction={() => void workspaces.addFolder()}
+            action={{ label: labels.addFolder, onClick: () => void workspaces.addFolder() }}
           />
         ) : (
-          <CenteredState
-            title={labels.noPanes}
-            hint={
-              workspaces.selected === null
-                ? labels.pickFolderHint
-                : labels.noPanesHint
-            }
-            action={labels.newSession}
-            disabled={workspaces.selected === null}
-            onAction={newSession}
-          />
+          <CenteredState title={labels.noPanes} hint={labels.noPanesHint} />
         )}
       </main>
+      {chooserWorkspace && (
+        <SessionChooser
+          workspaceName={chooserWorkspace.name}
+          sessions={sessionList}
+          openSessions={openSessions}
+          now={now}
+          onNewSession={newSession}
+          blocked={dialog !== null}
+          returnFocusTo={chooser.opener}
+          onResume={resume}
+          onDelete={requestDelete}
+          onClose={chooser.dismiss}
+          selected={chooser.selection}
+          onSelect={chooser.setSelection}
+          onDeleteSelected={requestDeleteMany}
+          deletingSelection={deletingSelection}
+        />
+      )}
       {dialog}
     </div>
   );
@@ -389,7 +381,7 @@ function deleteManyText(targets: Deleting[]) {
     : { title: labels.trashManyTitle(n), detail: labels.restoreHint, action: labels.moveToTrash };
 }
 
-type CenteredStateProps = { title: string; hint: string; action: string; disabled?: boolean; onAction(): void };
+type CenteredStateProps = { title: string; hint: string; action?: { label: string; onClick(): void } };
 
 /** RULE-01: "(untitled)" means no prompt yet, so nothing of the session is on disk to trash. */
 function hasHistory({ pane, title }: PaneEntry): boolean {
@@ -424,19 +416,17 @@ function isBusy({ status }: PaneEntry): boolean {
   return status.tracked && (status.state === "Running" || status.state === "Needs Approval");
 }
 
-function CenteredState({ title, hint, action, disabled = false, onAction }: CenteredStateProps) {
+function CenteredState({ title, hint, action }: CenteredStateProps) {
   return (
     <div className="h-full flex items-center justify-center p-2 bg-background">
       <div className="text-center space-y-2 max-w-sm">
         <div className="text-base font-medium text-foreground">{title}</div>
         <div className="text-sm text-muted-foreground">{hint}</div>
-        <button
-          onClick={onAction}
-          disabled={disabled}
-          className="send mt-2 text-sm font-medium px-4 py-2 hover:opacity-90 transition-opacity"
-        >
-          {action}
-        </button>
+        {action && (
+          <button onClick={action.onClick} className="send mt-2 text-sm font-medium px-4 py-2 hover:opacity-90 transition-opacity">
+            {action.label}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -444,9 +434,8 @@ function CenteredState({ title, hint, action, disabled = false, onAction }: Cent
 
 export default App;
 
-function gridColumns(sidebarShown: boolean, historyShown: boolean): string {
-  if (sidebarShown) return historyShown ? "grid-cols-[var(--sidebar-w)_280px_1fr]" : "grid-cols-[var(--sidebar-w)_1fr]";
-  return historyShown ? "grid-cols-[280px_1fr]" : "grid-cols-[1fr]";
+function gridColumns(sidebarShown: boolean): string {
+  return sidebarShown ? "grid-cols-[var(--sidebar-w)_1fr]" : "grid-cols-[1fr]";
 }
 
 // Below the maximized pane's z-10, which covers it (SRS-FR-088). Shown, it straddles the sidebar's right border.

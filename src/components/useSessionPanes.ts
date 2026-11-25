@@ -32,8 +32,10 @@ const CHROME_HEIGHT = CHROME_WIDTH + PANE_HEADER;
 type PanesState = { entries: PaneEntry[]; layout: Layout | null; focusedId: string | null; maximizedId: string | null };
 
 export type SessionPanes = PanesState & {
-  newSession(workspace: Workspace): Promise<void>;
-  resume(workspace: Workspace, session: { id: string; title: string }): Promise<void>;
+  /** False when no pane opened or took focus. */
+  newSession(workspace: Workspace): Promise<boolean>;
+  /** False when no pane opened or took focus. */
+  resume(workspace: Workspace, session: { id: string; title: string }): Promise<boolean>;
   /** False when the session could not be closed; the pane then stays. */
   closePane(paneId: string): Promise<boolean>;
   focusPane(paneId: string): void;
@@ -221,19 +223,19 @@ export function useSessionPanes(
   );
 
   const openPane = useCallback(
-    async (workspace: Workspace, target: string | null, resumed?: { id: string; title: string }) => {
+    async (workspace: Workspace, target: string | null, resumed?: { id: string; title: string }): Promise<boolean> => {
       if (workspace.missing) {
         showToast(labels.folderNotFound);
-        return;
+        return false;
       }
       if (resumed) {
         const open = openHolder(entries.current, resumed.id);
         if (open) {
           focusHolder(open);
-          return;
+          return true;
         }
       }
-      if (opening.current) return;
+      if (opening.current) return false;
       opening.current = true;
       // Made before the session so the session starts at the size the pane will have.
       const measuring = terminal(createTerminal);
@@ -250,6 +252,7 @@ export function useSessionPanes(
           maximizedId: null,
         }));
         wirePane(entry);
+        return true;
       } catch (e) {
         const holder = e === "already_open" && resumed ? openHolder(entries.current, resumed.id) : undefined;
         if (e === "folder_missing") {
@@ -257,10 +260,12 @@ export function useSessionPanes(
           onFolderMissing();
         } else if (holder) {
           focusHolder(holder);
+          return true;
         } else {
           const detail = e === "already_open" || e === "invalid_session" ? "" : errorDetail(e);
           showToast(detail ? `${labels.openFailed}: ${detail}` : labels.openFailed);
         }
+        return false;
       } finally {
         if (!kept) measuring.dispose();
         opening.current = false;

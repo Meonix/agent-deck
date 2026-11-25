@@ -9,36 +9,42 @@ export type SessionListState =
   | { kind: "failed" }
   | { kind: "ready"; workspaceId: string; listing: SessionListing };
 
+const NONE: SessionListState = { kind: "none" };
+const LOADING: SessionListState = { kind: "loading" };
+
 /**
- * Reads the selected workspace's sessions on every selection (SRS-FR-007) and again when a pane of
- * that workspace opens or closes, so a new session's file and a closed pane's label are picked up,
- * and on each `reloads` bump (a deleted session).
+ * Reads the sessions of the Session Chooser's workspace on every open (`opens`, SRS-FR-007) and again
+ * when a pane of that workspace opens or closes, so a new session's file and a closed pane's label are
+ * picked up, and on each `reloads` bump (a deleted session). `workspace` is null while the chooser is closed.
  */
 export function useSessionList(
   client: SessionsClient,
-  selected: Workspace | null,
-  selections: number,
+  workspace: Workspace | null,
+  opens: number,
   openSessions: string,
   reloads: number,
 ): SessionListState {
-  const [state, setState] = useState<SessionListState>({ kind: "none" });
+  const [state, setState] = useState<{ id: string; list: SessionListState } | null>(null);
   const seq = useRef(0);
-  const id = selected?.id ?? null;
-  const missing = selected?.missing ?? false;
+  const id = workspace?.id ?? null;
+  const missing = workspace?.missing ?? false;
 
   useEffect(() => {
     const mine = ++seq.current;
-    if (id === null) return setState({ kind: "none" });
-    if (missing) return setState({ kind: "missing" });
-    // Keep the rows on screen while the same folder is read again; skeleton only for a new folder.
-    setState((s) => (s.kind === "ready" && s.workspaceId === id ? s : { kind: "loading" }));
+    // Closed: the last rows stay, so reopening the same folder shows them while it reads again.
+    if (id === null) return;
+    if (missing) return setState({ id, list: { kind: "missing" } });
+    setState((s) => (s?.id === id && s.list.kind === "ready" ? s : { id, list: LOADING }));
     client.list(id).then(
-      (listing) => mine === seq.current && setState({ kind: "ready", workspaceId: id, listing }),
-      (e) => mine === seq.current && setState({ kind: e === "folder_missing" ? "missing" : "failed" }),
+      (listing) => mine === seq.current && setState({ id, list: { kind: "ready", workspaceId: id, listing } }),
+      (e) => mine === seq.current && setState({ id, list: { kind: e === "folder_missing" ? "missing" : "failed" } }),
     );
-  }, [client, id, missing, selections, openSessions, reloads]);
+  }, [client, id, missing, opens, openSessions, reloads]);
 
-  return state;
+  if (id === null) return NONE;
+  // Another folder's rows must not show under this one's header before its read starts.
+  if (state?.id !== id) return missing ? { kind: "missing" } : LOADING;
+  return state.list;
 }
 
 /** The current time, refreshed every minute so "2 min ago" labels move on. */

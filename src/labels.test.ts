@@ -34,3 +34,12 @@ describe("Folder Tree labels (CR-016)", () => {
     expect(labels.folderCount(3, "grey")).toBe("3 phiên đang mở");
   });
 });
+
+describe("Session Chooser labels (CR-016)", () => {
+  it("names the chooser parts and the + and trash icons in Vietnamese", () => {
+    expect(labels.oldSessions).toBe("Mở lại phiên cũ");
+    expect(labels.openChooser("agent-deck")).toBe("Mở phiên của agent-deck");
+    expect(labels.deleteSession("Scaffold Tauri app")).toBe("Xoá Scaffold Tauri app");
+    expect(labels.noPanesHint).toBe("Bấm + trên dòng folder để mở phiên mới hoặc mở lại phiên cũ.");
+  });
+});

@@ -20,6 +20,10 @@ export function fakeAdapter(size: TerminalSize = { cols: 80, rows: 24 }): FakeAd
     container: null,
     open: vi.fn((container: HTMLElement) => {
       adapter.container = container;
+      // Stands in for xterm's helper textarea, so focus() moves real DOM focus like xterm does.
+      const input = document.createElement("textarea");
+      input.setAttribute("aria-hidden", "true");
+      container.appendChild(input);
     }),
     write: vi.fn((bytes: Uint8Array) => {
       adapter.written.push(new TextDecoder().decode(bytes));
@@ -36,7 +40,7 @@ export function fakeAdapter(size: TerminalSize = { cols: 80, rows: 24 }): FakeAd
         if (binaryCb === cb) binaryCb = null;
       };
     }),
-    focus: vi.fn(),
+    focus: vi.fn(() => adapter.container?.querySelector("textarea")?.focus()),
     fit: vi.fn(() => ({ ...adapter.size })),
     dispose: vi.fn(),
     type: (data) => dataCb?.(data),
