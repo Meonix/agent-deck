@@ -16,3 +16,21 @@ describe("labels.reason", () => {
     expect(labels.reason("rate_limit")).toBe("rate_limit");
   });
 });
+
+describe("Folder Tree labels (CR-016)", () => {
+  it("names the tree groups, the Folder Menu and the chevron in Vietnamese", () => {
+    expect(labels.otherFolders(2)).toBe("Folder khác (2)");
+    expect(labels.stashedCount(1)).toBe("Để dành (1)");
+    expect(labels.viewFiles).toBe("Xem file");
+    expect(labels.copyPath).toBe("Chép đường dẫn");
+    expect(labels.copyPathFailed).toBe("Không chép được đường dẫn");
+    expect(labels.removeFolder).toBe("Bỏ folder");
+    expect(labels.addFolder).toBe("Thêm folder");
+    expect(labels.folderMenu("mokairo")).toBe("Tuỳ chọn folder mokairo");
+    expect(labels.collapse("mokairo")).toBe("Thu gọn mokairo");
+    expect(labels.expand("mokairo")).toBe("Mở mokairo");
+    expect(labels.folderCount(2, "Error")).toBe("2 phiên lỗi");
+    expect(labels.folderCount(2, "Needs Approval")).toBe("2 phiên cần duyệt");
+    expect(labels.folderCount(3, "grey")).toBe("3 phiên đang mở");
+  });
+});

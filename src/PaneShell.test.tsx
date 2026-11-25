@@ -31,7 +31,13 @@ function setup(sessions: FakeSessions, sizes: TerminalSize[] = []) {
   return { user: userEvent.setup(), sessions, adapters, createTerminal };
 }
 
-const folderRow = () => within(screen.getByRole("list", { name: labels.folders })).getByText("agent-deck");
+/** The "agent-deck" name in the Sidebar; opens "Folder khác", where it sits while it has no open session. */
+function folderRow(): HTMLElement {
+  const sidebar = within(screen.getByRole("complementary", { name: labels.sidebar }));
+  const other = sidebar.queryByRole("button", { name: labels.otherFolders(1) });
+  if (other?.getAttribute("aria-expanded") === "false") fireEvent.click(other);
+  return sidebar.getByRole("button", { name: "agent-deck" });
+}
 const newSessionButton = () =>
   within(screen.getByRole("region", { name: labels.sessionHistory })).getByRole("button", { name: labels.newSession });
 const paneAt = (i = 0) => within(screen.getByTestId("pane-grid")).getAllByRole("region")[i];
@@ -42,8 +48,7 @@ const heightOf = (area: HTMLElement | null) => parseFloat(area!.style.height);
 
 async function openPane(sessions = fakeSessions(), sizes: TerminalSize[] = []) {
   const ctx = setup(sessions, sizes);
-  await within(await screen.findByRole("list", { name: labels.folders })).findByText("agent-deck");
-  await ctx.user.click(folderRow());
+  await ctx.user.click(await vi.waitFor(folderRow));
   await ctx.user.click(newSessionButton());
   await screen.findByTestId("pane-grid");
   return { ...ctx, session: sessions.opened[0].stream };

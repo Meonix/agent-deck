@@ -46,6 +46,17 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .w-err { color: var(--error-foreground); }
 
 /*
+ * Folder Tree rows. The Row Focus Mark is always the iris bar (SRS-FR-099), not the remote's yellow/red one on tinted rows;
+ * the tints come after .side-on so a focused Needs Approval or Error row keeps its colour.
+ */
+.side-on { background: var(--section-active); box-shadow: inset 3px 0 0 var(--row-focus); }
+.row-app { background: var(--approval-bg); color: var(--approval-foreground); }
+.row-app .sub { color: var(--approval-foreground); }
+.row-err { background: var(--error-bg); color: var(--error-foreground); }
+.row-err .sub { color: var(--error-foreground); }
+.menu { background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
+
+/*
  * Pane frames are drawn on an overlay: an inset shadow on the pane itself would sit under its opaque header and body.
  * Focused, the Focus Outline takes the outer 2px and the status frame moves inside it (SRS-FR-087).
  */

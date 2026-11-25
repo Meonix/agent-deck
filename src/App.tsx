@@ -8,7 +8,7 @@ import { PaneGrid } from "./components/PaneGrid";
 import { TerminalPane, UNTITLED, type PaneEntry, type TerminalAdapterFactory } from "./components/TerminalPane";
 import { ToastProvider, useToast } from "./components/Toast";
 import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
-import { activeSessions, folderHighlights, maximizedBadge } from "./components/statusHighlight";
+import { folderTree, maximizedBadge } from "./components/statusHighlight";
 import { useSessionPanes } from "./components/useSessionPanes";
 import { useSidebarToggle } from "./components/useSidebarToggle";
 import type { StashedSession } from "./components/stash";
@@ -290,11 +290,9 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
       <WorkspaceSidebar
         hidden={!sidebar.shown}
         workspaces={workspaces}
-        folderHighlights={folderHighlights(panes.entries)}
-        active={activeSessions(panes.entries)}
+        tree={folderTree(panes.entries, workspaces.items ?? [], stash.items)}
         focusedPaneId={panes.focusedId}
         onJump={panes.jumpTo}
-        stashed={stash.items}
         onReopen={reopenStashed}
         onUnstash={stash.remove}
         covered={panes.maximizedId !== null}

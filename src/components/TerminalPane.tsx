@@ -4,7 +4,7 @@ import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity,
 import { labels } from "../labels";
 import { ICON } from "./icon";
 import { ShellArea, ShellChip, ShellFailure } from "./PaneShell";
-import type { MaximizedBadge } from "./statusHighlight";
+import { type MaximizedBadge, needsUser } from "./statusHighlight";
 import { type Mark, RoundMark, tone } from "./statusTone";
 
 const ICON_BTN_BASE =
@@ -179,11 +179,11 @@ export function TerminalPane({
       : !pane.started || !status.tracked
         ? { kind: "history" }
         : { kind: "state", state: endedBadge ? "Ended" : status.state };
-  const attention = pane.started && !endedBadge && status.tracked && (status.state === "Needs Approval" || status.state === "Error");
+  const attention = pane.started && !endedBadge && status.tracked && needsUser(status.state);
   const frame = !attention ? "" : status.state === "Error" ? "pane-err" : "pane-app";
   const dim = focused || maximized || attention ? "" : "opacity-pane-dim";
   const outline = focused ? "pane-focus" : "";
-  const chip = status.state === "Needs Approval" || status.state === "Error";
+  const chip = needsUser(status.state);
   const toggleMaximized = () => (maximized ? onRestore() : onMaximize(paneId));
   const headerPressed = useRef(false);
 

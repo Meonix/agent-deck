@@ -51,6 +51,16 @@ describe.each([
 describe.each([
   ["light", colours(light)],
   ["dark", colours(dark)],
+])("Row Focus Mark in %s (SRS-FR-099)", (_, theme) => {
+  it.each(["--card", "--section-active", "--approval-bg", "--error-bg"])("--row-focus on %s is at least 3:1", (background) => {
+    expect(theme.get(background), background).toBeDefined();
+    expect(ratio(theme.get("--row-focus")!, theme.get(background)!)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe.each([
+  ["light", colours(light)],
+  ["dark", colours(dark)],
 ])("sidebar hover in %s (app-theme)", (_, theme) => {
   it("--muted stands out from --card by at least 1.05:1", () => {
     expect(ratio(theme.get("--muted")!, theme.get("--card")!)).toBeGreaterThanOrEqual(1.05);

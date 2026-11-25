@@ -13,7 +13,8 @@ export type WorkspacesState = {
   select(id: string): void;
   closeHistory(): void;
   addFolder(): Promise<void>;
-  removeFolder(id: string): Promise<void>;
+  /** Resolves true once the folder is gone from the list. */
+  removeFolder(id: string): Promise<boolean>;
   refresh(): Promise<void>;
 };
 
@@ -95,13 +96,14 @@ export function useWorkspaces(client: WorkspacesClient): WorkspacesState {
 
   const removeFolder = useCallback(
     async (id: string) => {
-      if (busy.current) return;
+      if (busy.current) return false;
       busy.current = true;
       try {
         const result = await client.remove(id);
         if (result.ok) {
           setSelectedId((cur) => (cur === id ? null : cur));
           await refresh();
+          return true;
         } else if (result.reason === "has_open_panes") {
           showToast(labels.closeOpenSessionsFirst);
         } else {
@@ -112,6 +114,7 @@ export function useWorkspaces(client: WorkspacesClient): WorkspacesState {
       } finally {
         busy.current = false;
       }
+      return false;
     },
     [client, refresh, fail, showToast],
   );

@@ -6,6 +6,7 @@ import type { ZoomClient } from "./api/zoom";
 import App from "./App";
 import type { TerminalSize } from "./components/TerminalPane";
 import { readSnapshot, writeSnapshot, type Snapshot } from "./components/paneSnapshot";
+import type { CountTone } from "./components/statusHighlight";
 import { fakeAdapter, fakeSessions, type FakeAdapter, type FakeSessions } from "./test/fakes";
 import { labels } from "./labels";
 
@@ -37,7 +38,24 @@ function setup(
 }
 
 const sidebar = () => screen.getByRole("complementary", { name: labels.sidebar });
-const folderList = () => within(screen.getByRole("list", { name: labels.folders }));
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const OTHER_FOLDERS = new RegExp(`^${escapeRe(labels.otherFolders(0)).replace("0", "\\d+")}$`);
+/** The "Folder khác (<n>)" toggle, or null while the group is absent. */
+const otherFolders = () => within(sidebar()).queryByRole("button", { name: OTHER_FOLDERS });
+/** The name button of a workspace row in the Folder Tree; opens "Folder khác" when the workspace is folded away in it. */
+function workspaceName(name: string): HTMLElement {
+  const find = () => within(sidebar()).queryByRole("button", { name: new RegExp(`^${escapeRe(name)}\\s*(${labels.missing})?$`) });
+  const toggle = otherFolders();
+  if (!find() && toggle?.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
+  const button = find();
+  if (!button) throw new Error(`no workspace row ${name}`);
+  return button;
+}
+const findWorkspace = (name: string) => vi.waitFor(() => workspaceName(name));
+/** A workspace row with the Session Rows nested under it. */
+const workspaceRow = (name: string) => workspaceName(name).closest("li")!;
+/** A Session Row of the Folder Tree. */
+const sessionRow = (title: string) => within(sidebar()).getByText(title).closest("li")!;
 const historyPanel = () => screen.getByRole("region", { name: labels.sessionHistory });
 const newSessionButton = () => within(historyPanel()).getByRole("button", { name: labels.newSession });
 const panes = () => within(screen.getByTestId("pane-grid")).getAllByRole("region");
@@ -71,7 +89,7 @@ function dragPane(from: string, to: string, side: DropSide, { release = true } =
 
 
 async function selectAndStart(user: ReturnType<typeof userEvent.setup>, name: string) {
-  await user.click(await folderList().findByText(name));
+  await user.click(await findWorkspace(name));
   await user.click(newSessionButton());
 }
 
@@ -84,9 +102,9 @@ async function closeVia(user: ReturnType<typeof userEvent.setup>, choice = label
 describe("New Session (5.4)", () => {
   it("is disabled until a folder is selected, then offered in the Session History Panel", async () => {
     const { user } = setup([ws("a", "agent-deck")]);
-    await folderList().findByText("agent-deck");
+    await findWorkspace("agent-deck");
     expect(within(screen.getByRole("main")).getByRole("button", { name: labels.newSession })).toBeDisabled();
-    await user.click(folderList().getByText("agent-deck"));
+    await user.click(workspaceName("agent-deck"));
     expect(newSessionButton()).toBeEnabled();
   });
 
@@ -99,7 +117,7 @@ describe("New Session (5.4)", () => {
 
   it("points to the history once a folder is selected", async () => {
     const { user } = setup([ws("a", "agent-deck")]);
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     expect(screen.getByText(labels.noPanesHint)).toBeInTheDocument();
     expect(within(screen.getByRole("main")).getByRole("button", { name: labels.newSession })).toBeEnabled();
   });
@@ -136,7 +154,7 @@ describe("New Session (5.4)", () => {
 
   it("starts from the empty state button too", async () => {
     const { user, sessions } = setup([ws("a", "agent-deck")]);
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     await user.click(within(screen.getByRole("main")).getByRole("button", { name: labels.newSession }));
     await screen.findByTestId("pane-grid");
     expect(sessions.open).toHaveBeenCalledTimes(1);
@@ -323,7 +341,7 @@ describe("Pane state (4.2 to 4.4)", () => {
     setup([ws("a", "agent-deck")], sessions);
     const settle = () => act(async () => vi.advanceTimersByTimeAsync(0));
     await settle();
-    fireEvent.click(folderList().getByText("agent-deck"));
+    fireEvent.click(workspaceName("agent-deck"));
     fireEvent.click(newSessionButton());
     await settle();
     return { stream: sessions.opened[0].stream };
@@ -542,61 +560,117 @@ describe("Pane state (4.2 to 4.4)", () => {
   });
 });
 
-describe("Active Sessions (2.3)", () => {
+describe("Folder Tree (CR-016)", () => {
   const since = new Date(2026, 9, 16, 14, 2).getTime();
-  const activeList = () => within(sidebar()).getByRole("list", { name: labels.activeSessions });
-  const sessionRow = (title: string) => within(activeList()).getByText(title).closest("li")!;
   const historyRow = (title: string) =>
     within(within(historyPanel()).getByRole("list", { name: labels.sessionHistory })).getByText(title).closest("li")!;
+  const order = () =>
+    within(sidebar())
+      .getAllByRole("button", { name: /^(agent-deck|mokairo)$/ })
+      .map((b) => b.textContent);
+  const count = (name: string, n: number, countTone: CountTone) =>
+    within(workspaceRow(name)).getByRole("img", { name: labels.folderCount(n, countTone) });
 
   async function openPane(sessions = fakeSessions({ titles: ["Scaffold Tauri app"] })) {
     const ctx = setup([ws("a", "agent-deck")], sessions);
     await selectAndStart(ctx.user, "agent-deck");
     await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" });
-    await within(activeList()).findByText("Scaffold Tauri app");
+    await within(sidebar()).findByText("Scaffold Tauri app");
     return { ...ctx, stream: sessions.opened[0].stream };
+  }
+
+  /** `agent-deck` then `mokairo` in the Workspace List, with `perFolder` panes opened in each. */
+  async function twoFolders(perFolder: [number, number], titles: string[]) {
+    const ctx = setup([ws("a", "agent-deck"), ws("m", "mokairo")], fakeSessions({ titles }));
+    for (const [i, name] of (["agent-deck", "mokairo"] as const).entries()) {
+      await ctx.user.click(await findWorkspace(name));
+      for (let k = 0; k < perFolder[i]; k++) await ctx.user.click(newSessionButton());
+    }
+    const total = perFolder[0] + perFolder[1];
+    await vi.waitFor(() => expect(ctx.sessions.opened).toHaveLength(total));
+    await vi.waitFor(() => expect(panes()).toHaveLength(total));
+    return { ...ctx, streams: ctx.sessions.opened.map((o) => o.stream) };
   }
 
   it("has no Status Board column (SRS-FR-031 removed)", async () => {
     setup([ws("a", "agent-deck")]);
-    await folderList().findByText("agent-deck");
+    await findWorkspace("agent-deck");
     expect(screen.queryByRole("complementary", { name: "Status Board" })).not.toBeInTheDocument();
     expect(screen.queryByText("Status Board")).not.toBeInTheDocument();
   });
 
-  it("follows a pane through Needs Approval, Idle and Error on its row", async () => {
-    const { stream } = await openPane();
+  it("lists each open session under its own workspace, without repeating the workspace name (SRS-FR-051)", async () => {
+    await twoFolders([1, 1], ["Scaffold Tauri app", "Fix login bug"]);
+    await within(sidebar()).findByText("Fix login bug");
+    expect(within(workspaceRow("agent-deck")).getByText("Scaffold Tauri app")).toBeInTheDocument();
+    expect(within(workspaceRow("mokairo")).getByText("Fix login bug")).toBeInTheDocument();
+    expect(within(workspaceRow("agent-deck")).queryByText("Fix login bug")).not.toBeInTheDocument();
+    expect(within(sessionRow("Fix login bug")).queryByText("mokairo")).not.toBeInTheDocument();
+    expect(within(sessionRow("Scaffold Tauri app")).queryByText("agent-deck")).not.toBeInTheDocument();
+  });
 
+  it("shows the dot and status word of each state and tints only Needs Approval and Error (SRS-FR-032)", async () => {
+    const { stream } = await openPane();
+    const row = () => sessionRow("Scaffold Tauri app");
+    const looks = [
+      ["Running", "dot-busy", ""],
+      ["Needs Approval", "dot-app", "row-app"],
+      ["Idle", "dot-ready", ""],
+      ["Error", "dot-err", "row-err"],
+      ["Ended", "dot-ended", ""],
+    ] as const;
+    for (const [state, dot, tint] of looks) {
+      act(() => stream.status({ state, since }));
+      expect(within(row()).getByText(labels.state[state])).toBeInTheDocument();
+      expect(row().querySelector(`.${dot}`)).not.toBeNull();
+      for (const other of ["row-app", "row-err"]) {
+        if (other === tint) expect(row()).toHaveClass(other);
+        else expect(row()).not.toHaveClass(other);
+      }
+      // Running is blue and untinted; green belongs to Idle (SRS-FR-032, CR-016).
+      expect(row()).not.toHaveClass("bg-running-bg");
+    }
+  });
+
+  it("shows the time and reason under Cần duyệt and Lỗi, nothing under Đang chạy (SRS-FR-033)", async () => {
+    const { stream } = await openPane();
     act(() => stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
-    expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-approval-bg");
-    expect(within(sessionRow("Scaffold Tauri app")).getByRole("img", { name: labels.state["Needs Approval"] })).toBeInTheDocument();
     expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02 · Edit src/main.rs")).toBeInTheDocument();
 
-    act(() => stream.status({ state: "Idle", since }));
-    expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-approval-bg");
-    expect(within(sessionRow("Scaffold Tauri app")).getByRole("img", { name: labels.state["Idle"] })).toBeInTheDocument();
+    act(() => stream.status({ state: "Running", since, reason: "Bash npm test" }));
     expect(within(sessionRow("Scaffold Tauri app")).queryByText(/14:02/)).not.toBeInTheDocument();
 
-    act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
-    expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-error-bg");
-    expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02 · overloaded")).toBeInTheDocument();
-  });
-
-  it("shows the Running marker without a detail line", async () => {
-    const { stream } = await openPane();
-    act(() => stream.status({ state: "Running", since, reason: "Bash npm test" }));
-    const row = within(sessionRow("Scaffold Tauri app"));
-    // Running is blue and untinted; green belongs to Idle (SRS-FR-032, CR-016).
-    expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-running-bg");
-    expect(sessionRow("Scaffold Tauri app").querySelector(".dot-busy")).not.toBeNull();
-    expect(row.getByRole("img", { name: labels.state["Running"] })).toBeInTheDocument();
-    expect(row.queryByText(/14:02/)).not.toBeInTheDocument();
-  });
-
-  it("shows only the time when the state has no reason", async () => {
-    const { stream } = await openPane();
     act(() => stream.status({ state: "Error", since, reason: null }));
     expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02")).toBeInTheDocument();
+  });
+
+  it("moves mokairo above agent-deck when one of its sessions fails (SRS-FR-052)", async () => {
+    const { streams } = await twoFolders([1, 1], ["Scaffold Tauri app", "Fix login bug"]);
+    act(() => streams[0].status({ state: "Running", since }));
+    act(() => streams[1].status({ state: "Running", since }));
+    expect(order()).toEqual(["agent-deck", "mokairo"]);
+
+    act(() => streams[1].status({ state: "Error", since, reason: "overloaded" }));
+
+    expect(order()).toEqual(["mokairo", "agent-deck"]);
+  });
+
+  it("counts what needs the user in red, else the open sessions in grey, on an untinted workspace row (SRS-FR-040)", async () => {
+    const { streams } = await twoFolders([2, 3], ["a1", "a2", "m1", "m2", "m3"]);
+    act(() => streams[0].status({ state: "Idle" }));
+    act(() => streams[1].status({ state: "Idle" }));
+    act(() => streams[2].status({ state: "Error", reason: "overloaded" }));
+    act(() => streams[3].status({ state: "Needs Approval" }));
+    act(() => streams[4].status({ state: "Running" }));
+
+    expect(count("mokairo", 2, "Error")).toHaveTextContent("2");
+    expect(count("mokairo", 2, "Error")).toHaveClass("chip-err");
+    expect(count("agent-deck", 2, "grey")).toHaveTextContent("2");
+    expect(count("agent-deck", 2, "grey")).toHaveClass("chip-idle");
+    for (const name of ["agent-deck", "mokairo"]) {
+      expect(workspaceRow(name).className).not.toMatch(/row-app|row-err|bg-approval-bg|bg-error-bg/);
+      expect(workspaceName(name).parentElement!.className).not.toMatch(/row-app|row-err|bg-approval-bg|bg-error-bg/);
+    }
   });
 
   it("drops the row of an Error pane the user closes (RULE-08)", async () => {
@@ -605,43 +679,30 @@ describe("Active Sessions (2.3)", () => {
       fakeSessions({ titles: ["Scaffold Tauri app"], list: vi.fn(async () => listed) }),
     );
     act(() => stream.status({ state: "Error", since, reason: "overloaded" }));
-    expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-error-bg");
+    expect(sessionRow("Scaffold Tauri app")).toHaveClass("row-err");
     await closeVia(user);
     expect(sessions.close).toHaveBeenCalledWith("p1");
-    await vi.waitFor(() => expect(within(activeList()).queryByText("Scaffold Tauri app")).not.toBeInTheDocument());
-    expect(within(activeList()).getByText(labels.noActiveSessions)).toBeInTheDocument();
+    await vi.waitFor(() => expect(within(sidebar()).queryByText("Scaffold Tauri app")).not.toBeInTheDocument());
   });
 
-  it("keeps the Error highlight after an abnormal exit", async () => {
+  it("keeps the Error tint after an abnormal exit", async () => {
     const listed = { sessions: [{ id: "s1", title: "Scaffold Tauri app", lastActivity: since }], unreadable: 0 };
     const { stream } = await openPane(fakeSessions({ titles: ["Scaffold Tauri app"], list: vi.fn(async () => listed) }));
     act(() => stream.status({ state: "Running", since }));
     act(() => stream.status({ state: "Error", since, reason: "exit code 1" }));
     act(() => stream.exit(1));
     await vi.waitFor(() => expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02 · mã thoát 1")).toBeInTheDocument());
-    expect(sessionRow("Scaffold Tauri app")).toHaveClass("bg-error-bg");
+    expect(sessionRow("Scaffold Tauri app")).toHaveClass("row-err");
   });
 
-  it("does not highlight a session that ended normally or an untracked pane", async () => {
+  it("tints neither a session that ended normally nor an untracked pane", async () => {
     const { stream } = await openPane();
-    act(() => stream.status({ state: "Running", tracked: false }));
-    expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-running-bg");
+    act(() => stream.status({ state: "Error", tracked: false }));
+    expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("row-err");
     act(() => stream.status({ state: "Running", since }));
     act(() => stream.status({ state: "Ended", since }));
-    expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("bg-running-bg");
-    expect(within(sessionRow("Scaffold Tauri app")).getByRole("img", { name: labels.state["Ended"] })).toBeInTheDocument();
-  });
-
-  it("puts every sidebar section on the sidebar's --card, with no tint of its own (SRS-NFR-009 deleted)", async () => {
-    setup([ws("a", "agent-deck")]);
-    await folderList().findByText("agent-deck");
-    expect(sidebar()).toHaveClass("side");
-    for (const section of sidebar().querySelectorAll("section")) expect(section.className).not.toMatch(/bg-section-/);
-  });
-
-  it("shows No active sessions while no pane is open (SRS-FR-053)", async () => {
-    setup([ws("a", "agent-deck")]);
-    expect(await within(activeList()).findByText(labels.noActiveSessions)).toBeInTheDocument();
+    expect(sessionRow("Scaffold Tauri app")).not.toHaveClass("row-err");
+    expect(within(sessionRow("Scaffold Tauri app")).getByText(labels.state.Ended)).toBeInTheDocument();
   });
 
   it("keeps the Status Highlight off the history row, which stays Live (SRS-FR-012)", async () => {
@@ -649,72 +710,82 @@ describe("Active Sessions (2.3)", () => {
     const { stream } = await openPane(fakeSessions({ titles: ["Scaffold Tauri app"], list: vi.fn(async () => listed) }));
     act(() => stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
     await vi.waitFor(() => expect(within(historyRow("Scaffold Tauri app")).getByText(labels.live)).toBeInTheDocument());
-    expect(historyRow("Scaffold Tauri app")).not.toHaveClass("bg-approval-bg");
+    expect(historyRow("Scaffold Tauri app")).not.toHaveClass("row-app");
     expect(within(historyPanel()).queryByText("14:02 · Edit src/main.rs")).not.toBeInTheDocument();
   });
 
-  it("lists the open sessions of every folder with their folder, most urgent first (SRS-FR-051, SRS-FR-052)", async () => {
-    const sessions = fakeSessions({ titles: ["Fix login bug", "Scaffold Tauri app"] });
-    const { user } = setup([ws("a", "agent-deck"), ws("m", "mokairo")], sessions);
-    await selectAndStart(user, "mokairo");
-    await user.click(folderList().getByText("agent-deck"));
-    await user.click(newSessionButton());
-    await within(activeList()).findByText("Scaffold Tauri app");
-    await within(activeList()).findByText("Fix login bug");
-    const [login, scaffold] = sessions.opened.map((o) => o.stream);
-    act(() => login.status({ state: "Running", since }));
-    act(() => scaffold.status({ state: "Error", since: since + 60_000, reason: "overloaded" }));
-    const texts = () => within(activeList()).getAllByRole("listitem").map((r) => r.textContent);
-    expect(texts()).toEqual([expect.stringContaining("Scaffold Tauri app"), expect.stringContaining("Fix login bug")]);
-    expect(within(sessionRow("Scaffold Tauri app")).getByText("agent-deck")).toBeInTheDocument();
-    expect(within(sessionRow("Fix login bug")).getByText("mokairo")).toBeInTheDocument();
-  });
-});
+  describe("collapse (SRS-FR-141, SRS-FR-142)", () => {
+    it("folds and unfolds the Session Rows with the chevron; the count stays and the panes stay open", async () => {
+      const { user } = await twoFolders([2, 0], ["First", "Second"]);
+      await within(sidebar()).findByText("Second");
+      const chevron = within(workspaceRow("agent-deck")).getByRole("button", { name: labels.collapse("agent-deck") });
+      expect(chevron).toHaveAttribute("aria-expanded", "true");
 
-describe("Status Highlight on folder rows (2.2)", () => {
-  const folderRow = (name: string) => folderList().getByText(name).closest("li")!;
+      await user.click(chevron);
 
-  async function twoFolders() {
-    const ctx = setup([ws("a", "agent-deck"), ws("m", "mokairo")]);
-    await selectAndStart(ctx.user, "mokairo");
-    await ctx.user.click(newSessionButton());
-    await ctx.user.click(newSessionButton());
-    await vi.waitFor(() => expect(ctx.sessions.opened).toHaveLength(3));
-    await ctx.user.click(folderList().getByText("agent-deck"));
-    return ctx;
-  }
+      expect(within(sidebar()).queryByText("First")).not.toBeInTheDocument();
+      expect(within(sidebar()).queryByText("Second")).not.toBeInTheDocument();
+      expect(count("agent-deck", 2, "grey")).toHaveTextContent("2");
+      expect(panes()).toHaveLength(2);
+      const unfold = within(workspaceRow("agent-deck")).getByRole("button", { name: labels.expand("agent-deck") });
+      expect(unfold).toHaveAttribute("aria-expanded", "false");
 
-  it("shows the most urgent state of an unselected folder and how many sessions are in it", async () => {
-    const { sessions } = await twoFolders();
-    const [first, second, third] = sessions.opened.map((o) => o.stream);
+      await user.click(unfold);
 
-    act(() => first.status({ state: "Running" }));
-    expect(folderRow("mokairo")).not.toHaveClass("bg-running-bg");
-    expect(within(folderRow("mokairo")).getByRole("img", { name: labels.folderStatus(1, "Running") })).toHaveTextContent("1");
+      expect(within(workspaceRow("agent-deck")).getByText("First")).toBeInTheDocument();
+      expect(within(workspaceRow("agent-deck")).getByText("Second")).toBeInTheDocument();
+    });
 
-    act(() => second.status({ state: "Running" }));
-    act(() => third.status({ state: "Needs Approval" }));
-    expect(folderRow("mokairo")).toHaveClass("bg-approval-bg");
-    expect(within(folderRow("mokairo")).getByRole("img", { name: labels.folderStatus(1, "Needs Approval") })).toHaveTextContent("1");
+    it("turns the count of a folded workspace yellow when a session asks for approval", async () => {
+      const { user, streams } = await twoFolders([0, 2], ["m1", "m2"]);
+      act(() => streams[0].status({ state: "Running" }));
+      act(() => streams[1].status({ state: "Running" }));
+      await user.click(within(workspaceRow("mokairo")).getByRole("button", { name: labels.collapse("mokairo") }));
 
-    act(() => second.status({ state: "Error", reason: "overloaded" }));
-    expect(folderRow("mokairo")).toHaveClass("bg-error-bg");
-    expect(within(folderRow("mokairo")).getByRole("img", { name: labels.folderStatus(1, "Error") })).toBeInTheDocument();
-    expect(folderRow("agent-deck")).not.toHaveClass("bg-error-bg");
-  });
+      act(() => streams[1].status({ state: "Needs Approval" }));
 
-  it("highlights the selected folder too and drops the highlight when every session is Idle", async () => {
-    const { user, sessions } = await twoFolders();
-    await user.click(folderList().getByText("mokairo"));
-    const [first] = sessions.opened.map((o) => o.stream);
+      expect(count("mokairo", 1, "Needs Approval")).toHaveClass("chip-app");
+      expect(within(sidebar()).queryByText("m2")).not.toBeInTheDocument();
+    });
 
-    act(() => first.status({ state: "Needs Approval" }));
-    expect(folderRow("mokairo")).toHaveClass("bg-approval-bg");
-    expect(folderRow("mokairo")).toHaveAttribute("aria-current", "true");
+    it("opens Folder khác at start when no workspace has a pane, and counts down as they open one (CR-017)", async () => {
+      const { user } = setup([ws("a", "agent-deck"), ws("m", "mokairo"), ws("n", "notes")]);
+      const group = await within(sidebar()).findByRole("button", { name: labels.otherFolders(3) });
+      expect(group).toHaveAttribute("aria-expanded", "true");
+      for (const name of ["agent-deck", "mokairo", "notes"]) expect(within(sidebar()).getByRole("button", { name })).toBeInTheDocument();
 
-    act(() => first.status({ state: "Idle" }));
-    expect(folderRow("mokairo")).not.toHaveClass("bg-approval-bg");
-    expect(within(folderRow("mokairo")).queryByRole("img", { name: new RegExp(`^\\d+ (${labels.state.Running}|${labels.state["Needs Approval"]}|${labels.state.Error})$`) })).not.toBeInTheDocument();
+      await selectAndStart(user, "agent-deck");
+      await within(sidebar()).findByRole("button", { name: labels.otherFolders(2) });
+      await selectAndStart(user, "mokairo");
+      await within(sidebar()).findByRole("button", { name: labels.otherFolders(1) });
+      expect(within(sidebar()).getByRole("button", { name: labels.collapse("mokairo") })).toBeInTheDocument();
+    });
+
+    it("keeps the user's fold of Folder khác while nothing opens", async () => {
+      const { user } = setup([ws("a", "agent-deck"), ws("m", "mokairo")]);
+      const group = await within(sidebar()).findByRole("button", { name: labels.otherFolders(2) });
+      await user.click(group);
+      expect(group).toHaveAttribute("aria-expanded", "false");
+      await user.keyboard("{Control>}{Shift>}{/Shift}{/Control}");
+      expect(within(sidebar()).getByRole("button", { name: labels.otherFolders(2) })).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("collapses Folder khác once a pane opens and opens it again when the last pane closes", async () => {
+      const { user } = setup([ws("a", "agent-deck"), ws("m", "mokairo")]);
+      await selectAndStart(user, "agent-deck");
+      const group = await within(sidebar()).findByRole("button", { name: labels.otherFolders(1) });
+      expect(group).toHaveAttribute("aria-expanded", "false");
+
+      await closeVia(user);
+
+      const reopened = await within(sidebar()).findByRole("button", { name: labels.otherFolders(2) });
+      await vi.waitFor(() => expect(reopened).toHaveAttribute("aria-expanded", "true"));
+    });
+
+    it("has no Folder khác group when every workspace has a session open", async () => {
+      await openPane();
+      expect(otherFolders()).not.toBeInTheDocument();
+    });
   });
 });
 
@@ -730,13 +801,13 @@ describe("Session list (2.1, 2.2)", () => {
 
   it("shows no Session History Panel before a folder is selected (SRS-FR-007)", async () => {
     setup([ws("a", "agent-deck")]);
-    await folderList().findByText("agent-deck");
+    await findWorkspace("agent-deck");
     expect(screen.queryByRole("region", { name: labels.sessionHistory })).not.toBeInTheDocument();
   });
 
   it("opens the Session History Panel with the folder name, New Session and Close (SRS-FR-007)", async () => {
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list: listing([]) }));
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     const panel = historyPanel();
     expect(within(panel).getByRole("heading", { name: "agent-deck" })).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: labels.newSession })).toBeEnabled();
@@ -752,7 +823,7 @@ describe("Session list (2.1, 2.2)", () => {
       { id: "a", title: "Write BRD and SRS", lastActivity: new Date(2026, 9, 15, 9).getTime() },
     ]);
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     await within(historyPanel()).findByRole("list", { name: labels.sessionHistory });
     expect(rowTexts()).toEqual([`Scaffold Tauri app${labels.minutesAgo(2)}`, `Write BRD and SRS${labels.yesterday}`]);
     expect(list).toHaveBeenCalledWith("a");
@@ -761,7 +832,7 @@ describe("Session list (2.1, 2.2)", () => {
 
   it("closes the panel on Close and the panes take its width (SRS-FR-054)", async () => {
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list: listing([]) }));
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     const grid = historyPanel().closest(".grid")!;
     expect(grid).toHaveClass("grid-cols-[var(--sidebar-w)_280px_1fr]");
     await user.click(within(historyPanel()).getByRole("button", { name: labels.closeHistory }));
@@ -772,11 +843,11 @@ describe("Session list (2.1, 2.2)", () => {
   it("closes on a click on the selected folder and opens and reads again on the next (SRS-FR-054)", async () => {
     const list = listing([]);
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     await within(historyPanel()).findByText(labels.noSessions);
-    await user.click(folderList().getByText("agent-deck"));
+    await user.click(workspaceName("agent-deck"));
     expect(screen.queryByRole("region", { name: labels.sessionHistory })).not.toBeInTheDocument();
-    await user.click(folderList().getByText("agent-deck"));
+    await user.click(workspaceName("agent-deck"));
     expect(historyPanel()).toBeInTheDocument();
     await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
   });
@@ -788,7 +859,7 @@ describe("Session list (2.1, 2.2)", () => {
     client.add = vi.fn(async () => ({ outcome: "alreadyPresent" as const, id: "a" }));
     const user = userEvent.setup();
     render(<App workspaces={client} sessions={fakeSessions({ list })} createTerminal={() => fakeAdapter()} />);
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     await within(historyPanel()).findByText(labels.noSessions);
     await user.click(within(historyPanel()).getByRole("button", { name: labels.closeHistory }));
     await user.click(screen.getByRole("button", { name: labels.addFolder }));
@@ -798,22 +869,22 @@ describe("Session list (2.1, 2.2)", () => {
 
   it("keeps the panel open on another folder and shows that folder (SRS-FR-054)", async () => {
     const { user } = setup([ws("a", "alpha"), ws("b", "beta")], fakeSessions({ list: listing([]) }));
-    await user.click(await folderList().findByText("alpha"));
-    await user.click(folderList().getByText("beta"));
+    await user.click(await findWorkspace("alpha"));
+    await user.click(workspaceName("beta"));
     expect(within(historyPanel()).getByRole("heading", { name: "beta" })).toBeInTheDocument();
   });
 
   it("shows how many sessions could not be read", async () => {
     const list = listing([{ id: "a", title: "Init repo", lastActivity: now }], 2);
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list }));
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     expect(await within(historyPanel()).findByText(labels.unreadable(2))).toBeInTheDocument();
   });
 
   it("says a missing folder no longer exists and does not read it", async () => {
     const list = listing([]);
     const { user } = setup([ws("m", "gone", true)], fakeSessions({ list }));
-    await user.click(await folderList().findByText("gone"));
+    await user.click(await findWorkspace("gone"));
     expect(await within(historyPanel()).findByText(labels.folderGone)).toBeInTheDocument();
     expect(list).not.toHaveBeenCalled();
   });
@@ -850,8 +921,8 @@ describe("Session list (2.1, 2.2)", () => {
         : Promise.resolve({ sessions: [{ id: "b1", title: "Beta work", lastActivity: now }], unreadable: 0 }),
     );
     const { user } = setup([ws("a", "alpha"), ws("b", "beta")], fakeSessions({ list }));
-    await user.click(await folderList().findByText("alpha"));
-    await user.click(folderList().getByText("beta"));
+    await user.click(await findWorkspace("alpha"));
+    await user.click(workspaceName("beta"));
     await vi.waitFor(() => expect(rowTexts()).toEqual([expect.stringContaining("Beta work")]));
     await act(async () => answerFirst({ sessions: [{ id: "a1", title: "Alpha work", lastActivity: now }], unreadable: 0 }));
     expect(rowTexts()).toEqual([expect.stringContaining("Beta work")]);
@@ -873,13 +944,13 @@ describe("Resume (2.1, 2.2)", () => {
   const resumeButton = () => within(historyPanel()).getByRole("button", { name: labels.resume });
 
   async function selectRow(user: ReturnType<typeof userEvent.setup>, folder: string, title: string) {
-    await user.click(await folderList().findByText(folder));
+    await user.click(await findWorkspace(folder));
     await user.click(await within(historyPanel()).findByRole("button", { name: new RegExp(title) }));
   }
 
   it("offers Resume only on the selected row", async () => {
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list: list() }));
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     await within(historyPanel()).findByRole("button", { name: /Scaffold/ });
     expect(within(historyPanel()).queryByRole("button", { name: labels.resume })).not.toBeInTheDocument();
     expect(row("Scaffold")).toHaveAttribute("aria-pressed", "false");
@@ -894,7 +965,7 @@ describe("Resume (2.1, 2.2)", () => {
     const { user } = setup([ws("a", "alpha"), ws("b", "beta")], fakeSessions({ list: list() }));
     await selectRow(user, "alpha", "Scaffold");
     expect(resumeButton()).toBeInTheDocument();
-    await user.click(folderList().getByText("beta"));
+    await user.click(workspaceName("beta"));
     await within(historyPanel()).findByRole("button", { name: /Scaffold/ });
     expect(within(historyPanel()).queryByRole("button", { name: labels.resume })).not.toBeInTheDocument();
   });
@@ -1760,7 +1831,7 @@ describe("Sidebar toggle (2.13)", () => {
 
   it("starts shown, hides and shows with the button, and keeps the selected folder (SRS-FR-088, SRS-FR-090)", async () => {
     const { user } = setup([ws("a", "agent-deck")]);
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     const grid = sidebar().parentElement!;
     expect(grid.className).toContain("--sidebar-w");
     expect(toggle(labels.hideSidebar)).toHaveAttribute("aria-expanded", "true");
@@ -1773,7 +1844,7 @@ describe("Sidebar toggle (2.13)", () => {
 
     await user.click(toggle(labels.showSidebar));
 
-    expect(folderList().getByText("agent-deck").closest("[aria-current]")).toHaveAttribute("aria-current", "true");
+    expect(workspaceName("agent-deck").closest("[aria-current]")).toHaveAttribute("aria-current", "true");
     expect(grid.className).toContain("--sidebar-w");
   });
 
@@ -1797,7 +1868,7 @@ describe("Sidebar toggle (2.13)", () => {
 
   it("leaves Ctrl+B and Ctrl+H to the terminal on macOS (SRS-FR-089)", async () => {
     setup([ws("a", "agent-deck")], fakeSessions(), undefined, { mac: true });
-    await folderList().findByText("agent-deck");
+    await findWorkspace("agent-deck");
 
     expect(await press("b", { ctrlKey: true })).toBe(true);
     expect(await press("h", { ctrlKey: true })).toBe(true);
@@ -1807,7 +1878,7 @@ describe("Sidebar toggle (2.13)", () => {
 
   it("uses Ctrl+B on Windows (SRS-FR-089)", async () => {
     setup([ws("a", "agent-deck")]);
-    await folderList().findByText("agent-deck");
+    await findWorkspace("agent-deck");
 
     expect(await press("b", { ctrlKey: true })).toBe(false);
 
@@ -1815,12 +1886,9 @@ describe("Sidebar toggle (2.13)", () => {
   });
 });
 
-describe("Jump from Active Sessions (2.4)", () => {
+describe("Jump from the Folder Tree (2.3)", () => {
   const since = new Date(2026, 9, 16, 14, 2).getTime();
-  const rowButton = (title: string) =>
-    within(within(within(sidebar()).getByRole("list", { name: labels.activeSessions })).getByText(title).closest("li")!).getByRole(
-      "button",
-    );
+  const rowButton = (title: string) => within(sessionRow(title)).getByRole("button");
   const historyRowButton = (title: string) =>
     within(within(historyPanel()).getByRole("list", { name: labels.sessionHistory })).getByRole("button", { name: new RegExp(title) });
 
@@ -1894,13 +1962,8 @@ describe("Jump from Active Sessions (2.4)", () => {
 
 });
 
-describe("Row Focus Mark (2.5)", () => {
-  const row = (title: string) =>
-    within(within(sidebar()).getByRole("list", { name: labels.activeSessions })).getByText(title).closest("li")!;
-  const marked = () =>
-    within(within(sidebar()).getByRole("list", { name: labels.activeSessions }))
-      .queryAllByRole("listitem")
-      .filter((li) => li.getAttribute("aria-current") === "true");
+describe("Row Focus Mark (2.3)", () => {
+  const marked = () => [...sidebar().querySelectorAll(".side-on")];
 
   async function twoIdlePanes() {
     const sessions = fakeSessions({ titles: ["First", "Second"] });
@@ -1917,32 +1980,33 @@ describe("Row Focus Mark (2.5)", () => {
 
     fireEvent.focus(panes()[1]);
 
-    expect(marked()).toEqual([row("Second")]);
-    expect(row("Second")).toHaveClass("ring-2", "ring-inset", "ring-row-focus");
-    expect(row("First")).not.toHaveClass("ring-2");
+    expect(marked()).toEqual([sessionRow("Second")]);
+    expect(sessionRow("Second")).toHaveAttribute("aria-current", "location");
+    expect(workspaceRow("agent-deck")).toHaveAttribute("aria-current", "true");
+    expect(sessionRow("First")).not.toHaveAttribute("aria-current");
   });
 
-  it("keeps the Running highlight under the mark (SRS-FR-099)", async () => {
+  it("keeps the yellow tint of a Needs Approval row under the iris bar (SRS-FR-099)", async () => {
     const { sessions } = await twoIdlePanes();
-    act(() => sessions.opened[0].stream.status({ state: "Running" }));
+    act(() => sessions.opened[0].stream.status({ state: "Needs Approval" }));
 
     fireEvent.focus(panes()[0]);
 
-    expect(row("First")).toHaveClass("ring-2", "ring-row-focus");
-    expect(row("First")).not.toHaveClass("bg-running-bg");
-    expect(row("First")).toHaveAttribute("aria-current", "true");
+    expect(sessionRow("First")).toHaveClass("side-on", "row-app");
+    expect(within(sessionRow("First")).getByText(labels.state["Needs Approval"])).toBeInTheDocument();
+    expect(marked()).toEqual([sessionRow("First")]);
   });
 
   it("moves the mark to the row the user jumps from (SRS-FR-099)", async () => {
     const { user } = await twoIdlePanes();
     fireEvent.focus(panes()[1]);
 
-    await user.click(within(row("First")).getByRole("button"));
+    await user.click(within(sessionRow("First")).getByRole("button"));
 
-    expect(marked()).toEqual([row("First")]);
+    expect(marked()).toEqual([sessionRow("First")]);
   });
 
-  it("marks no row once the focused pane has closed (SRS-FR-099)", async () => {
+  it("marks no row while no pane is focused or once the focused pane has closed (SRS-FR-099)", async () => {
     const { sessions } = await twoIdlePanes();
     fireEvent.focus(panes()[1]);
 
@@ -1950,9 +2014,9 @@ describe("Row Focus Mark (2.5)", () => {
     await vi.waitFor(() => expect(panes()).toHaveLength(1));
 
     expect(marked()).toEqual([]);
-    expect(row("First")).not.toHaveClass("ring-2");
   });
 });
+
 
 describe("Delete a session (2.2 to 2.4)", () => {
   type Row = { id: string; title: string; lastActivity: number };
@@ -1973,7 +2037,7 @@ describe("Delete a session (2.2 to 2.4)", () => {
       ...over,
     });
     const ctx = setup([ws("a", "agent-deck")], sessions);
-    await ctx.user.click(await folderList().findByText("agent-deck"));
+    await ctx.user.click(await findWorkspace("agent-deck"));
     await within(historyPanel()).findByText("Old work");
     return { ...ctx, drop: (id: string) => (rows = rows.filter((r) => r.id !== id)) };
   }
@@ -2189,7 +2253,7 @@ describe("Delete selected sessions (1.1, 1.2)", () => {
       ...over,
     });
     const ctx = setup(items, sessions);
-    await ctx.user.click(await folderList().findByText("agent-deck"));
+    await ctx.user.click(await findWorkspace("agent-deck"));
     await within(historyPanel()).findByText("Scaffold Tauri app");
     return ctx;
   }
@@ -2230,15 +2294,15 @@ describe("Delete selected sessions (1.1, 1.2)", () => {
     await user.click(box("Scaffold Tauri app"));
     await user.click(box("Fix login bug"));
 
-    await user.click(folderList().getByText("mokairo"));
-    await user.click(folderList().getByText("agent-deck"));
+    await user.click(workspaceName("mokairo"));
+    await user.click(workspaceName("agent-deck"));
     await within(historyPanel()).findByText("Scaffold Tauri app");
     expect(box("Scaffold Tauri app")).not.toBeChecked();
     expect(bar(new RegExp(`^${labels.deleteSelected(0).split(" (")[0]}`))).not.toBeInTheDocument();
 
     await user.click(box("Fix login bug"));
     await user.click(within(historyPanel()).getByRole("button", { name: labels.closeHistory }));
-    await user.click(folderList().getByText("agent-deck"));
+    await user.click(workspaceName("agent-deck"));
     await within(historyPanel()).findByText("Fix login bug");
     expect(box("Fix login bug")).not.toBeChecked();
   });
@@ -2355,7 +2419,7 @@ describe("Diagnostics report (2.1)", () => {
     render(<App workspaces={workspacesClient([ws("a", "agent-deck")])} sessions={sessions} createTerminal={() => fakeAdapter()} diag={diag} />);
     const settle = () => act(async () => vi.advanceTimersByTimeAsync(0));
     await settle();
-    fireEvent.click(folderList().getByText("agent-deck"));
+    fireEvent.click(workspaceName("agent-deck"));
     fireEvent.click(newSessionButton());
     await settle();
 
@@ -2385,16 +2449,54 @@ describe("Stashed Sessions (CR-011)", () => {
   const onDisk = (...ids: string[]) =>
     vi.fn(async () => ({ sessions: ids.map((id) => ({ id, title: id, lastActivity: 1 })), unreadable: 0 }));
   const stored = () => JSON.parse(localStorage.getItem("adStashedSessions") ?? "null")?.sessions as { sessionId: string }[];
+  const STASH_GROUP = new RegExp(`^${escapeRe(labels.stashedCount(0)).replace("0", "\\d+")}$`);
+  /** SRS-FR-107: with nothing stashed the group is gone, title and all. */
+  const expectNoStashGroup = () => {
+    expect(within(sidebar()).queryByRole("list", { name: labels.stashedSessions })).not.toBeInTheDocument();
+    expect(within(sidebar()).queryByText(STASH_GROUP)).not.toBeInTheDocument();
+  };
 
-  it("shows No stashed sessions while nothing is stashed (SRS-FR-107)", async () => {
+  it("is the last group of the Folder Tree, after Folder khác and before Thêm folder, newest first (SRS-FR-106)", async () => {
+    seed(stashed("s2", "Scaffold Tauri app", "a", "agent-deck", 2), stashed("s1", "Fix login bug", "b", "mokairo", 1));
+    setup([ws("a", "agent-deck"), ws("b", "mokairo")], fakeSessions({ list: onDisk("s1", "s2") }));
+    const group = await within(sidebar()).findByText(labels.stashedCount(2));
+    const other = otherFolders()!;
+    const add = within(sidebar()).getByRole("button", { name: labels.addFolder });
+    expect(other.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(group.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(stashList()).getAllByRole("listitem").map((r) => r.textContent)).toEqual([
+      expect.stringContaining("Scaffold Tauri app"),
+      expect.stringContaining("Fix login bug"),
+    ]);
+  });
+
+  it("has no Để dành group while nothing is stashed, nor after the last × (SRS-FR-107)", async () => {
     setup([ws("a", "agent-deck")]);
-    expect(await within(stashList()).findByText(labels.noStashedSessions)).toBeInTheDocument();
+    await findWorkspace("agent-deck");
+    expectNoStashGroup();
+    expect(within(sidebar()).queryByText("Chưa để dành phiên nào")).not.toBeInTheDocument();
+    cleanup();
+
+    seed(stashed("s1", "Fix login bug"));
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list: onDisk("s1") }));
+    await within(sidebar()).findByText(labels.stashedCount(1));
+    await user.click(within(stashRow("Fix login bug")).getByRole("button", { name: labels.unstash("Fix login bug") }));
+    expectNoStashGroup();
+  });
+
+  it("shows × only on hover or keyboard focus (SRS-FR-110)", async () => {
+    seed(stashed("s1", "Fix login bug"));
+    setup([ws("a", "agent-deck")], fakeSessions({ list: onDisk("s1") }));
+    await within(sidebar()).findByText("Fix login bug");
+    const remove = within(stashRow("Fix login bug")).getByRole("button", { name: labels.unstash("Fix login bug") });
+    expect(remove).toHaveClass("opacity-0", "group-hover:opacity-100", "focus-visible:opacity-100");
+    expect(remove.closest("li")).toHaveClass("group");
   });
 
   it("lists the stashed sessions kept from the last launch, in order, with their folder (SRS-FR-106, SRS-FR-111)", async () => {
     seed(stashed("s2", "Scaffold Tauri app", "a", "agent-deck", 2), stashed("s1", "Fix login bug", "b", "mokairo", 1));
     setup([ws("a", "agent-deck"), ws("b", "mokairo")], fakeSessions({ list: onDisk("s1", "s2") }));
-    await folderList().findByText("agent-deck");
+    await findWorkspace("agent-deck");
     const rows = within(stashList()).getAllByRole("listitem");
     expect(rows.map((r) => r.textContent)).toEqual([
       expect.stringContaining("Scaffold Tauri app"),
@@ -2402,12 +2504,6 @@ describe("Stashed Sessions (CR-011)", () => {
     ]);
     expect(within(stashRow("Fix login bug")).getByText("mokairo")).toBeInTheDocument();
     expect(within(sidebar()).getByText(labels.stashedCount(2))).toBeInTheDocument();
-  });
-
-  it("puts Stashed Sessions on the sidebar's --card, with no tint of its own (SRS-NFR-010 deleted)", async () => {
-    setup([ws("a", "agent-deck")]);
-    await folderList().findByText("agent-deck");
-    expect(stashList().closest("section")!.className).not.toMatch(/bg-section-/);
   });
 
   async function openPane(sessions = fakeSessions({ titles: ["Fix login bug"] }), title = "Fix login bug") {
@@ -2434,7 +2530,7 @@ describe("Stashed Sessions (CR-011)", () => {
     expect(stashButton()).toBeDisabled();
     await user.click(stashButton());
     expect(sessions.close).not.toHaveBeenCalled();
-    expect(within(stashList()).getByText(labels.noStashedSessions)).toBeInTheDocument();
+    expectNoStashGroup();
   });
 
   it("closes an idle pane without the Close Dialog and stashes its session (SRS-FR-104)", async () => {
@@ -2454,7 +2550,7 @@ describe("Stashed Sessions (CR-011)", () => {
     await user.click(stashButton());
     await screen.findByText(new RegExp(labels.closeFailed));
     expect(screen.getByRole("region", { name: "agent-deck · Fix login bug" })).toBeInTheDocument();
-    expect(within(stashList()).getByText(labels.noStashedSessions)).toBeInTheDocument();
+    expectNoStashGroup();
   });
 
   it("asks before stashing a Running pane; Cancel keeps it, Stash stashes it (SRS-FR-105)", async () => {
@@ -2465,7 +2561,7 @@ describe("Stashed Sessions (CR-011)", () => {
     expect(within(dialog).getByText(labels.sessionBusy)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: labels.cancel }));
     expect(sessions.close).not.toHaveBeenCalled();
-    expect(within(stashList()).getByText(labels.noStashedSessions)).toBeInTheDocument();
+    expectNoStashGroup();
 
     await user.click(stashButton());
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: labels.stash }));
@@ -2489,7 +2585,7 @@ describe("Stashed Sessions (CR-011)", () => {
     await user.click(await within(stashList()).findByRole("button", { name: /^Fix login bug/ }));
     expect(await screen.findByRole("region", { name: "agent-deck · Fix login bug" })).toBeInTheDocument();
     expect(sessions.open).toHaveBeenCalledWith("a", expect.any(Number), expect.any(Number), "old-1");
-    expect(within(stashList()).getByText(labels.noStashedSessions)).toBeInTheDocument();
+    expectNoStashGroup();
     // useStash writes storage in an effect, which React may run after this render.
     await vi.waitFor(() => expect(stored()).toEqual([]));
   });
@@ -2497,7 +2593,7 @@ describe("Stashed Sessions (CR-011)", () => {
   it("refuses a Missing folder with Folder not found and keeps the row (SRS-FR-108)", async () => {
     seed(stashed("old-1", "Fix login bug", "b", "mokairo"));
     const { user, sessions } = setup([ws("a", "agent-deck"), ws("b", "mokairo", true)]);
-    await folderList().findByText("mokairo");
+    await findWorkspace("mokairo");
     await user.click(within(stashList()).getByRole("button", { name: /^Fix login bug/ }));
     expect(await screen.findByText(labels.folderNotFound)).toBeInTheDocument();
     expect(sessions.open).not.toHaveBeenCalled();
@@ -2525,11 +2621,11 @@ describe("Stashed Sessions (CR-011)", () => {
     seed(stashed("old-1", "Fix login bug"));
     const list = vi.fn(async () => ({ sessions: [{ id: "old-1", title: "Fix login bug", lastActivity: 1 }], unreadable: 0 }));
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list, titles: ["Fix login bug"] }));
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     await user.click(await within(historyPanel()).findByRole("button", { name: /Fix login bug/ }));
     await user.click(within(historyPanel()).getByRole("button", { name: labels.resume }));
     await screen.findByRole("region", { name: "agent-deck · Fix login bug" });
-    expect(within(stashList()).getByText(labels.noStashedSessions)).toBeInTheDocument();
+    expectNoStashGroup();
   });
 
   it("drops the row of a session deleted from the Session History Panel (SRS-FR-112)", async () => {
@@ -2540,11 +2636,11 @@ describe("Stashed Sessions (CR-011)", () => {
       deleteSession: vi.fn(async () => void (rows = [])),
     });
     const { user } = setup([ws("a", "agent-deck")], sessions);
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     await user.click(await within(historyPanel()).findByRole("button", { name: /Fix login bug/ }));
     await user.click(within(historyPanel()).getByRole("button", { name: labels.delete }));
     await user.click(screen.getByRole("button", { name: labels.moveToTrash }));
-    await within(stashList()).findByText(labels.noStashedSessions);
+    await vi.waitFor(expectNoStashGroup);
   });
 
   it("keeps the row when the delete fails", async () => {
@@ -2554,7 +2650,7 @@ describe("Stashed Sessions (CR-011)", () => {
       deleteSession: vi.fn(async () => Promise.reject("locked")),
     });
     const { user } = setup([ws("a", "agent-deck")], sessions);
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     await user.click(await within(historyPanel()).findByRole("button", { name: /Fix login bug/ }));
     await user.click(within(historyPanel()).getByRole("button", { name: labels.delete }));
     await user.click(screen.getByRole("button", { name: labels.moveToTrash }));
@@ -2591,7 +2687,7 @@ describe("Stashed Sessions (CR-011)", () => {
     const { user, sessions } = setup([ws("a", "agent-deck")], fakeSessions({ list: onDisk("s1") }));
     await within(stashList()).findByText("Fix login bug");
     await user.click(within(stashRow("Fix login bug")).getByRole("button", { name: labels.unstash("Fix login bug") }));
-    expect(within(stashList()).getByText(labels.noStashedSessions)).toBeInTheDocument();
+    expectNoStashGroup();
     expect(stored()).toEqual([]);
     expect(sessions.open).not.toHaveBeenCalled();
     expect(sessions.deleteSession).not.toHaveBeenCalled();
@@ -2617,7 +2713,9 @@ describe("No Status Summary (CR-014)", () => {
     expect(screen.queryByRole("region", { name: "Status Summary" })).not.toBeInTheDocument();
     expect(screen.queryByText("All clear")).not.toBeInTheDocument();
     expect(screen.queryByText(new RegExp(`${labels.othersBadgeText(0).replace(/^0 /, "")}$`))).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Agent Deck" })).not.toBeInTheDocument();
+    // The Sidebar title (CR-016) is the only "Agent Deck" heading; the old summary headline is gone.
+    const titles = screen.queryAllByRole("heading", { name: "Agent Deck" });
+    expect(titles.every((h) => h.closest("aside") !== null)).toBe(true);
     expect(screen.queryByText("No sessions running")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Go to/ })).not.toBeInTheDocument();
   }
@@ -2710,7 +2808,7 @@ describe("Vietnamese labels (SRS-NFR-008)", () => {
       list: vi.fn(async () => ({ sessions: [{ id: "old", title: "Viết BRD", lastActivity: Date.now() - 120_000 }], unreadable: 1 })),
     });
     const { user } = setup([ws("a", "agent-deck"), ws("b", "cũ", true)], sessions);
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     await within(historyPanel()).findByText("Viết BRD");
     expectNoEnglish();
 
@@ -2744,7 +2842,7 @@ describe("Remote shapes, no One UI (app-theme)", () => {
       list: vi.fn(async () => ({ sessions: [{ id: "old", title: "Old work", lastActivity: 1 }], unreadable: 0 })),
     });
     const { user } = setup([ws("a", "agent-deck")], sessions);
-    await user.click(await folderList().findByText("agent-deck"));
+    await user.click(await findWorkspace("agent-deck"));
     await within(historyPanel()).findByText("Old work");
     await user.click(newSessionButton());
     await screen.findByTestId("pane-grid");

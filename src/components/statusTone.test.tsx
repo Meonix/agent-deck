@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react";
-import { Archive, CircleHelp, Folder, FolderX, MessageSquare } from "lucide-react";
+import { Archive, CircleHelp, MessageSquare } from "lucide-react";
 import { describe, expect, it } from "vitest";
 import { markLook, RoundMark } from "./statusTone";
 
@@ -12,9 +12,7 @@ describe("markLook (remote marker)", () => {
     expect(markLook({ kind: "state", state: "Ended" })).toEqual({ dot: "dot dot-ended" });
   });
 
-  it("marks folders, history, stash and an unavailable status with an icon", () => {
-    expect(markLook({ kind: "folder" })).toEqual({ Icon: Folder });
-    expect(markLook({ kind: "folder", missing: true })).toEqual({ Icon: FolderX });
+  it("marks history, stash and an unavailable status with an icon", () => {
     expect(markLook({ kind: "history" })).toEqual({ Icon: MessageSquare });
     expect(markLook({ kind: "stashed" })).toEqual({ Icon: Archive });
     expect(markLook({ kind: "unavailable" })).toEqual({ Icon: CircleHelp });

@@ -1,4 +1,5 @@
 import type { SessionState } from "./api/sessions";
+import type { CountTone } from "./components/statusHighlight";
 
 /** RULE-01's title for a session with no prompt yet; a data value the backend also sends. */
 export const UNTITLED_DATA = "(untitled)";
@@ -30,20 +31,25 @@ export const labels = {
     return APP_REASONS[reason] ?? reason;
   },
 
+  appTitle: "Agent Deck",
   sidebar: "Folder làm việc",
   showSidebar: "Hiện cột trái",
   hideSidebar: "Ẩn cột trái",
-  folders: "Folder",
   addFolder: "Thêm folder",
-  removeFolder: (name: string) => `Bỏ folder ${name}`,
+  removeFolder: "Bỏ folder",
   missing: "Không còn",
-  folderStatus: (count: number, s: SessionState) => `${count} ${state[s]}`,
-  activeSessions: "Phiên đang mở",
-  activeCount: (n: number) => `Phiên đang mở (${n})`,
-  noActiveSessions: "Không có phiên đang mở",
+  otherFolders: (n: number) => `Folder khác (${n})`,
+  viewFiles: "Xem file",
+  copyPath: "Chép đường dẫn",
+  copyPathFailed: "Không chép được đường dẫn",
+  folderMenu: (name: string) => `Tuỳ chọn folder ${name}`,
+  collapse: (name: string) => `Thu gọn ${name}`,
+  expand: (name: string) => `Mở ${name}`,
+  /** The count on a workspace row: sessions that need the user, else every open session (SRS-FR-040). */
+  folderCount: (n: number, tone: CountTone) =>
+    tone === "Error" ? `${n} phiên lỗi` : tone === "Needs Approval" ? `${n} phiên cần duyệt` : `${n} phiên đang mở`,
   stashedSessions: "Để dành",
   stashedCount: (n: number) => `Để dành (${n})`,
-  noStashedSessions: "Chưa để dành phiên nào",
   unstash: (title: string) => `Bỏ ${title} khỏi Để dành`,
   unstashTip: "Bỏ khỏi Để dành",
 

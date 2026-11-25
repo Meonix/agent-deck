@@ -1,15 +1,17 @@
 import type { SessionState } from "../api/sessions";
+import type { Workspace } from "../api/workspaces";
+import type { StashedSession } from "./stash";
 import type { PaneEntry } from "./TerminalPane";
 
-export type HighlightState = "Error" | "Needs Approval" | "Running";
-export type FolderHighlight = { state: HighlightState; count: number };
+/** A session in one of these states needs the user (SRS-FR-032). */
+export type WaitingState = "Error" | "Needs Approval";
 
-// Most urgent first (SRS-FR-040).
-const URGENCY: HighlightState[] = ["Error", "Needs Approval", "Running"];
-
-function highlighted(state: SessionState): state is HighlightState {
-  return (URGENCY as SessionState[]).includes(state);
+export function needsUser(state: SessionState): state is WaitingState {
+  return state === "Error" || state === "Needs Approval";
 }
+
+// Most urgent first (SRS-FR-052).
+const URGENCY: SessionState[] = ["Error", "Needs Approval", "Running"];
 
 // A session resumed after its pane ended has two panes; the live one speaks for it.
 function currentPanes(entries: PaneEntry[]): PaneEntry[] {
@@ -21,36 +23,21 @@ function currentPanes(entries: PaneEntry[]): PaneEntry[] {
   return [...bySession.values()];
 }
 
-/** Most urgent state of each folder and how many of its sessions are in it (SRS-FR-040). */
-export function folderHighlights(entries: PaneEntry[]): Map<string, FolderHighlight> {
-  const folders = new Map<string, FolderHighlight>();
-  for (const { workspaceId, status } of currentPanes(entries)) {
-    if (!status.tracked || !highlighted(status.state)) continue;
-    const current = folders.get(workspaceId);
-    if (!current || URGENCY.indexOf(status.state) < URGENCY.indexOf(current.state)) {
-      folders.set(workspaceId, { state: status.state, count: 1 });
-    } else if (current.state === status.state) {
-      current.count += 1;
-    }
-  }
-  return folders;
-}
-
-type Waiting = { paneId: string; title: string; state: "Error" | "Needs Approval"; since: number };
+type Waiting = { paneId: string; title: string; state: WaitingState; since: number };
 
 // The SRS-FR-045 ordering: Error first, then the longest waiting.
 function waitingQueue(panes: PaneEntry[], excludePaneId?: string): Waiting[] {
   const waiting: Waiting[] = [];
   for (const { pane, title, status } of panes) {
     if (pane.paneId === excludePaneId || !status.tracked) continue;
-    if (status.state === "Error" || status.state === "Needs Approval") {
+    if (needsUser(status.state)) {
       waiting.push({ paneId: pane.paneId, title, state: status.state, since: status.since });
     }
   }
   return waiting.sort((a, b) => URGENCY.indexOf(a.state) - URGENCY.indexOf(b.state) || a.since - b.since);
 }
 
-export type MaximizedBadge = { count: number; state: "Error" | "Needs Approval"; paneId: string };
+export type MaximizedBadge = { count: number; state: WaitingState; paneId: string };
 
 /** The other sessions that need the user while a pane is maximized, and which one to jump to (SRS-FR-044, SRS-FR-045). */
 export function maximizedBadge(entries: PaneEntry[], maximizedPaneId: string): MaximizedBadge | null {
@@ -59,39 +46,62 @@ export function maximizedBadge(entries: PaneEntry[], maximizedPaneId: string): M
   return { count: waiting.length, state: waiting[0].state, paneId: waiting[0].paneId };
 }
 
-export type ActiveSession = {
+const ACTIVE_ORDER: SessionState[] = [...URGENCY, "Idle", "Ended"];
+
+/** A session open in a pane, as a row under its workspace in the Folder Tree. */
+export type SessionRow = {
   paneId: string;
   sessionId: string;
   workspaceId: string;
-  workspaceName: string;
   title: string;
   state: SessionState;
   since: number;
   reason: string | null;
+  /** Needs Approval or Error: the row is tinted and shows its detail line (SRS-FR-032, SRS-FR-033). */
   highlighted: boolean;
 };
 
-const ACTIVE_ORDER: SessionState[] = [...URGENCY, "Idle", "Ended"];
+export type CountTone = WaitingState | "grey";
+export type WorkspaceNode = { workspace: Workspace; rows: SessionRow[]; count: { n: number; tone: CountTone } };
+export type FolderTree = { open: WorkspaceNode[]; other: Workspace[]; stash: StashedSession[] };
 
-/** Every session open in a pane across folders, most urgent first (SRS-FR-051, SRS-FR-052). */
-export function activeSessions(entries: PaneEntry[]): ActiveSession[] {
+function sessionRow({ pane, workspaceId, title, openedAt, ended, status }: PaneEntry): SessionRow {
+  // An untracked pane's state is unknown, so it waits with the Idle rows (SRS-FR-036).
+  const state: SessionState =
+    status.tracked && status.state === "Error" ? "Error" : ended ? "Ended" : status.tracked ? status.state : "Idle";
+  return {
+    paneId: pane.paneId,
+    sessionId: pane.sessionId,
+    workspaceId,
+    title,
+    state,
+    since: status.tracked ? status.since : openedAt,
+    reason: status.tracked ? status.reason : null,
+    highlighted: needsUser(state),
+  };
+}
+
+// SRS-FR-040: what needs the user, in the colour of the most urgent; else every open session, in grey.
+function count(rows: SessionRow[]): WorkspaceNode["count"] {
+  const waiting = rows.filter((r) => r.highlighted);
+  if (waiting.length === 0) return { n: rows.length, tone: "grey" };
+  return { n: waiting.length, tone: waiting.some((r) => r.state === "Error") ? "Error" : "Needs Approval" };
+}
+
+/** The Folder Tree: workspaces with open sessions, the Other Folders and the stash (SRS-FR-051, SRS-FR-052, SRS-FR-141). */
+export function folderTree(entries: PaneEntry[], workspaces: Workspace[], stashed: StashedSession[]): FolderTree {
   // A pane that never started has no session, so it must not hide that session's earlier pane.
   const rows = currentPanes(entries.filter((entry) => entry.pane.started))
-    .map(({ pane, workspaceId, workspaceName, title, openedAt, ended, status }): ActiveSession => {
-      // An untracked pane's state is unknown, so it waits with the Idle rows (SRS-FR-036).
-      const state: SessionState =
-        status.tracked && status.state === "Error" ? "Error" : ended ? "Ended" : status.tracked ? status.state : "Idle";
-      return {
-        paneId: pane.paneId,
-        sessionId: pane.sessionId,
-        workspaceId,
-        workspaceName,
-        title,
-        state,
-        since: status.tracked ? status.since : openedAt,
-        reason: status.tracked ? status.reason : null,
-        highlighted: highlighted(state),
-      };
-    });
-  return rows.sort((a, b) => ACTIVE_ORDER.indexOf(a.state) - ACTIVE_ORDER.indexOf(b.state) || a.since - b.since);
+    .map(sessionRow)
+    .sort((a, b) => ACTIVE_ORDER.indexOf(a.state) - ACTIVE_ORDER.indexOf(b.state) || a.since - b.since);
+  const nodes: WorkspaceNode[] = [];
+  const other: Workspace[] = [];
+  for (const workspace of workspaces) {
+    const mine = rows.filter((r) => r.workspaceId === workspace.id);
+    if (mine.length === 0) other.push(workspace);
+    else nodes.push({ workspace, rows: mine, count: count(mine) });
+  }
+  // A stable partition: the rest of the tree stays still when one folder starts waiting.
+  const urgent = (n: WorkspaceNode) => n.count.tone !== "grey";
+  return { open: [...nodes.filter(urgent), ...nodes.filter((n) => !urgent(n))], other, stash: stashed };
 }
