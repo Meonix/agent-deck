@@ -4,7 +4,7 @@ slug: agent-deck
 ---
 # Backlog — agent-deck
 
-Nguồn: `SRS.md` Baselined v1.16 (2026-11-24), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23; CR-009 thêm mục 24; CR-010 thêm mục 25; CR-011 thêm mục 26; CR-012 thêm mục 27, 28; CR-013 thêm mục 29 (SRS v1.13); CR-014 thêm mục 30 (SRS v1.14); CR-015 thêm mục 31, 32, 33 (SRS v1.15); CR-016 thêm mục 34 đến 45 (SRS v1.16). Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
+Nguồn: `SRS.md` Baselined v1.17 (2026-11-25), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23; CR-009 thêm mục 24; CR-010 thêm mục 25; CR-011 thêm mục 26; CR-012 thêm mục 27, 28; CR-013 thêm mục 29 (SRS v1.13); CR-014 thêm mục 30 (SRS v1.14); CR-015 thêm mục 31, 32, 33 (SRS v1.15); CR-016 thêm mục 34 đến 45 (SRS v1.16). Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
 
 | # | Mục | change-id | SRS-ID | Phụ thuộc | Lý do | Trạng thái |
 |---|---|---|---|---|---|---|
@@ -42,7 +42,7 @@ Nguồn: `SRS.md` Baselined v1.16 (2026-11-24), CR-001 thêm mục 9, 10, 11; CR
 | 32 | Bỏ Target Box và Session Goal | remove-session-goal | SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097 | 25, 31 | Should; CR-015; đổi hành vi đã archived → /dev-update | archived |
 | 33 | Bỏ ghi độ trễ trạng thái | remove-status-latency | SRS-FR-038 | 4, 30 | Should; CR-015; đổi hành vi đã archived → /dev-update | archived |
 | 34 | Bộ màu, hình khối và nhãn tiếng Việt theo agent-deck-remote | update-ui-foundation | SRS-NFR-008, SRS-NFR-009, SRS-NFR-010, SRS-NFR-014 | 1, 2 | Must; CR-016; đổi hành vi đã archived (app-theme, app-shell) → /dev-update; làm trước vì mọi mục sau dùng token và nhãn mới | archived |
-| 35 | Cột trái thành cây folder | update-folder-tree | SRS-FR-001, SRS-FR-004, SRS-FR-032, SRS-FR-033, SRS-FR-037, SRS-FR-040, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-FR-099, SRS-FR-106, SRS-FR-107, SRS-FR-110, SRS-FR-141, SRS-FR-142, SRS-FR-143, SRS-FR-144 | 34 | Must; CR-016; đổi hành vi đã archived → /dev-update | todo |
+| 35 | Cột trái thành cây folder | update-folder-tree | SRS-FR-001, SRS-FR-004, SRS-FR-032, SRS-FR-033, SRS-FR-037, SRS-FR-040, SRS-FR-051, SRS-FR-052, SRS-FR-053, SRS-FR-099, SRS-FR-106, SRS-FR-107, SRS-FR-110, SRS-FR-141, SRS-FR-142, SRS-FR-143, SRS-FR-144 | 34 | Must; CR-016; đổi hành vi đã archived → /dev-update | archived |
 | 36 | Session Chooser thay khung lịch sử phiên | update-session-chooser | SRS-FR-007, SRS-FR-008, SRS-FR-009, SRS-FR-010, SRS-FR-011, SRS-FR-012, SRS-FR-013, SRS-FR-018, SRS-FR-019, SRS-FR-041, SRS-FR-047, SRS-FR-048, SRS-FR-050, SRS-FR-054, SRS-FR-073, SRS-FR-074, SRS-FR-075, SRS-FR-076, SRS-FR-077, SRS-FR-078, SRS-FR-079, SRS-FR-088, SRS-FR-102, SRS-FR-109, SRS-NFR-003 | 35 | Must; CR-016; đổi hành vi đã archived → /dev-update | todo |
 | 37 | View Switch và chế độ Shell | update-pane-views | SRS-FR-014, SRS-FR-025, SRS-FR-026, SRS-FR-030, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-066, SRS-FR-080, SRS-FR-146, SRS-FR-147, SRS-FR-148 | 34 | Must; CR-016; đổi hành vi đã archived → /dev-update | todo |
 | 38 | Chat và Activity Bar | add-chat-view | SRS-FR-149, SRS-FR-150, SRS-FR-151, SRS-FR-152, SRS-FR-153 | 37 | Must; CR-016; chỉ thêm FR mới → /dev-feature | todo |
