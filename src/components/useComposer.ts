@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SessionState, SessionsClient } from "../api/sessions";
 import { type HistoryPosition, historyStep, normalisePrompt, sendPrompt } from "./composerLogic";
 import { inputReadiness, type Readiness } from "./inputReady";
 import type { TerminalAdapter } from "./TerminalPane";
+import type { SuggestSource } from "./useSuggestionMenu";
 
 type Options = {
   paneId: string;
@@ -92,7 +93,13 @@ export function useComposer({ paneId, adapter, state, client, sentPrompts, onSen
     if (running) client.write(paneId, "\x1b").catch(() => {});
   };
 
-  return { value: draft, onChange, readiness, running, onSend, onStop, onHistory, browsing: position !== null };
+  // Stable, so a re-render does not count as a new source for the menus.
+  const suggest = useMemo<SuggestSource>(
+    () => ({ commands: () => client.listCommands(paneId), files: () => client.listFiles(paneId) }),
+    [client, paneId],
+  );
+
+  return { value: draft, onChange, readiness, running, onSend, onStop, onHistory, browsing: position !== null, suggest };
 }
 
 // A pane whose session never started has nothing to send to.

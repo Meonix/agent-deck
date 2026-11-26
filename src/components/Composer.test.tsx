@@ -1,11 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { CommandItem, FileEntry, FileList } from "../api/sessions";
 import css from "../index.css?raw";
 import { labels } from "../labels";
 import { Composer } from "./Composer";
 import type { Readiness } from "./inputReady";
+import type { SuggestSource } from "./useSuggestionMenu";
 
 const READY: Readiness = { ready: true };
 const lockedBy = (reason: "approval" | "unrecognized" | "ended"): Readiness => ({ ready: false, reason });
@@ -15,13 +17,19 @@ type Over = {
   readiness?: Readiness;
   running?: boolean;
   onHistory?: (dir: "up" | "down") => string | null;
+  suggest?: SuggestSource;
+};
+
+const NO_SUGGESTIONS: SuggestSource = {
+  commands: async () => [],
+  files: async () => ({ folder: "agent-deck", entries: [] }),
 };
 
 /**
  * A Composer whose value is held like useComposer holds it; `onHistory` answers the recalled text, and the
  * Composer browses while a recalled prompt is shown unedited.
  */
-function renderComposer({ value = "", readiness = READY, running = false, onHistory }: Over = {}) {
+function renderComposer({ value = "", readiness = READY, running = false, onHistory, suggest = NO_SUGGESTIONS }: Over = {}) {
   const on = { send: vi.fn(), stop: vi.fn(), change: vi.fn(), history: vi.fn() };
   function Harness() {
     const [text, setText] = useState(value);
@@ -31,6 +39,7 @@ function renderComposer({ value = "", readiness = READY, running = false, onHist
       <Composer
         paneId="p1"
         inputRef={inputRef}
+        suggest={suggest}
         value={text}
         browsing={browsing}
         onChange={(t) => {
@@ -249,6 +258,212 @@ describe("Composer history (SRS-FR-158)", () => {
   });
 });
 
+const COMMIT: CommandItem = { name: "commit", description: "Group related…", source: "user-skill" };
+const file = (path: string): FileEntry => ({ path, dir: path.endsWith("/") });
+const COMP_FILES = [file("src/components/PaneGrid.tsx"), file("src/components/"), file("src/comp.ts"), file("README.md")];
+
+function source({ commands = [COMMIT], entries = COMP_FILES }: { commands?: CommandItem[]; entries?: FileEntry[] } = {}) {
+  return {
+    commands: vi.fn(async () => commands),
+    files: vi.fn(async (): Promise<FileList> => ({ folder: "agent-deck", entries })),
+  };
+}
+
+const menu = () => screen.queryByRole("listbox");
+const options = () => within(screen.getByRole("listbox")).getAllByRole("option");
+const names = () => options().map((o) => o.querySelector(".font-mono")?.textContent);
+const settle = () => act(async () => {});
+
+describe("suggestion menus (SRS-FR-159, SRS-FR-160)", () => {
+  it("shows built-ins and fetched commands for /com, with the skill tag", async () => {
+    const { user } = renderComposer({ suggest: source() });
+    await user.type(box(), "/com");
+    const list = await screen.findByRole("listbox", { name: labels.menuCommands });
+    expect(list).toHaveClass("menu");
+    expect(within(list).getByText(labels.menuCommands)).toHaveClass("side-label");
+    expect(names()).toEqual(["/commit", "/compact"]);
+    expect(within(options()[0]).getByText(`${labels.tagSkill} · Group related…`)).toHaveClass("sub");
+    expect(within(options()[1]).getByText("Free up context by summarizing the conversation so far")).toHaveClass("sub", "truncate");
+    expect(options()[0]).toHaveAttribute("aria-selected", "true");
+    expect(options()[0]).toHaveClass("pick-on");
+    expect(options()[1]).toHaveAttribute("aria-selected", "false");
+    expect(box()).toHaveAttribute("aria-controls", list.id);
+    expect(box()).toHaveAttribute("aria-activedescendant", options()[0].id);
+    expect(box()).toHaveAttribute("aria-autocomplete", "list");
+  });
+
+  it("chooses the highlighted command on Enter without sending", async () => {
+    const { user, on } = renderComposer({ suggest: source() });
+    await user.type(box(), "/comm");
+    await screen.findByRole("listbox");
+    await user.keyboard("{Enter}");
+    expect(box()).toHaveValue("/commit ");
+    expect(on.send).not.toHaveBeenCalled();
+    expect(menu()).toBeNull();
+    expect(box()).not.toHaveAttribute("aria-activedescendant");
+  });
+
+  it("moves the highlight with ↓ and ↑, wrapping, without recalling history", async () => {
+    const { user, on } = renderComposer({ suggest: source() });
+    await user.type(box(), "/com");
+    await screen.findByRole("listbox");
+    await user.keyboard("{ArrowDown}");
+    expect(options()[1]).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{ArrowDown}");
+    expect(options()[0]).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{ArrowUp}");
+    expect(options()[1]).toHaveAttribute("aria-selected", "true");
+    expect(box()).toHaveAttribute("aria-activedescendant", options()[1].id);
+    await user.keyboard("{Enter}");
+    expect(box()).toHaveValue("/compact ");
+    expect(on.history).not.toHaveBeenCalled();
+  });
+
+  it("starts the highlight over when the query changes", async () => {
+    const { user } = renderComposer({ suggest: source() });
+    await user.type(box(), "/co");
+    await screen.findByRole("listbox");
+    await user.keyboard("{ArrowDown}m");
+    expect(options()[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("closes on Esc for that word only", async () => {
+    const { user, on } = renderComposer({ suggest: source() });
+    await user.type(box(), "/com");
+    await screen.findByRole("listbox");
+    await user.keyboard("{Escape}");
+    expect(menu()).toBeNull();
+    expect(box()).toHaveValue("/com");
+    await user.type(box(), "p");
+    await settle();
+    expect(menu()).toBeNull();
+    await user.clear(box());
+    await user.type(box(), "/");
+    expect(await screen.findByRole("listbox")).toBeInTheDocument();
+    expect(on.send).not.toHaveBeenCalled();
+  });
+
+  it("opens when the caret moves back into a command word", async () => {
+    const { user } = renderComposer({ suggest: source() });
+    await user.type(box(), "/com x");
+    await settle();
+    expect(menu()).toBeNull();
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    await screen.findByRole("listbox");
+    await user.keyboard("{Enter}");
+    expect(box()).toHaveValue("/commit x");
+  });
+
+  it("adds a line on Shift+Enter while a menu is open", async () => {
+    const { user, on } = renderComposer({ suggest: source() });
+    await user.type(box(), "/com");
+    await screen.findByRole("listbox");
+    await user.keyboard("{Shift>}{Enter}{/Shift}");
+    expect(box()).toHaveValue("/com\n");
+    expect(on.send).not.toHaveBeenCalled();
+  });
+
+  it("shows files under File trong <folder> and chooses one with Tab", async () => {
+    const { user } = renderComposer({ suggest: source() });
+    await user.type(box(), "Xem lại @src/comp");
+    const list = await screen.findByRole("listbox", { name: labels.menuFiles("agent-deck") });
+    expect(within(list).getByText(labels.menuFiles("agent-deck"))).toHaveClass("side-label");
+    expect(names()).toEqual(["src/comp.ts", "src/components/", "src/components/PaneGrid.tsx"]);
+    await user.keyboard("{ArrowDown}{ArrowDown}{Tab}");
+    const chosen = "Xem lại @src/components/PaneGrid.tsx ";
+    expect(box()).toHaveValue(chosen);
+    expect((box() as HTMLTextAreaElement).selectionStart).toBe(chosen.length);
+    expect(box()).toHaveFocus();
+    expect(menu()).toBeNull();
+  });
+
+  it("keeps the menu open on the files under a chosen folder, from the same list", async () => {
+    const suggest = source();
+    const { user } = renderComposer({ suggest });
+    await user.type(box(), "@src/comp");
+    await screen.findByRole("listbox");
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(box()).toHaveValue("@src/components/");
+    expect(names()).toContain("src/components/PaneGrid.tsx");
+    expect(names()).not.toContain("src/comp.ts");
+    expect(suggest.files).toHaveBeenCalledTimes(1);
+  });
+
+  it("chooses a row on click and keeps the focus", async () => {
+    const { user } = renderComposer({ suggest: source() });
+    await user.type(box(), "/com");
+    await screen.findByRole("listbox");
+    await user.click(options()[1]);
+    expect(box()).toHaveValue("/compact ");
+    expect(box()).toHaveFocus();
+  });
+
+  it("shows at most 8 files", async () => {
+    const entries = Array.from({ length: 20 }, (_, i) => file(`src/f${i}.ts`));
+    const { user } = renderComposer({ suggest: source({ entries }) });
+    await user.type(box(), "@src");
+    await screen.findByRole("listbox");
+    expect(options()).toHaveLength(8);
+  });
+
+  it("leaves ↑ to history and Enter to sending when no menu shows", async () => {
+    const { user, on } = renderComposer({ suggest: source(), onHistory: () => null });
+    await user.click(box());
+    await user.keyboard("{ArrowUp}");
+    expect(on.history).toHaveBeenCalledWith("up");
+    await user.type(box(), "/x");
+    await settle();
+    expect(menu()).toBeNull();
+    await user.keyboard("{Enter}");
+    expect(on.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows no menu for a recalled prompt, so ↑ keeps walking the history", async () => {
+    const { user, on } = renderComposer({ suggest: source(), onHistory: () => "/compact" });
+    await user.click(box());
+    await user.keyboard("{ArrowUp}");
+    await settle();
+    expect(box()).toHaveValue("/compact");
+    expect(menu()).toBeNull();
+    await user.keyboard("{ArrowUp}");
+    expect(on.history).toHaveBeenCalledTimes(2);
+  });
+
+  it("still shows the built-ins when the commands fail", async () => {
+    const suggest = { ...source(), commands: vi.fn(() => Promise.reject<CommandItem[]>(new Error("x"))) };
+    const { user } = renderComposer({ suggest });
+    await user.type(box(), "/com");
+    await screen.findByRole("listbox");
+    expect(names()).toEqual(["/compact"]);
+  });
+
+  it("shows no file menu when the files fail", async () => {
+    const suggest = { ...source(), files: vi.fn(() => Promise.reject<FileList>(new Error("x"))) };
+    const { user } = renderComposer({ suggest });
+    await user.type(box(), "@src");
+    await settle();
+    expect(suggest.files).toHaveBeenCalledTimes(1);
+    expect(menu()).toBeNull();
+  });
+
+  it("ignores a reply that lands after the menu closed and fetches again next time", async () => {
+    const pending: ((items: CommandItem[]) => void)[] = [];
+    const commands = vi.fn(() => new Promise<CommandItem[]>((r) => pending.push(r)));
+    const { user } = renderComposer({ suggest: { ...source(), commands } });
+    await user.type(box(), "/");
+    expect(menu()).toBeNull();
+    await user.clear(box());
+    await act(async () => pending[0]([COMMIT]));
+    expect(menu()).toBeNull();
+    await user.type(box(), "/com");
+    await settle();
+    expect(commands).toHaveBeenCalledTimes(2);
+    expect(menu()).toBeNull();
+    await act(async () => pending[1]([]));
+    expect(names()).toEqual(["/compact"]);
+  });
+});
+
 describe("Composer CSS (design cr016 composer())", () => {
   const rule = (selector: string) => {
     const at = css.indexOf(`${selector} {`);
@@ -260,5 +475,9 @@ describe("Composer CSS (design cr016 composer())", () => {
     expect(rule(".field-on")).toMatch(/color: var\(--foreground\)/);
     expect(rule(".send-off")).toMatch(/background: var\(--muted\); color: var\(--muted-foreground\); border-radius: 22px/);
     expect(rule(".stop")).toMatch(/background: var\(--muted\); color: var\(--foreground\); border: 1px solid var\(--border\); border-radius: 22px/);
+  });
+
+  it("draws the suggestion menu as a card", () => {
+    expect(rule(".menu")).toMatch(/background: var\(--card\); border: 1px solid var\(--border\); border-radius: 10px/);
   });
 });

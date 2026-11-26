@@ -32,7 +32,7 @@
 
 ## 4. Menu in the Composer (tests first) — seam 4
 
-- [ ] 4.1 RED `Composer` RTL tests with a fake client:
+- [x] 4.1 RED `Composer` RTL tests with a fake client:
   - "/com" shows the menu with `/compact` and `/commit` marked "skill";
   - Enter on "/comm" gives "/commit " and nothing is written;
   - Tab on a file; Enter on a folder keeps the menu open;
@@ -40,7 +40,7 @@
   - with no menu, ↑ in an empty Composer still recalls history;
   - the file menu shows at most 8 rows under "File trong agent-deck".
   (SRS-FR-159, SRS-FR-160)
-- [ ] 4.2 Implement `SuggestionMenu.tsx`, the Composer key routing and the fetch in `useComposer.ts`, plus labels, following `#composer-menus` → GREEN.
+- [x] 4.2 Implement `SuggestionMenu.tsx`, the Composer key routing and the fetch in `useComposer.ts`, plus labels, following `#composer-menus` → GREEN.
 
 ## 5. Verify
 

@@ -1,8 +1,10 @@
 import { ArrowUp, Square } from "lucide-react";
-import { type RefObject, useId, useLayoutEffect } from "react";
+import { type RefObject, useId, useLayoutEffect, useRef, useState } from "react";
 import { labels } from "../labels";
 import { ICON } from "./icon";
 import type { Readiness } from "./inputReady";
+import { SuggestionMenu } from "./SuggestionMenu";
+import { type SuggestSource, useSuggestionMenu } from "./useSuggestionMenu";
 
 // Matches the textarea's leading-5; it grows to MAX_ROWS rows and scrolls beyond.
 const ROW_PX = 20;
@@ -28,11 +30,36 @@ type Props = {
   browsing: boolean;
   /** The pane focuses the Composer through it when it opens or Chat is chosen. */
   inputRef: RefObject<HTMLTextAreaElement | null>;
+  /** The lists behind the "/" and "@" menus (SRS-FR-159, SRS-FR-160). */
+  suggest: SuggestSource;
 };
 
-/** The pane's prompt input under the Chat log (SRS-FR-154 to SRS-FR-158). */
-export function Composer({ paneId, value, onChange, readiness, running, onSend, onStop, onHistory, browsing, inputRef: area }: Props) {
+/** The pane's prompt input under the Chat log (SRS-FR-154 to SRS-FR-160). */
+export function Composer({ paneId, value, onChange, readiness, running, onSend, onStop, onHistory, browsing, inputRef: area, suggest }: Props) {
   const reasonId = useId();
+
+  // The caret counts only for the text the user typed or chose: a recalled prompt or a cleared draft opens
+  // no menu, so ↑/↓ keep walking the history.
+  const [typed, setTyped] = useState<{ value: string; caret: number } | null>(null);
+  const caret = !browsing && typed?.value === value ? typed.caret : 0;
+  const track = (el: HTMLTextAreaElement) => {
+    if (typed?.value === el.value && typed.caret === el.selectionStart) return;
+    setTyped({ value: el.value, caret: el.selectionStart });
+  };
+  const pendingCaret = useRef<number | null>(null);
+  const { menu, onKey, choose } = useSuggestionMenu(suggest, value, caret, (next) => {
+    pendingCaret.current = next.caret;
+    setTyped({ value: next.text, caret: next.caret });
+    onChange(next.text);
+  });
+  useLayoutEffect(() => {
+    const el = area.current;
+    const at = pendingCaret.current;
+    if (!el || at === null || el.value !== value) return;
+    pendingCaret.current = null;
+    el.setSelectionRange(at, at);
+    el.focus();
+  });
   // Running is not a lock: the Composer shows Stop instead of a reason.
   const lock = readiness.ready || readiness.reason === "running" ? null : LOCK[readiness.reason];
   const canSend = readiness.ready;
@@ -62,7 +89,8 @@ export function Composer({ paneId, value, onChange, readiness, running, onSend, 
         </div>
       )}
       <div className="flex items-center gap-2">
-        <div className={`field ${value ? "field-on" : ""} flex min-w-0 flex-1 px-3 py-1.5`}>
+        <div className={`field ${value ? "field-on" : ""} relative flex min-w-0 flex-1 px-3 py-1.5`}>
+          {menu && <SuggestionMenu menu={menu} choose={choose} />}
           <textarea
             ref={area}
             rows={1}
@@ -70,12 +98,24 @@ export function Composer({ paneId, value, onChange, readiness, running, onSend, 
             aria-label={labels.composerLabel}
             aria-describedby={lock ? reasonId : undefined}
             placeholder={lock ?? labels.composerPlaceholder}
+            aria-autocomplete="list"
+            aria-controls={menu ? menu.id : undefined}
+            aria-activedescendant={menu ? `${menu.id}-${menu.active}` : undefined}
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+              track(e.target);
+              onChange(e.target.value);
+            }}
+            // Key and mouse moves of the caret, not onSelect: that one follows document selectionchange,
+            // which also fires when focus leaves a closing pane.
+            onKeyUp={(e) => track(e.currentTarget)}
+            onMouseUp={(e) => track(e.currentTarget)}
             onKeyDown={(e) => {
+              // Keys that end a Vietnamese IME composition only commit the word.
+              const composing = e.nativeEvent.isComposing || e.keyCode === 229;
+              if (!composing && onKey(e)) return;
               if (e.key === "Enter" && !e.shiftKey) {
-                // Enter that ends a Vietnamese IME composition only commits the word.
-                if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                if (composing) return;
                 e.preventDefault();
                 if (canSend) onSend();
                 return;
