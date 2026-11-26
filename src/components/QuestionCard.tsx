@@ -1,9 +1,6 @@
 import { useId, useState } from "react";
 import { labels } from "../labels";
-
-const CARD = "card card-app mx-3 mb-2 flex shrink-0 flex-col gap-2 p-3 text-[13px]";
-const HEADING = "side-label text-[11px]";
-const INPUT = "field field-on min-w-0 px-3 py-1.5 text-[12px] outline-none placeholder:text-muted-foreground";
+import { CARD, CARD_HEADING, CARD_INPUT } from "./cardStyles";
 
 /** The transcript's question and option labels. */
 export type Question = { text: string; options: string[] };
@@ -20,7 +17,7 @@ export function QuestionCard({ question, onAnswer }: { question: Question; onAns
 
   return (
     <div role="group" aria-labelledby={textId} className={CARD}>
-      <div className={HEADING}>{labels.questionHeading}</div>
+      <div className={CARD_HEADING}>{labels.questionHeading}</div>
       <div id={textId} className="font-medium">
         {question.text}
       </div>
@@ -51,52 +48,11 @@ export function QuestionCard({ question, onAnswer }: { question: Question; onAns
           setOther(e.target.value);
           if (e.target.value !== "") setPicked(null);
         }}
-        className={INPUT}
+        className={CARD_INPUT}
       />
       <div className="flex justify-end">
         <button type="button" disabled={!answer} onClick={() => answer && onAnswer(answer)} className="allow px-3 py-1">
           {labels.send}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-type PlanProps = {
-  plan: { text: string | null };
-  onApprove(): void;
-  onKeepPlanning(feedback: string): void;
-};
-
-/** An ExitPlanMode request above the Composer (SRS-FR-167). */
-export function PlanCard({ plan, onApprove, onKeepPlanning }: PlanProps) {
-  const [feedback, setFeedback] = useState("");
-  const headingId = useId();
-  return (
-    <div role="group" aria-labelledby={headingId} className={CARD}>
-      <div id={headingId} className={HEADING}>
-        {labels.planHeading}
-      </div>
-      {plan.text === null ? (
-        <div className="sub text-[12px]">{labels.planInTerm}</div>
-      ) : (
-        // Markdown stays plain text until the Plan view renders it; at most 12 rows, then it scrolls.
-        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words font-mono text-[12px] leading-5">{plan.text}</pre>
-      )}
-      <input
-        type="text"
-        aria-label={labels.planFeedback}
-        placeholder={labels.planFeedback}
-        value={feedback}
-        onChange={(e) => setFeedback(e.target.value)}
-        className={INPUT}
-      />
-      <div className="flex justify-end gap-2">
-        <button type="button" disabled={feedback.trim() === ""} onClick={() => onKeepPlanning(feedback)} className="outline-btn px-3 py-1">
-          {labels.keepPlanning}
-        </button>
-        <button type="button" onClick={onApprove} className="allow px-3 py-1">
-          {labels.approvePlan}
         </button>
       </div>
     </div>
