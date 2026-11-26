@@ -38,8 +38,8 @@
 
 ## 7. Close
 
-- [ ] 7.1 `npm test` green and `cargo test` (in `src-tauri`) green
-- [ ] 7.2 `npx tsc --noEmit` clean and `npm run build` succeeds
-- [ ] 7.3 `openspec validate add-chat-view --strict`
-- [ ] 7.4 Build and run the app under a separate identifier (never close the running agent-deck), open a real session in a scratch workspace, send a prompt that reads a file and runs a background `sleep`; screenshot Chat and the Activity Bar against `design.html` `#final`, `#loading`, `#error`; time a reply from transcript write to Chat; check Term still shows the user's status line; check `~/.claude/settings.json` unchanged (`shasum` before and after)
-- [ ] 7.5 Windows 11: the status line wrapper posts and runs the user's command in PowerShell — needs the user's Windows machine; not run → said at GATE 3
+- [x] 7.1 `npm test` green and `cargo test` (in `src-tauri`) green
+- [x] 7.2 `npx tsc --noEmit` clean and `npm run build` succeeds
+- [x] 7.3 `openspec validate add-chat-view --strict`
+- [x] 7.4 Build and run the app under a separate identifier (never close the running agent-deck), open a real session in a scratch workspace, send a prompt that reads a file and runs a background `sleep`; screenshot Chat and the Activity Bar against `design.html` `#final`, `#loading`, `#error`; time a reply from transcript write to Chat; check Term still shows the user's status line; check `~/.claude/settings.json` unchanged (`shasum` before and after) — run 2026-11-26 on the real app (dev.agentdeck.verify, scratch folder): 7/7 cases pass; the /clear case failed first ("/clear" bubble) and was fixed in 257007a, then passed; reply on screen at +1.08 s after its transcript timestamp
+- [ ] 7.5 Windows 11: the status line wrapper posts and runs the user's command in PowerShell — needs the user's Windows machine; not run → said at GATE 3 (the Windows code compiles: `cargo check --tests --target x86_64-pc-windows-msvc`)
