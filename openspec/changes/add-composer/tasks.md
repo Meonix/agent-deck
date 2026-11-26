@@ -67,7 +67,7 @@
 - [x] 4.1 `npm test` green and `cargo test` (in `src-tauri`) green.
 - [x] 4.2 `npx tsc --noEmit` clean and `npm run build` succeeds.
 - [x] 4.3 `openspec validate add-composer --strict`.
-- [ ] 4.4 Real app on macOS, separate identifier, scratch folder:
+- [x] 4.4 Real app on macOS, separate identifier, scratch folder (run 2026-11-26, Claude Code 2.1.332: all pass; the trust dialog also locked the Composer and Enter did not reach it; the permission dialog was reached by switching the session to manual mode, as the user's default is auto):
   - a new pane opens in Chat with the Composer focused;
   - a prompt sent from the Composer is answered;
   - a multi-line Vietnamese prompt arrives as one prompt;
