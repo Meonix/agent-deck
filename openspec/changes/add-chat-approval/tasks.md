@@ -52,7 +52,7 @@
   - No card for a question with `multiSelect` or with two questions.
 - [x] 4.3 Implement:
   - `useDialog.ts`;
-  - `ApprovalStrip.tsx` and `QuestionCard.tsx`;
+  - `ApprovalStrip.tsx`, `QuestionCard.tsx` and `PlanCard.tsx`;
   - the Chat layer layout in `TerminalPane.tsx`;
   - labels with `labels.test.ts` cases;
   - the `.strip`/`.allow`/`.deny` and card CSS.

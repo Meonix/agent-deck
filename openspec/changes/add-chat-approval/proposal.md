@@ -39,7 +39,7 @@ None. The conversation feed of `chat-view` gains the question and plan data that
 - Backend: `src-tauri/src/transcript.rs` adds, to a tool item, the question and options of AskUserQuestion. The plan is read from the terminal screen, because ExitPlanMode's transcript input can hold an older plan. No new command, hook or dependency.
 - Frontend:
   - New `src/components/dialogScreen.ts`: it reads which Claude Code dialog is on the terminal screen, and the key of each choice.
-  - New `ApprovalStrip.tsx` and `QuestionCard.tsx` (with plan approval).
+  - New `ApprovalStrip.tsx` and `QuestionCard.tsx` and `PlanCard.tsx`, plus `claudeScreenText.ts` holding every piece of Claude Code screen text.
   - `TerminalPane.tsx`: Chat layer layout.
   - `src/labels.ts` and `src/index.css`.
 - Answers go through the same `pane_write` as typed input.

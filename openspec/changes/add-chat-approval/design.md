@@ -123,7 +123,7 @@ Measured on this Mac (Claude Code 2.1.332, 2026-11-26): real sessions in a 120×
 - **Layout.** In the Chat layer: log, then Activity Bar, then the Approval Strip or one card, then the Composer. Only one of strip, Question Card or plan card can show, because only one dialog is on screen.
 - **Components.**
   - `ApprovalStrip.tsx`: lucide `hand`, the text, Từ chối (`.deny`) and Cho phép (`.allow`). Accessible group name "Yêu cầu quyền".
-  - `QuestionCard.tsx`:
+  - `QuestionCard.tsx` and `PlanCard.tsx` (styles shared):
     - The question card: the question, options as radio buttons, a "Khác…" input that unselects the options while typed in, and Gửi, disabled until something is chosen.
     - The plan card: the plan, a feedback input, Tiếp tục lên kế hoạch (disabled while feedback is empty), and Duyệt kế hoạch.
   - Focus does not move to them when they appear, so typing in the Composer is not stolen.
