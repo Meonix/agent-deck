@@ -14,6 +14,12 @@ import {
 import { isDialogRow } from "./inputReady";
 import type { ScreenLine } from "./TerminalPane";
 
+/**
+ * The row a typed answer goes into: "Type something." in a question, "Tell Claude what to change" in a
+ * plan. Its label is that placeholder, or the text typed into it so far.
+ */
+export type Field = { key: string; label: string };
+
 export type Dialog =
   | { kind: "none" }
   | { kind: "other" }
@@ -32,17 +38,14 @@ export type Dialog =
       kind: "question";
       question: string;
       options: { label: string; key: string }[];
-      other: string;
-      /** "Type something.", or the text typed into the field. */
-      otherLabel: string;
+      field: Field;
       /** The digit of the row under ❯. */
       cursor: string | null;
     }
   | {
       kind: "plan";
       approve: string;
-      keepPlanning: string;
-      keepPlanningLabel: string;
+      field: Field;
       cursor: string | null;
       /** The plan as drawn; null unless all of it is on screen. */
       plan: string | null;
@@ -178,9 +181,9 @@ function question(rows: string[]): Dialog {
   const options = m.options.slice(0, -2);
   const [other, chat] = m.options.slice(-2);
   const text = joined(rows.slice(header + 1, m.start));
-  const field = other && (other.label === OTHER_LABEL || m.cursor === other.key);
-  if (options.length === 0 || !field || chat.label !== CHAT_LABEL || !text) return OTHER;
-  return { kind: "question", question: text, options, other: other.key, otherLabel: other.label, cursor: m.cursor };
+  const fieldShown = other && (other.label === OTHER_LABEL || m.cursor === other.key);
+  if (options.length === 0 || !fieldShown || chat.label !== CHAT_LABEL || !text) return OTHER;
+  return { kind: "question", question: text, options, field: other, cursor: m.cursor };
 }
 
 /** Feedback typed into "Tell Claude what to change" replaces its label, with the cursor kept on it. */
@@ -192,7 +195,7 @@ function plan(rows: string[], all: string[], width: number): Dialog {
     m.options.find((o) => o.label === KEEP_PLANNING_LABEL) ??
     (last && m.cursor === last.key && !last.label.startsWith(YES_LABEL) ? last : undefined);
   if (!approve || !keep) return OTHER;
-  return { kind: "plan", approve, keepPlanning: keep.key, keepPlanningLabel: keep.label, cursor: m.cursor, plan: planText(all, width) };
+  return { kind: "plan", approve, field: keep, cursor: m.cursor, plan: planText(all, width) };
 }
 
 /**

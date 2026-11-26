@@ -33,11 +33,11 @@ export function answerSteps(dialog: Dialog, choice: Choice): Steps | null {
       return null;
     case "question":
       if (choice.kind === "option") return dialog.options.some((o) => o.key === choice.key) ? { key: choice.key } : null;
-      if (choice.kind === "other") return typed(dialog.other, choice.text);
+      if (choice.kind === "other") return typed(dialog.field.key, choice.text);
       return null;
     case "plan":
       if (choice.kind === "approvePlan") return { key: dialog.approve };
-      if (choice.kind === "keepPlanning") return typed(dialog.keepPlanning, choice.feedback);
+      if (choice.kind === "keepPlanning") return typed(dialog.field.key, choice.feedback);
       return null;
     default:
       return null;

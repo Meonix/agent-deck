@@ -10,11 +10,10 @@ const question: Dialog = {
     { label: "zod", key: "1" },
     { label: "yup", key: "2" },
   ],
-  other: "3",
-  otherLabel: "Type something.",
+  field: { key: "3", label: "Type something." },
   cursor: "1",
 };
-const plan: Dialog = { kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1", plan: null };
+const plan: Dialog = { kind: "plan", approve: "2", field: { key: "3", label: "Tell Claude what to change" }, cursor: "1", plan: null };
 
 describe("answerSteps", () => {
   it("allows and denies a permission with its digits", () => {

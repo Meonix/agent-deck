@@ -140,8 +140,7 @@ describe("dialogScreen", () => {
         { label: "zod", key: "1" },
         { label: "yup", key: "2" },
       ],
-      other: "3",
-      otherLabel: "Type something.",
+      field: { key: "3", label: "Type something." },
       cursor: "1",
     });
   });
@@ -154,21 +153,19 @@ describe("dialogScreen", () => {
         { label: "zod", key: "1" },
         { label: "yup", key: "2" },
       ],
-      other: "3",
-      otherLabel: "Type something.",
+      field: { key: "3", label: "Type something." },
       cursor: "3",
     });
   });
 
   it("reads the staged steps of a typed answer: the cursor, then the text in the field", () => {
-    expect(dialogScreen(screens.askQuestionStart)).toMatchObject({ kind: "question", cursor: "1", otherLabel: "Type something." });
-    expect(dialogScreen(screens.askQuestionTyped)).toMatchObject({ kind: "question", other: "3", cursor: "3", otherLabel: "valibot" });
-    expect(dialogScreen(screens.planOnKeep)).toMatchObject({ kind: "plan", keepPlanning: "3", cursor: "3" });
+    expect(dialogScreen(screens.askQuestionStart)).toMatchObject({ kind: "question", cursor: "1", field: { label: "Type something." } });
+    expect(dialogScreen(screens.askQuestionTyped)).toMatchObject({ kind: "question", field: { key: "3", label: "valibot" }, cursor: "3" });
+    expect(dialogScreen(screens.planOnKeep)).toMatchObject({ kind: "plan", field: { key: "3" }, cursor: "3" });
     expect(dialogScreen(screens.planTyped)).toMatchObject({
       kind: "plan",
-      keepPlanning: "3",
+      field: { key: "3", label: "thêm bước viết test" },
       cursor: "3",
-      keepPlanningLabel: "thêm bước viết test",
     });
   });
 
@@ -187,8 +184,7 @@ describe("dialogScreen", () => {
         { label: "Đỏ", key: "1" },
         { label: "Xanh dương", key: "2" },
       ],
-      other: "3",
-      otherLabel: "Type something.",
+      field: { key: "3", label: "Type something." },
       cursor: "1",
     });
   });
@@ -207,8 +203,7 @@ describe("dialogScreen", () => {
     expect(dialogScreen(screens.plan)).toEqual({
       kind: "plan",
       approve: "2",
-      keepPlanning: "3",
-      keepPlanningLabel: "Tell Claude what to change",
+      field: { key: "3", label: "Tell Claude what to change" },
       cursor: "1",
       plan: [
         "Context",
@@ -249,8 +244,7 @@ describe("dialogScreen", () => {
       expect(dialogScreen(screens.planRevisedBelow(last))).toEqual({
         kind: "plan",
         approve: "2",
-        keepPlanning: "3",
-        keepPlanningLabel: "Tell Claude what to change",
+        field: { key: "3", label: "Tell Claude what to change" },
         cursor: "1",
         plan: null,
       });
@@ -304,7 +298,7 @@ describe("dialogScreen", () => {
               ? rows(" 3. Tell Claude what to change")[0]
               : l,
         );
-      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1", plan: expect.any(String) });
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", field: { key: "3", label: "Tell Claude what to change" }, cursor: "1", plan: expect.any(String) });
     });
 
     it("ignores a numbered row in the question text", () => {
@@ -316,8 +310,7 @@ describe("dialogScreen", () => {
           { label: "zod", key: "1" },
           { label: "yup", key: "2" },
         ],
-        other: "3",
-        otherLabel: "Type something.",
+        field: { key: "3", label: "Type something." },
         cursor: "1",
       });
     });
@@ -334,8 +327,7 @@ describe("dialogScreen", () => {
           { label: "zod", key: "1" },
           { label: "yup", key: "2" },
         ],
-        other: "3",
-        otherLabel: "Type something.",
+        field: { key: "3", label: "Type something." },
         cursor: "1",
       });
     });
@@ -365,7 +357,7 @@ describe("dialogScreen", () => {
         " Steps",
         [" Would you like to proceed?", " 1. Yes, manually approve edits", " 2. Tell Claude what to change"],
       );
-      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1", plan: expect.any(String) });
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", field: { key: "3", label: "Tell Claude what to change" }, cursor: "1", plan: expect.any(String) });
     });
 
     const questionWith = (...menuRows: string[]) =>
@@ -388,8 +380,7 @@ describe("dialogScreen", () => {
           { label: "B", key: "2" },
           { label: "C", key: "3" },
         ],
-        other: "4",
-        otherLabel: "Type something.",
+        field: { key: "4", label: "Type something." },
         cursor: "1",
       });
     });
@@ -403,8 +394,7 @@ describe("dialogScreen", () => {
           { label: "A", key: "1" },
           { label: "B", key: "2" },
         ],
-        other: "3",
-        otherLabel: "Type something.",
+        field: { key: "3", label: "Type something." },
         cursor: "1",
       });
     });
@@ -431,8 +421,7 @@ describe("dialogScreen", () => {
           { label: first, key: "1" },
           { label: second, key: "2" },
         ],
-        other: "3",
-        otherLabel: "Type something.",
+        field: { key: "3", label: "Type something." },
         cursor: "1",
       });
     });
@@ -446,8 +435,7 @@ describe("dialogScreen", () => {
           { label: "Type something.", key: "1" },
           { label: "B", key: "2" },
         ],
-        other: "3",
-        otherLabel: "Type something.",
+        field: { key: "3", label: "Type something." },
         cursor: "1",
       });
     });
@@ -488,7 +476,7 @@ describe("dialogScreen", () => {
         " Steps",
         [" Do you want to proceed?", " ❯ 1. Yes", "   2. No", "", " Esc to cancel · Tab to amend"],
       );
-      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1", plan: expect.any(String) });
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", field: { key: "3", label: "Tell Claude what to change" }, cursor: "1", plan: expect.any(String) });
     });
 
     it("is other when a numbered row breaks the menu", () => {

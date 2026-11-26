@@ -5,7 +5,7 @@ import type { Strip } from "./ApprovalStrip";
 import type { ChatEntry, ChatState } from "./chatState";
 import { TOOL_OF_TITLE } from "./claudeScreenText";
 import { answerSteps, type Choice, type Steps } from "./dialogAnswer";
-import { type Dialog, dialogScreen } from "./dialogScreen";
+import { type Dialog, dialogScreen, type Field } from "./dialogScreen";
 import type { Question } from "./QuestionCard";
 import { knownState } from "./statusHighlight";
 import type { TerminalAdapter } from "./TerminalPane";
@@ -110,16 +110,21 @@ export function useDialog({ paneId, adapter, status, ended, chat, client }: Opti
     if (steps.text === undefined) return;
     const text = steps.text;
 
-    const inField = await screenShows(adapter, dialog, (d) => fieldOf(d)?.cursor === steps.key);
-    if (!inField) return stopped();
-    const placeholder = fieldOf(inField)?.label;
+    const inField = await screenShows(adapter, dialog, (d) => hasField(d) && d.cursor === steps.key);
+    if (!inField || !hasField(inField)) return stopped();
+    const placeholder = inField.field.label;
     if (!(await write(text))) return;
 
     // A long answer wraps, so its first row is compared as a prefix.
-    const typed = await screenShows(adapter, dialog, (d) => {
-      const field = fieldOf(d);
-      return field?.cursor === steps.key && field.label !== placeholder && collapse(text).startsWith(collapse(field.label));
-    });
+    const typed = await screenShows(
+      adapter,
+      dialog,
+      (d) =>
+        hasField(d) &&
+        d.cursor === steps.key &&
+        d.field.label !== placeholder &&
+        collapse(text).startsWith(collapse(d.field.label)),
+    );
     if (!typed) return stopped();
     await write("\r");
   }
@@ -143,12 +148,8 @@ export function useDialog({ paneId, adapter, status, ended, chat, client }: Opti
   return { strip: view.strip, question: view.question, plan: view.plan, answer };
 }
 
-/** The field a typed answer goes into: the label its row shows, and the digit under the cursor. */
-function fieldOf(d: Dialog) {
-  if (d.kind === "question") return { label: d.otherLabel, cursor: d.cursor };
-  if (d.kind === "plan") return { label: d.keepPlanningLabel, cursor: d.cursor };
-  return null;
-}
+/** A dialog with a field for a typed answer. */
+const hasField = (d: Dialog): d is Extract<Dialog, { field: Field }> => d.kind === "question" || d.kind === "plan";
 
 /**
  * The screen once `ok` holds for the same dialog; null when another dialog took its place, or after
@@ -221,12 +222,12 @@ function viewOf(dialog: Dialog, status: PaneStatus, ended: boolean, items: ChatE
     if (!asked || asked.count !== 1 || asked.multiSelect) return NOTHING;
     if (!collapse(dialog.question).startsWith(collapse(asked.text).slice(0, QUESTION_PREFIX_CHARS))) return NOTHING;
     // With the cursor already in the field (moved there in Term), a digit would be typed into it.
-    if (dialog.cursor === dialog.other) return NOTHING;
+    if (dialog.cursor === dialog.field.key) return NOTHING;
     return { ...NOTHING, dialog, question: { text: asked.text, options: asked.options } };
   }
   if (dialog.kind === "plan") {
     // With the cursor already in the feedback field (moved there in Term), a digit would be typed into it.
-    if (dialog.cursor === dialog.keepPlanning) return NOTHING;
+    if (dialog.cursor === dialog.field.key) return NOTHING;
     // Measured: after feedback, ExitPlanMode's transcript input still held the old plan, so only the screen is read.
     return { ...NOTHING, dialog, plan: { text: dialog.plan } };
   }
