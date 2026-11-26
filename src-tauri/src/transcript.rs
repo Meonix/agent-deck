@@ -32,6 +32,8 @@ pub enum ChatItem {
         id: String,
         name: String,
         arg: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        detail: Option<ToolDetail>,
     },
     Result {
         key: String,
@@ -39,6 +41,19 @@ pub enum ChatItem {
         text: String,
         is_error: bool,
     },
+}
+
+/// What Chat needs from a tool call that waits on the user.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum ToolDetail {
+    Question {
+        text: String,
+        multi_select: bool,
+        count: usize,
+        options: Vec<String>,
+    },
+    Plan(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -398,11 +413,40 @@ fn assistant_items(uuid: &str, content: &Value, cwd: &Path) -> Vec<ChatItem> {
                     id: block["id"].as_str().unwrap_or_default().to_string(),
                     name: name.to_string(),
                     arg: tool_arg(name, &block["input"], cwd),
+                    detail: tool_detail(name, &block["input"]),
                 })
             }
             _ => None,
         })
         .collect()
+}
+
+fn tool_detail(name: &str, input: &Value) -> Option<ToolDetail> {
+    match name {
+        "AskUserQuestion" => {
+            let questions = input["questions"].as_array()?;
+            let first = questions.first()?;
+            Some(ToolDetail::Question {
+                text: first["question"].as_str()?.to_string(),
+                multi_select: first["multiSelect"].as_bool().unwrap_or(false),
+                count: questions.len(),
+                options: first["options"]
+                    .as_array()
+                    .map(|options| {
+                        options
+                            .iter()
+                            .filter_map(|o| o["label"].as_str().map(String::from))
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+            })
+        }
+        "ExitPlanMode" => input["plan"]
+            .as_str()
+            .filter(|plan| !plan.is_empty())
+            .map(|plan| ToolDetail::Plan(plan.to_string())),
+        _ => None,
+    }
 }
 
 /// `None` for Claude Code's own wrapper records, which Chat does not show.
@@ -685,6 +729,7 @@ mod tests {
                 id: "toolu_01".into(),
                 name: "Read".into(),
                 arg: Some("src/login.ts".into()),
+                detail: None,
             }]
         );
     }
@@ -827,10 +872,92 @@ mod tests {
             id: "t".into(),
             name: "Bash".into(),
             arg: None,
+            detail: None,
         };
         assert_eq!(
             serde_json::to_value(tool).unwrap(),
             json!({"kind": "tool", "key": "a:0", "id": "t", "name": "Bash", "arg": null})
+        );
+        let asked = ChatItem::Tool {
+            key: "a:1".into(),
+            id: "t2".into(),
+            name: "AskUserQuestion".into(),
+            arg: None,
+            detail: Some(ToolDetail::Question {
+                text: "zod hay yup?".into(),
+                multi_select: false,
+                count: 1,
+                options: vec!["zod".into(), "yup".into()],
+            }),
+        };
+        assert_eq!(
+            serde_json::to_value(asked).unwrap(),
+            json!({"kind": "tool", "key": "a:1", "id": "t2", "name": "AskUserQuestion", "arg": null,
+                   "detail": {"question": {"text": "zod hay yup?", "multiSelect": false, "count": 1, "options": ["zod", "yup"]}}})
+        );
+        let planned = ChatItem::Tool {
+            key: "a:2".into(),
+            id: "t3".into(),
+            name: "ExitPlanMode".into(),
+            arg: None,
+            detail: Some(ToolDetail::Plan("## Context".into())),
+        };
+        assert_eq!(
+            serde_json::to_value(planned).unwrap(),
+            json!({"kind": "tool", "key": "a:2", "id": "t3", "name": "ExitPlanMode", "arg": null,
+                   "detail": {"plan": "## Context"}})
+        );
+    }
+
+    fn detail_of(name: &str, input: Value) -> Option<ToolDetail> {
+        let block = json!({"type": "tool_use", "id": "t", "name": name, "input": input});
+        match items(parse(assistant("a1", block))).remove(0) {
+            ChatItem::Tool { detail, .. } => detail,
+            other => panic!("not a tool: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ask_user_question_carries_the_first_question() {
+        let input = json!({"questions": [
+            {"question": "zod hay yup?", "header": "V", "multiSelect": true,
+             "options": [{"label": "zod", "description": "a"}, {"label": "yup", "description": "b"}]},
+            {"question": "second", "options": []}]});
+        assert_eq!(
+            detail_of("AskUserQuestion", input),
+            Some(ToolDetail::Question {
+                text: "zod hay yup?".into(),
+                multi_select: true,
+                count: 2,
+                options: vec!["zod".into(), "yup".into()],
+            })
+        );
+    }
+
+    #[test]
+    fn ask_user_question_without_questions_has_no_detail() {
+        assert_eq!(detail_of("AskUserQuestion", json!({})), None);
+        assert_eq!(detail_of("AskUserQuestion", json!({"questions": []})), None);
+    }
+
+    #[test]
+    fn exit_plan_mode_carries_the_plan() {
+        assert_eq!(
+            detail_of(
+                "ExitPlanMode",
+                json!({"plan": "## Context\nx\n", "planFilePath": "/p.md"})
+            ),
+            Some(ToolDetail::Plan("## Context\nx\n".into()))
+        );
+        assert_eq!(detail_of("ExitPlanMode", json!({})), None);
+        assert_eq!(detail_of("ExitPlanMode", json!({"plan": ""})), None);
+    }
+
+    #[test]
+    fn other_tools_have_no_detail() {
+        assert_eq!(
+            detail_of("Bash", json!({"command": "ls", "plan": "x"})),
+            None
         );
     }
 

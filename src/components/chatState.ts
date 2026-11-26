@@ -3,15 +3,19 @@ import { labels } from "../labels";
 export type ChatItem =
   | { kind: "prompt"; key: string; text: string }
   | { kind: "reply"; key: string; text: string }
-  | { kind: "tool"; key: string; id: string; name: string; arg: string | null }
+  | { kind: "tool"; key: string; id: string; name: string; arg: string | null; detail?: ToolDetail }
   | { kind: "result"; key: string; toolId: string; text: string; isError: boolean };
+
+export type ToolDetail =
+  | { question: { text: string; multiSelect: boolean; count: number; options: string[] } }
+  | { plan: string };
 
 export type ToolResult = { text: string; isError: boolean };
 
 export type ChatEntry =
   | { kind: "prompt"; key: string; text: string }
   | { kind: "reply"; key: string; text: string }
-  | { kind: "tool"; key: string; id: string; name: string; arg: string | null; result: ToolResult | null };
+  | { kind: "tool"; key: string; id: string; name: string; arg: string | null; detail?: ToolDetail; result: ToolResult | null };
 
 export type ChatMessage = { reset?: true; items?: ChatItem[]; unreadable?: true };
 

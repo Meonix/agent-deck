@@ -28,6 +28,13 @@ describe("applyChat (5.2)", () => {
     expect(b.items.map((i) => i.key)).toEqual(["a", "b", "c"]);
   });
 
+  it("keeps a tool's detail on its entry", () => {
+    const detail = { plan: "## Context" };
+    const item: ChatItem = { kind: "tool", key: "t", id: "id1", name: "ExitPlanMode", arg: null, detail };
+    const s = applyChat(initialChat, { reset: true, items: [item] });
+    expect(s.items[0]).toMatchObject({ kind: "tool", detail });
+  });
+
   it("attaches a result to its tool", () => {
     const s = applyChat(initialChat, { reset: true, items: [tool("t", "id1"), result("r", "id1", true)] });
     expect(s.items).toEqual([{ kind: "tool", key: "t", id: "id1", name: "Bash", arg: "ls", result: { text: "out", isError: true } }]);
