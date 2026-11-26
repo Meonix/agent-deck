@@ -1,3 +1,4 @@
+pub mod activity;
 mod commands;
 pub mod diag;
 mod diag_commands;
@@ -14,6 +15,7 @@ pub mod session_title;
 pub mod session_trash;
 pub mod shell;
 pub mod status;
+pub mod status_line;
 pub mod transcript;
 pub mod watchdog;
 pub mod workspace;

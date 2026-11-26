@@ -155,7 +155,7 @@ fn is_executable(path: &Path) -> bool {
 /// Set by a Claude Code session or a terminal that launched the app; passed on,
 /// they would make `claude` think it runs nested or inside that terminal, or
 /// switch its colours off although the pane renders them.
-const INHERITED_ONLY: [&str; 9] = [
+const INHERITED_ONLY: [&str; 10] = [
     "CLAUDECODE",
     "CLAUDE_CODE_ENTRYPOINT",
     "CLAUDE_CODE_CHILD_SESSION",
@@ -165,6 +165,7 @@ const INHERITED_ONLY: [&str; 9] = [
     "TERM_SESSION_ID",
     "NO_COLOR",
     "FORCE_COLOR",
+    STATUS_LINE_ENV,
 ];
 const INHERITED_ONLY_PREFIXES: [&str; 6] = [
     "CLAUDE_CODE_SESSION_",
@@ -179,10 +180,17 @@ fn is_inherited_only(key: &str) -> bool {
     INHERITED_ONLY.contains(&key) || INHERITED_ONLY_PREFIXES.iter().any(|p| key.starts_with(p))
 }
 
+/// The user's own status line command, run by the app's status line wrapper.
+pub const STATUS_LINE_ENV: &str = "AGENT_DECK_STATUSLINE";
+
 /// Environment for a session: `base` without what only the launching context
 /// set, with PATH/TERM/COLORTERM set, plus `LANG` only when no locale variable
-/// is present.
-pub fn session_env(base: &[(String, String)], resolved_path: &str) -> Vec<(String, String)> {
+/// is present, and `STATUS_LINE_ENV` when the user has a status line.
+pub fn session_env(
+    base: &[(String, String)],
+    resolved_path: &str,
+    status_line: Option<&str>,
+) -> Vec<(String, String)> {
     const OVERRIDDEN: [&str; 3] = ["PATH", "TERM", "COLORTERM"];
     let mut env: Vec<(String, String)> = base
         .iter()
@@ -197,6 +205,9 @@ pub fn session_env(base: &[(String, String)], resolved_path: &str) -> Vec<(Strin
     env.push(("COLORTERM".into(), "truecolor".into()));
     if !has_locale {
         env.push(("LANG".into(), "en_US.UTF-8".into()));
+    }
+    if let Some(command) = status_line {
+        env.push((STATUS_LINE_ENV.into(), command.into()));
     }
     env
 }
@@ -374,7 +385,7 @@ mod tests {
 
     #[test]
     fn session_env_adds_defaults() {
-        let env = session_env(&[pair("HOME", "/h")], "/p");
+        let env = session_env(&[pair("HOME", "/h")], "/p", None);
         assert_eq!(get(&env, "PATH"), Some("/p"));
         assert_eq!(get(&env, "TERM"), Some("xterm-256color"));
         assert_eq!(get(&env, "COLORTERM"), Some("truecolor"));
@@ -384,7 +395,7 @@ mod tests {
 
     #[test]
     fn session_env_keeps_existing_locale() {
-        let env = session_env(&[pair("LC_ALL", "vi_VN.UTF-8")], "/p");
+        let env = session_env(&[pair("LC_ALL", "vi_VN.UTF-8")], "/p", None);
         assert_eq!(get(&env, "LC_ALL"), Some("vi_VN.UTF-8"));
         assert_eq!(get(&env, "LANG"), None);
     }
@@ -392,7 +403,7 @@ mod tests {
     #[test]
     fn session_env_drops_colour_switches_of_the_launching_context() {
         let base = [pair("NO_COLOR", "1"), pair("FORCE_COLOR", "0")];
-        let env = session_env(&base, "/p");
+        let env = session_env(&base, "/p", None);
         assert_eq!(get(&env, "NO_COLOR"), None);
         assert_eq!(get(&env, "FORCE_COLOR"), None);
         assert_eq!(get(&env, "COLORTERM"), Some("truecolor"));
@@ -430,7 +441,7 @@ mod tests {
             "NPM_TOKEN",
         ];
         let base: Vec<_> = leaked.iter().chain(&kept).map(|k| pair(k, "v")).collect();
-        let env = session_env(&base, "/p");
+        let env = session_env(&base, "/p", None);
         for k in leaked {
             assert_eq!(get(&env, k), None, "{k} leaked");
         }
@@ -441,8 +452,26 @@ mod tests {
 
     #[test]
     fn session_env_replaces_existing_path() {
-        let env = session_env(&[pair("PATH", "/old")], "/new");
+        let env = session_env(&[pair("PATH", "/old")], "/new", None);
         assert_eq!(env.iter().filter(|(k, _)| k == "PATH").count(), 1);
         assert_eq!(get(&env, "PATH"), Some("/new"));
+    }
+
+    #[test]
+    fn session_env_passes_the_users_status_line_only_when_there_is_one() {
+        let inherited = [pair("AGENT_DECK_STATUSLINE", "stale")];
+        let env = session_env(&inherited, "/p", Some("sh ~/.claude/statusline.sh"));
+        assert_eq!(
+            env.iter()
+                .filter(|(k, _)| k == "AGENT_DECK_STATUSLINE")
+                .count(),
+            1
+        );
+        assert_eq!(
+            get(&env, "AGENT_DECK_STATUSLINE"),
+            Some("sh ~/.claude/statusline.sh")
+        );
+        let env = session_env(&inherited, "/p", None);
+        assert_eq!(get(&env, "AGENT_DECK_STATUSLINE"), None);
     }
 }

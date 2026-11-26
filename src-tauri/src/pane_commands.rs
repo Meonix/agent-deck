@@ -10,6 +10,7 @@ use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Manager, State};
 
+use crate::activity::{PaneActivity, StatusLineSink};
 use crate::commands::AppState;
 use crate::hooks::{HookServer, HookSink, hook_settings};
 use crate::launcher::{find_claude, login_shell_path_with, session_env};
@@ -19,6 +20,7 @@ use crate::panes::{OpenError, PaneId, SessionId, Spawner, Start, close_in_parall
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
 use crate::session_title::{UNTITLED, session_title};
 use crate::shell::{Activity, ShellError, ShellProcess, ShellSpawner, spawn_shell};
+use crate::status_line::user_status_line;
 use crate::workspace::{DiskProbe, WorkspaceId};
 
 /// Upper bound on waiting for panes to close when the app quits.
@@ -214,7 +216,7 @@ fn open_shell_blocking(
 ) -> Result<(), String> {
     let state = app.state::<AppState>();
     let spawner = PtyShellSpawner {
-        env: session_env(&inherited_env(), &state.launch.get().path),
+        env: session_env(&inherited_env(), &state.launch.get().path, None),
         cols,
         rows,
     };
@@ -282,6 +284,7 @@ fn open_blocking(
             hooks: state.hooks.clone(),
             session_out: Arc::new(ChannelStatus(output.clone())),
             projects_dir: crate::session_commands::projects_dir(app).ok(),
+            home: app.path().home_dir().ok(),
         };
         let sink = ChannelSink {
             channel: output,
@@ -418,6 +421,8 @@ struct PtySpawner<'a> {
     session_out: Arc<dyn StatusOut>,
     /// None: the pane has no Chat feed.
     projects_dir: Option<PathBuf>,
+    /// Where the user's own status line is looked up last; None skips that file.
+    home: Option<PathBuf>,
 }
 
 impl Spawner for PtySpawner<'_> {
@@ -442,18 +447,30 @@ impl Spawner for PtySpawner<'_> {
                 self.session_out.clone(),
             ))
         });
+        let user_line = self
+            .hooks
+            .as_ref()
+            .and_then(|_| user_status_line(cwd, self.home.as_deref()));
         // Registered before the spawn so the first hook cannot miss its sink.
         let hook = self.hooks.as_ref().map(|server| {
+            let activity = Arc::new(PaneActivity::new(cwd, self.session_out.clone()));
             let token = uuid::Uuid::new_v4().to_string();
             let sink = PaneHooks {
                 tracker: self.tracker.clone(),
                 follower: follower.clone(),
                 chat: chat.clone(),
+                activity: activity.clone(),
             };
             server.register(&token, Arc::new(sink));
+            let status_token = uuid::Uuid::new_v4().to_string();
+            server.register(&status_token, Arc::new(StatusLineSink(activity)));
             args.push("--settings".into());
-            args.push(hook_settings(&server.url_for(&token)));
-            (server.clone(), token)
+            args.push(hook_settings(
+                &server.url_for(&token),
+                &server.url_for(&status_token),
+                user_line.as_ref(),
+            ));
+            (server.clone(), [token, status_token])
         });
         args.push(if resume { "--resume" } else { "--session-id" }.into());
         args.push(session_id.0.clone());
@@ -461,7 +478,11 @@ impl Spawner for PtySpawner<'_> {
             program,
             args,
             cwd: cwd.to_path_buf(),
-            env: session_env(&self.env, &self.launch.path),
+            env: session_env(
+                &self.env,
+                &self.launch.path,
+                user_line.as_ref().map(|l| l.command.as_str()),
+            ),
             cols: self.cols,
             rows: self.rows,
         };
@@ -481,8 +502,8 @@ impl Spawner for PtySpawner<'_> {
             }
             Err(e) => {
                 crate::diag::error("pane", &format!("claude could not be started: {e}"));
-                if let Some((server, token)) = hook {
-                    server.unregister(&token);
+                if let Some((server, tokens)) = hook {
+                    tokens.iter().for_each(|t| server.unregister(t));
                 }
                 None
             }
@@ -566,6 +587,7 @@ struct PaneHooks {
     tracker: Arc<StatusTracker>,
     follower: Arc<SessionFollower>,
     chat: Option<Arc<PaneChat>>,
+    activity: Arc<PaneActivity>,
 }
 
 impl HookSink for PaneHooks {
@@ -575,6 +597,7 @@ impl HookSink for PaneHooks {
         if let Some(chat) = &self.chat {
             chat.follow(&event);
         }
+        self.activity.hook(&event);
     }
 }
 
@@ -616,21 +639,21 @@ impl SessionFollower {
 }
 
 /// A pane process that tells its tracker about input and a close by the user, and
-/// drops its hook token and stops its Chat feed when it closes.
+/// drops its hook and status line tokens and stops its Chat feed when it closes.
 struct TrackedProcess {
     inner: QueuedProcess,
     tracker: Arc<StatusTracker>,
     /// Same follower as the pane's hook sink; it tells the registry the live session.
     follower: Arc<SessionFollower>,
     /// None when the pane was spawned without a listener.
-    hook: Option<(Arc<HookServer>, String)>,
+    hook: Option<(Arc<HookServer>, [String; 2])>,
     chat: Option<Arc<PaneChat>>,
 }
 
 impl TrackedProcess {
     fn release(&self) {
-        if let Some((server, token)) = &self.hook {
-            server.unregister(token);
+        if let Some((server, tokens)) = &self.hook {
+            tokens.iter().for_each(|t| server.unregister(t));
         }
         if let Some(chat) = &self.chat {
             chat.stop();
@@ -873,6 +896,7 @@ mod tests {
             hooks,
             session_out: Arc::new(Outbox::default()),
             projects_dir: None,
+            home: None,
         }
     }
 
@@ -892,7 +916,6 @@ mod tests {
         launch
     }
 
-    /// Waits until the process has printed a full `<...>` record and returns its fields.
     #[cfg(unix)]
     /// The URL `event`'s command hook posts to.
     fn hook_url(settings: &serde_json::Value, event: &str) -> String {
@@ -903,16 +926,18 @@ mod tests {
         url.expect("hook url").trim_end_matches(';').to_string()
     }
 
+    /// Waits until the process has printed a full `\x01…\x02` record of `\x1f`-separated
+    /// fields; control characters, as the settings JSON holds `<`, `|` and `>`.
     fn printed_fields(out: &Mutex<Vec<u8>>) -> Vec<String> {
         let end = Instant::now() + Duration::from_secs(3);
         loop {
             let text = String::from_utf8_lossy(&out.lock().unwrap()).into_owned();
             if let Some(record) = text
-                .split_once('<')
-                .and_then(|(_, rest)| rest.split_once('>'))
+                .split_once('\x01')
+                .and_then(|(_, rest)| rest.split_once('\x02'))
                 .map(|(record, _)| record.to_string())
             {
-                return record.split('|').map(String::from).collect();
+                return record.split('\x1f').map(String::from).collect();
             }
             assert!(Instant::now() < end, "no record in {text:?}");
             std::thread::sleep(Duration::from_millis(5));
@@ -926,7 +951,7 @@ mod tests {
         let cwd = tempfile::tempdir().unwrap();
         let launch = fake_claude(
             bin.path(),
-            r#"printf '<%s|%s|%s|%s|%s>' "$#" "$1" "$2" "$PWD" "$PATH""#,
+            r#"printf '\001%s\037%s\037%s\037%s\037%s\002' "$#" "$1" "$2" "$PWD" "$PATH""#,
             7,
         );
         let out = Arc::new(Mutex::new(Vec::new()));
@@ -964,7 +989,11 @@ mod tests {
     fn pty_spawner_resume_runs_claude_with_resume_and_no_session_id() {
         let bin = tempfile::tempdir().unwrap();
         let cwd = tempfile::tempdir().unwrap();
-        let launch = fake_claude(bin.path(), r#"printf '<%s|%s|%s>' "$#" "$1" "$2""#, 0);
+        let launch = fake_claude(
+            bin.path(),
+            r#"printf '\001%s\037%s\037%s\002' "$#" "$1" "$2""#,
+            0,
+        );
         let out = Arc::new(Mutex::new(Vec::new()));
         let (tx, rx) = mpsc::channel();
         let spawner = spawner(&launch, inherited_env(), tracker(&Outbox::default()), None);
@@ -996,7 +1025,7 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let launch = fake_claude(
             bin.path(),
-            r#"printf '<%s|%s|%s|%s|%s|%s>' "$#" "$1" "$2" "$3" "$4" "$HOME""#,
+            r#"printf '\001%s\037%s\037%s\037%s\037%s\037%s\002' "$#" "$1" "$2" "$3" "$4" "$HOME""#,
             0,
         );
         let server = Arc::new(HookServer::start().unwrap());
@@ -1057,6 +1086,142 @@ mod tests {
         assert_eq!(std::fs::read_dir(cwd.path()).unwrap().count(), 0);
     }
 
+    /// The URL the status line command posts its input to.
+    #[cfg(unix)]
+    fn status_url(settings: &serde_json::Value) -> String {
+        let command = settings["statusLine"]["command"]
+            .as_str()
+            .expect("status line");
+        let url = command
+            .split_whitespace()
+            .find(|w| w.starts_with("http://"));
+        url.expect("status url").to_string()
+    }
+
+    #[cfg(unix)]
+    fn activity_messages(out: &Outbox, n: usize) -> Vec<serde_json::Value> {
+        let end = Instant::now() + Duration::from_secs(3);
+        loop {
+            let sent: Vec<serde_json::Value> = out
+                .0
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|j| serde_json::from_str::<serde_json::Value>(j).unwrap())
+                .filter(|m| m.get("activity").is_some())
+                .collect();
+            if sent.len() >= n || Instant::now() >= end {
+                return sent;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    /// SRS-FR-152: hooks and the status line input reach the pane's Activity Bar.
+    #[cfg(unix)]
+    #[test]
+    fn pane_hooks_and_status_line_send_activity_until_the_pane_closes() {
+        use crate::hooks::test_client::post_url;
+        use serde_json::json;
+
+        let bin = tempfile::tempdir().unwrap();
+        let cwd = tempfile::tempdir().unwrap();
+        let launch = fake_claude(bin.path(), r#"printf '\001%s\002' "$2""#, 0);
+        let server = Arc::new(HookServer::start().unwrap());
+        let out = Outbox::default();
+        let mut spawner = spawner(
+            &launch,
+            vec![],
+            tracker(&Outbox::default()),
+            Some(server.clone()),
+        );
+        spawner.session_out = Arc::new(out.clone());
+        let printed = Arc::new(Mutex::new(Vec::new()));
+        let (tx, rx) = mpsc::channel();
+
+        let mut process = spawner
+            .spawn(
+                cwd.path(),
+                &SessionId("sid-1".into()),
+                false,
+                Box::new(ExitSink(printed.clone(), Mutex::new(tx))),
+            )
+            .expect("spawned");
+        let fields = printed_fields(&printed);
+        let settings: serde_json::Value = serde_json::from_str(&fields[0]).unwrap();
+        let (hooks, status) = (hook_url(&settings, "PreToolUse"), status_url(&settings));
+        assert_ne!(hooks, status);
+        assert_eq!(server.registered(), 2);
+
+        let pre = json!({"hook_event_name": "PreToolUse", "session_id": "sid-1", "tool_name": "Bash",
+            "tool_input": {"command": "npm test"}, "tool_use_id": "toolu_1"});
+        post_url(&hooks, &pre.to_string());
+        post_url(&status, r#"{"context_window":{"used_percentage":41.6}}"#);
+        let activity = |context: serde_json::Value| json!({"activity": {"tool": "Bash", "arg": "npm test", "context": context, "shells": 0, "subagents": 0}});
+        assert_eq!(
+            activity_messages(&out, 2),
+            [activity(serde_json::Value::Null), activity(json!(42))]
+        );
+
+        process.write(b"\n").unwrap();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(3)).unwrap(), Some(0));
+        process.close();
+        assert_eq!(server.registered(), 0);
+        let response = post_url(&status, r#"{"context_window":{"used_percentage":50}}"#);
+        assert!(response.starts_with("HTTP/1.1 404"), "{response}");
+    }
+
+    /// status-board › SRS-NFR-006: the user's status line is read, passed on, and left as it was.
+    #[cfg(unix)]
+    #[test]
+    fn pty_spawner_passes_the_users_status_line_in_the_env() {
+        let bin = tempfile::tempdir().unwrap();
+        let cwd = tempfile::tempdir().unwrap();
+        let settings_file = cwd.path().join(".claude/settings.json");
+        std::fs::create_dir_all(settings_file.parent().unwrap()).unwrap();
+        let text =
+            r#"{"statusLine":{"type":"command","command":"echo 'main · 3 files'","padding":1}}"#;
+        std::fs::write(&settings_file, text).unwrap();
+        let modified = std::fs::metadata(&settings_file)
+            .unwrap()
+            .modified()
+            .unwrap();
+        let launch = fake_claude(
+            bin.path(),
+            r#"printf '\001%s\037%s\002' "$2" "$AGENT_DECK_STATUSLINE""#,
+            0,
+        );
+        let server = Arc::new(HookServer::start().unwrap());
+        let spawner = spawner(&launch, vec![], tracker(&Outbox::default()), Some(server));
+        let printed = Arc::new(Mutex::new(Vec::new()));
+        let (tx, rx) = mpsc::channel();
+
+        let mut process = spawner
+            .spawn(
+                cwd.path(),
+                &SessionId("sid-1".into()),
+                false,
+                Box::new(ExitSink(printed.clone(), Mutex::new(tx))),
+            )
+            .expect("spawned");
+        let fields = printed_fields(&printed);
+        process.write(b"\n").unwrap();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(3)).unwrap(), Some(0));
+        process.close();
+
+        let settings: serde_json::Value = serde_json::from_str(&fields[0]).unwrap();
+        assert_eq!(settings["statusLine"]["padding"], 1);
+        assert_eq!(fields[1], "echo 'main · 3 files'");
+        assert_eq!(std::fs::read_to_string(&settings_file).unwrap(), text);
+        assert_eq!(
+            std::fs::metadata(&settings_file)
+                .unwrap()
+                .modified()
+                .unwrap(),
+            modified
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn pane_hook_url_adds_nothing_to_prompts() {
@@ -1064,7 +1229,7 @@ mod tests {
 
         let bin = tempfile::tempdir().unwrap();
         let cwd = tempfile::tempdir().unwrap();
-        let launch = fake_claude(bin.path(), r#"printf '<%s>' "$2""#, 0);
+        let launch = fake_claude(bin.path(), r#"printf '\001%s\002' "$2""#, 0);
         let server = Arc::new(HookServer::start().unwrap());
         let spawner = spawner(
             &launch,
@@ -1394,6 +1559,7 @@ mod tests {
                 tracker: tracker(&Outbox::default()),
                 follower: Arc::new(SessionFollower::new(session.into(), Arc::new(out.clone()))),
                 chat: Some(chat.clone()),
+                activity: Arc::new(PaneActivity::new(cwd, Arc::new(out.clone()))),
             };
             chat.start();
             Pane { out, hooks, chat }

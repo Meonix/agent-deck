@@ -8,6 +8,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+use crate::status_line::UserStatusLine;
+
 const HOOK_PATH: &str = "/hook/";
 const MAX_BODY: usize = 256 * 1024;
 const MAX_HEAD: usize = 16 * 1024;
@@ -21,7 +23,7 @@ const ACCEPT_RETRY: Duration = Duration::from_millis(50);
 /// destroy the response before the client reads it, so leftovers are drained.
 const MAX_DRAIN: usize = 1024 * 1024;
 
-const POSTED_EVENTS: [&str; 10] = [
+const POSTED_EVENTS: [&str; 12] = [
     "UserPromptSubmit",
     "PreToolUse",
     "PermissionRequest",
@@ -32,6 +34,8 @@ const POSTED_EVENTS: [&str; 10] = [
     "Stop",
     "StopFailure",
     "SessionEnd",
+    "SubagentStart",
+    "SubagentStop",
 ];
 
 /// `curl` in PowerShell is an alias of `Invoke-WebRequest`.
@@ -323,14 +327,15 @@ fn drain(stream: &mut TcpStream) {
     }
 }
 
-/// Inline `--settings` JSON that sends every event the status tracking uses to `url`.
+/// Inline `--settings` JSON that sends every event the status tracking uses to `url`,
+/// and the status line input to `status_url`.
 ///
 /// Command hooks, not `http` ones: a session forked from a pane keeps these
 /// settings and can outlive the app, and an `http` hook that finds no listener
 /// shows an error on every tool call. `exit 0` makes a dead or unknown URL a
 /// plain success (`'@-'` is quoted for PowerShell). No answer is read, so whatever
 /// takes a dead app's port cannot allow a tool.
-pub fn hook_settings(url: &str) -> String {
+pub fn hook_settings(url: &str, status_url: &str, user: Option<&UserStatusLine>) -> String {
     let handler = |event: &str| {
         let command = format!("{CURL} -s -m 3 -o {DISCARD} -X POST --data-binary '@-' {url}; exit 0");
         // `SessionStart` runs only command hooks, and nothing waits on it.
@@ -341,7 +346,36 @@ pub fn hook_settings(url: &str) -> String {
     for event in std::iter::once("SessionStart").chain(POSTED_EVENTS) {
         hooks.insert(event.into(), json!([{ "hooks": [handler(event)] }]));
     }
-    json!({ "hooks": hooks }).to_string()
+    let padding = user.and_then(|u| u.padding.clone()).unwrap_or(json!(0));
+    let mut status_line = json!({
+        "type": "command",
+        "command": status_line_command(status_url),
+        "padding": padding,
+    });
+    if let Some(interval) = user.and_then(|u| u.refresh_interval.clone()) {
+        status_line["refreshInterval"] = interval;
+    }
+    json!({ "hooks": hooks, "statusLine": status_line }).to_string()
+}
+
+/// Replaces the user's status line, so it posts its input and then runs the user's
+/// own command, passed in `AGENT_DECK_STATUSLINE` to avoid quoting it here.
+#[cfg(not(windows))]
+fn status_line_command(status_url: &str) -> String {
+    format!(
+        "i=$(cat); (printf '%s' \"$i\" | curl -s -m 2 -o /dev/null -X POST --data-binary @- {status_url} \
+         >/dev/null 2>&1 &); [ -n \"$AGENT_DECK_STATUSLINE\" ] && printf '%s' \"$i\" | \
+         sh -c \"$AGENT_DECK_STATUSLINE\"; exit 0"
+    )
+}
+
+#[cfg(windows)]
+fn status_line_command(status_url: &str) -> String {
+    format!(
+        "$i=[Console]::In.ReadToEnd(); Start-Job {{ $using:i | curl.exe -s -m 2 -o NUL -X POST \
+         --data-binary '@-' {status_url} }} | Out-Null; if ($env:AGENT_DECK_STATUSLINE) \
+         {{ $i | powershell -NoProfile -Command $env:AGENT_DECK_STATUSLINE }}; exit 0"
+    )
 }
 
 #[cfg(test)]
@@ -767,7 +801,7 @@ mod tests {
         assert!(TcpStream::connect(("127.0.0.1", port)).is_err());
     }
 
-    const EVENTS: [&str; 11] = [
+    const EVENTS: [&str; 13] = [
         "SessionStart",
         "UserPromptSubmit",
         "PreToolUse",
@@ -779,12 +813,16 @@ mod tests {
         "Stop",
         "StopFailure",
         "SessionEnd",
+        "SubagentStart",
+        "SubagentStop",
     ];
+
+    const STATUS_URL: &str = "http://127.0.0.1:4321/hook/status";
 
     #[test]
     fn hook_settings_has_one_handler_per_event() {
         let url = "http://127.0.0.1:4321/hook/abc";
-        let text = hook_settings(url);
+        let text = hook_settings(url, STATUS_URL, None);
         assert!(!text.contains('\n'), "not compact: {text}");
         let settings: Value = serde_json::from_str(&text).unwrap();
         let hooks = settings["hooks"].as_object().expect("hooks object");
@@ -838,7 +876,11 @@ mod tests {
     #[test]
     fn hooks_succeed_silently_once_the_listener_is_gone() {
         let server = HookServer::start().unwrap();
-        let settings = hook_settings(&server.url_for("gone"));
+        let settings = hook_settings(
+            &server.url_for("gone"),
+            &server.url_for("gone-status"),
+            None,
+        );
         drop(server);
         for event in EVENTS {
             let out = run_hook(&settings, event, "{}");
@@ -852,7 +894,7 @@ mod tests {
     #[test]
     fn hooks_succeed_silently_for_an_unknown_token() {
         let server = HookServer::start().unwrap();
-        let settings = hook_settings(&server.url_for("unregistered"));
+        let settings = hook_settings(&server.url_for("unregistered"), STATUS_URL, None);
         for event in EVENTS {
             let out = run_hook(&settings, event, "{}");
             assert!(out.status.success(), "{event}: {out:?}");
@@ -866,7 +908,7 @@ mod tests {
         let server = HookServer::start().unwrap();
         let (sink, rx) = recorder();
         server.register("t", sink);
-        let settings = hook_settings(&server.url_for("t"));
+        let settings = hook_settings(&server.url_for("t"), STATUS_URL, None);
         for event in ["UserPromptSubmit", "Stop"] {
             let body = json!({"hook_event_name": event}).to_string();
             let out = run_hook(&settings, event, &body);
@@ -895,11 +937,172 @@ mod tests {
                 );
             }
         });
-        let settings = hook_settings(&format!("http://127.0.0.1:{port}/hook/x"));
+        let settings = hook_settings(&format!("http://127.0.0.1:{port}/hook/x"), STATUS_URL, None);
         for event in EVENTS {
             let out = run_hook(&settings, event, "{}");
             assert!(out.status.success(), "{event}: {out:?}");
             assert!(out.stdout.is_empty(), "{event}: {out:?}");
+        }
+    }
+
+    #[test]
+    fn hook_settings_has_a_status_line_command_with_padding_0() {
+        let settings: Value = serde_json::from_str(&hook_settings(
+            "http://127.0.0.1:4321/hook/abc",
+            STATUS_URL,
+            None,
+        ))
+        .unwrap();
+        #[cfg(not(windows))]
+        let command = "i=$(cat); (printf '%s' \"$i\" | curl -s -m 2 -o /dev/null -X POST --data-binary @- \
+             http://127.0.0.1:4321/hook/status >/dev/null 2>&1 &); [ -n \"$AGENT_DECK_STATUSLINE\" ] && \
+             printf '%s' \"$i\" | sh -c \"$AGENT_DECK_STATUSLINE\"; exit 0";
+        #[cfg(windows)]
+        let command = "$i=[Console]::In.ReadToEnd(); Start-Job { $using:i | curl.exe -s -m 2 -o NUL -X POST \
+             --data-binary '@-' http://127.0.0.1:4321/hook/status } | Out-Null; if ($env:AGENT_DECK_STATUSLINE) \
+             { $i | powershell -NoProfile -Command $env:AGENT_DECK_STATUSLINE }; exit 0";
+        assert_eq!(
+            settings["statusLine"],
+            json!({"type": "command", "command": command, "padding": 0})
+        );
+    }
+
+    #[test]
+    fn status_line_copies_the_users_padding_and_refresh_interval() {
+        let user = UserStatusLine {
+            command: "sh ~/.claude/statusline.sh".into(),
+            padding: Some(json!(2)),
+            refresh_interval: Some(json!(5)),
+        };
+        let text = hook_settings("http://127.0.0.1:4321/hook/abc", STATUS_URL, Some(&user));
+        let settings: Value = serde_json::from_str(&text).unwrap();
+        let line = &settings["statusLine"];
+        assert_eq!(line["padding"], 2);
+        assert_eq!(line["refreshInterval"], 5);
+        assert!(
+            !text.contains("statusline.sh"),
+            "the user command goes through the env: {text}"
+        );
+
+        let user = UserStatusLine {
+            padding: None,
+            refresh_interval: None,
+            ..user
+        };
+        let settings: Value =
+            serde_json::from_str(&hook_settings("http://x/hook/a", STATUS_URL, Some(&user)))
+                .unwrap();
+        assert_eq!(settings["statusLine"]["padding"], 0);
+        assert!(settings["statusLine"].get("refreshInterval").is_none());
+    }
+
+    /// Runs the status line command the way Claude Code does, with `user` as the
+    /// user's own command in `AGENT_DECK_STATUSLINE`.
+    #[cfg(unix)]
+    fn run_status_line(settings: &str, user: Option<&str>, body: &str) -> std::process::Output {
+        use std::process::{Command, Stdio};
+        let settings: Value = serde_json::from_str(settings).unwrap();
+        let command = settings["statusLine"]["command"]
+            .as_str()
+            .expect("status line");
+        let mut sh = Command::new("sh");
+        sh.args(["-c", command])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        match user {
+            Some(user) => sh.env("AGENT_DECK_STATUSLINE", user),
+            None => sh.env_remove("AGENT_DECK_STATUSLINE"),
+        };
+        let mut child = sh.spawn().unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(body.as_bytes())
+            .unwrap();
+        child.wait_with_output().unwrap()
+    }
+
+    #[cfg(unix)]
+    const STATUS_INPUT: &str = r#"{"session_id":"s1","context_window":{"used_percentage":41.6,"context_window_size":200000}}"#;
+
+    #[cfg(unix)]
+    type Calls = Receiver<(Value, Instant)>;
+
+    /// A listener with a `hooks` and a `status` token, and settings that post to them.
+    #[cfg(unix)]
+    fn status_server() -> (HookServer, String, Calls, Calls) {
+        let server = HookServer::start().unwrap();
+        let (hooks, hooks_rx) = recorder();
+        let (status, status_rx) = recorder();
+        server.register("hooks", hooks);
+        server.register("status", status);
+        let settings = hook_settings(&server.url_for("hooks"), &server.url_for("status"), None);
+        (server, settings, hooks_rx, status_rx)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn status_line_posts_its_input_and_prints_nothing_without_a_user_command() {
+        let (_server, settings, hooks_rx, status_rx) = status_server();
+
+        let out = run_status_line(&settings, None, STATUS_INPUT);
+
+        assert!(out.status.success(), "{out:?}");
+        assert!(out.stdout.is_empty(), "{out:?}");
+        // The post runs in the background, after the command has returned.
+        let (got, _) = status_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("no status post");
+        assert_eq!(got, serde_json::from_str::<Value>(STATUS_INPUT).unwrap());
+        assert_no_call(&hooks_rx, "status line input");
+    }
+
+    /// status-board › The user's status line still shows.
+    #[cfg(unix)]
+    #[test]
+    fn status_line_prints_the_user_commands_output() {
+        let (_server, settings, _hooks_rx, status_rx) = status_server();
+
+        let out = run_status_line(
+            &settings,
+            Some("cat >/dev/null; echo main · 3 files"),
+            STATUS_INPUT,
+        );
+
+        assert!(out.status.success(), "{out:?}");
+        assert_eq!(String::from_utf8_lossy(&out.stdout), "main · 3 files\n");
+        let (got, _) = status_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("no status post");
+        assert_eq!(got["context_window"]["used_percentage"], 41.6);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn status_line_gives_the_user_command_the_same_input() {
+        let (_server, settings, _hooks_rx, _status_rx) = status_server();
+        let out = run_status_line(&settings, Some("cat"), STATUS_INPUT);
+        assert_eq!(String::from_utf8_lossy(&out.stdout), STATUS_INPUT);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn status_line_succeeds_once_the_listener_is_gone() {
+        let server = HookServer::start().unwrap();
+        let settings = hook_settings(&server.url_for("hooks"), &server.url_for("status"), None);
+        drop(server);
+        for user in [None, Some("cat >/dev/null; echo main · 3 files")] {
+            let out = run_status_line(&settings, user, STATUS_INPUT);
+            assert!(out.status.success(), "{user:?}: {out:?}");
+            assert!(out.stderr.is_empty(), "{user:?}: {out:?}");
+            let expected = if user.is_some() {
+                "main · 3 files\n"
+            } else {
+                ""
+            };
+            assert_eq!(String::from_utf8_lossy(&out.stdout), expected, "{user:?}");
         }
     }
 }
