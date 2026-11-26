@@ -14,7 +14,7 @@ use crate::activity::{PaneActivity, StatusLineSink};
 use crate::commands::AppState;
 use crate::hooks::{HookServer, HookSink, hook_settings};
 use crate::launcher::{find_claude, login_shell_path_with, session_env};
-use crate::pane_chat::{PaneChat, reported_session};
+use crate::pane_chat::{PaneChat, reported_session, send_unreadable};
 use crate::pane_status::{StatusOut, StatusTracker, exit_json, now_ms};
 use crate::panes::{OpenError, PaneId, SessionId, Spawner, Start, close_in_parallel, resume_id};
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
@@ -491,9 +491,7 @@ impl Spawner for PtySpawner<'_> {
                 let killer = session.killer();
                 match &chat {
                     Some(chat) => chat.start(),
-                    None => self
-                        .session_out
-                        .send_json(serde_json::json!({"chat": {"unreadable": true}}).to_string()),
+                    None => send_unreadable(self.session_out.as_ref()),
                 }
                 Some(Box::new(TrackedProcess {
                     inner: QueuedProcess::new(Box::new(session), Some(killer)),

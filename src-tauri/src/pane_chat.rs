@@ -109,11 +109,16 @@ pub(crate) fn reported_session(event: &Value) -> Option<&str> {
     event["session_id"].as_str().filter(|id| !id.is_empty())
 }
 
+/// Tells the pane its Chat cannot be read, so it points the user at Term.
+pub(crate) fn send_unreadable(out: &dyn StatusOut) {
+    out.send_json(json!({"chat": {"unreadable": true}}).to_string());
+}
+
 fn send(out: &dyn StatusOut, update: TailUpdate) {
     match update {
         TailUpdate::Reset(items) => send_items(out, &items, true),
         TailUpdate::Append(items) => send_items(out, &items, false),
-        TailUpdate::Unreadable => out.send_json(json!({"chat": {"unreadable": true}}).to_string()),
+        TailUpdate::Unreadable => send_unreadable(out),
     }
 }
 

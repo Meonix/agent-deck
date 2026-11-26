@@ -43,7 +43,7 @@
 - [x] 6b.3 One `reported_session(event)` helper (SessionEnd skip + non-empty id) used by `SessionFollower::follow` and `PaneChat::follow`
 - [x] 6b.4 `createStream` parses each channel message once and shares one queue helper for session, chat and activity (status keeps its exit ordering)
 - [x] 6b.5 `activityParts(a)` returns the count parts; `ActivityBar` maps over them; drop the test-only tool branch of `activityText`
-- [ ] 6b.6 One `send_unreadable(out)` in pane_chat.rs used by both unreadable paths
+- [x] 6b.6 One `send_unreadable(out)` in pane_chat.rs used by both unreadable paths
 
 ## 7. Close
 
