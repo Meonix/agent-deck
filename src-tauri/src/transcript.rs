@@ -62,6 +62,11 @@ const WRAPPERS: [&str; 7] = [
     "<task-notification>",
 ];
 
+const INTERRUPTS: [&str; 2] = [
+    "[Request interrupted by user]",
+    "[Request interrupted by user for tool use]",
+];
+
 pub const POLL_INTERVAL: Duration = Duration::from_millis(250);
 
 pub fn parse_record(line: &str, cwd: &Path) -> Parsed {
@@ -78,7 +83,10 @@ fn parse_line(line: &str, cwd: &Path) -> (Parsed, bool) {
         Some("assistant") => false,
         _ => return (Parsed::Ignored, false),
     };
-    if record["isSidechain"] == true || record["isMeta"] == true {
+    if record["isSidechain"] == true
+        || record["isMeta"] == true
+        || record["isCompactSummary"] == true
+    {
         return (Parsed::Ignored, true);
     }
     let content = &record["message"]["content"];
@@ -400,7 +408,7 @@ fn assistant_items(uuid: &str, content: &Value, cwd: &Path) -> Vec<ChatItem> {
 /// `None` for Claude Code's own wrapper records, which Chat does not show.
 fn prompt_text(text: &str) -> Option<String> {
     let trimmed = text.trim_start();
-    if trimmed.is_empty() || is_wrapper(trimmed) {
+    if trimmed.is_empty() || is_wrapper(trimmed) || INTERRUPTS.contains(&text.trim()) {
         return None;
     }
     if let Some(name) = between(text, "<command-name>", "</command-name>") {
@@ -612,6 +620,27 @@ mod tests {
         let mut side = assistant("a1", json!({"type": "text", "text": "subagent reply"}));
         side["isSidechain"] = json!(true);
         assert_eq!(parse(side), Parsed::Ignored);
+    }
+
+    #[test]
+    fn compact_summary_is_ignored() {
+        let record = json!({"type": "user", "uuid": "u1", "isSidechain": false,
+            "isCompactSummary": true, "isVisibleInTranscriptOnly": true,
+            "message": {"role": "user", "content":
+                "This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\n\nSummary:\n1. Primary Request and Intent: ..."}});
+        assert_eq!(parse(record), Parsed::Ignored);
+    }
+
+    #[test]
+    fn interrupt_markers_are_ignored() {
+        for text in [
+            "[Request interrupted by user]",
+            "[Request interrupted by user for tool use]",
+        ] {
+            assert_eq!(parse(user("u1", json!(text))), Parsed::Ignored, "{text}");
+            let block = json!([{"type": "text", "text": text}]);
+            assert_eq!(parse(user("u1", block)), Parsed::Ignored, "{text}");
+        }
     }
 
     #[test]
@@ -1085,6 +1114,19 @@ mod tail_tests {
         let (path, mut tail) = tail_at(&dir, "s.jsonl");
         let meta = json!({"type": "user", "isMeta": true, "message": {"content": "x"}});
         append(&path, &(meta.to_string() + "\n" + &unrecognized_line("a")));
+        assert_eq!(tail.poll(), Some(TailUpdate::Reset(vec![])));
+    }
+
+    #[test]
+    fn compact_summary_counts_as_readable() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        let summary = json!({"type": "user", "isCompactSummary": true,
+            "isVisibleInTranscriptOnly": true, "message": {"content": "Summary: x"}});
+        append(
+            &path,
+            &(summary.to_string() + "\n" + &unrecognized_line("a")),
+        );
         assert_eq!(tail.poll(), Some(TailUpdate::Reset(vec![])));
     }
 
