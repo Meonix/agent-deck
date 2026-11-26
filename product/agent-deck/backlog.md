@@ -47,7 +47,7 @@ Nguồn: `SRS.md` Baselined v1.17 (2026-11-25), CR-001 thêm mục 9, 10, 11; CR
 | 37 | View Switch và chế độ Shell | update-pane-views | SRS-FR-014, SRS-FR-025, SRS-FR-026, SRS-FR-030, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-066, SRS-FR-080, SRS-FR-146, SRS-FR-148 | 34 | Must; CR-016; đổi hành vi đã archived → /dev-update | archived |
 | 38 | Chat và Activity Bar | add-chat-view | SRS-FR-149, SRS-FR-150, SRS-FR-151, SRS-FR-152, SRS-FR-153 | 37 | Must; CR-016; CR-019: bật Chat trên View Switch, ô mới vẫn mở ở Term tới mục 39; → /dev-feature | archived |
 | 39 | Composer gửi prompt an toàn | add-composer | SRS-FR-147, SRS-FR-154, SRS-FR-155, SRS-FR-156, SRS-FR-157, SRS-FR-158 | 37, 38 | Must; CR-016; CR-019 thêm SRS-FR-147 (Should): ô mở ở Chat, con trỏ ở Composer; → /dev-feature, sửa requirement mở ô ở Term trong spec `session-pane`; bước đầu là chạy thử nhận ra Input Ready trên ConPTY Windows và macOS | archived |
-| 40 | Approval Strip và Question Card | add-chat-approval | SRS-FR-163, SRS-FR-164, SRS-FR-165, SRS-FR-166, SRS-FR-167, SRS-FR-168 | 39 | Must; CR-016; → /dev-feature | proposed |
+| 40 | Approval Strip và Question Card | add-chat-approval | SRS-FR-163, SRS-FR-164, SRS-FR-165, SRS-FR-166, SRS-FR-167, SRS-FR-168 | 39 | Must; CR-016; → /dev-feature | archived |
 | 41 | Gợi ý "/" và "@" | add-composer-suggestions | SRS-FR-159, SRS-FR-160 | 39 | Should; CR-016; → /dev-feature | todo |
 | 42 | Đính kèm file vào prompt | add-prompt-files | SRS-FR-161, SRS-FR-162 | 39 | Should; CR-016; → /dev-feature | todo |
 | 43 | Chế độ Plan | add-plan-view | SRS-FR-169, SRS-FR-170, SRS-FR-171, SRS-FR-172, SRS-FR-173 | 38 | Should; CR-016; → /dev-feature | todo |
