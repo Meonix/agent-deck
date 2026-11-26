@@ -4,6 +4,7 @@ import type { Workspace } from "../api/workspaces";
 import type { StashedSession } from "./stash";
 import { folderTree, maximizedBadge, needsUser } from "./statusHighlight";
 import type { PaneEntry } from "./TerminalPane";
+import { initialChat } from "./chatState";
 
 function e(id: string, workspaceId: string, status: Partial<PaneStatus>, sessionId = `s${id}`, ended = false): PaneEntry {
   return {
@@ -18,6 +19,8 @@ function e(id: string, workspaceId: string, status: Partial<PaneStatus>, session
     title: `title-${id}`,
     graceOver: false,
     status: { state: "Idle", since: 1, reason: null, tracked: true, ...status },
+    chat: initialChat,
+    activity: null,
     shell: null,
     shellFailed: false,
     prompted: false,

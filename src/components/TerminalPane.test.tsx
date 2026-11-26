@@ -5,6 +5,7 @@ import { fakeAdapter, fakeSessions, fakeStream, type FakeAdapter } from "../test
 import css from "../index.css?raw";
 import { TerminalPane, UNTITLED, type PaneEntry } from "./TerminalPane";
 import { labels } from "../labels";
+import { initialChat } from "./chatState";
 
 function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): PaneEntry {
   return {
@@ -19,6 +20,8 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
     title: UNTITLED,
     graceOver: false,
     status: { state: "Idle", since: 1, reason: null, tracked: false },
+    chat: initialChat,
+    activity: null,
     shell: null,
     shellFailed: false,
     prompted: false,

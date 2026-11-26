@@ -1,4 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
+import type { Activity, ChatMessage } from "../components/chatState";
 
 export type OpenedPane = { paneId: string; sessionId: string; started: boolean };
 
@@ -20,11 +21,13 @@ export interface PaneStream {
   onStatus(cb: (status: PaneStatus) => void): void;
   /** The session Claude Code moved the pane to, as after `/clear`. */
   onSession(cb: (sessionId: string) => void): void;
+  onChat(cb: (message: ChatMessage) => void): void;
+  onActivity(cb: (activity: Activity) => void): void;
   dispose(): void;
 }
 
-/** A shell sends output and its exit, never a status or a session. */
-export type ShellStream = Omit<PaneStream, "onStatus" | "onSession">;
+/** A shell sends output and its exit, never a status, a session, a chat or an activity. */
+export type ShellStream = Omit<PaneStream, "onStatus" | "onSession" | "onChat" | "onActivity">;
 
 /** `command`: what the shell runs in its foreground; null while busy means the name could not be read. */
 export type ShellActivity = { busy: boolean; command: string | null };
@@ -101,6 +104,33 @@ function asSession(message: unknown): string | null {
   return typeof session === "string" ? session : null;
 }
 
+function field(message: unknown, name: string): Record<string, unknown> | null {
+  const value = typeof message === "string" ? safeParse(message) : message;
+  if (value === null || typeof value !== "object" || !(name in value)) return null;
+  const inner = (value as Record<string, unknown>)[name];
+  return inner !== null && typeof inner === "object" ? (inner as Record<string, unknown>) : null;
+}
+
+function asChat(message: unknown): ChatMessage | null {
+  const chat = field(message, "chat");
+  if (!chat) return null;
+  const out: ChatMessage = {};
+  if (chat.reset === true) out.reset = true;
+  if (chat.unreadable === true) out.unreadable = true;
+  if (Array.isArray(chat.items)) out.items = chat.items as ChatMessage["items"];
+  return out;
+}
+
+function asActivity(message: unknown): Activity | null {
+  const a = field(message, "activity");
+  if (!a) return null;
+  const text = (v: unknown) => v === null || typeof v === "string";
+  const valid =
+    text(a.tool) && text(a.arg) && (a.context === null || typeof a.context === "number") &&
+    typeof a.shells === "number" && typeof a.subagents === "number";
+  return valid ? (a as Activity) : null;
+}
+
 function safeParse(text: string): unknown {
   try {
     return JSON.parse(text);
@@ -120,6 +150,10 @@ function createStream(channel: Channel<unknown>): PaneStream {
   let pendingSession: string[] = [];
   let sessionCb: ((sessionId: string) => void) | null = null;
   let statusCb: ((status: PaneStatus) => void) | null = null;
+  let pendingChat: ChatMessage[] = [];
+  let chatCb: ((message: ChatMessage) => void) | null = null;
+  let pendingActivity: Activity[] = [];
+  let activityCb: ((activity: Activity) => void) | null = null;
 
   // The exit waits for queued statuses once a status listener exists: the final status precedes it.
   const deliverExit = () => {
@@ -147,6 +181,18 @@ function createStream(channel: Channel<unknown>): PaneStream {
     if (session) {
       if (sessionCb && pendingSession.length === 0) sessionCb(session);
       else pendingSession.push(session);
+      return;
+    }
+    const chat = asChat(message);
+    if (chat) {
+      if (chatCb && pendingChat.length === 0) chatCb(chat);
+      else pendingChat.push(chat);
+      return;
+    }
+    const activity = asActivity(message);
+    if (activity) {
+      if (activityCb && pendingActivity.length === 0) activityCb(activity);
+      else pendingActivity.push(activity);
       return;
     }
     const exit = asExit(message);
@@ -181,8 +227,24 @@ function createStream(channel: Channel<unknown>): PaneStream {
       pendingSession = [];
       queued.forEach(cb);
     },
+    onChat(cb) {
+      chatCb = cb;
+      const queued = pendingChat;
+      pendingChat = [];
+      queued.forEach(cb);
+    },
+    onActivity(cb) {
+      activityCb = cb;
+      const queued = pendingActivity;
+      pendingActivity = [];
+      queued.forEach(cb);
+    },
     dispose() {
       channel.onmessage = () => {};
+      chatCb = null;
+      pendingChat = [];
+      activityCb = null;
+      pendingActivity = [];
       sessionCb = null;
       pendingSession = [];
       outputCb = null;

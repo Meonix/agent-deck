@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient } from "../api/sessions";
+import type { Activity, ChatMessage } from "../components/chatState";
 import type { TerminalAdapter, TerminalSize } from "../components/TerminalPane";
 
 export type FakeAdapter = TerminalAdapter & {
@@ -59,6 +60,8 @@ export type FakeStream = PaneStream & {
   exit(code: number | null): void;
   status(status: Partial<PaneStatus> & { state: PaneStatus["state"] }): void;
   session(id: string): void;
+  chat(message: ChatMessage): void;
+  activity(activity: Activity): void;
 };
 
 export function fakeStream(): FakeStream {
@@ -66,20 +69,28 @@ export function fakeStream(): FakeStream {
   let exitCb: ((code: number | null) => void) | null = null;
   let statusCb: ((status: PaneStatus) => void) | null = null;
   let sessionCb: ((id: string) => void) | null = null;
+  let chatCb: ((message: ChatMessage) => void) | null = null;
+  let activityCb: ((activity: Activity) => void) | null = null;
   return {
     onOutput: (cb) => void (outputCb = cb),
     onExit: (cb) => void (exitCb = cb),
     onStatus: (cb) => void (statusCb = cb),
     onSession: (cb) => void (sessionCb = cb),
+    onChat: (cb) => void (chatCb = cb),
+    onActivity: (cb) => void (activityCb = cb),
     dispose: vi.fn(() => {
       sessionCb = null;
       outputCb = null;
       exitCb = null;
       statusCb = null;
+      chatCb = null;
+      activityCb = null;
     }),
     emit: (text) => outputCb?.(new TextEncoder().encode(text)),
     exit: (code) => exitCb?.(code),
     session: (id) => sessionCb?.(id),
+    chat: (message) => chatCb?.(message),
+    activity: (activity) => activityCb?.(activity),
     status: (status) => statusCb?.({ since: Date.now(), reason: null, tracked: true, ...status }),
   };
 }

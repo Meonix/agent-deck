@@ -2,6 +2,7 @@ import { Archive, Maximize2, Minimize2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
 import { labels } from "../labels";
+import type { Activity, ChatState } from "./chatState";
 import { ICON } from "./icon";
 import { mayTakeFocus } from "./paneFocus";
 import { ShellArea, ShellFailure } from "./PaneShell";
@@ -44,6 +45,9 @@ export type PaneEntry = {
   openedSize: TerminalSize;
   ended: boolean;
   status: PaneStatus;
+  chat: ChatState;
+  /** Last activity snapshot; null until the first one. */
+  activity: Activity | null;
   title: string;
   /** The wait for a first status is over; set once, never cleared. */
   graceOver: boolean;

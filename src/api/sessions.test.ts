@@ -234,3 +234,60 @@ describe("no status latency recording (CR-015)", () => {
     expect(seen).toEqual([{ state: "Running", since: 5, reason: null, tracked: true }]);
   });
 });
+
+describe("chat and activity messages (5.1)", () => {
+  const items = [{ kind: "prompt", key: "k1", text: "hi" }];
+  const activity = { tool: "Bash", arg: "npm test", context: 42, shells: 1, subagents: 2 };
+
+  it("queues chat and activity sent before a listener exists, then delivers later ones live", async () => {
+    tauri.invoke.mockImplementation(async () => {
+      send({ chat: { reset: true, items } });
+      send(JSON.stringify({ activity }));
+      return opened;
+    });
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const chats: unknown[] = [];
+    const acts: unknown[] = [];
+    stream.onChat((c) => chats.push(c));
+    stream.onActivity((a) => acts.push(a));
+    expect(chats).toEqual([{ reset: true, items }]);
+    expect(acts).toEqual([activity]);
+    send({ chat: { items } });
+    send({ chat: { unreadable: true } });
+    send({ activity: { ...activity, tool: null } });
+    expect(chats).toEqual([{ reset: true, items }, { items }, { unreadable: true }]);
+    expect(acts).toHaveLength(2);
+  });
+
+  it("does not disturb output, status, session and exit delivery", async () => {
+    tauri.invoke.mockResolvedValue(opened);
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const events: string[] = [];
+    stream.onOutput((b) => events.push(`out ${text(b)}`));
+    stream.onStatus((s) => events.push(`status ${s.state}`));
+    stream.onSession((id) => events.push(`session ${id}`));
+    stream.onExit((c) => events.push(`exit ${c}`));
+    stream.onChat(() => events.push("chat"));
+    stream.onActivity(() => events.push("activity"));
+    send(bytes("a"));
+    send({ chat: { items } });
+    send({ status: { state: "Idle", since: 1, reason: null, tracked: true } });
+    send({ activity });
+    send({ session: "s2" });
+    send({ exited: 0 });
+    expect(events).toEqual(["out a", "chat", "status Idle", "activity", "session s2", "exit 0"]);
+  });
+
+  it("ignores a chat or activity message of the wrong shape", async () => {
+    tauri.invoke.mockResolvedValue(opened);
+    const { stream } = await tauriSessionsClient.open("w1", 80, 24);
+    const seen = vi.fn();
+    stream.onChat(seen);
+    stream.onActivity(seen);
+    send({ chat: "x" });
+    send({ chat: null });
+    send({ activity: { tool: 1, arg: null, context: null, shells: 0, subagents: 0 } });
+    send({ activity: { tool: null, arg: null, context: null, shells: "0", subagents: 0 } });
+    expect(seen).not.toHaveBeenCalled();
+  });
+});

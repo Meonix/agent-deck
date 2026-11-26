@@ -2,6 +2,7 @@ import { type RefObject, useCallback, useEffect, useRef, useState } from "react"
 import type { PaneStatus, SessionsClient } from "../api/sessions";
 import type { Workspace } from "../api/workspaces";
 import { labels } from "../labels";
+import { applyChat, initialChat } from "./chatState";
 import { latencyLogEnabled, withLatencyLog } from "./latencyLog";
 import { readSnapshot, rebuildLayout, snapshotOf, writeSnapshot } from "./paneSnapshot";
 import { SHELL_OPEN_SIZE } from "./PaneShell";
@@ -184,6 +185,8 @@ export function useSessionPanes(
         openedSize,
         ended: false,
         status,
+        chat: initialChat,
+        activity: null,
         title: resumed?.title ?? UNTITLED,
         graceOver: false,
         shell: null,
@@ -207,6 +210,8 @@ export function useSessionPanes(
         update(pane.paneId, (e) => ({ status: next, prompted: e.prompted || prompted }));
       });
       // After `/clear` the pane holds a new session; reopening must resume that one (SRS-FR-084).
+      stream.onChat((message) => update(pane.paneId, (e) => ({ chat: applyChat(e.chat, message) })));
+      stream.onActivity((activity) => update(pane.paneId, () => ({ activity })));
       stream.onSession((sessionId) => update(pane.paneId, (e) => ({ pane: { ...e.pane, sessionId } })));
       // SRS-FR-083: a normal exit takes its pane along; any other exit, or a failed close, leaves
       // "Session ended" (SRS-FR-028).

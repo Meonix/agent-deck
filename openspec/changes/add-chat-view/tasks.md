@@ -24,9 +24,9 @@
 
 ## 5. Frontend stream and state (tests first) — seams 6, 7
 
-- [ ] 5.1 RED in `src/api/sessions.test.ts`: `{"chat"}` and `{"activity"}` messages reach `onChat`/`onActivity`, are queued before a listener exists, and do not disturb output, status, session and exit delivery
-- [ ] 5.2 RED in new `src/components/chatState.test.ts`: `applyChat` — starts loading; reset ends loading and replaces items; appends keep order; a Result attaches to its Tool, also when it comes first; duplicate keys dropped; unreadable sets the flag; `activityText` — all parts, zero counts and unknown parts left out, the SRS example string
-- [ ] 5.3 Implement `onChat`/`onActivity` in `sessions.ts`, `chatState.ts`, and `chat`/`activity` per pane in `useSessionPanes.ts` — GREEN
+- [x] 5.1 RED in `src/api/sessions.test.ts`: `{"chat"}` and `{"activity"}` messages reach `onChat`/`onActivity`, are queued before a listener exists, and do not disturb output, status, session and exit delivery
+- [x] 5.2 RED in new `src/components/chatState.test.ts`: `applyChat` — starts loading; reset ends loading and replaces items; appends keep order; a Result attaches to its Tool, also when it comes first; duplicate keys dropped; unreadable sets the flag; `activityText` — all parts, zero counts and unknown parts left out, the SRS example string
+- [x] 5.3 Implement `onChat`/`onActivity` in `sessions.ts`, `chatState.ts`, and `chat`/`activity` per pane in `useSessionPanes.ts` — GREEN
 
 ## 6. Chat view, Activity Bar, View Switch (tests first) — seam 8
 
