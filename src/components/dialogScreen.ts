@@ -123,6 +123,13 @@ const isRule = (row: string, width: number) => /^─+$/.test(row) && row.length 
 // The fence spans the screen from column 0; a shorter or indented `╌` row is printed text.
 const isFence = (row: string, width: number) => DASH_RULE.test(row) && row.length >= 0.9 * width;
 
+/** The first pair of fences below row `from`; null unless both are there. */
+function fencedBody(rows: string[], from: number, width: number): { open: number; close: number } | null {
+  const open = rows.findIndex((row, i) => i > from && isFence(row, width));
+  const close = open < 0 ? -1 : rows.findIndex((row, i) => i > open && isFence(row, width));
+  return close < 0 ? null : { open, close };
+}
+
 /**
  * The rows of the dialog: those below the last full-width rule. A rule right before a numbered
  * option (short `─` rows aside) only separates a question's options, so it does not start the dialog.
@@ -150,10 +157,9 @@ function permission(rows: string[], width: number): Dialog {
 
   // Both fences must be there, and a `│` box must open right under the first one: what the strip shows
   // is what Cho phép approves.
-  const start = rows.findIndex((row) => isFence(row, width));
-  const end = start < 0 ? -1 : rows.findIndex((row, i) => i > start && isFence(row, width));
-  if (end < 0 || end > m.start) return OTHER;
-  const body = rows.slice(start + 1, end);
+  const fence = fencedBody(rows, -1, width);
+  if (!fence || fence.close > m.start) return OTHER;
+  const body = rows.slice(fence.open + 1, fence.close);
   const isBox = (row: string) => BOX_ROW.test(row.trim());
   if (body.some(isBox) && !isBox(body[0])) return OTHER;
   const command = joined(body.map((row) => row.trim().replace(BOX_ROW, "")));
@@ -207,10 +213,9 @@ function planText(all: string[], width: number): string | null {
   const ask = lastIndex(all, PLAN_QUESTION);
   const here = lastIndex(all, PLAN_HEADING, ask);
   if (here < 0 || !all.slice(0, here).some((row) => isRule(row, width))) return null;
-  const open = all.findIndex((row, i) => i > here && isFence(row, width));
-  const close = open < 0 ? -1 : all.findIndex((row, i) => i > open && isFence(row, width));
-  if (close < 0 || close > ask) return null;
-  const body = all.slice(open + 1, close);
+  const fence = fencedBody(all, here, width);
+  if (!fence || fence.close > ask) return null;
+  const body = all.slice(fence.open + 1, fence.close);
   const indent = Math.min(...body.filter((row) => row.trim() !== "").map((row) => row.search(/\S/)));
   const text = body.map((row) => row.slice(indent)).join("\n").replace(/^\n+|\n+$/g, "");
   return text === "" ? null : text;
