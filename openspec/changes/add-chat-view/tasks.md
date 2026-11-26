@@ -6,9 +6,9 @@
 
 ## 2. Transcript tail (tests first) — seam 2
 
-- [ ] 2.1 RED: `Tail::poll` on a temp file — first poll returns all items and a reset; appended lines come on the next poll; a partial last line waits for its `\n`; a shorter file restarts from 0 with a reset; a missing file gives a reset with no items and not unreadable; a directory at the path (read error) gives unreadable; only Unrecognized user/assistant records → unreadable; one Invalid line among good ones → items, not unreadable; `switch(path)` restarts on the new file with a reset and never reads the old one again (SRS-FR-151, SRS-FR-153)
-- [ ] 2.2 RED latency: the real poll thread at 250 ms, 20 records appended one after another with a pause, every item sent ≤ 1 s after its write; the thread stops when told to (SRS-FR-150)
-- [ ] 2.3 Implement `Tail`, the poll thread and the expected-path function (cwd encoding) — GREEN
+- [x] 2.1 RED: `Tail::poll` on a temp file — first poll returns all items and a reset; appended lines come on the next poll; a partial last line waits for its `\n`; a shorter file restarts from 0 with a reset; a missing file gives a reset with no items and not unreadable; a directory at the path (read error) gives unreadable; only Unrecognized user/assistant records → unreadable; one Invalid line among good ones → items, not unreadable; `switch(path)` restarts on the new file with a reset and never reads the old one again (SRS-FR-151, SRS-FR-153)
+- [x] 2.2 RED latency: the real poll thread at 250 ms, 20 records appended one after another with a pause, every item sent ≤ 1 s after its write; the thread stops when told to (SRS-FR-150)
+- [x] 2.3 Implement `Tail`, the poll thread and the expected-path function (cwd encoding) — GREEN
 
 ## 3. Pane wiring (tests first) — seam 3
 

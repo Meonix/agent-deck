@@ -1,7 +1,13 @@
 //! Chat items read from a Claude Code transcript (`<session id>.jsonl`).
 //! The format is internal to Claude Code; a shape not known here is `Unrecognized`.
 
-use std::path::Path;
+use std::fs::File;
+use std::io::{self, Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::sync::mpsc::{self, RecvTimeoutError, Sender};
+use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use serde::Serialize;
 use serde_json::Value;
@@ -56,21 +62,28 @@ const WRAPPERS: [&str; 7] = [
     "<task-notification>",
 ];
 
+pub const POLL_INTERVAL: Duration = Duration::from_millis(250);
+
 pub fn parse_record(line: &str, cwd: &Path) -> Parsed {
+    parse_line(line, cwd).0
+}
+
+/// Also says whether the record was a `user`/`assistant` one, which the unreadable rule counts.
+fn parse_line(line: &str, cwd: &Path) -> (Parsed, bool) {
     let Ok(record) = serde_json::from_str::<Value>(line) else {
-        return Parsed::Invalid;
+        return (Parsed::Invalid, false);
     };
     let is_user = match record["type"].as_str() {
         Some("user") => true,
         Some("assistant") => false,
-        _ => return Parsed::Ignored,
+        _ => return (Parsed::Ignored, false),
     };
     if record["isSidechain"] == true || record["isMeta"] == true {
-        return Parsed::Ignored;
+        return (Parsed::Ignored, true);
     }
     let content = &record["message"]["content"];
     if !known_shape(content) {
-        return Parsed::Unrecognized;
+        return (Parsed::Unrecognized, true);
     }
     let uuid = record["uuid"].as_str().unwrap_or_default();
     let items = if is_user {
@@ -79,9 +92,203 @@ pub fn parse_record(line: &str, cwd: &Path) -> Parsed {
         assistant_items(uuid, content, cwd)
     };
     if items.is_empty() {
-        Parsed::Ignored
+        (Parsed::Ignored, true)
     } else {
-        Parsed::Items(items)
+        (Parsed::Items(items), true)
+    }
+}
+
+/// Where Claude Code writes the transcript of `session_id` started in `cwd`.
+pub fn expected_path(projects_dir: &Path, cwd: &Path, session_id: &str) -> PathBuf {
+    let folder: String = cwd
+        .to_string_lossy()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    projects_dir
+        .join(folder)
+        .join(format!("{session_id}.jsonl"))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TailUpdate {
+    Reset(Vec<ChatItem>),
+    Append(Vec<ChatItem>),
+    Unreadable,
+}
+
+/// Reads the lines appended to a transcript since the last poll.
+pub struct Tail {
+    path: PathBuf,
+    cwd: PathBuf,
+    offset: u64,
+    partial: Vec<u8>,
+    hits: usize,
+    misses: usize,
+    reset_due: bool,
+    unreadable_sent: bool,
+}
+
+impl Tail {
+    pub fn new(path: PathBuf, cwd: PathBuf) -> Self {
+        Self {
+            path,
+            cwd,
+            offset: 0,
+            partial: Vec::new(),
+            hits: 0,
+            misses: 0,
+            reset_due: true,
+            unreadable_sent: false,
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn switch(&mut self, path: PathBuf) {
+        self.path = path;
+        self.restart();
+        self.unreadable_sent = false;
+    }
+
+    pub fn poll(&mut self) -> Option<TailUpdate> {
+        let items = match self.read_new() {
+            Ok(items) => items,
+            Err(_) => {
+                self.restart();
+                return self.unreadable();
+            }
+        };
+        if self.misses > 0 && self.hits == 0 {
+            return self.unreadable();
+        }
+        self.unreadable_sent = false;
+        if self.reset_due {
+            self.reset_due = false;
+            Some(TailUpdate::Reset(items))
+        } else if items.is_empty() {
+            None
+        } else {
+            Some(TailUpdate::Append(items))
+        }
+    }
+
+    fn restart(&mut self) {
+        self.offset = 0;
+        self.partial.clear();
+        self.hits = 0;
+        self.misses = 0;
+        self.reset_due = true;
+    }
+
+    fn unreadable(&mut self) -> Option<TailUpdate> {
+        if self.unreadable_sent {
+            return None;
+        }
+        self.unreadable_sent = true;
+        Some(TailUpdate::Unreadable)
+    }
+
+    fn read_new(&mut self) -> io::Result<Vec<ChatItem>> {
+        let mut file = match File::open(&self.path) {
+            Ok(file) => file,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                if self.offset > 0 || !self.partial.is_empty() {
+                    self.restart();
+                }
+                return Ok(Vec::new());
+            }
+            Err(error) => return Err(error),
+        };
+        if file.metadata()?.len() < self.offset {
+            self.restart();
+        }
+        file.seek(SeekFrom::Start(self.offset))?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)?;
+        self.offset += bytes.len() as u64;
+        self.partial.extend_from_slice(&bytes);
+        let Some(end) = self.partial.iter().rposition(|&b| b == b'\n') else {
+            return Ok(Vec::new());
+        };
+        let complete: Vec<u8> = self.partial.drain(..=end).collect();
+        let mut items = Vec::new();
+        for line in complete.split(|&b| b == b'\n') {
+            let line = String::from_utf8_lossy(line);
+            if line.trim().is_empty() {
+                continue;
+            }
+            match parse_line(&line, &self.cwd) {
+                (Parsed::Items(found), _) => {
+                    self.hits += 1;
+                    items.extend(found);
+                }
+                (Parsed::Ignored, true) => self.hits += 1,
+                (Parsed::Unrecognized, _) => self.misses += 1,
+                _ => {}
+            }
+        }
+        Ok(items)
+    }
+}
+
+enum Command {
+    Switch(PathBuf),
+    Stop,
+}
+
+/// Polls a `Tail` on its own thread and hands every update to `sink`.
+pub struct TailThread {
+    commands: Sender<Command>,
+    handle: Mutex<Option<JoinHandle<()>>>,
+}
+
+impl TailThread {
+    pub fn spawn(
+        mut tail: Tail,
+        interval: Duration,
+        sink: Box<dyn Fn(TailUpdate) + Send>,
+    ) -> TailThread {
+        let (commands, inbox) = mpsc::channel();
+        let handle = thread::spawn(move || {
+            loop {
+                if let Some(update) = tail.poll() {
+                    sink(update);
+                }
+                match inbox.recv_timeout(interval) {
+                    Ok(Command::Switch(path)) => tail.switch(path),
+                    Ok(Command::Stop) | Err(RecvTimeoutError::Disconnected) => return,
+                    Err(RecvTimeoutError::Timeout) => {}
+                }
+            }
+        });
+        TailThread {
+            commands,
+            handle: Mutex::new(Some(handle)),
+        }
+    }
+
+    pub fn switch(&self, path: PathBuf) {
+        let _ = self.commands.send(Command::Switch(path));
+    }
+
+    pub fn stop(&self) {
+        let _ = self.commands.send(Command::Stop);
+        let handle = self.handle.lock().unwrap_or_else(|e| e.into_inner()).take();
+        // A sink that stops its own thread must not join itself.
+        if let Some(handle) = handle
+            && handle.thread().id() != thread::current().id()
+        {
+            let _ = handle.join();
+        }
+    }
+}
+
+impl Drop for TailThread {
+    fn drop(&mut self) {
+        self.stop();
     }
 }
 
@@ -697,5 +904,318 @@ mod tests {
         assert_eq!(arg("Read", json!({})), None);
         assert_eq!(arg("Bash", json!({"command": 3})), None);
         assert_eq!(arg("Skill", json!("not an object")), None);
+    }
+}
+
+#[cfg(test)]
+mod tail_tests {
+    use super::*;
+    use serde_json::json;
+    use std::fs::{self, OpenOptions};
+    use std::io::Write;
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+    use tempfile::TempDir;
+
+    const CWD: &str = "/work/app";
+
+    fn prompt_line(uuid: &str, text: &str) -> String {
+        json!({"type": "user", "uuid": uuid, "message": {"role": "user", "content": text}})
+            .to_string()
+            + "\n"
+    }
+
+    fn unrecognized_line(uuid: &str) -> String {
+        json!({"type": "assistant", "uuid": uuid, "message": {"content": 7}}).to_string() + "\n"
+    }
+
+    fn prompt(uuid: &str, text: &str) -> ChatItem {
+        ChatItem::Prompt {
+            key: format!("{uuid}:0"),
+            text: text.into(),
+        }
+    }
+
+    fn append(path: &Path, text: &str) {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .unwrap();
+        file.write_all(text.as_bytes()).unwrap();
+    }
+
+    fn tail_at(dir: &TempDir, name: &str) -> (PathBuf, Tail) {
+        let path = dir.path().join(name);
+        (path.clone(), Tail::new(path, PathBuf::from(CWD)))
+    }
+
+    #[test]
+    fn first_poll_resets_with_all_items_then_appends() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        append(&path, &(prompt_line("a", "một") + &prompt_line("b", "hai")));
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Reset(vec![
+                prompt("a", "một"),
+                prompt("b", "hai")
+            ]))
+        );
+        assert_eq!(tail.poll(), None);
+        append(&path, &prompt_line("c", "ba"));
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Append(vec![prompt("c", "ba")]))
+        );
+        assert_eq!(tail.poll(), None);
+    }
+
+    #[test]
+    fn first_poll_resets_even_with_no_items() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        append(&path, &(json!({"type": "system"}).to_string() + "\n"));
+        assert_eq!(tail.poll(), Some(TailUpdate::Reset(vec![])));
+        assert_eq!(tail.poll(), None);
+    }
+
+    #[test]
+    fn partial_last_line_waits_for_its_newline() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        let line = prompt_line("a", "một");
+        let (head, rest) = line.split_at(10);
+        append(&path, head);
+        assert_eq!(tail.poll(), Some(TailUpdate::Reset(vec![])));
+        assert_eq!(tail.poll(), None);
+        append(&path, rest);
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Append(vec![prompt("a", "một")]))
+        );
+    }
+
+    #[test]
+    fn shorter_file_restarts_from_zero_with_a_reset() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        append(&path, &(prompt_line("a", "một") + &prompt_line("b", "hai")));
+        tail.poll();
+        fs::write(&path, prompt_line("c", "ba")).unwrap();
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Reset(vec![prompt("c", "ba")]))
+        );
+    }
+
+    #[test]
+    fn missing_file_resets_with_no_items_and_is_not_unreadable() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        assert_eq!(tail.poll(), Some(TailUpdate::Reset(vec![])));
+        assert_eq!(tail.poll(), None);
+        assert!(!path.exists(), "the tail must never create the file");
+        append(&path, &prompt_line("a", "một"));
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Append(vec![prompt("a", "một")]))
+        );
+    }
+
+    #[test]
+    fn read_error_is_unreadable_once_then_reset_when_readable() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        fs::create_dir(&path).unwrap();
+        assert_eq!(tail.poll(), Some(TailUpdate::Unreadable));
+        assert_eq!(tail.poll(), None);
+        fs::remove_dir(&path).unwrap();
+        append(&path, &prompt_line("a", "một"));
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Reset(vec![prompt("a", "một")]))
+        );
+    }
+
+    #[test]
+    fn only_unrecognized_records_are_unreadable_once() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        append(
+            &path,
+            &(unrecognized_line("a") + &json!({"type": "system"}).to_string() + "\n"),
+        );
+        assert_eq!(tail.poll(), Some(TailUpdate::Unreadable));
+        append(&path, &unrecognized_line("b"));
+        assert_eq!(tail.poll(), None);
+    }
+
+    #[test]
+    fn a_readable_record_after_unrecognized_ones_resets() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        append(&path, &unrecognized_line("a"));
+        assert_eq!(tail.poll(), Some(TailUpdate::Unreadable));
+        append(&path, &prompt_line("b", "hai"));
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Reset(vec![prompt("b", "hai")]))
+        );
+    }
+
+    #[test]
+    fn ignored_user_records_count_as_readable() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        let meta = json!({"type": "user", "isMeta": true, "message": {"content": "x"}});
+        append(&path, &(meta.to_string() + "\n" + &unrecognized_line("a")));
+        assert_eq!(tail.poll(), Some(TailUpdate::Reset(vec![])));
+    }
+
+    #[test]
+    fn one_invalid_line_among_good_ones_is_skipped() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        append(
+            &path,
+            &(prompt_line("a", "một") + "{not json\n" + &prompt_line("b", "hai")),
+        );
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Reset(vec![
+                prompt("a", "một"),
+                prompt("b", "hai")
+            ]))
+        );
+    }
+
+    #[test]
+    fn switch_restarts_on_the_new_file_and_never_reads_the_old_one() {
+        let dir = TempDir::new().unwrap();
+        let (old, mut tail) = tail_at(&dir, "old.jsonl");
+        append(&old, &prompt_line("a", "cũ"));
+        tail.poll();
+        let new = dir.path().join("new.jsonl");
+        append(&new, &prompt_line("b", "mới"));
+        tail.switch(new.clone());
+        assert_eq!(tail.path(), new.as_path());
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Reset(vec![prompt("b", "mới")]))
+        );
+        append(&old, &prompt_line("c", "cũ nữa"));
+        assert_eq!(tail.poll(), None);
+    }
+
+    #[test]
+    fn expected_path_encodes_the_cwd() {
+        assert_eq!(
+            expected_path(
+                Path::new("/home/u/.claude/projects"),
+                Path::new("/Users/me/my_app.v2"),
+                "abc-123"
+            ),
+            PathBuf::from("/home/u/.claude/projects/-Users-me-my-app-v2/abc-123.jsonl")
+        );
+    }
+
+    #[test]
+    fn poll_thread_delivers_each_entry_within_a_second_and_stops() {
+        let dir = TempDir::new().unwrap();
+        let (path, tail) = tail_at(&dir, "s.jsonl");
+        let (tx, rx) = mpsc::channel();
+        let thread = TailThread::spawn(
+            tail,
+            POLL_INTERVAL,
+            Box::new(move |update| {
+                let _ = tx.send((Instant::now(), update));
+            }),
+        );
+        let (_, first) = rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert_eq!(first, TailUpdate::Reset(vec![]));
+
+        let mut written = Vec::new();
+        for n in 0..20 {
+            append(&path, &prompt_line(&format!("u{n}"), "x"));
+            written.push(Instant::now());
+            std::thread::sleep(Duration::from_millis(90));
+        }
+        let mut delivered = vec![None; 20];
+        while delivered.iter().any(Option::is_none) {
+            let (at, update) = rx.recv_timeout(Duration::from_secs(2)).unwrap();
+            let TailUpdate::Append(items) = update else {
+                panic!("expected append, got {update:?}");
+            };
+            for item in items {
+                let ChatItem::Prompt { key, .. } = item else {
+                    panic!("unexpected {item:?}")
+                };
+                let n: usize = key[1..key.len() - 2].parse().unwrap();
+                delivered[n] = Some(at);
+            }
+        }
+        for (n, at) in delivered.into_iter().enumerate() {
+            let lag = at.unwrap() - written[n];
+            assert!(lag <= Duration::from_secs(1), "entry {n} took {lag:?}");
+        }
+
+        let asked = Instant::now();
+        thread.stop();
+        assert!(
+            asked.elapsed() < POLL_INTERVAL * 2,
+            "stop took {:?}",
+            asked.elapsed()
+        );
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(1)),
+            Err(mpsc::RecvTimeoutError::Disconnected),
+            "the thread must exit and drop its sink"
+        );
+    }
+
+    #[test]
+    fn dropping_the_poll_thread_stops_it() {
+        let dir = TempDir::new().unwrap();
+        let (_, tail) = tail_at(&dir, "s.jsonl");
+        let (tx, rx) = mpsc::channel();
+        let thread = TailThread::spawn(
+            tail,
+            POLL_INTERVAL,
+            Box::new(move |update| {
+                let _ = tx.send(update);
+            }),
+        );
+        rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        drop(thread);
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(1)),
+            Err(mpsc::RecvTimeoutError::Disconnected)
+        );
+    }
+
+    #[test]
+    fn poll_thread_switch_resets_on_the_new_file() {
+        let dir = TempDir::new().unwrap();
+        let (_, tail) = tail_at(&dir, "old.jsonl");
+        let new = dir.path().join("new.jsonl");
+        append(&new, &prompt_line("b", "mới"));
+        let (tx, rx) = mpsc::channel();
+        let thread = TailThread::spawn(
+            tail,
+            POLL_INTERVAL,
+            Box::new(move |update| {
+                let _ = tx.send(update);
+            }),
+        );
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            TailUpdate::Reset(vec![])
+        );
+        thread.switch(new);
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            TailUpdate::Reset(vec![prompt("b", "mới")])
+        );
     }
 }
