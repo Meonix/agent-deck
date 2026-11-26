@@ -984,3 +984,19 @@ Phiên bản: BRD v7.0, SRS v1.17 giữ nguyên (chỉ sửa backlog).
 - Backlog mục 38 cột SRS-ID: "SRS-FR-147, SRS-FR-149, SRS-FR-150, SRS-FR-151, SRS-FR-152, SRS-FR-153"; cột Lý do: "Must; CR-016; CR-018 thêm SRS-FR-147 (Should) từ mục 37; → /dev-feature, sửa requirement mở ô ở Term trong spec `session-pane`".
 - Backlog dòng Nguồn: thêm "CR-018 chuyển SRS-FR-147 từ mục 37 sang mục 38".
 Việc tiếp theo: /dev-feature add-chat-view
+
+## CR-019 — Chuyển SRS-FR-147 (ô mở mặc định ở Chat) từ mục 38 sang mục 39
+Ngày: 2026-11-26
+Yêu cầu: "Mở CR-019 bằng /ba-change để chuyển SRS-FR-147 sang mục 39 add-composer. Ô chỉ mở ở Chat khi đã gõ được ở Composer. Mục 38 vẫn bật Chat trên View Switch, còn ô mới tạm mở ở Term" — PO chốt khi `/dev-feature add-chat-view` dừng ở bước 2: ví dụ của SRS-FR-147 cần con trỏ ở Composer, mà Composer thuộc mục 39; làm ở mục 38 thì ô mới mở vào Chat chỉ đọc, phá SRS-FR-014 ("gõ ngay sau khi mở") và thêm một thao tác so với BO-02.
+Status: Approved (2026-11-26)
+Ảnh hưởng:
+- Backlog mục 38 (`add-chat-view`, todo, chưa có change): bỏ SRS-FR-147 (CR-018 vừa thêm). Change sẽ bật Chat trên View Switch; ô mới vẫn mở ở Term, con trỏ ở terminal phiên (giữ requirement SRS-FR-014 hiện có trong `openspec/specs/session-pane/spec.md:40`).
+- Backlog mục 39 (`add-composer`, todo): thêm SRS-FR-147, phụ thuộc thêm mục 38 (ô mở ở Chat cần Chat có sẵn).
+- `openspec/specs/session-pane/spec.md:40` hẹn SRS-FR-147 cho mục 38 → sửa thành mục 39 trong delta của `add-chat-view` (không sửa tay `openspec/specs/`).
+- SRS-FR-147 câu SHALL, Ví dụ, Kiểm chứng giữ nguyên. Không đụng BO, BR, SRS. Không có code nào cần `/dev-update`.
+Diff đề xuất:
+Phiên bản: BRD v7.0, SRS v1.17 giữ nguyên (chỉ sửa backlog).
+- Backlog mục 38 cột SRS-ID: "SRS-FR-149, SRS-FR-150, SRS-FR-151, SRS-FR-152, SRS-FR-153"; cột Lý do: "Must; CR-016; CR-019: bật Chat trên View Switch, ô mới vẫn mở ở Term tới mục 39; → /dev-feature".
+- Backlog mục 39 cột SRS-ID: "SRS-FR-147, SRS-FR-154, SRS-FR-155, SRS-FR-156, SRS-FR-157, SRS-FR-158"; cột Phụ thuộc: "37, 38"; cột Lý do: "Must; CR-016; CR-019 thêm SRS-FR-147 (Should): ô mở ở Chat, con trỏ ở Composer; → /dev-feature, sửa requirement mở ô ở Term trong spec `session-pane`; bước đầu là chạy thử nhận ra Input Ready trên ConPTY Windows và macOS".
+- Backlog dòng Nguồn: thêm "CR-019 chuyển SRS-FR-147 từ mục 38 sang mục 39".
+Việc tiếp theo: /dev-feature add-chat-view
