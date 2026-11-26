@@ -102,6 +102,13 @@ export const labels = {
   chatLog: "Hội thoại",
   chatUnreadable: "Không đọc được hội thoại, xem ở Term",
   toolRunning: "đang chạy…",
+  /** The count parts of the Activity Bar (SRS-FR-152). The "[ảnh]" placeholder lives in
+   * src-tauri/src/transcript.rs, because it is merged into result text there. */
+  activity: {
+    context: (n: number) => `${n}% context`,
+    shells: (n: number) => `${n} shell`,
+    subagents: (n: number) => `${n} subagent`,
+  },
   dismiss: "Đóng thông báo",
 
   cancel: "Huỷ",

@@ -1,3 +1,5 @@
+import { labels } from "../labels";
+
 export type ChatItem =
   | { kind: "prompt"; key: string; text: string }
   | { kind: "reply"; key: string; text: string }
@@ -56,8 +58,8 @@ export function applyChat(state: ChatState, message: ChatMessage): ChatState {
 export function activityText(activity: Activity): string {
   const parts: string[] = [];
   if (activity.tool) parts.push(activity.arg ? `${activity.tool} ${activity.arg}` : activity.tool);
-  if (activity.context !== null) parts.push(`${activity.context}% context`);
-  if (activity.shells > 0) parts.push(`${activity.shells} shell`);
-  if (activity.subagents > 0) parts.push(`${activity.subagents} subagent`);
+  if (activity.context !== null) parts.push(labels.activity.context(activity.context));
+  if (activity.shells > 0) parts.push(labels.activity.shells(activity.shells));
+  if (activity.subagents > 0) parts.push(labels.activity.subagents(activity.subagents));
   return parts.join(" · ");
 }

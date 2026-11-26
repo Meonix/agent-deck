@@ -60,3 +60,11 @@ describe("Chat view labels (CR-016)", () => {
     expect(labels.toolRunning).toBe("đang chạy…");
   });
 });
+
+describe("Activity Bar labels (SRS-FR-152)", () => {
+  it("words the context, shell and subagent counts", () => {
+    expect(labels.activity.context(42)).toBe("42% context");
+    expect(labels.activity.shells(1)).toBe("1 shell");
+    expect(labels.activity.subagents(2)).toBe("2 subagent");
+  });
+});
