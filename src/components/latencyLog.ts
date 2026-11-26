@@ -30,6 +30,7 @@ export function withLatencyLog(
     fit: () => adapter.fit(),
     screen: () => adapter.screen(),
     bracketedPaste: () => adapter.bracketedPaste(),
+    onScreenChange: (cb) => adapter.onScreenChange(cb),
     dispose: () => adapter.dispose(),
     // Mouse reports are not keystrokes; they pass through untimed.
     onBinary: (cb) => adapter.onBinary(cb),

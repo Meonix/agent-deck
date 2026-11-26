@@ -34,6 +34,8 @@ export interface TerminalAdapter {
   /** The rows of the live screen, wherever the user has scrolled. */
   screen(): ScreenLine[];
   bracketedPaste(): boolean;
+  /** Called once written output has reached the screen. Returns a function that removes the listener. */
+  onScreenChange(cb: () => void): () => void;
   dispose(): void;
 }
 

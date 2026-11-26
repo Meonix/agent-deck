@@ -11,11 +11,14 @@ export type FakeAdapter = TerminalAdapter & {
   type(data: string): void;
   sendBinary(data: string): void;
   inputWired(): boolean;
+  /** Puts `lines` on the screen and fires the screen change, as written output would. */
+  showScreen(lines: ScreenLine[]): void;
 };
 
 export function fakeAdapter(size: TerminalSize = { cols: 80, rows: 24 }): FakeAdapter {
   let dataCb: ((data: string) => void) | null = null;
   let binaryCb: ((data: string) => void) | null = null;
+  const screenCbs = new Set<() => void>();
   const adapter: FakeAdapter = {
     size,
     written: [],
@@ -49,11 +52,19 @@ export function fakeAdapter(size: TerminalSize = { cols: 80, rows: 24 }): FakeAd
     }),
     fit: vi.fn(() => ({ ...adapter.size })),
     screen: vi.fn((): ScreenLine[] => []),
+    onScreenChange: vi.fn((cb: () => void) => {
+      screenCbs.add(cb);
+      return () => void screenCbs.delete(cb);
+    }),
     bracketedPaste: vi.fn(() => true),
     dispose: vi.fn(),
     type: (data) => dataCb?.(data),
     sendBinary: (data) => binaryCb?.(data),
     inputWired: () => dataCb !== null,
+    showScreen: (lines) => {
+      vi.mocked(adapter.screen).mockReturnValue(lines);
+      screenCbs.forEach((cb) => cb());
+    },
   };
   return adapter;
 }

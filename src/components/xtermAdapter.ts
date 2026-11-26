@@ -127,6 +127,10 @@ export function createXtermAdapter({ mac = false }: { mac?: boolean } = {}): Ter
       return rows;
     },
     bracketedPaste: () => terminal.modes.bracketedPasteMode,
+    onScreenChange(cb) {
+      const subscription = terminal.onWriteParsed(cb);
+      return () => subscription.dispose();
+    },
     dispose: () => terminal.dispose(),
   };
 }

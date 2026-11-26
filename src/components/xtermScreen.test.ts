@@ -64,4 +64,21 @@ describe("xterm adapter screen", () => {
     expect(inputReadiness(screen, "Idle")).toEqual({ ready: false, reason: "approval" });
     adapter.dispose();
   });
+
+  it("tells once written output is on the screen, until the listener is removed", async () => {
+    const adapter = createXtermAdapter();
+    const seen: string[] = [];
+    const stop = adapter.onScreenChange(() => seen.push(adapter.screen()[0].text));
+    adapter.write(new TextEncoder().encode("xin chào"));
+    await vi.waitFor(() => expect(seen).toEqual(["xin chào"]));
+
+    stop();
+    adapter.write(new TextEncoder().encode("!"));
+    await screenWhen(
+      () => adapter.screen(),
+      (rows) => rows[0].text === "xin chào!",
+    );
+    expect(seen).toEqual(["xin chào"]);
+    adapter.dispose();
+  });
 });
