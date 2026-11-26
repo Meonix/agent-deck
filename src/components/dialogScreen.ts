@@ -25,7 +25,15 @@ export type Dialog =
       /** The digit of the row under ❯. */
       cursor: string | null;
     }
-  | { kind: "plan"; approve: string; keepPlanning: string; keepPlanningLabel: string; cursor: string | null };
+  | {
+      kind: "plan";
+      approve: string;
+      keepPlanning: string;
+      keepPlanningLabel: string;
+      cursor: string | null;
+      /** The plan as drawn; null unless all of it is on screen. */
+      plan: string | null;
+    };
 
 const OPTION_ROW = /^\s*(?:❯ )?(\d+)\. (.+)$/;
 const DASH_RULE = /^╌+$/;
@@ -98,15 +106,17 @@ const joined = (rows: string[]) =>
     .filter((row) => row !== "")
     .join(" ");
 
+const isRule = (row: string, width: number) => /^─+$/.test(row) && row.length * 2 >= width;
+// The fence spans the screen from column 0; a shorter or indented `╌` row is printed text.
+const isFence = (row: string, width: number) => DASH_RULE.test(row) && row.length >= 0.9 * width;
+
 /**
  * The rows of the dialog: those below the last full-width rule. A rule right before a numbered
  * option (short `─` rows aside) only separates a question's options, so it does not start the dialog.
  */
 function dialogRows(rows: string[], width: number): { rows: string[]; opened: boolean } {
-  const isRule = (row: string) => /^─+$/.test(row) && row.length * 2 >= width;
-
   for (let i = rows.length - 1; i >= 0; i--) {
-    if (!isRule(rows[i])) continue;
+    if (!isRule(rows[i], width)) continue;
     let next = i + 1;
     while (next < rows.length && /^─+$/.test(rows[next])) next++;
     if (next < rows.length && OPTION_ROW.test(rows[next])) continue;
@@ -125,11 +135,10 @@ function permission(rows: string[], width: number): Dialog {
   const no = m.options[m.options.length - 1];
   if (yes.label !== "Yes" || no.label !== "No" || m.options.length < 2) return OTHER;
 
-  // The fence spans the screen from column 0; a shorter or indented `╌` row is printed text. Both fences
-  // must be there, and a `│` box must open right under the first one: what the strip shows is what Cho phép approves.
-  const isFence = (row: string) => DASH_RULE.test(row) && row.length >= 0.9 * width;
-  const start = rows.findIndex(isFence);
-  const end = start < 0 ? -1 : rows.findIndex((row, i) => i > start && isFence(row));
+  // Both fences must be there, and a `│` box must open right under the first one: what the strip shows
+  // is what Cho phép approves.
+  const start = rows.findIndex((row) => isFence(row, width));
+  const end = start < 0 ? -1 : rows.findIndex((row, i) => i > start && isFence(row, width));
   if (end < 0 || end > m.start) return OTHER;
   const body = rows.slice(start + 1, end);
   const isBox = (row: string) => BOX_ROW.test(row.trim());
@@ -165,16 +174,33 @@ function question(rows: string[]): Dialog {
 }
 
 /** Feedback typed into "Tell Claude what to change" replaces its label, with the cursor kept on it. */
-function plan(rows: string[]): Dialog {
+function plan(rows: string[], all: string[], width: number): Dialog {
   const m = menuBelow(rows, lastIndex(rows, "Would you like to proceed?"));
   const approve = m.options.find((o) => o.label === "Yes, manually approve edits")?.key;
   const last = m.options[m.options.length - 1];
   const keep =
     m.options.find((o) => o.label === KEEP_PLANNING_LABEL) ??
     (last && m.cursor === last.key && !last.label.startsWith("Yes") ? last : undefined);
-  return approve && keep
-    ? { kind: "plan", approve, keepPlanning: keep.key, keepPlanningLabel: keep.label, cursor: m.cursor }
-    : OTHER;
+  if (!approve || !keep) return OTHER;
+  return { kind: "plan", approve, keepPlanning: keep.key, keepPlanningLabel: keep.label, cursor: m.cursor, plan: planText(all, width) };
+}
+
+/**
+ * The plan between the `╌` fences under "Here is Claude's plan:", which sits above the rule that opens the
+ * menu. Null unless the dialog's top rule, that row and both fences are on screen: a part of the plan
+ * must never pass for all of it.
+ */
+function planText(all: string[], width: number): string | null {
+  const ask = lastIndex(all, "Would you like to proceed?");
+  const here = lastIndex(all, "Here is Claude's plan:", ask);
+  if (here < 0 || !all.slice(0, here).some((row) => isRule(row, width))) return null;
+  const open = all.findIndex((row, i) => i > here && isFence(row, width));
+  const close = open < 0 ? -1 : all.findIndex((row, i) => i > open && isFence(row, width));
+  if (close < 0 || close > ask) return null;
+  const body = all.slice(open + 1, close);
+  const indent = Math.min(...body.filter((row) => row.trim() !== "").map((row) => row.search(/\S/)));
+  const text = body.map((row) => row.slice(indent)).join("\n").replace(/^\n+|\n+$/g, "");
+  return text === "" ? null : text;
 }
 
 /** Which Claude Code dialog is on screen, with what a button needs to answer it (SRS-FR-163, SRS-FR-166). */
@@ -187,7 +213,7 @@ export function dialogScreen(screen: ScreenLine[]): Dialog {
   const markers = [
     { at: lastIndex(rows, PROCEED), read: () => (opened ? permission(rows, width) : OTHER) },
     { at: lastIndex(rows, "Enter to select"), read: () => question(rows) },
-    { at: lastIndex(rows, "Would you like to proceed?"), read: () => plan(rows) },
+    { at: lastIndex(rows, "Would you like to proceed?"), read: () => plan(rows, all, width) },
   ].filter((m) => m.at >= 0);
   if (markers.length > 0) return markers.reduce((a, b) => (b.at > a.at ? b : a)).read();
   return rows.some((text) => isDialogRow({ text, dim: [] })) ? OTHER : { kind: "none" };

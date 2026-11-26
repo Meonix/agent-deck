@@ -441,5 +441,44 @@ export const planOnKeep = replaceRow(
   [" ❯ 3. Tell Claude what to change", "......dddddddddddddddddddddddddd"],
 );
 
+/**
+ * The plan Claude Code drew again after "thêm bước viết test" (plan2.json › plan2; after-feedback is the
+ * same screen). The transcript's ExitPlanMode input still held the first plan, so only the screen shows this one.
+ */
+export const planRevised = toScreen([
+  "⏺ Updated plan",
+  "  ⎿  /plan to preview",
+  "",
+  RULE,
+  " Ready to code?",
+  "",
+  " Here is Claude's plan:",
+  DASHES,
+  " Context",
+  "",
+  " Add a file hello.txt containing hi to the working directory, with a test.",
+  "",
+  " Steps",
+  "",
+  " 1. Write a test first: a check that hello.txt exists and its content is hi (e.g. test_hello.sh); run it and confirm it",
+  "    fails.",
+  " 2. Create hello.txt in the working directory (/Users/me/ws) with the content hi.",
+  " 3. Run the test again and confirm it passes.",
+  DASHES,
+  "",
+  RULE,
+  " Claude has written up a plan and is ready to execute. Would you like to proceed?",
+  "",
+  " ❯ 1. Yes, and use auto mode",
+  "   2. Yes, manually approve edits",
+  "   3. Tell Claude what to change",
+  "      shift+tab to approve with this feedback",
+  "",
+  " ctrl+g to edit in Vim · ~/.claude/plans/plan-in-3-short-merry-coral-of-b8d4b7e5-2563-4ed9-adb8-a59999f79efc.md",
+]);
+
+/** planRevised taller than the pane: its rows down to `last` have scrolled out of it. */
+export const planRevisedBelow = (last: string) => planRevised.slice(planRevised.findIndex((line) => line.text === last) + 1);
+
 /** planOnKeep after the feedback was typed into the field. */
 export const planTyped = replaceRow(planOnKeep, " ❯ 3. Tell Claude what to change", " ❯ 3. thêm bước viết test");

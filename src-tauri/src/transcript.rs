@@ -43,7 +43,8 @@ pub enum ChatItem {
     },
 }
 
-/// What Chat needs from a tool call that waits on the user.
+/// What the Question Card needs from an AskUserQuestion call. ExitPlanMode carries none: its input can
+/// hold an older plan than the one on screen (measured), so the plan card reads the screen.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum ToolDetail {
@@ -53,7 +54,6 @@ pub enum ToolDetail {
         count: usize,
         options: Vec<String>,
     },
-    Plan(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -441,10 +441,6 @@ fn tool_detail(name: &str, input: &Value) -> Option<ToolDetail> {
                     .unwrap_or_default(),
             })
         }
-        "ExitPlanMode" => input["plan"]
-            .as_str()
-            .filter(|plan| !plan.is_empty())
-            .map(|plan| ToolDetail::Plan(plan.to_string())),
         _ => None,
     }
 }
@@ -895,18 +891,6 @@ mod tests {
             json!({"kind": "tool", "key": "a:1", "id": "t2", "name": "AskUserQuestion", "arg": null,
                    "detail": {"question": {"text": "zod hay yup?", "multiSelect": false, "count": 1, "options": ["zod", "yup"]}}})
         );
-        let planned = ChatItem::Tool {
-            key: "a:2".into(),
-            id: "t3".into(),
-            name: "ExitPlanMode".into(),
-            arg: None,
-            detail: Some(ToolDetail::Plan("## Context".into())),
-        };
-        assert_eq!(
-            serde_json::to_value(planned).unwrap(),
-            json!({"kind": "tool", "key": "a:2", "id": "t3", "name": "ExitPlanMode", "arg": null,
-                   "detail": {"plan": "## Context"}})
-        );
     }
 
     fn detail_of(name: &str, input: Value) -> Option<ToolDetail> {
@@ -940,17 +924,18 @@ mod tests {
         assert_eq!(detail_of("AskUserQuestion", json!({"questions": []})), None);
     }
 
+    // Measured: after feedback, a second ExitPlanMode's input still held the first plan, so the
+    // plan card reads the plan from the screen and the transcript carries none.
     #[test]
-    fn exit_plan_mode_carries_the_plan() {
+    fn exit_plan_mode_has_no_detail() {
         assert_eq!(
             detail_of(
                 "ExitPlanMode",
                 json!({"plan": "## Context\nx\n", "planFilePath": "/p.md"})
             ),
-            Some(ToolDetail::Plan("## Context\nx\n".into()))
+            None
         );
         assert_eq!(detail_of("ExitPlanMode", json!({})), None);
-        assert_eq!(detail_of("ExitPlanMode", json!({"plan": ""})), None);
     }
 
     #[test]

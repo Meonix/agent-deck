@@ -6,9 +6,7 @@ export type ChatItem =
   | { kind: "tool"; key: string; id: string; name: string; arg: string | null; detail?: ToolDetail }
   | { kind: "result"; key: string; toolId: string; text: string; isError: boolean };
 
-export type ToolDetail =
-  | { question: { text: string; multiSelect: boolean; count: number; options: string[] } }
-  | { plan: string };
+export type ToolDetail = { question: { text: string; multiSelect: boolean; count: number; options: string[] } };
 
 export type ToolResult = { text: string; isError: boolean };
 

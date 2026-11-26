@@ -23,6 +23,8 @@ type View = {
 
 const NOTHING: View = { strip: null, question: null, plan: null, dialog: { kind: "none" } };
 
+const TOOL_OF_TITLE: Record<string, string> = { "Bash command": "Bash", "Create file": "Write", "Edit file": "Edit" };
+
 /** How long each step of a typed answer waits for the screen to show the step before it landed. */
 const STEP_WAIT_MS = 2000;
 
@@ -181,7 +183,7 @@ function stepsFor(seen: Dialog, fresh: Dialog, choice: PaneChoice): Steps | null
   return key ? answerSteps(fresh, { kind: "option", key }) : null;
 }
 
-/** The same request: a permission for the same thing, the same question, or a plan. */
+/** The same request: a permission for the same thing, the same question, or the same plan text. */
 function sameDialog(a: Dialog, b: Dialog) {
   return (
     (a.kind === "permission" &&
@@ -190,7 +192,8 @@ function sameDialog(a: Dialog, b: Dialog) {
       a.subject === b.subject &&
       a.command === b.command) ||
     (a.kind === "question" && b.kind === "question" && a.question === b.question) ||
-    (a.kind === "plan" && b.kind === "plan")
+    // A plan read in part (null) matches only one still read in part: it is answered by the screen's digits alone.
+    (a.kind === "plan" && b.kind === "plan" && a.plan === b.plan)
   );
 }
 
@@ -207,10 +210,11 @@ function viewOf(dialog: Dialog, status: PaneStatus, ended: boolean, items: ChatE
   if (dialog.kind === "permission") {
     if (knownState(status) !== "Needs Approval") return NOTHING;
     // The hook's reason and the transcript's arg keep only a command's first line; the screen shows all of it.
-    return { ...NOTHING, dialog, strip: { tool: pending?.name ?? null, detail: dialog.subject } };
+    // The transcript can lag the screen, so the dialog's own title names the tool until Chat has it.
+    return { ...NOTHING, dialog, strip: { tool: pending?.name ?? TOOL_OF_TITLE[dialog.title] ?? null, detail: dialog.subject } };
   }
   if (dialog.kind === "question") {
-    const asked = pending?.name === "AskUserQuestion" && pending.detail && "question" in pending.detail ? pending.detail.question : null;
+    const asked = pending?.name === "AskUserQuestion" ? (pending.detail?.question ?? null) : null;
     // Several questions or answers are answered in Term; the text check keeps an older question's card off a new dialog.
     if (!asked || asked.count !== 1 || asked.multiSelect) return NOTHING;
     if (!collapse(dialog.question).startsWith(collapse(asked.text).slice(0, 40))) return NOTHING;
@@ -221,7 +225,8 @@ function viewOf(dialog: Dialog, status: PaneStatus, ended: boolean, items: ChatE
   if (dialog.kind === "plan") {
     // With the cursor already in the feedback field (moved there in Term), a digit would be typed into it.
     if (dialog.cursor === dialog.keepPlanning) return NOTHING;
-    return { ...NOTHING, dialog, plan: { text: pendingPlan(pending) } };
+    // Measured: after feedback, ExitPlanMode's transcript input still held the old plan, so only the screen is read.
+    return { ...NOTHING, dialog, plan: { text: dialog.plan } };
   }
   return NOTHING;
 }
@@ -234,12 +239,6 @@ function newestPending(items: ChatEntry[]): ToolEntry | null {
     if (item.kind === "tool" && item.result === null) return item;
   }
   return null;
-}
-
-/** The plan of the pending ExitPlanMode; an earlier plan may not be the one being asked about. */
-function pendingPlan(pending: ToolEntry | null): string | null {
-  if (pending?.name !== "ExitPlanMode" || !pending.detail || !("plan" in pending.detail)) return null;
-  return pending.detail.plan.trim() === "" ? null : pending.detail.plan;
 }
 
 const collapse = (text: string) => text.replace(/\s+/g, " ").trim();

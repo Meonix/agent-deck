@@ -29,8 +29,8 @@ describe("applyChat (5.2)", () => {
   });
 
   it("keeps a tool's detail on its entry", () => {
-    const detail = { plan: "## Context" };
-    const item: ChatItem = { kind: "tool", key: "t", id: "id1", name: "ExitPlanMode", arg: null, detail };
+    const detail = { question: { text: "zod hay yup?", multiSelect: false, count: 1, options: ["zod", "yup"] } };
+    const item: ChatItem = { kind: "tool", key: "t", id: "id1", name: "AskUserQuestion", arg: null, detail };
     const s = applyChat(initialChat, { reset: true, items: [item] });
     expect(s.items[0]).toMatchObject({ kind: "tool", detail });
   });

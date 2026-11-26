@@ -203,8 +203,63 @@ describe("dialogScreen", () => {
     expect(dialogScreen(screen)).toEqual({ kind: "other" });
   });
 
-  it("reads a plan's approve and keep-planning keys", () => {
-    expect(dialogScreen(screens.plan)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1" });
+  it("reads a plan's approve and keep-planning keys, and the plan as drawn", () => {
+    expect(dialogScreen(screens.plan)).toEqual({
+      kind: "plan",
+      approve: "2",
+      keepPlanning: "3",
+      keepPlanningLabel: "Tell Claude what to change",
+      cursor: "1",
+      plan: [
+        "Context",
+        "",
+        "Add a file hello.txt containing hi to the working directory.",
+        "",
+        "Steps",
+        "",
+        "1. Create hello.txt in the working directory (/Users/me/ws).",
+        "2. Write the content hi into it.",
+        "3. Verify by reading the file back and confirming it contains hi.",
+      ].join("\n"),
+    });
+  });
+
+  it("reads the plan Claude Code drew again, its wrapped row kept under its indent", () => {
+    expect(dialogScreen(screens.planRevised)).toMatchObject({
+      kind: "plan",
+      approve: "2",
+      plan: [
+        "Context",
+        "",
+        "Add a file hello.txt containing hi to the working directory, with a test.",
+        "",
+        "Steps",
+        "",
+        "1. Write a test first: a check that hello.txt exists and its content is hi (e.g. test_hello.sh); run it and confirm it",
+        "   fails.",
+        "2. Create hello.txt in the working directory (/Users/me/ws) with the content hi.",
+        "3. Run the test again and confirm it passes.",
+      ].join("\n"),
+    });
+  });
+
+  it.each([" Ready to code?", " Here is Claude's plan:", " Context"])(
+    "has no plan text when the plan's top scrolled out of the pane down to %j, and keeps the keys",
+    (last) => {
+      expect(dialogScreen(screens.planRevisedBelow(last))).toEqual({
+        kind: "plan",
+        approve: "2",
+        keepPlanning: "3",
+        keepPlanningLabel: "Tell Claude what to change",
+        cursor: "1",
+        plan: null,
+      });
+    },
+  );
+
+  it("has no plan text when a fence of the plan is missing", () => {
+    const screen = screens.planRevised.filter((l, i, all) => !(l.text === "╌".repeat(120) && all[i - 1]?.text.includes("passes")));
+    expect(dialogScreen(screen)).toMatchObject({ kind: "plan", plan: null });
   });
 
   it("is other when a plan has no Tell Claude what to change row", () => {
@@ -249,7 +304,7 @@ describe("dialogScreen", () => {
               ? rows(" 3. Tell Claude what to change")[0]
               : l,
         );
-      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1" });
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1", plan: expect.any(String) });
     });
 
     it("ignores a numbered row in the question text", () => {
@@ -310,7 +365,7 @@ describe("dialogScreen", () => {
         " Steps",
         [" Would you like to proceed?", " 1. Yes, manually approve edits", " 2. Tell Claude what to change"],
       );
-      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1" });
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1", plan: expect.any(String) });
     });
 
     const questionWith = (...menuRows: string[]) =>
@@ -433,7 +488,7 @@ describe("dialogScreen", () => {
         " Steps",
         [" Do you want to proceed?", " ❯ 1. Yes", "   2. No", "", " Esc to cancel · Tab to amend"],
       );
-      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1" });
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1", plan: expect.any(String) });
     });
 
     it("is other when a numbered row breaks the menu", () => {

@@ -14,7 +14,7 @@ const question: Dialog = {
   otherLabel: "Type something.",
   cursor: "1",
 };
-const plan: Dialog = { kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1" };
+const plan: Dialog = { kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1", plan: null };
 
 describe("answerSteps", () => {
   it("allows and denies a permission with its digits", () => {

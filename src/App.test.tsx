@@ -3808,7 +3808,18 @@ describe("Approval (CR-016)", () => {
   const strip = () => within(pane()).queryByRole("group", { name: labels.permissionGroup });
   const composer = () => within(pane()).getByRole("textbox", { name: labels.composerLabel });
   const QUESTION_TEXT = "Dùng thư viện validation nào: zod hay yup?";
-  const PLAN_TEXT = "Context\n\nAdd a file hello.txt containing hi.\n\n1. Create hello.txt\n2. Write hi into it";
+  // The plan as claude.plan draws it.
+  const PLAN_TEXT = [
+    "Context",
+    "",
+    "Add a file hello.txt containing hi to the working directory.",
+    "",
+    "Steps",
+    "",
+    "1. Create hello.txt in the working directory (/Users/me/ws).",
+    "2. Write the content hi into it.",
+    "3. Verify by reading the file back and confirming it contains hi.",
+  ].join("\n");
   const isPlan = (_: string, el: Element | null) => el?.tagName === "PRE" && el.textContent === PLAN_TEXT;
   // A screen change is drawn on the next animation frame.
   const frame = () => act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
@@ -3830,6 +3841,7 @@ describe("Approval (CR-016)", () => {
         options: ["zod", "yup"],
       },
     });
+  const exitPlan = tool("ExitPlanMode", null);
   // The permission dialog of the spec's example: Claude Code asks to run npm install.
   const npmInstall = claude.permissionNo4.map((l) => (l.text === " touch a.txt" ? { text: " npm install", dim: [] } : l));
   const writes = (sessions: FakeSessions) => vi.mocked(sessions.write).mock.calls.map(([, bytes]) => bytes);
@@ -3881,8 +3893,20 @@ describe("Approval (CR-016)", () => {
     expect(writes(sessions)).toEqual(["3"]);
   });
 
-  it("shows the command on screen alone when no tool is known", async () => {
-    await showing(claude.permissionNo4, [], { reason: null });
+  it("names the tool from the dialog's title while Chat has no pending item yet", async () => {
+    await showing(claude.multilineDialog, [], { reason: null });
+    expect(strip()).toHaveTextContent("Bash · echo one");
+    cleanup();
+    await showing(claude.writeDialog, [], { reason: null });
+    expect(strip()).toHaveTextContent("Write · c.txt");
+    cleanup();
+    await showing(claude.editDialog, [], { reason: null });
+    expect(strip()).toHaveTextContent("Edit · README.md");
+  });
+
+  it("shows the command alone when neither Chat nor the title names the tool", async () => {
+    const unknown = claude.permissionNo4.map((l) => (l.text === " Bash command" ? { text: " Network request", dim: [] } : l));
+    await showing(unknown, [], { reason: null });
     expect(strip()).toHaveTextContent(/^touch a\.txt/);
   });
 
@@ -4114,7 +4138,7 @@ describe("Approval (CR-016)", () => {
     const approve = () => within(pane()).getByRole("button", { name: labels.approvePlan });
 
     it("shows the plan and approves it with 2 (SC-5)", async () => {
-      const { user, sessions } = await showing(claude.plan, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      const { user, sessions } = await showing(claude.plan, [exitPlan]);
       expect(within(pane()).getByText(isPlan)).toBeInTheDocument();
       expect(keep()).toBeDisabled();
       await user.click(approve());
@@ -4123,7 +4147,7 @@ describe("Approval (CR-016)", () => {
     });
 
     it("keeps planning with 3, then the feedback once the cursor is in the field, then Enter (SC-5)", async () => {
-      const { user, sessions, adapters } = await showing(claude.plan, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      const { user, sessions, adapters } = await showing(claude.plan, [exitPlan]);
       redraws(sessions, adapters[0], { "3": claude.planOnKeep, "thêm bước viết test": claude.planTyped, "\r": claude.idle });
       await user.type(within(pane()).getByRole("textbox", { name: labels.planFeedback }), "thêm bước viết test");
       await user.click(keep());
@@ -4131,7 +4155,7 @@ describe("Approval (CR-016)", () => {
     });
 
     it("stops after the digit when the plan dialog goes", async () => {
-      const { user, sessions, adapters } = await showing(claude.plan, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      const { user, sessions, adapters } = await showing(claude.plan, [exitPlan]);
       redraws(sessions, adapters[0], { "3": claude.askQuestion });
       await user.type(within(pane()).getByRole("textbox", { name: labels.planFeedback }), "thêm bước viết test");
       await user.click(keep());
@@ -4140,22 +4164,41 @@ describe("Approval (CR-016)", () => {
     });
 
     it("shows no card while the cursor already sits in Tell Claude what to change, moved there in Term", async () => {
-      await showing(claude.planOnKeep, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      await showing(claude.planOnKeep, [exitPlan]);
       expect(within(pane()).queryByRole("button", { name: labels.approvePlan })).toBeNull();
       cleanup();
-      await showing(claude.planTyped, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      await showing(claude.planTyped, [exitPlan]);
       expect(within(pane()).queryByRole("button", { name: labels.approvePlan })).toBeNull();
     });
 
-    it("shows only the pending plan, else points to Term", async () => {
-      const done: ChatItem = { kind: "tool", key: "old", id: "old", name: "ExitPlanMode", arg: null, detail: { plan: PLAN_TEXT } };
-      const result: ChatItem = { kind: "result", key: "r", toolId: "old", text: "", isError: false };
-      await showing(claude.plan, [done, result, tool("ExitPlanMode", null)]);
+    // Measured: after feedback, the second ExitPlanMode's transcript input still held the first plan.
+    it("shows the plan drawn on screen, the one Duyệt kế hoạch approves", async () => {
+      await showing(claude.planRevised, [exitPlan]);
+      expect(within(pane()).getByText((_, el) => el?.tagName === "PRE" && el.textContent!.includes("1. Write a test first"))).toBeInTheDocument();
+    });
+
+    it("points to Term when the top of the plan scrolled out of the pane, and still approves with 2", async () => {
+      const { user, sessions } = await showing(claude.planRevisedBelow(" Here is Claude's plan:"), [exitPlan]);
       expect(within(pane()).getByText(labels.planInTerm)).toBeInTheDocument();
-      expect(within(pane()).queryByText(isPlan)).toBeNull();
-      cleanup();
-      await showing(claude.plan, [tool("ExitPlanMode", null, { plan: PLAN_TEXT }), tool("Bash", "ls")]);
-      expect(within(pane()).getByText(labels.planInTerm)).toBeInTheDocument();
+      expect(within(pane()).queryByText((_, el) => el?.tagName === "PRE")).toBeNull();
+      await user.click(approve());
+      expect(writes(sessions)).toEqual(["2"]);
+    });
+
+    it("sends nothing when another plan was drawn after the card", async () => {
+      const { user, sessions, adapters } = await showing(claude.plan, [exitPlan]);
+      vi.mocked(adapters[0].screen).mockReturnValue(claude.planRevised);
+      await user.click(approve());
+      expect(sessions.write).not.toHaveBeenCalled();
+      expect(await screen.findByRole("alert")).toHaveTextContent(labels.requestChanged);
+    });
+
+    it("sends nothing when a plan shown without its text can be read at the click", async () => {
+      const { user, sessions, adapters } = await showing(claude.planRevisedBelow(" Here is Claude's plan:"), [exitPlan]);
+      vi.mocked(adapters[0].screen).mockReturnValue(claude.planRevised);
+      await user.click(approve());
+      expect(sessions.write).not.toHaveBeenCalled();
+      expect(await screen.findByRole("alert")).toHaveTextContent(labels.requestChanged);
     });
   });
 });
