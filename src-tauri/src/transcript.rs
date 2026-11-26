@@ -129,7 +129,7 @@ fn user_items(uuid: &str, content: &Value) -> Vec<ChatItem> {
     let mut items = Vec::new();
     for (index, block) in blocks.iter().enumerate() {
         match block["type"].as_str() {
-            Some("text") | Some("image") => {
+            Some("text") | Some("image") if !is_wrapper(block_text(block).as_str()) => {
                 prompt_at.get_or_insert((index, items.len()));
                 parts.push(block_text(block));
             }
@@ -192,7 +192,7 @@ fn assistant_items(uuid: &str, content: &Value, cwd: &Path) -> Vec<ChatItem> {
 /// `None` for Claude Code's own wrapper records, which Chat does not show.
 fn prompt_text(text: &str) -> Option<String> {
     let trimmed = text.trim_start();
-    if trimmed.is_empty() || WRAPPERS.iter().any(|tag| trimmed.starts_with(tag)) {
+    if trimmed.is_empty() || is_wrapper(trimmed) {
         return None;
     }
     if let Some(name) = between(text, "<command-name>", "</command-name>") {
@@ -207,6 +207,11 @@ fn prompt_text(text: &str) -> Option<String> {
         return Some(format!("! {}", command.trim()));
     }
     Some(text.to_string())
+}
+
+fn is_wrapper(text: &str) -> bool {
+    let trimmed = text.trim_start();
+    WRAPPERS.iter().any(|tag| trimmed.starts_with(tag))
 }
 
 fn between<'a>(text: &'a str, open: &str, close: &str) -> Option<&'a str> {
@@ -377,6 +382,17 @@ mod tests {
     fn wrapper_in_a_text_block_is_ignored() {
         let content = json!([{"type": "text", "text": "<system-reminder>x</system-reminder>"}]);
         assert_eq!(parse(user("u1", content)), Parsed::Ignored);
+    }
+
+    #[test]
+    fn wrapper_block_before_the_prompt_is_dropped_alone() {
+        let content = json!([
+            {"type": "text", "text": "<system-reminder>\nnote\n</system-reminder>"},
+            {"type": "text", "text": "viết test cho login"}]);
+        assert_eq!(
+            items(parse(user("u1", content))),
+            vec![prompt("u1:1", "viết test cho login")]
+        );
     }
 
     #[test]
