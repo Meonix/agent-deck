@@ -60,12 +60,9 @@ impl PaneChat {
     }
 
     /// Moves the tail to the transcript a hook event names, or to the expected file of a
-    /// new session. A `SessionEnd` names the session being left and can arrive late.
+    /// new session.
     pub(crate) fn follow(&self, event: &Value) {
-        if event["hook_event_name"] == "SessionEnd" {
-            return;
-        }
-        let Some(id) = event["session_id"].as_str().filter(|id| !id.is_empty()) else {
+        let Some(id) = reported_session(event) else {
             return;
         };
         let reported = event["transcript_path"]
@@ -101,6 +98,15 @@ impl PaneChat {
             thread.stop();
         }
     }
+}
+
+/// The session a hook event names, unless it is a `SessionEnd`: that names the session
+/// being left and can arrive after the next one started.
+pub(crate) fn reported_session(event: &Value) -> Option<&str> {
+    if event["hook_event_name"] == "SessionEnd" {
+        return None;
+    }
+    event["session_id"].as_str().filter(|id| !id.is_empty())
 }
 
 fn send(out: &dyn StatusOut, update: TailUpdate) {

@@ -14,7 +14,7 @@ use crate::activity::{PaneActivity, StatusLineSink};
 use crate::commands::AppState;
 use crate::hooks::{HookServer, HookSink, hook_settings};
 use crate::launcher::{find_claude, login_shell_path_with, session_env};
-use crate::pane_chat::PaneChat;
+use crate::pane_chat::{PaneChat, reported_session};
 use crate::pane_status::{StatusOut, StatusTracker, exit_json, now_ms};
 use crate::panes::{OpenError, PaneId, SessionId, Spawner, Start, close_in_parallel, resume_id};
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
@@ -620,12 +620,8 @@ impl SessionFollower {
         }
     }
 
-    /// A `SessionEnd` names the session being left and can arrive after the next one started.
     fn follow(&self, event: &serde_json::Value) {
-        if event["hook_event_name"] == "SessionEnd" {
-            return;
-        }
-        let Some(id) = event["session_id"].as_str().filter(|id| !id.is_empty()) else {
+        let Some(id) = reported_session(event) else {
             return;
         };
         let mut current = self.current.lock().unwrap();

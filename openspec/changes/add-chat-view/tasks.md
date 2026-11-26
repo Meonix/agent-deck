@@ -40,7 +40,7 @@
 
 - [x] 6b.1 Status line wrappers use `CURL`, `DISCARD` and `launcher::STATUS_LINE_ENV` instead of literals; one shared curl timeout constant or a one-line why for the status line's 2 s
 - [x] 6b.2 Activity Bar words come from `labels.activity` (context, shells, subagents) with `labels.test.ts` cases; a labels.ts note names the Rust "[ảnh]" placeholder
-- [ ] 6b.3 One `reported_session(event)` helper (SessionEnd skip + non-empty id) used by `SessionFollower::follow` and `PaneChat::follow`
+- [x] 6b.3 One `reported_session(event)` helper (SessionEnd skip + non-empty id) used by `SessionFollower::follow` and `PaneChat::follow`
 - [ ] 6b.4 `createStream` parses each channel message once and shares one queue helper for session, chat and activity (status keeps its exit ordering)
 - [ ] 6b.5 `activityParts(a)` returns the count parts; `ActivityBar` maps over them; drop the test-only tool branch of `activityText`
 - [ ] 6b.6 One `send_unreadable(out)` in pane_chat.rs used by both unreadable paths
