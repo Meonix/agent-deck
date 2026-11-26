@@ -16,6 +16,7 @@ pub mod session_trash;
 pub mod shell;
 pub mod status;
 pub mod status_line;
+pub mod suggest;
 pub mod transcript;
 pub mod watchdog;
 pub mod workspace;

@@ -1,14 +1,14 @@
 ## 1. Command sources (tests first) — seam 1
 
-- [ ] 1.1 Measure Claude Code 2.1.332's built-in commands. Open its "/" menu in a scratch PTY in a scratchpad folder; no prompt is sent. Record name and meaning for `suggestions.ts`.
-- [ ] 1.2 RED `suggest.rs` tests for `commands(home, workspace)`:
-  - user skills and commands, workspace skills and commands (`opsx/apply.md` → `opsx:apply`);
+- [x] 1.1 Measure Claude Code 2.1.332's built-in commands. Open its "/" menu in a scratch PTY in a scratchpad folder; no prompt is sent. Record name and meaning for `suggestions.ts` (`builtins-2.1.332.json`).
+- [x] 1.2 RED `suggest.rs` tests for `commands(home, workspace)`:
+  - user skills (also under `skills/synced/<id>/`) and commands, workspace skills and commands (`opsx/apply.md` → `opsx:apply`);
   - enabled plugin skills named `<plugin>:<name>`; a disabled plugin is left out;
   - `user-invocable: false` and a folder without `SKILL.md` are left out;
   - a name clash keeps the workspace, then the user;
   - the description is its first line, cut to 80 characters.
   (SRS-FR-159)
-- [ ] 1.3 Implement `commands` → GREEN.
+- [x] 1.3 Implement `commands` → GREEN.
 
 ## 2. Workspace files (tests first) — seam 2
 
