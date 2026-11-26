@@ -36,6 +36,8 @@ export interface TerminalAdapter {
   /** The rows of the live screen, wherever the user has scrolled. */
   screen(): ScreenLine[];
   bracketedPaste(): boolean;
+  /** The width of the screen in cells. */
+  cols(): number;
   /** Called once written output has reached the screen. Returns a function that removes the listener. */
   onScreenChange(cb: () => void): () => void;
   dispose(): void;
@@ -426,7 +428,7 @@ export function TerminalPane({
 
 // A pane whose session never started has nothing to send to.
 function readinessOf(adapter: TerminalAdapter | null, state: SessionState): Readiness {
-  return adapter ? inputReadiness(adapter.screen(), state) : { ready: false, reason: "ended" };
+  return adapter ? inputReadiness(adapter.screen(), state, adapter.cols()) : { ready: false, reason: "ended" };
 }
 
 function sameReadiness(a: Readiness, b: Readiness) {

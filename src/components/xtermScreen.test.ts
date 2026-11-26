@@ -39,7 +39,8 @@ describe("xterm adapter screen", () => {
     expect(prompt.dim.slice(2, 5)).toEqual([true, true, true]);
     expect(screen.filter((row) => row.text === "─".repeat(80))).toHaveLength(2);
     expect(adapter.bracketedPaste()).toBe(true);
-    expect(inputReadiness(screen, "Idle")).toEqual({ ready: true });
+    expect(adapter.cols()).toBe(80);
+    expect(inputReadiness(screen, "Idle", adapter.cols())).toEqual({ ready: true });
     adapter.dispose();
   });
 
@@ -61,7 +62,7 @@ describe("xterm adapter screen", () => {
     const screen = adapter.screen();
     expect(terminal.buffer.active.viewportY).toBeLessThan(terminal.buffer.active.baseY);
     expect(screen[screen.length - 1].text).toBe(" Esc to cancel");
-    expect(inputReadiness(screen, "Idle")).toEqual({ ready: false, reason: "approval" });
+    expect(inputReadiness(screen, "Idle", adapter.cols())).toEqual({ ready: false, reason: "approval" });
     adapter.dispose();
   });
 

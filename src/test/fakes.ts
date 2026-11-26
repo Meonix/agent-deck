@@ -57,6 +57,7 @@ export function fakeAdapter(size: TerminalSize = { cols: 80, rows: 24 }): FakeAd
       return () => void screenCbs.delete(cb);
     }),
     bracketedPaste: vi.fn(() => true),
+    cols: vi.fn(() => adapter.size.cols),
     dispose: vi.fn(),
     type: (data) => dataCb?.(data),
     sendBinary: (data) => binaryCb?.(data),

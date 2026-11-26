@@ -19,14 +19,16 @@ const isContinuation = ({ text }: ScreenLine) => text === "" || text.startsWith(
 // The placeholder's spaces are drawn with cursor moves, so they are not dim cells.
 const isEntirelyDim = ({ text, dim }: ScreenLine) => text.split("").every((c, i) => /\s/.test(c) || dim[i]);
 
-/** Whether Claude Code's input box is empty and no dialog is showing (RULE-12, SRS-FR-155). */
-export function inputReadiness(screen: ScreenLine[], state: SessionState): Readiness {
+/**
+ * Whether Claude Code's input box is empty and no dialog is showing (RULE-12, SRS-FR-155).
+ * `cols` is the terminal's width; combining marks make a row longer in code units than in cells.
+ */
+export function inputReadiness(screen: ScreenLine[], state: SessionState, cols: number): Readiness {
   if (state === "Ended") return { ready: false, reason: "ended" };
   if (state === "Needs Approval") return { ready: false, reason: "approval" };
 
-  const width = Math.max(0, ...screen.map((line) => line.text.length));
   const isRule = (line: ScreenLine | undefined) =>
-    line !== undefined && /^─+$/.test(line.text) && line.text.length * 2 >= width;
+    line !== undefined && /^─+$/.test(line.text) && line.text.length * 2 >= cols;
 
   let prompt = screen.length - 1;
   while (prompt >= 0 && !PROMPT_ROW.test(screen[prompt].text)) prompt--;
