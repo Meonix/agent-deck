@@ -3,7 +3,7 @@ import { labels } from "../labels";
 
 const CARD = "card card-app mx-3 mb-2 flex shrink-0 flex-col gap-2 p-3 text-[13px]";
 const HEADING = "side-label text-[11px]";
-const INPUT ="field field-on min-w-0 px-3 py-1.5 text-[12px] outline-none placeholder:text-muted-foreground";
+const INPUT = "field field-on min-w-0 px-3 py-1.5 text-[12px] outline-none placeholder:text-muted-foreground";
 
 /** The transcript's question and option labels. */
 export type Question = { text: string; options: string[] };

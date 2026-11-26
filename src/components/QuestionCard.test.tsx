@@ -88,7 +88,7 @@ describe("PlanCard (SRS-FR-167)", () => {
     const { user, feedback, keep, approve, on } = renderPlan();
     const card = screen.getByRole("group", { name: labels.planHeading });
     expect(within(card).getByText(labels.planHeading)).toHaveClass("side-label");
-    const plan =screen.getByText((_, el) => el?.tagName === "PRE" && el.textContent === PLAN);
+    const plan = screen.getByText((_, el) => el?.tagName === "PRE" && el.textContent === PLAN);
     expect(plan).toHaveClass("whitespace-pre-wrap", "font-mono");
     expect(keep).toBeDisabled();
     await user.type(feedback, "   ");
