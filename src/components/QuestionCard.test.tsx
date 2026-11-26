@@ -23,6 +23,7 @@ function renderQuestion() {
 describe("QuestionCard (SRS-FR-166)", () => {
   it("shows the question, its options as radios, Khác… and Gửi disabled until something is chosen", () => {
     const { card, send, other } = renderQuestion();
+    expect(within(card).getByText(labels.questionHeading)).toHaveClass("side-label");
     expect(card).toHaveTextContent(QUESTION.text);
     const group = within(card).getByRole("radiogroup", { name: QUESTION.text });
     expect(within(group).getAllByRole("radio").map((r) => r.getAttribute("value"))).toEqual(["zod", "yup"]);
@@ -85,7 +86,9 @@ describe("PlanCard (SRS-FR-167)", () => {
 
   it("shows the plan as written, with Tiếp tục lên kế hoạch disabled while the feedback is empty", async () => {
     const { user, feedback, keep, approve, on } = renderPlan();
-    const plan = screen.getByText((_, el) => el?.tagName === "PRE" && el.textContent === PLAN);
+    const card = screen.getByRole("group", { name: labels.planHeading });
+    expect(within(card).getByText(labels.planHeading)).toHaveClass("side-label");
+    const plan =screen.getByText((_, el) => el?.tagName === "PRE" && el.textContent === PLAN);
     expect(plan).toHaveClass("whitespace-pre-wrap", "font-mono");
     expect(keep).toBeDisabled();
     await user.type(feedback, "   ");

@@ -126,6 +126,8 @@ export const labels = {
   keepPlanning: "Tiếp tục lên kế hoạch",
   planFeedback: "Góp ý cho kế hoạch",
   planInTerm: "Xem kế hoạch ở Term",
+  questionHeading: "Claude Code hỏi",
+  planHeading: "Kế hoạch chờ duyệt",
 
   cancel: "Huỷ",
   close: "Đóng",

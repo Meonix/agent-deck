@@ -2,7 +2,8 @@ import { useId, useState } from "react";
 import { labels } from "../labels";
 
 const CARD = "card card-app mx-3 mb-2 flex shrink-0 flex-col gap-2 p-3 text-[13px]";
-const INPUT = "field field-on min-w-0 px-3 py-1.5 text-[12px] outline-none placeholder:text-muted-foreground";
+const HEADING = "side-label text-[11px]";
+const INPUT ="field field-on min-w-0 px-3 py-1.5 text-[12px] outline-none placeholder:text-muted-foreground";
 
 /** The transcript's question and option labels. */
 export type Question = { text: string; options: string[] };
@@ -19,6 +20,7 @@ export function QuestionCard({ question, onAnswer }: { question: Question; onAns
 
   return (
     <div role="group" aria-labelledby={textId} className={CARD}>
+      <div className={HEADING}>{labels.questionHeading}</div>
       <div id={textId} className="font-medium">
         {question.text}
       </div>
@@ -70,8 +72,12 @@ type PlanProps = {
 /** An ExitPlanMode request above the Composer (SRS-FR-167). */
 export function PlanCard({ plan, onApprove, onKeepPlanning }: PlanProps) {
   const [feedback, setFeedback] = useState("");
+  const headingId = useId();
   return (
-    <div className={CARD}>
+    <div role="group" aria-labelledby={headingId} className={CARD}>
+      <div id={headingId} className={HEADING}>
+        {labels.planHeading}
+      </div>
       {plan.text === null ? (
         <div className="sub text-[12px]">{labels.planInTerm}</div>
       ) : (

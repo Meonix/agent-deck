@@ -92,5 +92,7 @@ describe("Approval labels (CR-016)", () => {
     expect(labels.permissionGroup).toBe("Yêu cầu quyền");
     expect(labels.planFeedback).toBe("Góp ý cho kế hoạch");
     expect(labels.planInTerm).toBe("Xem kế hoạch ở Term");
+    expect(labels.questionHeading).toBe("Claude Code hỏi");
+    expect(labels.planHeading).toBe("Kế hoạch chờ duyệt");
   });
 });
