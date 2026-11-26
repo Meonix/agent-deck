@@ -6,6 +6,7 @@ import type { Activity, ChatState } from "./chatState";
 import { ActivityBar } from "./ActivityBar";
 import { ChatView } from "./ChatView";
 import { ICON } from "./icon";
+import type { ScreenLine } from "./inputReady";
 import { mayTakeFocus } from "./paneFocus";
 import { ShellArea, ShellFailure } from "./PaneShell";
 import { type MaximizedBadge, needsUser } from "./statusHighlight";
@@ -30,6 +31,9 @@ export interface TerminalAdapter {
   onBinary(cb: (data: string) => void): () => void;
   focus(): void;
   fit(): TerminalSize;
+  /** The rows of the visible viewport. */
+  screen(): ScreenLine[];
+  bracketedPaste(): boolean;
   dispose(): void;
 }
 

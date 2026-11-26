@@ -2,6 +2,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import type { ScreenLine } from "./inputReady";
 import type { TerminalAdapter } from "./TerminalPane";
 
 const SCROLLBACK = 10_000;
@@ -104,6 +105,27 @@ export function createXtermAdapter({ mac = false }: { mac?: boolean } = {}): Ter
       fitAddon.fit();
       return { cols: terminal.cols, rows: terminal.rows };
     },
+    screen() {
+      const buffer = terminal.buffer.active;
+      const cell = buffer.getNullCell();
+      const rows: ScreenLine[] = [];
+      for (let y = 0; y < terminal.rows; y++) {
+        const line = buffer.getLine(buffer.viewportY + y);
+        let text = "";
+        const dim: boolean[] = [];
+        for (let x = 0; line && x < terminal.cols; x++) {
+          line.getCell(x, cell);
+          // The cell right of a wide character holds no chars; it counts as a space.
+          const chars = cell.getChars() || " ";
+          text += chars;
+          for (let i = 0; i < chars.length; i++) dim.push(cell.isDim() !== 0);
+        }
+        const end = text.trimEnd().length;
+        rows.push({ text: text.slice(0, end), dim: dim.slice(0, end) });
+      }
+      return rows;
+    },
+    bracketedPaste: () => terminal.modes.bracketedPasteMode,
     dispose: () => terminal.dispose(),
   };
 }

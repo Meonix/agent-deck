@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient } from "../api/sessions";
 import type { Activity, ChatMessage } from "../components/chatState";
+import type { ScreenLine } from "../components/inputReady";
 import type { TerminalAdapter, TerminalSize } from "../components/TerminalPane";
 
 export type FakeAdapter = TerminalAdapter & {
@@ -47,6 +48,8 @@ export function fakeAdapter(size: TerminalSize = { cols: 80, rows: 24 }): FakeAd
       adapter.container?.querySelector("textarea")?.focus();
     }),
     fit: vi.fn(() => ({ ...adapter.size })),
+    screen: vi.fn((): ScreenLine[] => []),
+    bracketedPaste: vi.fn(() => true),
     dispose: vi.fn(),
     type: (data) => dataCb?.(data),
     sendBinary: (data) => binaryCb?.(data),
