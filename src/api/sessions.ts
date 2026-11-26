@@ -75,15 +75,13 @@ function asBytes(message: unknown): Uint8Array | null {
   return null;
 }
 
-function asExit(message: unknown): ExitMessage | null {
-  const value = typeof message === "string" ? safeParse(message) : message;
+function asExit(value: unknown): ExitMessage | null {
   return value !== null && typeof value === "object" && "exited" in value ? (value as ExitMessage) : null;
 }
 
 const STATES: readonly SessionState[] = ["Running", "Needs Approval", "Idle", "Error", "Ended"];
 
-function asStatus(message: unknown): PaneStatus | null {
-  const value = typeof message === "string" ? safeParse(message) : message;
+function asStatus(value: unknown): PaneStatus | null {
   if (value === null || typeof value !== "object" || !("status" in value)) return null;
   const status = (value as { status: unknown }).status;
   if (status === null || typeof status !== "object") return null;
@@ -97,22 +95,20 @@ function asStatus(message: unknown): PaneStatus | null {
   return valid ? ({ state, since, reason, tracked } as PaneStatus) : null;
 }
 
-function asSession(message: unknown): string | null {
-  const value = typeof message === "string" ? safeParse(message) : message;
+function asSession(value: unknown): string | null {
   if (value === null || typeof value !== "object" || !("session" in value)) return null;
   const { session } = value as { session: unknown };
   return typeof session === "string" ? session : null;
 }
 
-function field(message: unknown, name: string): Record<string, unknown> | null {
-  const value = typeof message === "string" ? safeParse(message) : message;
+function field(value: unknown, name: string): Record<string, unknown> | null {
   if (value === null || typeof value !== "object" || !(name in value)) return null;
   const inner = (value as Record<string, unknown>)[name];
   return inner !== null && typeof inner === "object" ? (inner as Record<string, unknown>) : null;
 }
 
-function asChat(message: unknown): ChatMessage | null {
-  const chat = field(message, "chat");
+function asChat(value: unknown): ChatMessage | null {
+  const chat = field(value, "chat");
   if (!chat) return null;
   const out: ChatMessage = {};
   if (chat.reset === true) out.reset = true;
@@ -121,8 +117,8 @@ function asChat(message: unknown): ChatMessage | null {
   return out;
 }
 
-function asActivity(message: unknown): Activity | null {
-  const a = field(message, "activity");
+function asActivity(value: unknown): Activity | null {
+  const a = field(value, "activity");
   if (!a) return null;
   const text = (v: unknown) => v === null || typeof v === "string";
   const valid =
@@ -139,6 +135,28 @@ function safeParse(text: string): unknown {
   }
 }
 
+/** Hands each value to the listener, or holds it until one is set. */
+function queued<T>() {
+  let pending: T[] = [];
+  let cb: ((value: T) => void) | null = null;
+  return {
+    push(value: T) {
+      if (cb && pending.length === 0) cb(value);
+      else pending.push(value);
+    },
+    on(next: (value: T) => void) {
+      cb = next;
+      const held = pending;
+      pending = [];
+      held.forEach(next);
+    },
+    clear() {
+      cb = null;
+      pending = [];
+    },
+  };
+}
+
 // Messages can arrive before `open_pane` resolves and before the pane registers
 // its listeners, so everything is queued until a listener takes it.
 function createStream(channel: Channel<unknown>): PaneStream {
@@ -147,13 +165,10 @@ function createStream(channel: Channel<unknown>): PaneStream {
   let outputCb: ((bytes: Uint8Array) => void) | null = null;
   let pendingStatus: PaneStatus[] = [];
   let exitCb: ((code: number | null) => void) | null = null;
-  let pendingSession: string[] = [];
-  let sessionCb: ((sessionId: string) => void) | null = null;
   let statusCb: ((status: PaneStatus) => void) | null = null;
-  let pendingChat: ChatMessage[] = [];
-  let chatCb: ((message: ChatMessage) => void) | null = null;
-  let pendingActivity: Activity[] = [];
-  let activityCb: ((activity: Activity) => void) | null = null;
+  const sessions = queued<string>();
+  const chats = queued<ChatMessage>();
+  const activities = queued<Activity>();
 
   // The exit waits for queued statuses once a status listener exists: the final status precedes it.
   const deliverExit = () => {
@@ -171,31 +186,20 @@ function createStream(channel: Channel<unknown>): PaneStream {
       else pendingOutput.push(bytes);
       return;
     }
-    const status = asStatus(message);
+    const value = typeof message === "string" ? safeParse(message) : message;
+    const status = asStatus(value);
     if (status) {
       if (statusCb && pendingStatus.length === 0) statusCb(status);
       else pendingStatus.push(status);
       return;
     }
-    const session = asSession(message);
-    if (session) {
-      if (sessionCb && pendingSession.length === 0) sessionCb(session);
-      else pendingSession.push(session);
-      return;
-    }
-    const chat = asChat(message);
-    if (chat) {
-      if (chatCb && pendingChat.length === 0) chatCb(chat);
-      else pendingChat.push(chat);
-      return;
-    }
-    const activity = asActivity(message);
-    if (activity) {
-      if (activityCb && pendingActivity.length === 0) activityCb(activity);
-      else pendingActivity.push(activity);
-      return;
-    }
-    const exit = asExit(message);
+    const session = asSession(value);
+    if (session) return sessions.push(session);
+    const chat = asChat(value);
+    if (chat) return chats.push(chat);
+    const activity = asActivity(value);
+    if (activity) return activities.push(activity);
+    const exit = asExit(value);
     if (exit) {
       pendingExit = exit;
       deliverExit();
@@ -221,32 +225,14 @@ function createStream(channel: Channel<unknown>): PaneStream {
       queued.forEach(cb);
       deliverExit();
     },
-    onSession(cb) {
-      sessionCb = cb;
-      const queued = pendingSession;
-      pendingSession = [];
-      queued.forEach(cb);
-    },
-    onChat(cb) {
-      chatCb = cb;
-      const queued = pendingChat;
-      pendingChat = [];
-      queued.forEach(cb);
-    },
-    onActivity(cb) {
-      activityCb = cb;
-      const queued = pendingActivity;
-      pendingActivity = [];
-      queued.forEach(cb);
-    },
+    onSession: sessions.on,
+    onChat: chats.on,
+    onActivity: activities.on,
     dispose() {
       channel.onmessage = () => {};
-      chatCb = null;
-      pendingChat = [];
-      activityCb = null;
-      pendingActivity = [];
-      sessionCb = null;
-      pendingSession = [];
+      chats.clear();
+      activities.clear();
+      sessions.clear();
       outputCb = null;
       exitCb = null;
       statusCb = null;
