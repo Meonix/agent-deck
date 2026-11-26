@@ -133,6 +133,8 @@ export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean
     resize: vi.fn(async () => {}),
     close: vi.fn(async () => {}),
     title: vi.fn(async () => titles[Math.min(titleCall++, titles.length - 1)]),
+    listCommands: vi.fn(async () => []),
+    listFiles: vi.fn(async () => ({ folder: "", entries: [] })),
     list: vi.fn(async () => ({ sessions: [], unreadable: 0 })),
     deleteSession: vi.fn(async () => {}),
     openShell: vi.fn(async (paneId: string) => {

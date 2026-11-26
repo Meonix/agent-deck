@@ -21,6 +21,7 @@ use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
 use crate::session_title::{UNTITLED, session_title};
 use crate::shell::{Activity, ShellError, ShellProcess, ShellSpawner, spawn_shell};
 use crate::status_line::user_status_line;
+use crate::suggest::{self, CommandItem, FileList};
 use crate::workspace::{DiskProbe, WorkspaceId};
 
 /// Upper bound on waiting for panes to close when the app quits.
@@ -199,6 +200,37 @@ pub fn shell_resize(
     shells
         .resize(&PaneId(pane_id), cols, rows)
         .map_err(io_error)
+}
+
+fn workspace_folder(app: &AppHandle, pane: &PaneId) -> Result<PathBuf, String> {
+    let state = app.state::<AppState>();
+    let list = state.list.lock().unwrap();
+    let panes = state.panes.lock().unwrap();
+    let workspace = panes.workspace_of(pane).ok_or("not_found")?;
+    let folder = list
+        .entries(&DiskProbe)
+        .into_iter()
+        .find(|w| w.id == workspace && !w.missing)
+        .ok_or("folder_missing")?
+        .path;
+    Ok(folder)
+}
+
+#[tauri::command]
+pub async fn list_commands(pane_id: String, app: AppHandle) -> Result<Vec<CommandItem>, String> {
+    let folder = workspace_folder(&app, &PaneId(pane_id))?;
+    let home = app.path().home_dir().map_err(|_| "not_found")?;
+    tauri::async_runtime::spawn_blocking(move || suggest::commands(&home, &folder))
+        .await
+        .map_err(|_| "not_found".to_string())
+}
+
+#[tauri::command]
+pub async fn list_files(pane_id: String, app: AppHandle) -> Result<FileList, String> {
+    let folder = workspace_folder(&app, &PaneId(pane_id))?;
+    tauri::async_runtime::spawn_blocking(move || suggest::files(&folder))
+        .await
+        .map_err(|_| "not_found".to_string())
 }
 
 #[tauri::command]

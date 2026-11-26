@@ -12,13 +12,13 @@
 
 ## 2. Workspace files (tests first) — seam 2
 
-- [ ] 2.1 RED `suggest.rs` tests for `files(workspace)`:
+- [x] 2.1 RED `suggest.rs` tests for `files(workspace)`:
   - in a temp git repository: tracked and untracked files, no git-ignored ones (`node_modules/`), no hidden ones (`.env`, `.github/x`); parent folders with a trailing `/`;
   - in a folder without git: walked, hidden entries skipped;
   - at most 20 000 entries.
   (SRS-FR-160)
-- [ ] 2.2 Implement `files` with `git -c core.fsmonitor=false ls-files -z --cached --others --exclude-standard`, falling back to a walk → GREEN.
-- [ ] 2.3 Tauri commands `list_commands(pane_id)` and `list_files(pane_id)`, with the workspace looked up from the pane and the work done on a blocking thread. Register them in `lib.rs`. Add `SessionsClient.listCommands` / `listFiles`, with an `invoke` test in `sessions.test.ts`.
+- [x] 2.2 Implement `files` with `git -c core.fsmonitor=false ls-files -z --cached --others --exclude-standard`, falling back to a walk → GREEN.
+- [x] 2.3 Tauri commands `list_commands(pane_id)` and `list_files(pane_id)`, with the workspace looked up from the pane and the work done on a blocking thread. Register them in `lib.rs`. Add `SessionsClient.listCommands` / `listFiles`, with an `invoke` test in `sessions.test.ts`.
 
 ## 3. Menu logic (tests first) — seam 3
 

@@ -95,6 +95,8 @@ pub fn run() {
             pane_commands::pane_write,
             pane_commands::pane_resize,
             pane_commands::pane_title,
+            pane_commands::list_commands,
+            pane_commands::list_files,
             pane_commands::close_pane,
             pane_commands::open_shell,
             pane_commands::shell_write,

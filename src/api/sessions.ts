@@ -12,6 +12,16 @@ export type PaneStatus = {
   tracked: boolean;
 };
 
+export type CommandSource =
+  | "builtin"
+  | "user-skill"
+  | "user-command"
+  | "workspace-skill"
+  | "workspace-command"
+  | "plugin";
+export type CommandItem = { name: string; description: string; source: CommandSource };
+export type FileEntry = { path: string; dir: boolean };
+export type FileList = { folder: string; entries: FileEntry[] };
 export type SessionRow = { id: string; title: string; lastActivity: number };
 export type SessionListing = { sessions: SessionRow[]; unreadable: number };
 
@@ -44,6 +54,10 @@ export interface SessionsClient {
   resize(paneId: string, cols: number, rows: number): Promise<void>;
   close(paneId: string): Promise<void>;
   title(paneId: string): Promise<string>;
+  /** Commands and skills Claude Code offers after "/", without the built-in ones; rejects with "not_found" or "folder_missing". */
+  listCommands(paneId: string): Promise<CommandItem[]>;
+  /** The workspace's files for "@"; rejects with "not_found" or "folder_missing". */
+  listFiles(paneId: string): Promise<FileList>;
   /** The workspace's Claude Code sessions, newest first; rejects with "folder_missing". */
   list(workspaceId: string): Promise<SessionListing>;
   /**
@@ -259,6 +273,8 @@ export const tauriSessionsClient: SessionsClient = {
   resize: (paneId, cols, rows) => invoke<void>("pane_resize", { paneId, cols, rows }),
   close: (paneId) => invoke<void>("close_pane", { paneId }),
   title: (paneId) => invoke<string>("pane_title", { paneId }),
+  listCommands: (paneId) => invoke<CommandItem[]>("list_commands", { paneId }),
+  listFiles: (paneId) => invoke<FileList>("list_files", { paneId }),
   list: (workspaceId) => invoke<SessionListing>("list_sessions", { workspaceId }),
   deleteSession: (workspaceId, sessionId, paneId) =>
     invoke<void>("delete_session", { workspaceId, sessionId, paneId: paneId ?? null }),

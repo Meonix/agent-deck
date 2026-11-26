@@ -158,6 +158,16 @@ describe("tauriSessionsClient (5.1)", () => {
       ["pane_title", { paneId: "p1" }],
     ]);
   });
+
+  it("maps listCommands and listFiles to their commands", async () => {
+    tauri.invoke.mockResolvedValue([]);
+    await tauriSessionsClient.listCommands("p1");
+    await tauriSessionsClient.listFiles("p1");
+    expect(tauri.invoke.mock.calls).toEqual([
+      ["list_commands", { paneId: "p1" }],
+      ["list_files", { paneId: "p1" }],
+    ]);
+  });
 });
 
 describe("session messages (SRS-FR-084)", () => {
