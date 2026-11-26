@@ -372,8 +372,8 @@ fn status_line_command(status_url: &str) -> String {
 #[cfg(windows)]
 fn status_line_command(status_url: &str) -> String {
     format!(
-        "$i=[Console]::In.ReadToEnd(); Start-Job {{ $using:i | curl.exe -s -m 2 -o NUL -X POST \
-         --data-binary '@-' {status_url} }} | Out-Null; if ($env:AGENT_DECK_STATUSLINE) \
+        "$i=[Console]::In.ReadToEnd(); $i | curl.exe -s -m 2 -o NUL -X POST \
+         --data-binary '@-' {status_url} | Out-Null; if ($env:AGENT_DECK_STATUSLINE) \
          {{ $i | powershell -NoProfile -Command $env:AGENT_DECK_STATUSLINE }}; exit 0"
     )
 }
@@ -958,8 +958,8 @@ mod tests {
              http://127.0.0.1:4321/hook/status >/dev/null 2>&1 &); [ -n \"$AGENT_DECK_STATUSLINE\" ] && \
              printf '%s' \"$i\" | sh -c \"$AGENT_DECK_STATUSLINE\"; exit 0";
         #[cfg(windows)]
-        let command = "$i=[Console]::In.ReadToEnd(); Start-Job { $using:i | curl.exe -s -m 2 -o NUL -X POST \
-             --data-binary '@-' http://127.0.0.1:4321/hook/status } | Out-Null; if ($env:AGENT_DECK_STATUSLINE) \
+        let command = "$i=[Console]::In.ReadToEnd(); $i | curl.exe -s -m 2 -o NUL -X POST \
+             --data-binary '@-' http://127.0.0.1:4321/hook/status | Out-Null; if ($env:AGENT_DECK_STATUSLINE) \
              { $i | powershell -NoProfile -Command $env:AGENT_DECK_STATUSLINE }; exit 0";
         assert_eq!(
             settings["statusLine"],

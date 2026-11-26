@@ -43,12 +43,15 @@ impl Activity {
         match event["hook_event_name"].as_str().unwrap_or_default() {
             "PreToolUse" => {
                 let input = &event["tool_input"];
-                for key in ["shell_id", "bash_id", "task_id"] {
-                    if let Some(id) = input[key].as_str() {
-                        self.shells.remove(id);
+                let name = event["tool_name"].as_str().unwrap_or_default();
+                // BashOutput and TaskOutput name a shell too, but only read it.
+                if matches!(name, "KillShell" | "TaskStop") {
+                    for key in ["shell_id", "bash_id", "task_id"] {
+                        if let Some(id) = input[key].as_str() {
+                            self.shells.remove(id);
+                        }
                     }
                 }
-                let name = event["tool_name"].as_str().unwrap_or_default();
                 self.tool = Some(Tool {
                     id: tool_use_id.unwrap_or_default().to_string(),
                     name: name.to_string(),
@@ -307,6 +310,20 @@ mod tests {
                 a.apply_hook(&stop).unwrap()["activity"]["shells"],
                 0,
                 "{key}"
+            );
+        }
+    }
+
+    #[test]
+    fn reading_a_shells_output_keeps_the_count() {
+        for (tool, key) in [("BashOutput", "bash_id"), ("TaskOutput", "task_id")] {
+            let mut a = activity();
+            a.apply_hook(&post("t", json!({"backgroundTaskId": "bg1"})));
+            let read = pre("t2", tool, json!({key: "bg1"}));
+            assert_eq!(
+                a.apply_hook(&read).unwrap()["activity"]["shells"],
+                1,
+                "{tool}"
             );
         }
     }
