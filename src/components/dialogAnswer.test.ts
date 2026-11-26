@@ -41,6 +41,11 @@ describe("answerBytes", () => {
     expect(answerBytes(plan, { kind: "keepPlanning", feedback: "a\n\nb" })).toBe("3a b\r");
   });
 
+  it("turns tabs into spaces, so Tab cannot reach Tab to amend", () => {
+    expect(answerBytes(question, { kind: "other", text: "a\tb\t\tc" })).toBe("3a b c\r");
+    expect(answerBytes(plan, { kind: "keepPlanning", feedback: "\tx\t" })).toBe("3x\r");
+  });
+
   it("strips control characters", () => {
     expect(answerBytes(question, { kind: "other", text: "va\x1b[201~li\x00bot\x7f" })).toBe("3va[201~libot\r");
   });

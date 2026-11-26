@@ -21,7 +21,34 @@ const option = (text: string): Option | null => {
   return match ? { label: match[2], key: match[1] } : null;
 };
 
-const keyOf = (rows: string[], label: string) => rows.map(option).find((o) => o?.label === label)?.key;
+type Menu = { start: number; options: Option[] };
+
+/**
+ * The last run of rows numbered 1, 2, 3… before `end`. Claude Code prints commands, plans and
+ * questions that may hold numbered rows of their own, so keys come only from this run. Between two
+ * options may sit an option's indented description, a wrapped label, or a `─` separator.
+ */
+function menu(rows: string[], end = rows.length): Menu | null {
+  let last: Menu | null = null;
+  let run: Menu | null = null;
+  for (let i = 0; i < end; i++) {
+    const o = option(rows[i]);
+    if (o && o.key === "1") run = { start: i, options: [o] };
+    else if (o && run && Number(o.key) === run.options.length + 1) run.options.push(o);
+    else if (o || !(/^─+$/.test(rows[i]) || /^\s+\S/.test(rows[i]))) run = null;
+    if (run) last = run;
+  }
+  return last;
+}
+
+const keyOf = (m: Menu | null, label: string) => m?.options.find((o) => o.label === label)?.key;
+
+/** The menu, when it comes after the row holding `anchor`. */
+function menuAfter(rows: string[], anchor: string): Menu | null {
+  const at = rows.findIndex((row) => row.includes(anchor));
+  const m = menu(rows);
+  return m && m.start > at ? m : null;
+}
 
 const joined = (rows: string[]) =>
   rows
@@ -49,8 +76,9 @@ function dialogRows(screen: ScreenLine[]): string[] {
 }
 
 function permission(rows: string[]): Dialog {
-  const yes = keyOf(rows, "Yes");
-  const no = keyOf(rows, "No");
+  const m = menuAfter(rows, "Do you want to proceed?");
+  const yes = keyOf(m, "Yes");
+  const no = keyOf(m, "No");
   const start = rows.findIndex((row) => DASH_RULE.test(row.trim()));
   const end = start < 0 ? -1 : rows.findIndex((row, i) => i > start && DASH_RULE.test(row.trim()));
   const body = end < 0 ? rows.filter((row) => BOX_ROW.test(row.trim())) : rows.slice(start + 1, end);
@@ -59,19 +87,19 @@ function permission(rows: string[]): Dialog {
 }
 
 function question(rows: string[]): Dialog {
+  const m = menu(rows, rows.findIndex((row) => row.includes("Enter to select")));
   const header = rows.findIndex((row) => /^\s*☐ /.test(row));
-  const first = rows.findIndex((row, i) => i > header && OPTION_ROW.test(row));
-  const text = header < 0 || first < 0 ? "" : joined(rows.slice(header + 1, first));
-  const other = keyOf(rows, OTHER_LABEL);
-  const options = rows
-    .map(option)
-    .filter((o): o is Option => o !== null && o.label !== OTHER_LABEL && o.label !== CHAT_LABEL);
+  if (!m || header < 0 || header > m.start) return { kind: "other" };
+  const text = joined(rows.slice(header + 1, m.start));
+  const other = keyOf(m, OTHER_LABEL);
+  const options = m.options.filter((o) => o.label !== OTHER_LABEL && o.label !== CHAT_LABEL);
   return text && other && options.length > 0 ? { kind: "question", question: text, options, other } : { kind: "other" };
 }
 
 function plan(rows: string[]): Dialog {
-  const approve = keyOf(rows, "Yes, manually approve edits");
-  const keepPlanning = keyOf(rows, "Tell Claude what to change");
+  const m = menuAfter(rows, "Would you like to proceed?");
+  const approve = keyOf(m, "Yes, manually approve edits");
+  const keepPlanning = keyOf(m, "Tell Claude what to change");
   return approve && keepPlanning ? { kind: "plan", approve, keepPlanning } : { kind: "other" };
 }
 

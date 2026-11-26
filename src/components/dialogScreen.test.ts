@@ -126,6 +126,63 @@ describe("dialogScreen", () => {
     expect(dialogScreen(screens[name])).toEqual({ kind: "none" });
   });
 
+  describe("reads keys only from the dialog's own menu", () => {
+    const insertAfter = (screen: ScreenLine[], text: string, extra: string[]) => {
+      const i = screen.findIndex((l) => l.text === text);
+      return [...screen.slice(0, i + 1), ...rows(...extra), ...screen.slice(i + 1)];
+    };
+
+    it("ignores numbered rows inside a permission's command", () => {
+      const screen = insertAfter(screens.permissionNo4, " touch a.txt", ["  1. No", "  2. Yes"]);
+      expect(dialogScreen(screen)).toEqual({ kind: "permission", command: "touch a.txt 1. No 2. Yes", yes: "1", no: "4" });
+    });
+
+    it("ignores a numbered list in the plan text", () => {
+      const ruleBeforeMenu = screens.plan.findIndex((l, i) => i > 15 && l.text === RULE);
+      const screen = screens.plan
+        .filter((_, i) => i !== ruleBeforeMenu)
+        .map((l) =>
+          l.text === " 1. Create hello.txt in the working directory (/Users/me/ws)."
+            ? rows(" 1. Yes, manually approve edits")[0]
+            : l.text === " 3. Verify by reading the file back and confirming it contains hi."
+              ? rows(" 3. Tell Claude what to change")[0]
+              : l,
+        );
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3" });
+    });
+
+    it("ignores a numbered row in the question text", () => {
+      const screen = insertAfter(screens.askQuestion, "Dùng thư viện validation nào: zod hay yup?", ["1. Pick one"]);
+      expect(dialogScreen(screen)).toEqual({
+        kind: "question",
+        question: "Dùng thư viện validation nào: zod hay yup? 1. Pick one",
+        options: [
+          { label: "zod", key: "1" },
+          { label: "yup", key: "2" },
+        ],
+        other: "3",
+      });
+    });
+
+    it("is other when the menu does not count up from 1", () => {
+      const screen = screens.permissionNo4.filter((l) => l.text !== "   2. Yes, and always allow access to /Users/me/ws from this project");
+      expect(dialogScreen(screen)).toEqual({ kind: "other" });
+    });
+
+    it("is other when a full-width rule printed in the command cuts the dialog", () => {
+      const screen = insertAfter(screens.permissionNo4, " Create empty file a.txt in the working directory", [
+        "╌".repeat(120),
+        RULE,
+      ]).filter((l, i, all) => !(l.text === "╌".repeat(120) && all[i + 1]?.text === " touch a.txt"));
+      expect(dialogScreen(screen)).toEqual({ kind: "other" });
+    });
+
+    it("keeps the real digits when a full-width rule in the command is followed by a numbered row", () => {
+      const screen = insertAfter(screens.permissionNo4, " touch a.txt", [RULE, "  1. No"]);
+      expect(dialogScreen(screen)).toMatchObject({ kind: "permission", yes: "1", no: "4" });
+    });
+  });
+
   it("is other when dialog words sit below the box", () => {
     expect(dialogScreen(screens.dialogBelowBox)).toEqual({ kind: "other" });
   });

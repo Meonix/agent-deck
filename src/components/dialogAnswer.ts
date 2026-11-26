@@ -9,8 +9,9 @@ export type Choice =
   | { kind: "approvePlan" }
   | { kind: "keepPlanning"; feedback: string };
 
-// Claude Code's answer field is one line and submits at the first `\r`, so newlines become spaces.
-const oneLine = (text: string) => normalisePrompt(text).replace(/\n+/g, " ").trim();
+// Claude Code's answer field is one line and submits at the first `\r`, so newlines become spaces;
+// so do tabs, which the dialog reads as "Tab to amend".
+const oneLine = (text: string) => normalisePrompt(text).replace(/[\n\t]+/g, " ").trim();
 
 const typed = (key: string, text: string) => {
   const line = oneLine(text);
