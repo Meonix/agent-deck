@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change add-session-pane. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Start a new session (SRS-FR-018)
 When the user chooses Phiên mới in the Session Chooser, the system SHALL close the Session Chooser and open a new pane that runs a new Claude Code session in that workspace folder.
 
@@ -37,7 +39,7 @@ When a pane opens, the system SHALL move keyboard focus to that pane.
 
 Traces: SRS-FR-014 ← BR-03 ← BO-02
 
-While Chat is disabled (see SRS-FR-146), a pane opens in Term and keyboard focus goes to its session terminal. Focus in the Composer of a pane opening in Chat (SRS-FR-147) comes with backlog item 38 (add-chat-view).
+A pane opens in Term and keyboard focus goes to its session terminal. Opening in Chat with focus in the Composer (SRS-FR-147) comes with backlog item 39 (add-composer), moved there by CR-019.
 
 #### Scenario: Typing right after opening
 - **WHEN** a new pane opens and the user types without clicking
@@ -230,4 +232,3 @@ Traces: SRS-FR-100 ← BR-05 ← BO-01
 - **WHEN** the user types `/exit` in a pane
 - **THEN** the pane closes with no Close Dialog (SRS-FR-083)
 - **AND** the session is still listed in the Session Chooser of its workspace
-

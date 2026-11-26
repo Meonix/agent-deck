@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change add-status-board. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Status update latency (SRS-FR-034)
 When a session open in a pane changes state, the system SHALL update every Status Highlight of that session within 3 seconds.
 
@@ -49,10 +51,23 @@ The system SHALL NOT change the user's machine-wide Claude Code settings.
 
 Traces: SRS-NFR-006 ← BRD §8 constraint
 
+The hooks and the status line the app uses for status tracking, Chat and the Activity Bar are passed to each session it launches through the inline `--settings` argument and are never written to a settings file. The user's own status line settings are only read, so the app's status line can run the user's command and show its text.
+
 #### Scenario: Settings untouched after use
 - **GIVEN** the Claude Code settings files under `~/.claude/` before the app is used
 - **WHEN** the user opens panes, works in them and closes them
 - **THEN** those settings files are byte-for-byte the same as before
+
+#### Scenario: The user's status line still shows
+- **GIVEN** the user's Claude Code settings set a status line command that prints "main · 3 files"
+- **WHEN** a pane runs a session and the user looks at Term
+- **THEN** the session terminal shows "main · 3 files" in its status line
+- **AND** the user's settings files are byte-for-byte the same as before
+
+#### Scenario: No user status line
+- **GIVEN** the user's Claude Code settings set no status line
+- **WHEN** a pane runs a session
+- **THEN** the session terminal shows no status line text from the app
 
 ### Requirement: Highlight session rows (SRS-FR-032)
 While a session is open in a pane, the system SHALL show on its Session Row the status dot and status word of its state and, when the state is `Needs Approval` or `Error`, tint the whole row with that state's colour.
@@ -354,4 +369,3 @@ Traces: SRS-FR-142 ← BR-06 ← BO-01
 - **GIVEN** the user folded `agent-deck` and quit the application with its panes open
 - **WHEN** the application starts and reopens those panes
 - **THEN** the Session Rows of `agent-deck` are shown
-

@@ -2,13 +2,15 @@
 
 ## Purpose
 TBD - created by archiving change update-pane-views. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: View Switch (SRS-FR-146)
 When the user chooses Chat, Term, Shell or Plan in the View Switch of a pane, the system SHALL show that view in the pane body.
 
 Traces: SRS-FR-146 ← BR-05 ← BO-01
 
-The View Switch is a segmented pill in the pane header with the items "Chat", "Term", "Shell" and "Plan" in that order; the item of the view shown is filled. Each pane has its own view. The items are buttons with their names as accessible names, grouped under one accessible group name, with exactly one item marked as pressed. Choosing an item moves keyboard focus into the terminal of the view shown. Until backlog items 38 (add-chat-view) and 43 (add-plan-view) land, "Chat" and "Plan" are shown but disabled (`aria-disabled`) and cannot be chosen; panes show Term. The view is not kept between application launches (SRS section 3, Pane).
+The View Switch is a segmented pill in the pane header with the items "Chat", "Term", "Shell" and "Plan" in that order; the item of the view shown is filled. Each pane has its own view. The items are buttons with their names as accessible names, grouped under one accessible group name, with exactly one item marked as pressed. Choosing an item moves keyboard focus into the terminal of the view shown. Until backlog item 43 (add-plan-view) lands, "Plan" is shown but disabled (`aria-disabled`) and cannot be chosen; panes open in Term until item 39 (SRS-FR-147). The view is not kept between application launches (SRS section 3, Pane).
 
 #### Scenario: Choose Term
 - **GIVEN** the pane "agent-deck · Fix login bug" shows Shell
@@ -25,7 +27,13 @@ The View Switch is a segmented pill in the pane header with the items "Chat", "T
 - **GIVEN** a pane is open
 - **WHEN** the user looks at its View Switch
 - **THEN** it shows "Chat", "Term", "Shell" and "Plan" in that order
-- **AND** "Chat" and "Plan" are marked disabled, and clicking either or pressing Enter on it leaves the pane in its current view
+- **AND** only "Plan" is marked disabled (Chat has been enabled by add-chat-view), and clicking "Plan" or pressing Enter on it leaves the pane in its current view
+
+#### Scenario: Choose Chat
+- **GIVEN** the pane "agent-deck · Fix login bug" shows Term
+- **WHEN** the user chooses Chat in its View Switch
+- **THEN** the pane body shows the Chat view of its session
+- **AND** the Chat item is filled and the session terminal is hidden but still running
 
 #### Scenario: Keyboard
 - **GIVEN** keyboard focus is on the Shell item of a pane showing Term
@@ -52,4 +60,3 @@ Traces: SRS-FR-148 ← BR-05 ← BO-01
 - **GIVEN** a pane whose session is `Running`
 - **WHEN** the user switches the pane to Shell
 - **THEN** the session is still `Running` and its process has not been stopped or restarted
-
