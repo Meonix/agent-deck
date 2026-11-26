@@ -38,7 +38,7 @@
 
 ## 6b. Design follow-ups before archive (approved at GATE 3)
 
-- [ ] 6b.1 Status line wrappers use `CURL`, `DISCARD` and `launcher::STATUS_LINE_ENV` instead of literals; one shared curl timeout constant or a one-line why for the status line's 2 s
+- [x] 6b.1 Status line wrappers use `CURL`, `DISCARD` and `launcher::STATUS_LINE_ENV` instead of literals; one shared curl timeout constant or a one-line why for the status line's 2 s
 - [ ] 6b.2 Activity Bar words come from `labels.activity` (context, shells, subagents) with `labels.test.ts` cases; a labels.ts note names the Rust "[ảnh]" placeholder
 - [ ] 6b.3 One `reported_session(event)` helper (SessionEnd skip + non-empty id) used by `SessionFollower::follow` and `PaneChat::follow`
 - [ ] 6b.4 `createStream` parses each channel message once and shares one queue helper for session, chat and activity (status keeps its exit ordering)

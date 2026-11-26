@@ -359,23 +359,27 @@ pub fn hook_settings(url: &str, status_url: &str, user: Option<&UserStatusLine>)
 }
 
 /// Replaces the user's status line, so it posts its input and then runs the user's
-/// own command, passed in `AGENT_DECK_STATUSLINE` to avoid quoting it here.
+/// own command, passed in `STATUS_LINE_ENV` to avoid quoting it here.
+/// The status line refresh waits on this post (on Windows it runs in the foreground),
+/// so its timeout is kept shorter than the hooks' 3 s.
 #[cfg(not(windows))]
 fn status_line_command(status_url: &str) -> String {
+    let env = crate::launcher::STATUS_LINE_ENV;
     format!(
-        "i=$(cat); (printf '%s' \"$i\" | curl -s -m 2 -o /dev/null -X POST --data-binary @- {status_url} \
-         >/dev/null 2>&1 &); [ -n \"$AGENT_DECK_STATUSLINE\" ] && printf '%s' \"$i\" | \
-         sh -c \"$AGENT_DECK_STATUSLINE\"; exit 0"
+        "i=$(cat); (printf '%s' \"$i\" | {CURL} -s -m 2 -o {DISCARD} -X POST --data-binary @- {status_url} \
+         >{DISCARD} 2>&1 &); [ -n \"${env}\" ] && printf '%s' \"$i\" | \
+         sh -c \"${env}\"; exit 0"
     )
 }
 
 #[cfg(windows)]
 fn status_line_command(status_url: &str) -> String {
+    let env = crate::launcher::STATUS_LINE_ENV;
     format!(
         "[Console]::InputEncoding=[Console]::OutputEncoding=$OutputEncoding=\
-         [Text.UTF8Encoding]::new($false); $i=[Console]::In.ReadToEnd(); $i | curl.exe -s -m 2 -o NUL -X POST \
-         --data-binary '@-' {status_url} | Out-Null; if ($env:AGENT_DECK_STATUSLINE) \
-         {{ $i | powershell -NoProfile -Command $env:AGENT_DECK_STATUSLINE }}; exit 0"
+         [Text.UTF8Encoding]::new($false); $i=[Console]::In.ReadToEnd(); $i | {CURL} -s -m 2 -o {DISCARD} -X POST \
+         --data-binary '@-' {status_url} | Out-Null; if ($env:{env}) \
+         {{ $i | powershell -NoProfile -Command $env:{env} }}; exit 0"
     )
 }
 
