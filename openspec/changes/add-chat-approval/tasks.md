@@ -63,7 +63,7 @@
 - [x] 5.1 `npm test` green and `cargo test` (in `src-tauri`) green.
 - [x] 5.2 `npx tsc --noEmit` clean and `npm run build` succeeds.
 - [x] 5.3 `openspec validate add-chat-approval --strict`.
-- [ ] 5.4 Real app on macOS, separate identifier, scratch folder, session in manual (default) permission mode:
+- [x] 5.4 (run 2026-11-26, Claude Code 2.1.332: all pass after one fix — run 1 found the plan card showing a stale transcript plan; the plan is now read from the screen; the stale-click toast is covered by App tests, not reproduced by hand) Real app on macOS, separate identifier, scratch folder, session in manual (default) permission mode:
   - Cho phép on a real permission dialog runs the command;
   - Từ chối does not run it;
   - a strip after answering `1` in Term disappears, or shows "Yêu cầu đã thay đổi" if clicked in that window;
