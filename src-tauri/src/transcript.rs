@@ -162,6 +162,7 @@ impl Tail {
             }
         };
         if self.misses > 0 && self.hits == 0 {
+            self.reset_due = true;
             return self.unreadable();
         }
         self.unreadable_sent = false;
@@ -1065,6 +1066,20 @@ mod tail_tests {
     }
 
     #[test]
+    fn readable_after_unrecognized_following_a_reset_resets_again() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        assert_eq!(tail.poll(), Some(TailUpdate::Reset(vec![])));
+        append(&path, &unrecognized_line("a"));
+        assert_eq!(tail.poll(), Some(TailUpdate::Unreadable));
+        append(&path, &prompt_line("b", "hai"));
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Reset(vec![prompt("b", "hai")]))
+        );
+    }
+
+    #[test]
     fn ignored_user_records_count_as_readable() {
         let dir = TempDir::new().unwrap();
         let (path, mut tail) = tail_at(&dir, "s.jsonl");
@@ -1117,6 +1132,10 @@ mod tail_tests {
                 "abc-123"
             ),
             PathBuf::from("/home/u/.claude/projects/-Users-me-my-app-v2/abc-123.jsonl")
+        );
+        assert_eq!(
+            expected_path(Path::new("/p"), Path::new("/Users/me/dự án"), "s"),
+            PathBuf::from("/p/-Users-me-d---n/s.jsonl")
         );
     }
 
