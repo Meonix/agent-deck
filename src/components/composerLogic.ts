@@ -2,8 +2,12 @@ export type Delivery =
   | { ok: true; bytes: string }
   | { ok: false; reason: "empty" | "unrecognized" };
 
-/** The prompt as it is sent and kept in the history: line endings as `\n`, nothing trimmed. */
-export const normalisePrompt = (text: string) => text.replace(/\r\n?/g, "\n");
+// C0 controls except tab and newline, and DEL. A typed prompt has none; a pasted ESC could end the
+// bracketed paste early and turn the rest of the prompt into keystrokes.
+const CONTROLS = /[\x00-\x08\x0b-\x1f\x7f]/g;
+
+/** The prompt as it is sent and kept in the history: line endings as `\n`, no controls, nothing trimmed. */
+export const normalisePrompt = (text: string) => text.replace(/\r\n?/g, "\n").replace(CONTROLS, "");
 
 /** The bytes that submit `text` as one prompt, as if typed in Term and submitted. */
 export function sendPrompt(text: string, bracketedPaste: boolean): Delivery {

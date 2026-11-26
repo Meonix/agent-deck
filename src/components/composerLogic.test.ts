@@ -24,6 +24,16 @@ describe("sendPrompt", () => {
     expect(sendPrompt("a\nb", false)).toEqual({ ok: false, reason: "unrecognized" });
   });
 
+  it("drops control characters, so pasted text cannot end the paste and type keys", () => {
+    const delivery = sendPrompt("a\x1b[201~\r1\tb\x7f\x00", true);
+    expect(delivery).toEqual({ ok: true, bytes: "\x1b[200~a[201~\n1\tb\x1b[201~\r" });
+    if (delivery.ok) expect(delivery.bytes.slice(6, -7)).not.toContain("\x1b");
+  });
+
+  it("treats text of control characters only as empty", () => {
+    expect(sendPrompt("\x1b\x07\x7f", true)).toEqual({ ok: false, reason: "empty" });
+  });
+
   it("does not trim a non-empty prompt", () => {
     expect(sendPrompt("  a  ", false)).toEqual({ ok: true, bytes: "  a  \r" });
     expect(sendPrompt("  a  ", true)).toEqual({ ok: true, bytes: "\x1b[200~  a  \x1b[201~\r" });
