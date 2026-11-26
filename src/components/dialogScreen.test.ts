@@ -208,6 +208,47 @@ describe("dialogScreen", () => {
       expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3" });
     });
 
+    const questionWith = (...menuRows: string[]) =>
+      rows(RULE, " ☐ Pick", "", "Which one?", "", ...menuRows, "", "Enter to select · ↑/↓ to navigate · Esc to cancel");
+
+    it("ignores a description row numbered like the next option", () => {
+      const screen = questionWith(
+        "❯ 1. A",
+        "  2. B",
+        "     3. Type something.",
+        "  3. C",
+        "  4. Type something.",
+        "  5. Chat about this",
+      );
+      expect(dialogScreen(screen)).toEqual({
+        kind: "question",
+        question: "Which one?",
+        options: [
+          { label: "A", key: "1" },
+          { label: "B", key: "2" },
+          { label: "C", key: "3" },
+        ],
+        other: "4",
+      });
+    });
+
+    it("ignores a description row starting with 1.", () => {
+      const screen = questionWith("❯ 1. A", "     1. first step", "  2. B", "  3. Type something.");
+      expect(dialogScreen(screen)).toEqual({
+        kind: "question",
+        question: "Which one?",
+        options: [
+          { label: "A", key: "1" },
+          { label: "B", key: "2" },
+        ],
+        other: "3",
+      });
+    });
+
+    it("is other when a numbered row breaks the menu", () => {
+      expect(dialogScreen(questionWith("❯ 1. A", "  2. Type something.", "  4. C"))).toEqual({ kind: "other" });
+    });
+
     it("is other when the menu does not count up from 1", () => {
       const screen = screens.permissionNo4.filter((l) => l.text !== "   2. Yes, and always allow access to /Users/me/ws from this project");
       expect(dialogScreen(screen)).toEqual({ kind: "other" });

@@ -16,26 +16,35 @@ const CHAT_LABEL = "Chat about this";
 
 type Option = { label: string; key: string };
 
-const option = (text: string): Option | null => {
+const option = (text: string): (Option & { column: number }) | null => {
   const match = OPTION_ROW.exec(text);
-  return match ? { label: match[2], key: match[1] } : null;
+  return match ? { label: match[2], key: match[1], column: text.indexOf(match[1]) } : null;
 };
 
-type Menu = { start: number; options: Option[] };
+type Menu = { start: number; column: number; options: Option[] };
 
 /**
- * The last run of rows numbered 1, 2, 3… before `end`. Claude Code prints commands, plans and
- * questions that may hold numbered rows of their own, so keys come only from this run. Between two
- * options may sit an option's indented description, a wrapped label, or a `─` separator.
+ * The last run of rows numbered 1, 2, 3… before `end`, every digit in one column. Claude Code prints
+ * commands, plans and questions that may hold numbered rows of their own, so keys come only from this
+ * run. Between two options may sit an option's indented description (numbered or not), a wrapped
+ * label, or a `─` separator. A run broken by a numbered row out of sequence is no menu at all.
  */
 function menu(rows: string[], end = rows.length): Menu | null {
   let last: Menu | null = null;
   let run: Menu | null = null;
   for (let i = 0; i < end; i++) {
     const o = option(rows[i]);
-    if (o && o.key === "1") run = { start: i, options: [o] };
-    else if (o && run && Number(o.key) === run.options.length + 1) run.options.push(o);
-    else if (o || !(/^─+$/.test(rows[i]) || /^\s+\S/.test(rows[i]))) run = null;
+    if (!o) {
+      if (!(/^─+$/.test(rows[i]) || /^\s+\S/.test(rows[i]))) run = null;
+    } else if (run && o.column !== run.column) {
+      continue;
+    } else if (run && Number(o.key) === run.options.length + 1) {
+      run.options.push({ label: o.label, key: o.key });
+    } else if (o.key === "1") {
+      run = { start: i, column: o.column, options: [{ label: o.label, key: o.key }] };
+    } else {
+      run = last = null;
+    }
     if (run) last = run;
   }
   return last;
