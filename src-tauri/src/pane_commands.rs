@@ -13,6 +13,7 @@ use tauri::{AppHandle, Manager, State};
 use crate::commands::AppState;
 use crate::hooks::{HookServer, HookSink, hook_settings};
 use crate::launcher::{find_claude, login_shell_path_with, session_env};
+use crate::pane_chat::PaneChat;
 use crate::pane_status::{StatusOut, StatusTracker, exit_json, now_ms};
 use crate::panes::{OpenError, PaneId, SessionId, Spawner, Start, close_in_parallel, resume_id};
 use crate::pty::{OutputSink, PaneProcess, ProcessKiller, PtySession, SpawnSpec};
@@ -280,6 +281,7 @@ fn open_blocking(
             tracker: tracker.clone(),
             hooks: state.hooks.clone(),
             session_out: Arc::new(ChannelStatus(output.clone())),
+            projects_dir: crate::session_commands::projects_dir(app).ok(),
         };
         let sink = ChannelSink {
             channel: output,
@@ -414,6 +416,8 @@ struct PtySpawner<'a> {
     /// None when the listener could not start: spawn without hooks (D2, D5).
     hooks: Option<Arc<HookServer>>,
     session_out: Arc<dyn StatusOut>,
+    /// None: the pane has no Chat feed.
+    projects_dir: Option<PathBuf>,
 }
 
 impl Spawner for PtySpawner<'_> {
@@ -430,12 +434,21 @@ impl Spawner for PtySpawner<'_> {
             session_id.0.clone(),
             self.session_out.clone(),
         ));
+        let chat = self.projects_dir.as_ref().map(|projects| {
+            Arc::new(PaneChat::new(
+                projects,
+                cwd,
+                &session_id.0,
+                self.session_out.clone(),
+            ))
+        });
         // Registered before the spawn so the first hook cannot miss its sink.
         let hook = self.hooks.as_ref().map(|server| {
             let token = uuid::Uuid::new_v4().to_string();
             let sink = PaneHooks {
                 tracker: self.tracker.clone(),
                 follower: follower.clone(),
+                chat: chat.clone(),
             };
             server.register(&token, Arc::new(sink));
             args.push("--settings".into());
@@ -455,11 +468,15 @@ impl Spawner for PtySpawner<'_> {
         match PtySession::spawn(spec, sink) {
             Ok(session) => {
                 let killer = session.killer();
+                if let Some(chat) = &chat {
+                    chat.start();
+                }
                 Some(Box::new(TrackedProcess {
                     inner: QueuedProcess::new(Box::new(session), Some(killer)),
                     tracker: self.tracker.clone(),
                     follower,
                     hook,
+                    chat,
                 }))
             }
             Err(e) => {
@@ -548,12 +565,16 @@ impl StatusOut for ChannelStatus {
 struct PaneHooks {
     tracker: Arc<StatusTracker>,
     follower: Arc<SessionFollower>,
+    chat: Option<Arc<PaneChat>>,
 }
 
 impl HookSink for PaneHooks {
     fn hook(&self, event: serde_json::Value) {
         self.tracker.hook(event.clone());
         self.follower.follow(&event);
+        if let Some(chat) = &self.chat {
+            chat.follow(&event);
+        }
     }
 }
 
@@ -595,7 +616,7 @@ impl SessionFollower {
 }
 
 /// A pane process that tells its tracker about input and a close by the user, and
-/// drops its hook token when it closes.
+/// drops its hook token and stops its Chat feed when it closes.
 struct TrackedProcess {
     inner: QueuedProcess,
     tracker: Arc<StatusTracker>,
@@ -603,12 +624,16 @@ struct TrackedProcess {
     follower: Arc<SessionFollower>,
     /// None when the pane was spawned without a listener.
     hook: Option<(Arc<HookServer>, String)>,
+    chat: Option<Arc<PaneChat>>,
 }
 
 impl TrackedProcess {
-    fn unregister(&self) {
+    fn release(&self) {
         if let Some((server, token)) = &self.hook {
             server.unregister(token);
+        }
+        if let Some(chat) = &self.chat {
+            chat.stop();
         }
     }
 }
@@ -625,7 +650,7 @@ impl PaneProcess for TrackedProcess {
 
     fn close(&mut self) {
         self.tracker.close_by_user();
-        self.unregister();
+        self.release();
         self.inner.close();
     }
 
@@ -640,7 +665,7 @@ impl PaneProcess for TrackedProcess {
 
 impl Drop for TrackedProcess {
     fn drop(&mut self) {
-        self.unregister();
+        self.release();
     }
 }
 
@@ -847,6 +872,7 @@ mod tests {
             tracker,
             hooks,
             session_out: Arc::new(Outbox::default()),
+            projects_dir: None,
         }
     }
 
@@ -1148,6 +1174,7 @@ mod tests {
             tracker,
             follower: Arc::new(SessionFollower::new("s".into(), Arc::new(Outbox::default()))),
             hook: None,
+            chat: None,
         };
 
         process.write(b"\x1b[I").unwrap();
@@ -1294,6 +1321,298 @@ mod tests {
         let rc = unsafe { libc::kill(-pgid, 0) };
         assert_eq!(rc, -1, "group {pgid} still alive");
         assert_eq!(io::Error::last_os_error().raw_os_error(), Some(libc::ESRCH));
+    }
+
+    mod chat {
+        use super::*;
+        use crate::transcript::expected_path;
+        use serde_json::{Value, json};
+        use std::io::Write;
+
+        fn prompt_line(uuid: &str, text: &str) -> String {
+            json!({"type": "user", "uuid": uuid, "message": {"role": "user", "content": text}})
+                .to_string()
+                + "\n"
+        }
+
+        fn prompt(uuid: &str, text: &str) -> Value {
+            json!({"kind": "prompt", "key": format!("{uuid}:0"), "text": text})
+        }
+
+        fn append(path: &Path, text: &str) {
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            let mut file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .unwrap();
+            file.write_all(text.as_bytes()).unwrap();
+        }
+
+        /// `{"chat"}` and `{"session"}` messages sent so far.
+        fn feed(out: &Outbox) -> Vec<Value> {
+            out.0
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|j| serde_json::from_str::<Value>(j).unwrap())
+                .filter(|m| m.get("chat").is_some() || m.get("session").is_some())
+                .collect()
+        }
+
+        fn wait_feed(out: &Outbox, n: usize) -> Vec<Value> {
+            let end = Instant::now() + Duration::from_secs(3);
+            loop {
+                let sent = feed(out);
+                if sent.len() >= n {
+                    return sent;
+                }
+                assert!(Instant::now() < end, "{n} messages expected, got {sent:?}");
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
+
+        /// Long enough for a running tail thread to have polled twice more.
+        fn quiet() {
+            std::thread::sleep(crate::transcript::POLL_INTERVAL * 2 + Duration::from_millis(100));
+        }
+
+        fn reset(items: Vec<Value>) -> Value {
+            json!({"chat": {"reset": true, "items": items}})
+        }
+
+        struct Pane {
+            out: Outbox,
+            hooks: PaneHooks,
+            chat: Arc<PaneChat>,
+        }
+
+        fn pane(projects: &Path, cwd: &Path, session: &str) -> Pane {
+            let out = Outbox::default();
+            let chat = Arc::new(PaneChat::new(projects, cwd, session, Arc::new(out.clone())));
+            let hooks = PaneHooks {
+                tracker: tracker(&Outbox::default()),
+                follower: Arc::new(SessionFollower::new(session.into(), Arc::new(out.clone()))),
+                chat: Some(chat.clone()),
+            };
+            chat.start();
+            Pane { out, hooks, chat }
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn a_spawned_pane_first_sends_a_chat_reset() {
+            let bin = tempfile::tempdir().unwrap();
+            let cwd = tempfile::tempdir().unwrap();
+            let projects = tempfile::tempdir().unwrap();
+            let launch = fake_claude(bin.path(), "printf ready", 0);
+            let out = Outbox::default();
+            let mut spawner = spawner(&launch, vec![], tracker(&Outbox::default()), None);
+            spawner.session_out = Arc::new(out.clone());
+            spawner.projects_dir = Some(projects.path().into());
+            let (tx, _rx) = mpsc::channel();
+
+            let mut process = spawner
+                .spawn(
+                    cwd.path(),
+                    &SessionId("s1".into()),
+                    false,
+                    Box::new(ExitSink(Arc::default(), Mutex::new(tx))),
+                )
+                .expect("spawned");
+
+            assert_eq!(wait_feed(&out, 1)[0], reset(vec![]));
+            process.close();
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn closing_the_pane_stops_the_chat_thread() {
+            let bin = tempfile::tempdir().unwrap();
+            let cwd = tempfile::tempdir().unwrap();
+            let projects = tempfile::tempdir().unwrap();
+            let file = expected_path(projects.path(), cwd.path(), "s1");
+            append(&file, &prompt_line("a", "một"));
+            let launch = fake_claude(bin.path(), "printf ready", 0);
+            let out = Outbox::default();
+            let server = Arc::new(HookServer::start().unwrap());
+            let mut spawner = spawner(&launch, vec![], tracker(&Outbox::default()), Some(server));
+            spawner.session_out = Arc::new(out.clone());
+            spawner.projects_dir = Some(projects.path().into());
+            let (tx, _rx) = mpsc::channel();
+
+            let mut process = spawner
+                .spawn(
+                    cwd.path(),
+                    &SessionId("s1".into()),
+                    false,
+                    Box::new(ExitSink(Arc::default(), Mutex::new(tx))),
+                )
+                .expect("spawned");
+            assert_eq!(wait_feed(&out, 1), [reset(vec![prompt("a", "một")])]);
+            process.close();
+            append(&file, &prompt_line("b", "hai"));
+            quiet();
+
+            assert_eq!(feed(&out), [reset(vec![prompt("a", "một")])]);
+        }
+
+        #[test]
+        fn a_failed_spawn_sends_no_chat() {
+            let dir = tempfile::tempdir().unwrap();
+            let projects = tempfile::tempdir().unwrap();
+            let launch = Launch {
+                claude: Some(dir.path().join("missing-claude")),
+                path: String::new(),
+            };
+            let out = Outbox::default();
+            let mut spawner = spawner(&launch, vec![], tracker(&Outbox::default()), None);
+            spawner.session_out = Arc::new(out.clone());
+            spawner.projects_dir = Some(projects.path().into());
+            let (tx, _rx) = mpsc::channel();
+
+            assert!(
+                spawner
+                    .spawn(
+                        dir.path(),
+                        &SessionId("s".into()),
+                        false,
+                        Box::new(ExitSink(Arc::default(), Mutex::new(tx)))
+                    )
+                    .is_none()
+            );
+            quiet();
+            assert_eq!(feed(&out), Vec::<Value>::new());
+        }
+
+        #[test]
+        fn a_hook_transcript_path_moves_the_tail() {
+            let projects = tempfile::tempdir().unwrap();
+            let elsewhere = tempfile::tempdir().unwrap();
+            let other = elsewhere.path().join("s1.jsonl");
+            append(&other, &prompt_line("a", "một"));
+            let pane = pane(projects.path(), Path::new("/work/app"), "s1");
+            assert_eq!(wait_feed(&pane.out, 1), [reset(vec![])]);
+
+            pane.hooks.hook(json!({
+                "hook_event_name": "SessionStart",
+                "session_id": "s1",
+                "transcript_path": other,
+            }));
+
+            assert_eq!(
+                wait_feed(&pane.out, 2),
+                [reset(vec![]), reset(vec![prompt("a", "một")])]
+            );
+            pane.chat.stop();
+        }
+
+        #[test]
+        fn a_new_session_sends_session_then_a_reset_from_its_file_and_leaves_the_old_one() {
+            let projects = tempfile::tempdir().unwrap();
+            let cwd = Path::new("/work/app");
+            let old = expected_path(projects.path(), cwd, "s1");
+            let new = expected_path(projects.path(), cwd, "s2");
+            append(&old, &prompt_line("a", "cũ"));
+            append(&new, &prompt_line("b", "mới"));
+            let pane = pane(projects.path(), cwd, "s1");
+            assert_eq!(wait_feed(&pane.out, 1), [reset(vec![prompt("a", "cũ")])]);
+
+            pane.hooks.hook(json!({
+                "hook_event_name": "SessionStart",
+                "session_id": "s2",
+                "source": "clear",
+                "transcript_path": new,
+            }));
+            // Late, names the old session and its file.
+            pane.hooks.hook(json!({
+                "hook_event_name": "SessionEnd",
+                "session_id": "s1",
+                "transcript_path": old,
+            }));
+            let sent = wait_feed(&pane.out, 3);
+            append(&old, &prompt_line("c", "cũ nữa"));
+            quiet();
+
+            assert_eq!(
+                feed(&pane.out),
+                [
+                    reset(vec![prompt("a", "cũ")]),
+                    json!({"session": "s2"}),
+                    reset(vec![prompt("b", "mới")]),
+                ],
+                "{sent:?}"
+            );
+            pane.chat.stop();
+        }
+
+        #[test]
+        fn a_new_session_without_a_transcript_path_moves_to_its_expected_file() {
+            let projects = tempfile::tempdir().unwrap();
+            let cwd = Path::new("/work/app");
+            append(
+                &expected_path(projects.path(), cwd, "s2"),
+                &prompt_line("b", "mới"),
+            );
+            let pane = pane(projects.path(), cwd, "s1");
+            assert_eq!(wait_feed(&pane.out, 1), [reset(vec![])]);
+
+            pane.hooks
+                .hook(json!({"hook_event_name": "UserPromptSubmit", "session_id": "s2"}));
+
+            assert_eq!(
+                wait_feed(&pane.out, 3),
+                [
+                    reset(vec![]),
+                    json!({"session": "s2"}),
+                    reset(vec![prompt("b", "mới")]),
+                ]
+            );
+            pane.chat.stop();
+        }
+
+        #[test]
+        fn a_long_first_read_arrives_as_a_reset_of_500_and_appends() {
+            let projects = tempfile::tempdir().unwrap();
+            let cwd = Path::new("/work/app");
+            let lines: String = (0..1200)
+                .map(|i| prompt_line(&format!("u{i}"), &format!("p{i}")))
+                .collect();
+            append(&expected_path(projects.path(), cwd, "s1"), &lines);
+
+            let pane = pane(projects.path(), cwd, "s1");
+            let sent = wait_feed(&pane.out, 3);
+            pane.chat.stop();
+
+            let sizes: Vec<(bool, usize)> = sent
+                .iter()
+                .map(|m| {
+                    (
+                        m["chat"].get("reset").is_some(),
+                        m["chat"]["items"].as_array().unwrap().len(),
+                    )
+                })
+                .collect();
+            assert_eq!(sizes, [(true, 500), (false, 500), (false, 200)]);
+            assert_eq!(sent[0]["chat"]["reset"], true);
+            assert_eq!(sent[1]["chat"]["items"][0], prompt("u500", "p500"));
+            assert_eq!(sent[2]["chat"]["items"][199], prompt("u1199", "p1199"));
+        }
+
+        #[test]
+        fn an_unreadable_transcript_sends_unreadable() {
+            let projects = tempfile::tempdir().unwrap();
+            let cwd = Path::new("/work/app");
+            std::fs::create_dir_all(expected_path(projects.path(), cwd, "s1")).unwrap();
+
+            let pane = pane(projects.path(), cwd, "s1");
+
+            assert_eq!(
+                wait_feed(&pane.out, 1),
+                [json!({"chat": {"unreadable": true}})]
+            );
+            pane.chat.stop();
+        }
     }
 
     #[cfg(target_os = "macos")]

@@ -67,7 +67,7 @@ fn present_workspace(app: &AppHandle, workspace_id: &str) -> Result<WorkspaceVie
     Ok(workspace)
 }
 
-fn projects_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+pub(crate) fn projects_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(app
         .path()
         .home_dir()

@@ -3,6 +3,7 @@ pub mod diag;
 mod diag_commands;
 pub mod hooks;
 pub mod launcher;
+mod pane_chat;
 mod pane_commands;
 pub mod pane_status;
 pub mod panes;

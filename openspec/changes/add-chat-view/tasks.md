@@ -12,8 +12,8 @@
 
 ## 3. Pane wiring (tests first) — seam 3
 
-- [ ] 3.1 RED in `src-tauri/src/pane_commands.rs` tests with a fake `StatusOut`: a pane's first chat message is `{"chat":{"reset":true,…}}`; a hook's `transcript_path` different from the expected path moves the tail there; a `session_id` change with a new `transcript_path` sends `{"session"}` and then a reset from the new file, and later writes to the old file send nothing; a first read of 1 200 records arrives as a reset of 500 plus two appends; closing the pane stops the chat thread
-- [ ] 3.2 Implement: `PaneHooks` and `SessionFollower` hand `transcript_path` to the pane's tail; the chat thread starts with the pane process and stops in `TrackedProcess` close; messages on the pane channel — GREEN
+- [x] 3.1 RED in `src-tauri/src/pane_commands.rs` tests with a fake `StatusOut`: a pane's first chat message is `{"chat":{"reset":true,…}}`; a hook's `transcript_path` different from the expected path moves the tail there; a `session_id` change with a new `transcript_path` sends `{"session"}` and then a reset from the new file, and later writes to the old file send nothing; a first read of 1 200 records arrives as a reset of 500 plus two appends; closing the pane stops the chat thread
+- [x] 3.2 Implement: `PaneHooks` and `SessionFollower` hand `transcript_path` to the pane's tail; the chat thread starts with the pane process and stops in `TrackedProcess` close; messages on the pane channel — GREEN
 
 ## 4. Activity state and status line (tests first) — seams 4, 5
 
