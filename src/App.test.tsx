@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Workspace, WorkspacesClient } from "./api/workspaces";
 import type { ZoomClient } from "./api/zoom";
 import App from "./App";
-import type { TerminalSize } from "./components/TerminalPane";
+import type { PaneStatus } from "./api/sessions";
+import type { ChatItem, ToolDetail } from "./components/chatState";
+import type { ScreenLine, TerminalSize } from "./components/TerminalPane";
 import { readSnapshot, writeSnapshot, type Snapshot } from "./components/paneSnapshot";
 import * as claude from "./components/fixtures/claude-screens";
 import type { CountTone } from "./components/statusHighlight";
@@ -3797,6 +3799,212 @@ describe("Composer (CR-016)", () => {
       expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
       await user.click(within(sessionRow("p1")).getByRole("button"));
       expect(composer("p1")).toHaveFocus();
+    });
+  });
+});
+
+describe("Approval (CR-016)", () => {
+  const pane = () => screen.getByRole("region", { name: "agent-deck · p1" });
+  const strip = () => within(pane()).queryByRole("group", { name: labels.permissionGroup });
+  const composer = () => within(pane()).getByRole("textbox", { name: labels.composerLabel });
+  const QUESTION_TEXT = "Dùng thư viện validation nào: zod hay yup?";
+  const PLAN_TEXT = "Context\n\nAdd a file hello.txt containing hi.\n\n1. Create hello.txt\n2. Write hi into it";
+  const isPlan = (_: string, el: Element | null) => el?.tagName === "PRE" && el.textContent === PLAN_TEXT;
+  // A screen change is drawn on the next animation frame.
+  const frame = () => act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+
+  const tool = (name: string, arg: string | null, detail?: ToolDetail): ChatItem => ({
+    kind: "tool",
+    key: `${name}:0`,
+    id: `t-${name}`,
+    name,
+    arg,
+    ...(detail ? { detail } : {}),
+  });
+  const askTool = (over: { multiSelect?: boolean; count?: number } = {}) =>
+    tool("AskUserQuestion", null, {
+      question: { text: QUESTION_TEXT, multiSelect: over.multiSelect ?? false, count: over.count ?? 1, options: ["zod", "yup"] },
+    });
+
+  async function showing(lines: ScreenLine[], items: ChatItem[], status: Partial<PaneStatus> = {}) {
+    const sessions = fakeSessions();
+    sessions.title = vi.fn(async (id: string) => id);
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await newSessionIn(ctx.user);
+    await screen.findByRole("region", { name: "agent-deck · p1" });
+    const stream = sessions.opened[0].stream;
+    act(() => stream.chat({ reset: true, items }));
+    act(() => stream.status({ state: "Needs Approval", ...status }));
+    act(() => ctx.adapters[0].showScreen(lines));
+    await frame();
+    return { ...ctx, stream };
+  }
+
+  const bashPending = () => showing(claude.permissionNo4, [tool("Bash", "npm install")], { reason: "Bash npm install" });
+
+  it("shows Bash · npm install with Từ chối and Cho phép above the Composer (SC-1, SRS-FR-163)", async () => {
+    await bashPending();
+    const group = strip()!;
+    expect(group).toHaveTextContent("Bash · npm install");
+    expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual([labels.deny, labels.allow]);
+    expect(group.compareDocumentPosition(composer()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(composer()).toHaveFocus();
+  });
+
+  it("names the tool from the pending Chat item when the reason does not", async () => {
+    await showing(claude.permissionNo4, [tool("Edit", "src/main.rs")], { reason: "Waiting for you" });
+    expect(strip()).toHaveTextContent("Edit · src/main.rs");
+  });
+
+  it("shows the command on screen alone when no tool is known", async () => {
+    await showing(claude.permissionNo4, [], { reason: null });
+    expect(strip()).toHaveTextContent(/^touch a\.txt/);
+  });
+
+  it("answers Cho phép with exactly 1 (SC-2, SRS-FR-164)", async () => {
+    const { user, sessions } = await bashPending();
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    expect(sessions.write).toHaveBeenCalledTimes(1);
+    expect(sessions.write).toHaveBeenCalledWith("p1", "1");
+  });
+
+  it("answers Từ chối with the No digit on screen (SC-2)", async () => {
+    const { user, sessions } = await bashPending();
+    await user.click(within(strip()!).getByRole("button", { name: labels.deny }));
+    expect(sessions.write).toHaveBeenCalledTimes(1);
+    expect(sessions.write).toHaveBeenCalledWith("p1", "4");
+  });
+
+  it("answers Từ chối with 3 where No is option 3", async () => {
+    const { user, sessions } = await showing(claude.permissionNo3Box, [tool("Bash", "cd /Users/me/ws")], { reason: "Bash cd /Users/me/ws" });
+    await user.click(within(strip()!).getByRole("button", { name: labels.deny }));
+    expect(sessions.write).toHaveBeenCalledTimes(1);
+    expect(sessions.write).toHaveBeenCalledWith("p1", "3");
+  });
+
+  it("sends one answer when Cho phép is pressed again before the write lands", async () => {
+    let land: () => void = () => {};
+    const { user, sessions } = await bashPending();
+    vi.mocked(sessions.write).mockImplementation(() => new Promise<void>((resolve) => (land = resolve)));
+    const allow = within(strip()!).getByRole("button", { name: labels.allow });
+    await user.click(allow);
+    await user.click(allow);
+    expect(sessions.write).toHaveBeenCalledTimes(1);
+    await act(async () => land());
+  });
+
+  it("sends nothing and says Yêu cầu đã thay đổi once the request was answered in Term (SC-3, SRS-FR-165)", async () => {
+    const { user, sessions, adapters } = await bashPending();
+    // Answered before any frame could take the strip away.
+    vi.mocked(adapters[0].screen).mockReturnValue(claude.idle);
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    expect(sessions.write).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(labels.requestChanged);
+  });
+
+  it("sends nothing when another request replaced the one shown (SRS-FR-165)", async () => {
+    const { user, sessions, adapters } = await bashPending();
+    vi.mocked(adapters[0].screen).mockReturnValue(claude.permissionNo3Box);
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    expect(sessions.write).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(labels.requestChanged);
+  });
+
+  it("takes the strip away once the dialog leaves the screen, as after 1 in Term (SC-6, SRS-FR-168)", async () => {
+    const { adapters, stream } = await bashPending();
+    act(() => adapters[0].showScreen(claude.idle));
+    await vi.waitFor(() => expect(strip()).toBeNull());
+    act(() => adapters[0].showScreen(claude.permissionNo4));
+    await vi.waitFor(() => expect(strip()).not.toBeNull());
+    act(() => stream.status({ state: "Running" }));
+    expect(strip()).toBeNull();
+  });
+
+  it("shows no strip on a trust dialog, nor while the session is not Needs Approval", async () => {
+    const { adapters, stream } = await showing(claude.trust, [tool("Bash", "npm install")], { reason: "Bash npm install" });
+    expect(strip()).toBeNull();
+    act(() => stream.status({ state: "Idle" }));
+    act(() => adapters[0].showScreen(claude.permissionNo4));
+    await frame();
+    expect(strip()).toBeNull();
+  });
+
+  describe("Question Card (SRS-FR-166)", () => {
+    const card = () => within(pane()).queryByRole("group", { name: QUESTION_TEXT });
+
+    it("shows the question, zod and yup, Khác… and Gửi, and answers zod with its digit (SC-4)", async () => {
+      const { user, sessions } = await showing(claude.askQuestion, [askTool()]);
+      const c = card()!;
+      expect(within(c).getAllByRole("radio").map((r) => r.getAttribute("value"))).toEqual(["zod", "yup"]);
+      expect(within(c).getByRole("textbox", { name: labels.other })).toBeInTheDocument();
+      const send = within(c).getByRole("button", { name: labels.send });
+      expect(send).toBeDisabled();
+      await user.click(within(c).getByRole("radio", { name: "zod" }));
+      await user.click(send);
+      expect(sessions.write).toHaveBeenCalledTimes(1);
+      expect(sessions.write).toHaveBeenCalledWith("p1", "1");
+    });
+
+    it("answers valibot typed in Khác… with the Type something. digit, the text and Enter (SC-4)", async () => {
+      const { user, sessions } = await showing(claude.askQuestion, [askTool()]);
+      await user.type(within(card()!).getByRole("textbox", { name: labels.other }), "valibot");
+      await user.click(within(card()!).getByRole("button", { name: labels.send }));
+      expect(sessions.write).toHaveBeenCalledTimes(1);
+      expect(sessions.write).toHaveBeenCalledWith("p1", "3valibot\r");
+    });
+
+    it("sends nothing once the question was answered in Term (SRS-FR-165)", async () => {
+      const { user, sessions, adapters } = await showing(claude.askQuestion, [askTool()]);
+      await user.click(within(card()!).getByRole("radio", { name: "zod" }));
+      vi.mocked(adapters[0].screen).mockReturnValue(claude.idle);
+      await user.click(within(card()!).getByRole("button", { name: labels.send }));
+      expect(sessions.write).not.toHaveBeenCalled();
+      expect(await screen.findByRole("alert")).toHaveTextContent(labels.requestChanged);
+    });
+
+    it("shows no card for a question with several answers or several questions", async () => {
+      await showing(claude.askQuestion, [askTool({ multiSelect: true })]);
+      expect(card()).toBeNull();
+      cleanup();
+      await showing(claude.askQuestion, [askTool({ count: 2 })]);
+      expect(card()).toBeNull();
+    });
+
+    it("shows no card when the question on screen is not the pending one", async () => {
+      await showing(claude.askQuestion, [askTool(), tool("Bash", "ls")]);
+      expect(card()).toBeNull();
+    });
+  });
+
+  describe("plan card (SRS-FR-167)", () => {
+    const keep = () => within(pane()).getByRole("button", { name: labels.keepPlanning });
+    const approve = () => within(pane()).getByRole("button", { name: labels.approvePlan });
+
+    it("shows the plan and approves it with 2 (SC-5)", async () => {
+      const { user, sessions } = await showing(claude.plan, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      expect(within(pane()).getByText(isPlan)).toBeInTheDocument();
+      expect(keep()).toBeDisabled();
+      await user.click(approve());
+      expect(sessions.write).toHaveBeenCalledTimes(1);
+      expect(sessions.write).toHaveBeenCalledWith("p1", "2");
+    });
+
+    it("keeps planning with 3, the feedback and Enter (SC-5)", async () => {
+      const { user, sessions } = await showing(claude.plan, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      await user.type(within(pane()).getByRole("textbox", { name: labels.planFeedback }), "thêm bước viết test");
+      await user.click(keep());
+      expect(sessions.write).toHaveBeenCalledTimes(1);
+      expect(sessions.write).toHaveBeenCalledWith("p1", "3thêm bước viết test\r");
+    });
+
+    it("falls back to an earlier plan, else points to Term", async () => {
+      const done: ChatItem = { kind: "tool", key: "old", id: "old", name: "ExitPlanMode", arg: null, detail: { plan: PLAN_TEXT } };
+      const result: ChatItem = { kind: "result", key: "r", toolId: "old", text: "", isError: false };
+      await showing(claude.plan, [done, result, tool("ExitPlanMode", null)]);
+      expect(within(pane()).getByText(isPlan)).toBeInTheDocument();
+      cleanup();
+      await showing(claude.plan, [tool("ExitPlanMode", null)]);
+      expect(within(pane()).getByText(labels.planInTerm)).toBeInTheDocument();
     });
   });
 });

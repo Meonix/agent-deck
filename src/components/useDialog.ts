@@ -1,0 +1,156 @@
+import { useEffect, useRef, useState } from "react";
+import type { PaneStatus, SessionsClient } from "../api/sessions";
+import { labels } from "../labels";
+import type { Strip } from "./ApprovalStrip";
+import type { ChatEntry, ChatState } from "./chatState";
+import { answerBytes, type Choice } from "./dialogAnswer";
+import { type Dialog, dialogScreen } from "./dialogScreen";
+import type { Question } from "./QuestionCard";
+import { knownState } from "./statusHighlight";
+import type { TerminalAdapter } from "./TerminalPane";
+import { useToast } from "./Toast";
+
+/** A choice from the strip or a card; an option is named by its label, its key is read from the screen at answer time. */
+export type PaneChoice = Exclude<Choice, { kind: "option" }> | { kind: "option"; label: string };
+
+type View = {
+  strip: Strip | null;
+  question: Question | null;
+  plan: { text: string | null } | null;
+  /** The dialog the strip or card was built from; `none` while nothing shows. */
+  dialog: Dialog;
+};
+
+const NOTHING: View = { strip: null, question: null, plan: null, dialog: { kind: "none" } };
+
+type Options = {
+  paneId: string;
+  /** The session terminal; null when Claude Code never started. */
+  adapter: TerminalAdapter | null;
+  status: PaneStatus;
+  ended: boolean;
+  chat: ChatState;
+  client: SessionsClient;
+};
+
+/**
+ * The Approval Strip, Question Card or plan card of one pane, and the answer they give
+ * (SRS-FR-163 to SRS-FR-168). What shows is read from the session terminal's screen.
+ */
+export function useDialog({ paneId, adapter, status, ended, chat, client }: Options) {
+  const showToast = useToast();
+  const [view, setView] = useState<View>(() => viewOf(adapter, status, ended, chat.items));
+  const shown = useRef(view);
+  shown.current = view;
+  const show = (next: View) => setView((prev) => (sameView(prev, next) ? prev : next));
+
+  // Once the dialog leaves the screen, answered here or in Term, the strip or card goes (SRS-FR-168).
+  useEffect(() => {
+    const refresh = () => show(viewOf(adapter, status, ended, chat.items));
+    refresh();
+    if (!adapter) return;
+    let frame = 0;
+    const stop = adapter.onScreenChange(() => {
+      frame ||= requestAnimationFrame(() => {
+        frame = 0;
+        refresh();
+      });
+    });
+    return () => {
+      stop();
+      cancelAnimationFrame(frame);
+    };
+  }, [adapter, status, ended, chat.items]);
+
+  // Until the write lands the dialog may still be on screen, so a second click would answer twice.
+  const writing = useRef(false);
+  // SRS-FR-165: the screen is read again at the click, as the request may have been answered or replaced since the last frame.
+  const answer = (choice: PaneChoice) => {
+    if (writing.current || !adapter) return;
+    const fresh = dialogScreen(adapter.screen());
+    const bytes = stillShown(shown.current.dialog, fresh, choice);
+    if (bytes === null) {
+      showToast(labels.requestChanged);
+      show(viewOf(adapter, status, ended, chat.items));
+      return;
+    }
+    writing.current = true;
+    client
+      .write(paneId, bytes)
+      .catch(() => {})
+      .finally(() => (writing.current = false));
+  };
+
+  return { strip: view.strip, question: view.question, plan: view.plan, answer };
+}
+
+/** The bytes answering `fresh`, or null when it is not the dialog the user answered. */
+function stillShown(seen: Dialog, fresh: Dialog, choice: PaneChoice): string | null {
+  const same =
+    (seen.kind === "permission" && fresh.kind === "permission" && fresh.command === seen.command) ||
+    (seen.kind === "question" && fresh.kind === "question" && fresh.question === seen.question) ||
+    (seen.kind === "plan" && fresh.kind === "plan");
+  if (!same) return null;
+  if (choice.kind !== "option") return answerBytes(fresh, choice);
+  // The digit of an option is the one on screen now, found by the label the user chose.
+  const key = fresh.kind === "question" ? fresh.options.find((o) => o.label === choice.label)?.key : undefined;
+  return key ? answerBytes(fresh, { kind: "option", key }) : null;
+}
+
+function viewOf(adapter: TerminalAdapter | null, status: PaneStatus, ended: boolean, items: ChatEntry[]): View {
+  if (!adapter || ended) return NOTHING;
+  const dialog = dialogScreen(adapter.screen());
+  const pending = newestPending(items);
+
+  if (dialog.kind === "permission") {
+    if (knownState(status) !== "Needs Approval") return NOTHING;
+    return { ...NOTHING, dialog, strip: stripOf(status.reason, pending, dialog.command) };
+  }
+  if (dialog.kind === "question") {
+    const asked = pending?.name === "AskUserQuestion" && pending.detail && "question" in pending.detail ? pending.detail.question : null;
+    // Several questions or answers are answered in Term; the text check keeps an older question's card off a new dialog.
+    if (!asked || asked.count !== 1 || asked.multiSelect) return NOTHING;
+    if (!collapse(dialog.question).startsWith(collapse(asked.text).slice(0, 40))) return NOTHING;
+    return { ...NOTHING, dialog, question: { text: asked.text, options: asked.options } };
+  }
+  if (dialog.kind === "plan") return { ...NOTHING, dialog, plan: { text: latestPlan(items) } };
+  return NOTHING;
+}
+
+type ToolEntry = Extract<ChatEntry, { kind: "tool" }>;
+
+function newestPending(items: ChatEntry[]): ToolEntry | null {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i];
+    if (item.kind === "tool" && item.result === null) return item;
+  }
+  return null;
+}
+
+/**
+ * The PermissionRequest hook's reason reads "<tool> <target>" (signal.rs › permission_reason); it is trusted only
+ * when it names the pending tool, as a Notification may have set it to something else.
+ */
+function stripOf(reason: string | null, pending: ToolEntry | null, command: string): Strip {
+  if (!pending) return { tool: null, detail: command };
+  const fromReason = reason !== null && (reason === pending.name || reason.startsWith(`${pending.name} `));
+  const rest = fromReason ? reason.slice(pending.name.length).trim() : "";
+  return { tool: pending.name, detail: rest || pending.arg || command };
+}
+
+/** The newest non-empty plan of the session: the pending ExitPlanMode's, else an earlier one. */
+function latestPlan(items: ChatEntry[]): string | null {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i];
+    if (item.kind === "tool" && item.name === "ExitPlanMode" && item.detail && "plan" in item.detail && item.detail.plan.trim() !== "") {
+      return item.detail.plan;
+    }
+  }
+  return null;
+}
+
+const collapse = (text: string) => text.replace(/\s+/g, " ").trim();
+
+function sameView(a: View, b: View) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}

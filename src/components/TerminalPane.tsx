@@ -4,8 +4,11 @@ import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity,
 import { labels } from "../labels";
 import type { Activity, ChatState } from "./chatState";
 import { ActivityBar } from "./ActivityBar";
+import { ApprovalStrip } from "./ApprovalStrip";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
+import { PlanCard, QuestionCard } from "./QuestionCard";
+import { useDialog } from "./useDialog";
 import { ICON } from "./icon";
 import { mayTakeFocus } from "./paneFocus";
 import { ShellArea, ShellFailure } from "./PaneShell";
@@ -219,6 +222,7 @@ export function TerminalPane({
   // An ended pane locks as ended even after an Error exit; an untracked one counts as Idle (SRS-FR-036).
   const state = ended ? "Ended" : knownState(status);
   const composerState = useComposer({ paneId, adapter, state, client, sentPrompts, onSent: (prompt) => onSent(paneId, prompt) });
+  const dialog = useDialog({ paneId, adapter, status, ended, chat, client });
 
   // After an abnormal exit the header keeps the Error chip, matching the session row.
   const endedBadge = ended && !(status.tracked && status.state === "Error");
@@ -326,6 +330,23 @@ export function TerminalPane({
         <ViewLayer view="chat" shown={view === "chat"} className="flex flex-col bg-background">
           <ChatView chat={chat} started={pane.started} />
           <ActivityBar state={ended ? "Ended" : status.state} activity={activity} />
+          {/* Only one dialog is on screen, so at most one of these shows. */}
+          {dialog.strip && (
+            <ApprovalStrip
+              strip={dialog.strip}
+              onAllow={() => dialog.answer({ kind: "allow" })}
+              onDeny={() => dialog.answer({ kind: "deny" })}
+            />
+          )}
+          {/* Keyed by the question, so a choice made for one question is not carried to the next. */}
+          {dialog.question && <QuestionCard key={dialog.question.text} question={dialog.question} onAnswer={dialog.answer} />}
+          {dialog.plan && (
+            <PlanCard
+              plan={dialog.plan}
+              onApprove={() => dialog.answer({ kind: "approvePlan" })}
+              onKeepPlanning={(feedback) => dialog.answer({ kind: "keepPlanning", feedback })}
+            />
+          )}
           <Composer paneId={paneId} inputRef={composer} {...composerState} />
         </ViewLayer>
         <ViewLayer view="term" shown={view === "term"} className="flex flex-col">
