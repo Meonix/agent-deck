@@ -1,0 +1,450 @@
+[
+ {
+  "name": "add-dir",
+  "description": "Add a working directory"
+ },
+ {
+  "name": "advisor",
+  "description": "Let Claude consult a stronger model at key moments"
+ },
+ {
+  "name": "artifact-capabilities",
+  "description": "Runtime capabilities for published Artifacts"
+ },
+ {
+  "name": "artifact-diagramming",
+  "description": "Diagramming guidance for Artifacts"
+ },
+ {
+  "name": "artifacts",
+  "description": "Browse your published and shared artifacts"
+ },
+ {
+  "name": "auto-mode-setup",
+  "description": "Teach auto mode about your environment"
+ },
+ {
+  "name": "autocompact",
+  "description": "Set how full the context gets before auto-summarizing"
+ },
+ {
+  "name": "autofix-pr",
+  "description": "Monitor and autofix any issues with the current PR"
+ },
+ {
+  "name": "background",
+  "description": "Send this session to the background and free the terminal"
+ },
+ {
+  "name": "batch",
+  "description": "Plan a large change; background agents each open a PR"
+ },
+ {
+  "name": "branch",
+  "description": "Create a branch of the current conversation at this point"
+ },
+ {
+  "name": "btw",
+  "description": "Ask a side question without interrupting Claude"
+ },
+ {
+  "name": "bug",
+  "description": "Report a bug or share your session"
+ },
+ {
+  "name": "cd",
+  "description": "Move this session to a new working directory"
+ },
+ {
+  "name": "chrome",
+  "description": "Open Claude in Chrome settings"
+ },
+ {
+  "name": "claude-api",
+  "description": "Build and debug apps that use the Claude API"
+ },
+ {
+  "name": "claude-approvals",
+  "description": "Edit, explain, or tune a Claude Approvals policy file or classifier"
+ },
+ {
+  "name": "claude-in-chrome",
+  "description": "Let Claude browse and interact with pages in your Chrome"
+ },
+ {
+  "name": "clear",
+  "description": "Start a new session with empty context; loops carry over, and the old one stays in /resume"
+ },
+ {
+  "name": "code-review",
+  "description": "3 free /ultrareview · Review the current diff or a PR for bugs"
+ },
+ {
+  "name": "color",
+  "description": "Set the prompt bar color for this session"
+ },
+ {
+  "name": "compact",
+  "description": "Free up context by summarizing the conversation so far"
+ },
+ {
+  "name": "config",
+  "description": "Open settings"
+ },
+ {
+  "name": "context",
+  "description": "Show what fills the context"
+ },
+ {
+  "name": "copy",
+  "description": "Copy the last response to clipboard (/copy 2 for the one before)"
+ },
+ {
+  "name": "dataviz",
+  "description": "Chart and dashboard design guidance"
+ },
+ {
+  "name": "debug",
+  "description": "Turn on debug logging and investigate problems"
+ },
+ {
+  "name": "design",
+  "description": "Make a new Design artifact from a brief"
+ },
+ {
+  "name": "design-login",
+  "description": "Authorize design-system access for /design-sync with your claude.ai account"
+ },
+ {
+  "name": "design-sync",
+  "description": "Sync your design system to Claude Design"
+ },
+ {
+  "name": "desktop",
+  "description": "Continue the current session in Claude Desktop"
+ },
+ {
+  "name": "diff",
+  "description": "Toggle the diff panel showing uncommitted changes"
+ },
+ {
+  "name": "doctor",
+  "description": "Health-check your setup and fix issues: installation, unused extensions, duplicated or bloated memory files, s"
+ },
+ {
+  "name": "effort",
+  "description": "Set the model's effort level"
+ },
+ {
+  "name": "exit",
+  "description": "Exit the CLI"
+ },
+ {
+  "name": "export",
+  "description": "Export this session to a file or clipboard"
+ },
+ {
+  "name": "fast",
+  "description": "Toggle fast mode (Opus 5.5)"
+ },
+ {
+  "name": "feedback",
+  "description": "Send feedback to Anthropic or report a bug"
+ },
+ {
+  "name": "fewer-permission-prompts",
+  "description": "Pre-approve safe read-only commands based on your usage"
+ },
+ {
+  "name": "focus",
+  "description": "Toggle focus view: just your prompt, summary, and response"
+ },
+ {
+  "name": "fork",
+  "description": "Copy this conversation into a new background session and keep working here"
+ },
+ {
+  "name": "goal",
+  "description": "Set a goal Claude checks before stopping"
+ },
+ {
+  "name": "help",
+  "description": "Show help and available commands"
+ },
+ {
+  "name": "hooks",
+  "description": "View hook configurations for tool events"
+ },
+ {
+  "name": "ide",
+  "description": "Manage IDE integrations and show status"
+ },
+ {
+  "name": "import",
+  "description": "Import config from another AI coding agent"
+ },
+ {
+  "name": "init",
+  "description": "Initialize a new CLAUDE.md file with codebase documentation"
+ },
+ {
+  "name": "insights",
+  "description": "Generate a report analyzing your Claude Code sessions"
+ },
+ {
+  "name": "install-github-app",
+  "description": "Set up Claude GitHub Actions for a repository"
+ },
+ {
+  "name": "install-slack-app",
+  "description": "Install the Claude Slack app"
+ },
+ {
+  "name": "keybindings",
+  "description": "Open your keyboard shortcuts file"
+ },
+ {
+  "name": "list-agents",
+  "description": "List subagents, teammates, and other Claude sessions you can message"
+ },
+ {
+  "name": "login",
+  "description": "Sign in with your Anthropic account"
+ },
+ {
+  "name": "logout",
+  "description": "Sign out from your Anthropic account"
+ },
+ {
+  "name": "loop",
+  "description": "Repeat a prompt or command on an interval (e.g. /loop 5m /foo)"
+ },
+ {
+  "name": "mcp",
+  "description": "Manage MCP servers"
+ },
+ {
+  "name": "memory",
+  "description": "Edit CLAUDE.md files and memory settings"
+ },
+ {
+  "name": "mobile",
+  "description": "Show QR code to download the Claude mobile app"
+ },
+ {
+  "name": "model",
+  "description": "Switch model (currently Opus 5.5)"
+ },
+ {
+  "name": "output-style",
+  "description": "List output styles or switch to one"
+ },
+ {
+  "name": "passes",
+  "description": "Share a free week of Claude Code with friends and earn usage credits"
+ },
+ {
+  "name": "permissions",
+  "description": "Manage allow and deny tool permission rules"
+ },
+ {
+  "name": "plan",
+  "description": "Turn on plan mode or view the plan"
+ },
+ {
+  "name": "plugin",
+  "description": "Manage Claude Code plugins"
+ },
+ {
+  "name": "plugin-authoring",
+  "description": "Write a mod: a live pane, view or behaviour change in Claude Code"
+ },
+ {
+  "name": "powerup",
+  "description": "Learn Claude Code features in short lessons"
+ },
+ {
+  "name": "privacy-settings",
+  "description": "View and update your privacy settings"
+ },
+ {
+  "name": "radio",
+  "description": "Listen to Claude FM lo-fi radio"
+ },
+ {
+  "name": "rate-limit-options",
+  "description": "Manage usage limits and upgrade options"
+ },
+ {
+  "name": "recap",
+  "description": "Generate a one-line session recap now"
+ },
+ {
+  "name": "release-notes",
+  "description": "View release notes"
+ },
+ {
+  "name": "reload-plugins",
+  "description": "Activate pending plugin changes in the current session"
+ },
+ {
+  "name": "reload-skills",
+  "description": "Pick up skills added or changed on disk during this session"
+ },
+ {
+  "name": "remote-control",
+  "description": "Control this session from your phone or claude.ai/code"
+ },
+ {
+  "name": "remote-env",
+  "description": "Choose the default environment for cloud agents"
+ },
+ {
+  "name": "rename",
+  "description": "Rename the current conversation"
+ },
+ {
+  "name": "restart",
+  "description": "Restart Claude Code and keep this session"
+ },
+ {
+  "name": "resume",
+  "description": "Resume a previous session"
+ },
+ {
+  "name": "rewind",
+  "description": "Restore earlier code, conversation, or both"
+ },
+ {
+  "name": "run",
+  "description": "Launch this project’s app to see your change working"
+ },
+ {
+  "name": "run-skill-generator",
+  "description": "Create a skill that knows how to run this project’s app"
+ },
+ {
+  "name": "sandbox",
+  "description": "◯ sandbox disabled (⏎ to configure)"
+ },
+ {
+  "name": "schedule",
+  "description": "Create and manage scheduled tasks that run in the cloud"
+ },
+ {
+  "name": "security-review",
+  "description": "Complete a security review of the pending changes on the current branch"
+ },
+ {
+  "name": "send-to-project",
+  "description": "Send this session's work to a Claude Project"
+ },
+ {
+  "name": "ship",
+  "description": "Open a pull request if there is none, review it here, then watch it"
+ },
+ {
+  "name": "simplify",
+  "description": "Clean up the changed code without changing behavior"
+ },
+ {
+  "name": "skill-doctor",
+  "description": "Show which loaded skills are unused and costing context"
+ },
+ {
+  "name": "skills",
+  "description": "List available skills"
+ },
+ {
+  "name": "slides",
+  "description": "Make a new Slides deck artifact from a brief"
+ },
+ {
+  "name": "status",
+  "description": "Show version, account, model, MCP servers, and setup warnings"
+ },
+ {
+  "name": "statusline",
+  "description": "Set up the status line"
+ },
+ {
+  "name": "steward",
+  "description": "Watch your open pull request in this session and fix what comes up"
+ },
+ {
+  "name": "stickers",
+  "description": "Check Claude Code sticker availability"
+ },
+ {
+  "name": "subtask",
+  "description": "Send a subagent off with your full context; its result comes back here"
+ },
+ {
+  "name": "tasks",
+  "description": "View and manage this session's background work"
+ },
+ {
+  "name": "team-onboarding",
+  "description": "Help teammates ramp on Claude Code with a guide from your usage"
+ },
+ {
+  "name": "teleport",
+  "description": "Resume a cloud session here"
+ },
+ {
+  "name": "terminal-setup",
+  "description": "Turn on iTerm2 clipboard access for /copy"
+ },
+ {
+  "name": "theme",
+  "description": "Change the theme"
+ },
+ {
+  "name": "tui",
+  "description": "Set the terminal UI renderer (classic | fullscreen)"
+ },
+ {
+  "name": "ultrareview",
+  "description": "3 free left · Start a cloud agent that finds and verifies bugs in your branch (~5-15 min, $5-$25 USD) · Runs i"
+ },
+ {
+  "name": "update-config",
+  "description": "Change settings: hooks, permissions, environment variables"
+ },
+ {
+  "name": "upgrade",
+  "description": "Upgrade your plan for higher rate limits and more Opus"
+ },
+ {
+  "name": "usage",
+  "description": "Show session cost, plan usage, and activity stats"
+ },
+ {
+  "name": "usage-credits",
+  "description": "Configure usage credits or request them from your admin when you hit a limit"
+ },
+ {
+  "name": "verify",
+  "description": "Try your change and report if it works"
+ },
+ {
+  "name": "voice",
+  "description": "Toggle voice mode"
+ },
+ {
+  "name": "web-setup",
+  "description": "Set up cloud sessions with your GitHub account"
+ },
+ {
+  "name": "whiteboard",
+  "description": "Make a new Whiteboard artifact from a brief"
+ },
+ {
+  "name": "workflow-authoring",
+  "description": "Load the reference for writing Workflow tool scripts"
+ },
+ {
+  "name": "workflows",
+  "description": "Browse running and completed workflows"
+ }
+]

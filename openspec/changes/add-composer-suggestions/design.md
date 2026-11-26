@@ -9,7 +9,8 @@ Measured on this Mac (2026-11-26, Claude Code 2.1.332):
   - `~/.claude/settings.json` › `enabledPlugins` maps `figma@claude-plugins-official` and `superpowers@claude-plugins-official` to `true`.
   - `~/.claude/plugins/installed_plugins.json` › `plugins.<id>[].installPath` gives the folder.
   - A plugin's skills are `<installPath>/skills/<dir>/SKILL.md` and show as `superpowers:brainstorming`. Neither installed plugin has a `commands/` folder; the format is the same as a user command.
-- Built-in commands are not written in any file. Task 1.1 measures them from the real "/" menu.
+- Built-in commands are not written in any file. Task 1.1 measured them from the real "/" menu: 225 rows, 112 of them not from a file source. They are recorded with Claude Code's own descriptions in `builtins-2.1.332.json` next to this file. Some descriptions carry live state (`/model` "(currently Opus 5.5)", `/fast`, `/sandbox`, the free counts of `/code-review` and `/ultrareview`).
+- Claude Code also lists the skills synced from the user's account: `~/.claude/skills/synced/<id>/<dir>/SKILL.md` (`/docs`, `/pdf`). Some skills appear under a prefix with no folder this change can read (`anthropic-skills:`, `humanizer:`).
 
 ## Goals / Non-Goals
 
@@ -28,12 +29,13 @@ Measured on this Mac (2026-11-26, Claude Code 2.1.332):
 - **Backend (`suggest.rs`), not the frontend.** Only the backend can read `~/.claude` and run git. The pane's workspace path is looked up from `pane_id` (`Panes::workspace_of` → the workspace list), so the frontend never names a path.
 - **`list_commands(pane_id) → [{name, description, source}]`**, with `source` one of `user-skill`, `user-command`, `workspace-skill`, `workspace-command`, `plugin`.
   - Commands: every `*.md` under a `commands/` folder. The name is the relative path without `.md`, with `/` written as `:` (`opsx/apply.md` → `opsx:apply`).
-  - Skills: `skills/<dir>/SKILL.md`. The name is the frontmatter `name`, else `<dir>`. A skill whose frontmatter says `user-invocable: false` is left out.
+  - Skills: `skills/<dir>/SKILL.md`, and for the user also `skills/synced/<id>/<dir>/SKILL.md` (source `user-skill`). The name is the frontmatter `name`, else `<dir>`. A skill whose frontmatter says `user-invocable: false` is left out.
+  - Prefixed skills with no readable folder (`anthropic-skills:`, `humanizer:`) are not listed. Ruling: no documented source exists for them; the cost is a few missing rows.
   - Plugins: an id is enabled when `enabledPlugins` maps it to `true` in `~/.claude/settings.json`, `<workspace>/.claude/settings.json` or `<workspace>/.claude/settings.local.json`; the later file wins. The name is `<plugin>:<name>`, where `<plugin>` is the part of the id before "@".
   - Description: the frontmatter `description`, first line, cut to 80 characters.
   - The same name twice: the workspace wins over the user, and the user wins over a plugin.
   - A missing or unreadable file or folder is skipped, never an error.
-- **Built-in commands are a list in `suggestions.ts`**, measured from Claude Code 2.1.332 (task 1.1), each with its Vietnamese description. Alternative: read the list from the binary. Rejected, because the binary's strings carry no stable format.
+- **Built-in commands are a list in `suggestions.ts`**, taken from `builtins-2.1.332.json` (task 1.1) with Claude Code's own English description. Live state is cut from a description: `/model` → "Switch model", `/fast` → "Toggle fast mode", `/sandbox` → "Configure the sandbox", and the free counts of `/code-review` and `/ultrareview`. Ruling: the English text is what Claude Code shows in Term, so the two menus read the same; the cost if wrong is translating one list. Alternative: read the list from the binary. Rejected, because the binary's strings carry no stable format.
 - **`list_files(pane_id) → {folder, entries: [{path, dir}]}`**, where `folder` is the workspace folder's name for the heading.
   - With git: `git -c core.fsmonitor=false ls-files -z --cached --others --exclude-standard`, run in the workspace folder. `core.fsmonitor=false` stops a repository's own config from starting a program.
   - Folders are the parent folders of the listed files, each written with a trailing `/`.
