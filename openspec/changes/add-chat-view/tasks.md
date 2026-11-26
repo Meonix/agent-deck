@@ -36,6 +36,15 @@
 - [x] 6.4 RED in `src/App.test.tsx` › new `describe("Chat view (CR-016)")` with the fake client: choosing Chat shows the pane's conversation and hides Term without stopping the session; entries sent while Term is shown are there when Chat is chosen; a reset after `{"session"}` shows only the new conversation; unreadable then Term still takes input; Activity Bar appears on `Running` and goes on `Idle`; a new pane still opens in Term with focus in its terminal (SRS-FR-014); a Shell exit while Chat was the previous view returns to Chat
 - [x] 6.5 Implement `ChatView.tsx`, `ActivityBar.tsx`, the Chat `ViewLayer` in `TerminalPane.tsx`, `UNAVAILABLE = {"plan"}` and `chooseView("chat")`, `.bubble`/`.tool`/`.dot-busy`/`.ctx-ok` in `src/index.css`, labels in `src/labels.ts` with `labels.test.ts` cases — GREEN
 
+## 6b. Design follow-ups before archive (approved at GATE 3)
+
+- [ ] 6b.1 Status line wrappers use `CURL`, `DISCARD` and `launcher::STATUS_LINE_ENV` instead of literals; one shared curl timeout constant or a one-line why for the status line's 2 s
+- [ ] 6b.2 Activity Bar words come from `labels.activity` (context, shells, subagents) with `labels.test.ts` cases; a labels.ts note names the Rust "[ảnh]" placeholder
+- [ ] 6b.3 One `reported_session(event)` helper (SessionEnd skip + non-empty id) used by `SessionFollower::follow` and `PaneChat::follow`
+- [ ] 6b.4 `createStream` parses each channel message once and shares one queue helper for session, chat and activity (status keeps its exit ordering)
+- [ ] 6b.5 `activityParts(a)` returns the count parts; `ActivityBar` maps over them; drop the test-only tool branch of `activityText`
+- [ ] 6b.6 One `send_unreadable(out)` in pane_chat.rs used by both unreadable paths
+
 ## 7. Close
 
 - [x] 7.1 `npm test` green and `cargo test` (in `src-tauri`) green
