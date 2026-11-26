@@ -66,12 +66,41 @@ describe("dialogScreen", () => {
     });
   });
 
+  describe("reads a permission only when the whole of it is on screen", () => {
+    const below = (screen: ScreenLine[], text: string) => screen.slice(screen.findIndex((l) => l.text === text) + 1);
+
+    it("is other when the top of a multi-line command scrolled out of the pane", () => {
+      expect(dialogScreen(below(screens.multilineDialog, " │ echo one"))).toEqual({ kind: "other" });
+    });
+
+    it("is other when a Write dialog's title scrolled out of the pane", () => {
+      expect(dialogScreen(below(screens.writeDialog, " Create file"))).toEqual({ kind: "other" });
+    });
+
+    it("is other when the opening fence is missing", () => {
+      const screen = screens.multilineDialog.filter((l, i, all) => !(l.text === "╌".repeat(120) && all[i + 1]?.text === " │ echo one"));
+      expect(dialogScreen(screen)).toEqual({ kind: "other" });
+    });
+
+    it("is other when the closing fence is missing", () => {
+      const screen = screens.multilineDialog.filter((l, i, all) => !(l.text === "╌".repeat(120) && all[i - 1]?.text === " │ touch d.txt"));
+      expect(dialogScreen(screen)).toEqual({ kind: "other" });
+    });
+
+    it("is other when a │ box does not start right after the opening fence", () => {
+      const at = screens.multilineDialog.findIndex((l) => l.text === " │ echo one");
+      const screen = [...screens.multilineDialog.slice(0, at), ...rows(" cut"), ...screens.multilineDialog.slice(at)];
+      expect(dialogScreen(screen)).toEqual({ kind: "other" });
+    });
+  });
+
   it("is other when a file dialog's question is not one Claude Code asks", () => {
     const screen = screens.writeDialog.map((l) => (l.text === " Do you want to create c.txt?" ? rows(" Do you want to delete c.txt?")[0] : l));
     expect(dialogScreen(screen)).toEqual({ kind: "other" });
   });
 
-  it("reads a command from │ rows when there are no ╌ rules", () => {
+  // Claude Code always fences the command; │ rows without the fences may be the tail of a box cut off above.
+  it("is other for a command in │ rows without its ╌ fences", () => {
     const screen = rows(
       RULE,
       " Bash command",
@@ -82,14 +111,7 @@ describe("dialogScreen", () => {
       "   2. No",
       " Esc to cancel · Tab to amend",
     );
-    expect(dialogScreen(screen)).toEqual({
-      kind: "permission",
-      title: "Bash command",
-      subject: "npm install\n  --save-dev vitest",
-      command: "npm install --save-dev vitest",
-      yes: "1",
-      no: "2",
-    });
+    expect(dialogScreen(screen)).toEqual({ kind: "other" });
   });
 
   // That capture's top fence was drawn broken (a `╌───╌` row, then `╌╌`), so no full fence pair is left.

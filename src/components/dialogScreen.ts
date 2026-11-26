@@ -102,7 +102,7 @@ const joined = (rows: string[]) =>
  * The rows of the dialog: those below the last full-width rule. A rule right before a numbered
  * option (short `─` rows aside) only separates a question's options, so it does not start the dialog.
  */
-function dialogRows(rows: string[], width: number): string[] {
+function dialogRows(rows: string[], width: number): { rows: string[]; opened: boolean } {
   const isRule = (row: string) => /^─+$/.test(row) && row.length * 2 >= width;
 
   for (let i = rows.length - 1; i >= 0; i--) {
@@ -110,9 +110,10 @@ function dialogRows(rows: string[], width: number): string[] {
     let next = i + 1;
     while (next < rows.length && /^─+$/.test(rows[next])) next++;
     if (next < rows.length && OPTION_ROW.test(rows[next])) continue;
-    return rows.slice(i + 1);
+    return { rows: rows.slice(i + 1), opened: true };
   }
-  return rows;
+  // No opening rule: the top of a dialog taller than the pane has scrolled out of it.
+  return { rows, opened: false };
 }
 
 const OTHER: Dialog = { kind: "other" };
@@ -124,11 +125,15 @@ function permission(rows: string[], width: number): Dialog {
   const no = m.options[m.options.length - 1];
   if (yes.label !== "Yes" || no.label !== "No" || m.options.length < 2) return OTHER;
 
-  // The fence spans the screen from column 0; a shorter or indented `╌` row is printed text.
+  // The fence spans the screen from column 0; a shorter or indented `╌` row is printed text. Both fences
+  // must be there, and a `│` box must open right under the first one: what the strip shows is what Cho phép approves.
   const isFence = (row: string) => DASH_RULE.test(row) && row.length >= 0.9 * width;
   const start = rows.findIndex(isFence);
   const end = start < 0 ? -1 : rows.findIndex((row, i) => i > start && isFence(row));
-  const body = end < 0 ? rows.filter((row) => BOX_ROW.test(row.trim())) : rows.slice(start + 1, end);
+  if (end < 0 || end > m.start) return OTHER;
+  const body = rows.slice(start + 1, end);
+  const isBox = (row: string) => BOX_ROW.test(row.trim());
+  if (body.some(isBox) && !isBox(body[0])) return OTHER;
   const command = joined(body.map((row) => row.trim().replace(BOX_ROW, "")));
 
   const titleAt = rows.findIndex((row) => row.trim() !== "");
@@ -176,11 +181,11 @@ function plan(rows: string[]): Dialog {
 export function dialogScreen(screen: ScreenLine[]): Dialog {
   const all = screen.map((line) => line.text.trimEnd());
   const width = Math.max(0, ...all.map((row) => row.length));
-  const rows = dialogRows(all, width);
+  const { rows, opened } = dialogRows(all, width);
 
   // The dialog's own marker is the lowest one; the same words may be printed in a command or plan above it.
   const markers = [
-    { at: lastIndex(rows, PROCEED), read: () => permission(rows, width) },
+    { at: lastIndex(rows, PROCEED), read: () => (opened ? permission(rows, width) : OTHER) },
     { at: lastIndex(rows, "Enter to select"), read: () => question(rows) },
     { at: lastIndex(rows, "Would you like to proceed?"), read: () => plan(rows) },
   ].filter((m) => m.at >= 0);
