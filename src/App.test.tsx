@@ -3392,7 +3392,6 @@ describe("Chat view (CR-016)", () => {
       .getAllByRole("button")
       .filter((b) => b.getAttribute("aria-pressed") === "true")
       .map((b) => b.textContent);
-  /** The Chat log of a pane, also while hidden. */
   const chatLog = (title: string) => within(paneNamed(title)).getByRole("log", { name: labels.chatLog, hidden: true });
   const layerOf = (el: HTMLElement) => el.closest("[data-view]")!;
   const PROMPT = { kind: "prompt" as const, key: "u1:0", text: "sửa lỗi đăng nhập" };

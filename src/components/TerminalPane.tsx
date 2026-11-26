@@ -48,7 +48,6 @@ export type PaneEntry = {
   ended: boolean;
   status: PaneStatus;
   chat: ChatState;
-  /** Last activity snapshot; null until the first one. */
   activity: Activity | null;
   title: string;
   /** The wait for a first status is over; set once, never cleared. */

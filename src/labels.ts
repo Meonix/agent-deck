@@ -101,7 +101,6 @@ export const labels = {
   shellFailed: "Không khởi động được shell",
   chatLog: "Hội thoại",
   chatUnreadable: "Không đọc được hội thoại, xem ở Term",
-  /** A tool call whose result has not come back yet. */
   toolRunning: "đang chạy…",
   dismiss: "Đóng thông báo",
 
