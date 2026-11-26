@@ -46,13 +46,14 @@ pub enum Parsed {
 const RESULT_CAP: usize = 8 * 1024;
 const COMMAND_CAP: usize = 120;
 const IMAGE: &str = "[ảnh]";
-const WRAPPERS: [&str; 6] = [
+const WRAPPERS: [&str; 7] = [
     "<local-command-stdout>",
     "<local-command-stderr>",
     "<local-command-caveat>",
     "<system-reminder>",
     "<bash-stdout>",
     "<bash-stderr>",
+    "<task-notification>",
 ];
 
 pub fn parse_record(line: &str, cwd: &Path) -> Parsed {
@@ -87,9 +88,10 @@ pub fn parse_record(line: &str, cwd: &Path) -> Parsed {
 pub fn tool_arg(name: &str, input: &Value, cwd: &Path) -> Option<String> {
     let field = |key: &str| input.get(key).and_then(Value::as_str);
     match name {
-        "Read" | "Edit" | "MultiEdit" | "Write" | "NotebookEdit" => {
+        "Read" | "Edit" | "MultiEdit" | "Write" => {
             field("file_path").map(|path| workspace_relative(path, cwd))
         }
+        "NotebookEdit" => field("notebook_path").map(|path| workspace_relative(path, cwd)),
         "Bash" => field("command").map(first_line),
         "Grep" | "Glob" => field("pattern").map(str::to_string),
         "WebFetch" => field("url").map(str::to_string),
@@ -365,6 +367,7 @@ mod tests {
             "<system-reminder>\nnote\n</system-reminder>",
             "<bash-stdout>(Bash completed with no output)</bash-stdout><bash-stderr></bash-stderr>",
             "<bash-stderr>err</bash-stderr>",
+            "<task-notification>\n<task-id>a6fd</task-id>\n<status>completed</status>\n</task-notification>",
         ] {
             assert_eq!(parse(user("u1", json!(text))), Parsed::Ignored, "{text}");
         }
@@ -574,13 +577,29 @@ mod tests {
 
     #[test]
     fn file_tools_show_the_path_relative_to_the_workspace() {
-        for name in ["Read", "Edit", "MultiEdit", "Write", "NotebookEdit"] {
+        for name in ["Read", "Edit", "MultiEdit", "Write"] {
             assert_eq!(
                 arg(name, json!({"file_path": "/work/app/src/login.ts"})).as_deref(),
                 Some("src/login.ts"),
                 "{name}"
             );
         }
+    }
+
+    #[test]
+    fn notebook_edit_shows_its_notebook_path() {
+        assert_eq!(
+            arg(
+                "NotebookEdit",
+                json!({"notebook_path": "/work/app/nb/a.ipynb", "new_source": "x"})
+            )
+            .as_deref(),
+            Some("nb/a.ipynb")
+        );
+        assert_eq!(
+            arg("NotebookEdit", json!({"notebook_path": "/tmp/b.ipynb"})).as_deref(),
+            Some("/tmp/b.ipynb")
+        );
     }
 
     #[test]
