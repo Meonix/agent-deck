@@ -78,15 +78,17 @@ Measured on this Mac (Claude Code 2.1.332, 2026-11-26): real sessions in a 120×
   - Missing anything means no button can answer, so the result is `other`, and the strip or card is not shown.
 - **What the strip and cards show.**
   - Approval Strip: shown while `status.state === "Needs Approval"` and `dialogScreen` is `permission`.
-    - Tool: the first word of `status.reason` when it came from the `PermissionRequest` hook, otherwise the tool name of the newest pending tool item in Chat.
-    - Detail: the rest of the reason, otherwise that item's `arg`.
-    - Text: `<tool> · <detail>`, with the detail in mono, as `strip()`.
+    - Tool: the name of the newest pending tool item in Chat (Bash, Edit, Write…). Without one, the strip shows the detail alone.
+    - Detail: the dialog's subject read from the screen, never the hook reason or the item's `arg`, which keep only a command's first line:
+      - a Bash command with all its lines;
+      - for a file dialog ("Create file", "Edit file"), the path on the row under its title.
+    - Text: `<tool> · <detail>`, as `strip()`. The detail is mono, keeps its lines, shows up to 4 rows and then scrolls, and carries the whole subject as its `title`.
   - Question Card: shown while `dialogScreen` is `question`, the newest pending tool item is `AskUserQuestion`, its input has exactly one question with `multiSelect` false, and the question text on screen starts with that question's first 40 characters.
     - The card shows the transcript's question and labels.
     - The keys come from the screen, matched to the transcript labels by label text.
   - Plan card: shown while `dialogScreen` is `plan`.
-    - The plan is the newest pending `ExitPlanMode` item's non-empty `plan`, otherwise the newest earlier non-empty plan of the session.
-    - With none, the card shows "Xem kế hoạch ở Term" in place of the plan.
+    - The plan is the non-empty `plan` of the newest pending tool item, when that item is `ExitPlanMode`. An earlier plan may not be the one being asked about, so it is never shown.
+    - Otherwise the card shows "Xem kế hoạch ở Term" in place of the plan.
     - The plan markdown is shown as preformatted text, scrollable, up to 12 rows. Rich rendering waits for the Plan view (item 43).
 - **Answering (SRS-FR-164, SRS-FR-166, SRS-FR-167): read the screen again, then one write.**
   - The click handler reads `adapter.screen()` and the status synchronously and runs `dialogScreen` again.
@@ -95,12 +97,15 @@ Measured on this Mac (Claude Code 2.1.332, 2026-11-26): real sessions in a 120×
     - for permission, the same `command`;
     - for a question, the same question text and the chosen label present;
     - for a plan, still `plan`.
-  - Bytes, as one `client.write`:
-    - permission: the `yes` or `no` digit;
-    - option: its digit;
-    - Khác: `other` digit + text + `\r`;
-    - approve plan: `approve` digit;
-    - keep planning: `keepPlanning` digit + feedback + `\r`.
+  - Writes:
+    - permission: the `yes` or `no` digit, one write;
+    - option: its digit, one write;
+    - approve plan: the `approve` digit, one write;
+    - Khác and keep planning: three writes, because the digit and the text written in one chunk answered the first option (measured). Each write waits until the screen shows the one before it landed:
+      1. the `other` or `keepPlanning` digit;
+      2. the text, once the cursor `❯` is on that row;
+      3. `\r`, once that row shows the text.
+    - Each wait lasts at most 2 s. If it times out, or another dialog takes the screen, nothing more is written and the toast "Yêu cầu đã thay đổi" shows.
   - Text typed into Khác or feedback is first stripped of control characters, as Composer prompts are (`composerLogic`), and newlines become spaces, because Claude Code's single-line field would submit at the first `\r`.
   - Otherwise (SRS-FR-165) nothing is written, and a toast shows "Yêu cầu đã thay đổi", using the app's existing Toast.
   - A second click while a write is pending is ignored.
