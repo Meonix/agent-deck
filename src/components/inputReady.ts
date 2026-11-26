@@ -9,7 +9,7 @@ const PROMPT_ROW = /^❯(?:[  ]|$)/;
 const CHOICE_ROW = /^\s*❯ \d+\. /;
 const DIALOG_WORDS = ["Esc to cancel", "Enter to confirm", "Enter to select", "Do you want to proceed?"];
 
-const isDialogRow = ({ text }: ScreenLine) => CHOICE_ROW.test(text) || DIALOG_WORDS.some((w) => text.includes(w));
+export const isDialogRow = ({ text }: ScreenLine) => CHOICE_ROW.test(text) || DIALOG_WORDS.some((w) => text.includes(w));
 
 // A blank continuation row has been trimmed to nothing.
 const isContinuation = ({ text }: ScreenLine) => text === "" || text.startsWith("  ");

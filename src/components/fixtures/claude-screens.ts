@@ -189,3 +189,159 @@ export const emptyContinuation = toScreen([RULE, "❯", "", RULE]);
 export const dimContinuation = toScreen([RULE, ["❯ Try this", "..ddd.dddd"], ["  or that", "..dd.dddd"], RULE]);
 
 export const typedContinuation = toScreen([RULE, "❯ first", "  second", RULE]);
+
+// Dialogs measured for the Approval Strip and the Question and Plan cards. Scratch paths are
+// replaced by /Users/me/ws, and a row they wrapped is joined back into one.
+
+const DASHES = "╌".repeat(120);
+const HEADER = [" ▐▛███▛█   Claude Code v2.1.332", "▝▜██████▀  Haiku 5.5 · Claude Ultra", " ▝▝   ▝▝   /Users/me/ws", "", ""];
+
+/** A Bash permission dialog whose "No" is option 4. */
+export const permissionNo4 = toScreen([
+  ...HEADER,
+  "❯ Run exactly this bash command: touch a.txt",
+  "",
+  "⏺ Bash(touch a.txt)",
+  "  ⎿  Waiting…",
+  "",
+  RULE,
+  " Bash command",
+  ' Tip: auto mode handles these prompts for you — choose "switch to auto mode" below',
+  " Create empty file a.txt in the working directory",
+  DASHES,
+  " touch a.txt",
+  DASHES,
+  " Do you want to proceed?",
+  " ❯ 1. Yes",
+  "   2. Yes, and always allow access to /Users/me/ws from this project",
+  "   3. Yes, and switch to auto mode · auto mode handles these prompts for you",
+  "   4. No",
+  "",
+  " Esc to cancel · Tab to amend",
+]);
+
+/** A permission dialog whose "No" is option 3, its command wrapped in a `│` box with a warning below. */
+export const permissionNo3Box = toScreen([
+  "  ⎿  /plan to preview",
+  "",
+  "⏺ Approved Claude's plan",
+  "  ⎿  Plan saved to: ~/.claude/plans/plan-in-3-short-merry-coral-of-b8d4b7e5-2563-4ed9-adb8-a59999f79efc.md · /plan to",
+  "     edit",
+  "     Context",
+  "",
+  "     Add a file hello.txt containing hi to the working directory, with a test.",
+  "",
+  "     Steps",
+  "",
+  "     1. Write a test first: a check that hello.txt exists and its content is hi (e.g. test_hello.sh); run it and confirm",
+  "        it fails.",
+  "     2. Create hello.txt in the working directory (/Users/me/ws) with the content hi.",
+  "     3. Run the test again and confirm it passes.",
+  "",
+  "⏺ Bash(cd \"/Users/me/ws\" && printf '#…)",
+  "  ⎿  Waiting…",
+  "",
+  RULE,
+  " Bash command",
+  ' Tip: auto mode handles these prompts for you — choose "switch to auto mode" below',
+  " Write test script and run it before creating hello.txt",
+  DASHES,
+  [" │ cd \"/Users/me/ws\" && printf '#!/bin/sh\\n[ -f hello.txt ] && [ \"$(cat hello.txt)\" = \"hi\" ]\\n' >", ".d"],
+  [" │ test_hello.sh && sh test_hello.sh; echo \"exit=$?\"", ".d"],
+  DASHES,
+  [" │ printf operand '#!/bin/sh\\n[ -f hello.txt ] && [ \"$(cat hello.txt)\" = \"hi\" ]\\n' contains array subscript with", ".d"],
+  [" │ expansion — zsh arith-evals %d/%i operands (may run $(cmd))", ".d"],
+  "",
+  " Do you want to proceed?",
+  " ❯ 1. Yes",
+  "   2. Yes, and switch to auto mode · auto mode handles these prompts for you",
+  "   3. No",
+  "",
+  " Esc to cancel · Tab to amend",
+  "─────────────────────────────────────────────────────────────────────────────────────────────────── add-hello-txt-test ─",
+]);
+
+/** AskUserQuestion with one single-choice question. */
+export const askQuestion = toScreen([
+  ...HEADER,
+  "❯ Run exactly this bash command: touch b.txt",
+  "",
+  "⏺ Bash(touch b.txt)",
+  "  ⎿  Interrupted · What should Claude do instead?",
+  "",
+  "❯ Use the AskUserQuestion tool to ask me one question: which validation library to use, with options zod and yup. Then",
+  "  just repeat my answer.",
+  RULE,
+  " ☐ Validation",
+  "",
+  "Dùng thư viện validation nào: zod hay yup?",
+  "",
+  "❯ 1. zod",
+  "     TypeScript-first, suy kiểu từ schema",
+  "  2. yup",
+  "     API quen thuộc với form, ít kiểu hơn",
+  "  3. Type something.",
+  RULE,
+  "  4. Chat about this",
+  "",
+  "Enter to select · ↑/↓ to navigate · Esc to cancel",
+]);
+
+/** The same kind of question after `3`: the cursor on "Type something.", drawn dim as a placeholder. */
+export const askQuestionOnOther = toScreen([
+  ...HEADER,
+  "❯ Use the AskUserQuestion tool to ask me one question: which validation library to use, with options zod and yup. Then",
+  "  just repeat my answer.",
+  RULE,
+  " ☐ Validation",
+  "",
+  "Bạn muốn dùng thư viện validation nào?",
+  "",
+  "  1. zod",
+  "     TypeScript-first, suy luận kiểu từ schema",
+  "  2. yup",
+  "     API quen thuộc, phổ biến với Formik",
+  ["❯ 3. Type something.", ".....ddddddddddddddd"],
+  RULE,
+  "  4. Chat about this",
+  "",
+  "Enter to select · ↑/↓ to navigate · ctrl+g to edit in Vim · Esc to cancel",
+]);
+
+/** ExitPlanMode. */
+export const plan = toScreen([
+  ...HEADER,
+  "❯ Plan, in 3 short steps, how to add a file hello.txt containing hi. Do not explore. Then call ExitPlanMode right away.",
+  "",
+  "⏺ Updated plan",
+  "  ⎿  /plan to preview",
+  "",
+  RULE,
+  " Ready to code?",
+  "",
+  " Here is Claude's plan:",
+  DASHES,
+  " Context",
+  "",
+  " Add a file hello.txt containing hi to the working directory.",
+  "",
+  " Steps",
+  "",
+  " 1. Create hello.txt in the working directory (/Users/me/ws).",
+  " 2. Write the content hi into it.",
+  " 3. Verify by reading the file back and confirming it contains hi.",
+  DASHES,
+  "",
+  RULE,
+  " Claude has written up a plan and is ready to execute. Would you like to proceed?",
+  "",
+  " ❯ 1. Yes, and use auto mode",
+  "   2. Yes, manually approve edits",
+  "   3. Tell Claude what to change",
+  "      shift+tab to approve with this feedback",
+  "",
+  " ctrl+g to edit in Vim · ~/.claude/plans/plan-in-3-short-lucky-music-of-3abae932-00b2-4d0c-b3c9-7006f8c88066.md",
+]);
+
+/** A permission dialog with its "No" row gone. */
+export const permissionWithoutNo = permissionNo4.filter((line) => line.text !== "   4. No");
