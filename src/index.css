@@ -48,6 +48,14 @@ body { background: var(--background); color: var(--foreground); font-family: var
 /* Chat view, from design/agent-deck/cr016 CHAT1 to CHAT3 and activity(). */
 .bubble { background: var(--primary); color: var(--primary-foreground); border-radius: 15px; }
 .tool { color: var(--muted-foreground); border-left: 2px solid var(--border); }
+
+/* Composer, from design/agent-deck/cr016 composer(); .send is shared with the buttons above. */
+.field { background: var(--background); border: 1px solid var(--border); border-radius: 22px; color: var(--muted-foreground); }
+.field-on { color: var(--foreground); }
+.field:focus-within { outline: 2px solid var(--ring); outline-offset: -1px; }
+.send-off { background: var(--muted); color: var(--muted-foreground); border-radius: 22px; cursor: not-allowed; }
+.stop { background: var(--muted); color: var(--foreground); border: 1px solid var(--border); border-radius: 22px; }
+.send:focus-visible, .send-off:focus-visible, .stop:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .ctx-ok { color: var(--ctx-ok); }
 
 /*

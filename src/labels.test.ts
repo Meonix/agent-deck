@@ -68,3 +68,15 @@ describe("Activity Bar labels (SRS-FR-152)", () => {
     expect(labels.activity.subagents(2)).toBe("2 subagent");
   });
 });
+
+describe("Composer labels (CR-016)", () => {
+  it("names the Composer, its buttons and its lock reasons in Vietnamese", () => {
+    expect(labels.composerLabel).toBe("Nhắn cho Claude");
+    expect(labels.composerPlaceholder).toBe("Nhắn cho Claude…");
+    expect(labels.composerLockApproval).toBe("Claude Code đang chờ duyệt");
+    expect(labels.composerLockUnrecognized).toBe("Không nhận ra màn hình Claude Code — gõ ở Term");
+    expect(labels.composerLockEnded).toBe("Phiên đã kết thúc");
+    expect(labels.send).toBe("Gửi");
+    expect(labels.stop).toBe("Dừng");
+  });
+});

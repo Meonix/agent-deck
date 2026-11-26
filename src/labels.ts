@@ -109,6 +109,13 @@ export const labels = {
     shells: (n: number) => `${n} shell`,
     subagents: (n: number) => `${n} subagent`,
   },
+  composerLabel: "Nhắn cho Claude",
+  composerPlaceholder: "Nhắn cho Claude…",
+  composerLockApproval: "Claude Code đang chờ duyệt",
+  composerLockUnrecognized: "Không nhận ra màn hình Claude Code — gõ ở Term",
+  composerLockEnded: "Phiên đã kết thúc",
+  send: "Gửi",
+  stop: "Dừng",
   dismiss: "Đóng thông báo",
 
   cancel: "Huỷ",
