@@ -21,6 +21,13 @@ describe("inputReadiness (RULE-12)", () => {
     expect(inputReadiness(screens[name], "Running", COLS)).toEqual(locked("approval"));
   });
 
+  // The Composer locks on every dialog the Approval Strip and the cards read, even with its cursor row and footer gone.
+  it.each(["plan", "writeDialog", "editDialog"] as const)("waits for approval on the %s dialog", (name) => {
+    const bare = screens[name].filter((l) => !/^\s*❯ \d+\. |Esc to cancel|ctrl\+g to edit/.test(l.text));
+    expect(inputReadiness(screens[name], "Idle", COLS)).toEqual(locked("approval"));
+    expect(inputReadiness(bare, "Idle", COLS)).toEqual(locked("approval"));
+  });
+
   it("is running while a turn runs", () => {
     expect(inputReadiness(screens.running, "Running", COLS)).toEqual(locked("running"));
   });

@@ -3,6 +3,7 @@ import type { PaneStatus, SessionsClient } from "../api/sessions";
 import { labels } from "../labels";
 import type { Strip } from "./ApprovalStrip";
 import type { ChatEntry, ChatState } from "./chatState";
+import { TOOL_OF_TITLE } from "./claudeScreenText";
 import { answerSteps, type Choice, type Steps } from "./dialogAnswer";
 import { type Dialog, dialogScreen } from "./dialogScreen";
 import type { Question } from "./QuestionCard";
@@ -23,7 +24,8 @@ type View = {
 
 const NOTHING: View = { strip: null, question: null, plan: null, dialog: { kind: "none" } };
 
-const TOOL_OF_TITLE: Record<string, string> = { "Bash command": "Bash", "Create file": "Write", "Edit file": "Edit" };
+/** How much of the transcript's question must begin the one on screen for the card to stand for it. */
+const QUESTION_PREFIX_CHARS = 40;
 
 /** How long each step of a typed answer waits for the screen to show the step before it landed. */
 const STEP_WAIT_MS = 2000;
@@ -217,7 +219,7 @@ function viewOf(dialog: Dialog, status: PaneStatus, ended: boolean, items: ChatE
     const asked = pending?.name === "AskUserQuestion" ? (pending.detail?.question ?? null) : null;
     // Several questions or answers are answered in Term; the text check keeps an older question's card off a new dialog.
     if (!asked || asked.count !== 1 || asked.multiSelect) return NOTHING;
-    if (!collapse(dialog.question).startsWith(collapse(asked.text).slice(0, 40))) return NOTHING;
+    if (!collapse(dialog.question).startsWith(collapse(asked.text).slice(0, QUESTION_PREFIX_CHARS))) return NOTHING;
     // With the cursor already in the field (moved there in Term), a digit would be typed into it.
     if (dialog.cursor === dialog.other) return NOTHING;
     return { ...NOTHING, dialog, question: { text: asked.text, options: asked.options } };

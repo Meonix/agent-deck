@@ -1,4 +1,5 @@
 import type { SessionState } from "../api/sessions";
+import { hasDialogWords } from "./claudeScreenText";
 import type { ScreenLine } from "./TerminalPane";
 
 export type Readiness =
@@ -7,9 +8,9 @@ export type Readiness =
 
 const PROMPT_ROW = /^❯(?:[  ]|$)/;
 const CHOICE_ROW = /^\s*❯ \d+\. /;
-const DIALOG_WORDS = ["Esc to cancel", "Enter to confirm", "Enter to select", "Do you want to proceed?"];
 
-export const isDialogRow = ({ text }: ScreenLine) => CHOICE_ROW.test(text) || DIALOG_WORDS.some((w) => text.includes(w));
+// Every dialog the strip and cards read locks the Composer too, and so does any other.
+export const isDialogRow = ({ text }: ScreenLine) => CHOICE_ROW.test(text) || hasDialogWords(text);
 
 // A blank continuation row has been trimmed to nothing.
 const isContinuation = ({ text }: ScreenLine) => text === "" || text.startsWith("  ");

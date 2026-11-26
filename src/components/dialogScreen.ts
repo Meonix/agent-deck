@@ -1,3 +1,16 @@
+import {
+  APPROVE_PLAN_LABEL,
+  CHAT_LABEL,
+  KEEP_PLANNING_LABEL,
+  NO_LABEL,
+  OTHER_LABEL,
+  PERMISSION_FOOTER,
+  PERMISSION_QUESTION,
+  PLAN_HEADING,
+  PLAN_QUESTION,
+  QUESTION_FOOTER,
+  YES_LABEL,
+} from "./claudeScreenText";
 import { isDialogRow } from "./inputReady";
 import type { ScreenLine } from "./TerminalPane";
 
@@ -38,9 +51,6 @@ export type Dialog =
 const OPTION_ROW = /^\s*(?:❯ )?(\d+)\. (.+)$/;
 const DASH_RULE = /^╌+$/;
 const BOX_ROW = /^│ ?/;
-const PROCEED = /^\s*Do you want to (proceed|create .+|make this edit to .+)\?$/;
-const OTHER_LABEL = "Type something.";
-const KEEP_PLANNING_LABEL = "Tell Claude what to change";
 
 type Option = { label: string; key: string };
 type Menu = { start: number; options: Option[]; cursor: string | null };
@@ -129,11 +139,11 @@ function dialogRows(rows: string[], width: number): { rows: string[]; opened: bo
 const OTHER: Dialog = { kind: "other" };
 
 function permission(rows: string[], width: number): Dialog {
-  const m = menuAbove(rows, lastIndex(rows, "Esc to cancel"));
-  if (!m || lastIndex(rows, PROCEED, m.start) < 0) return OTHER;
+  const m = menuAbove(rows, lastIndex(rows, PERMISSION_FOOTER));
+  if (!m || lastIndex(rows, PERMISSION_QUESTION, m.start) < 0) return OTHER;
   const yes = m.options[0];
   const no = m.options[m.options.length - 1];
-  if (yes.label !== "Yes" || no.label !== "No" || m.options.length < 2) return OTHER;
+  if (yes.label !== YES_LABEL || no.label !== NO_LABEL || m.options.length < 2) return OTHER;
 
   // Both fences must be there, and a `│` box must open right under the first one: what the strip shows
   // is what Cho phép approves.
@@ -162,25 +172,25 @@ function permission(rows: string[], width: number): Dialog {
  * Text typed into the field replaces "Type something.", with the cursor kept on it.
  */
 function question(rows: string[]): Dialog {
-  const m = menuAbove(rows, lastIndex(rows, "Enter to select"));
+  const m = menuAbove(rows, lastIndex(rows, QUESTION_FOOTER));
   const header = rows.findIndex((row) => /^\s*☐ /.test(row));
   if (!m || header < 0 || header > m.start) return OTHER;
   const options = m.options.slice(0, -2);
   const [other, chat] = m.options.slice(-2);
   const text = joined(rows.slice(header + 1, m.start));
   const field = other && (other.label === OTHER_LABEL || m.cursor === other.key);
-  if (options.length === 0 || !field || chat.label !== "Chat about this" || !text) return OTHER;
+  if (options.length === 0 || !field || chat.label !== CHAT_LABEL || !text) return OTHER;
   return { kind: "question", question: text, options, other: other.key, otherLabel: other.label, cursor: m.cursor };
 }
 
 /** Feedback typed into "Tell Claude what to change" replaces its label, with the cursor kept on it. */
 function plan(rows: string[], all: string[], width: number): Dialog {
-  const m = menuBelow(rows, lastIndex(rows, "Would you like to proceed?"));
-  const approve = m.options.find((o) => o.label === "Yes, manually approve edits")?.key;
+  const m = menuBelow(rows, lastIndex(rows, PLAN_QUESTION));
+  const approve = m.options.find((o) => o.label === APPROVE_PLAN_LABEL)?.key;
   const last = m.options[m.options.length - 1];
   const keep =
     m.options.find((o) => o.label === KEEP_PLANNING_LABEL) ??
-    (last && m.cursor === last.key && !last.label.startsWith("Yes") ? last : undefined);
+    (last && m.cursor === last.key && !last.label.startsWith(YES_LABEL) ? last : undefined);
   if (!approve || !keep) return OTHER;
   return { kind: "plan", approve, keepPlanning: keep.key, keepPlanningLabel: keep.label, cursor: m.cursor, plan: planText(all, width) };
 }
@@ -191,8 +201,8 @@ function plan(rows: string[], all: string[], width: number): Dialog {
  * must never pass for all of it.
  */
 function planText(all: string[], width: number): string | null {
-  const ask = lastIndex(all, "Would you like to proceed?");
-  const here = lastIndex(all, "Here is Claude's plan:", ask);
+  const ask = lastIndex(all, PLAN_QUESTION);
+  const here = lastIndex(all, PLAN_HEADING, ask);
   if (here < 0 || !all.slice(0, here).some((row) => isRule(row, width))) return null;
   const open = all.findIndex((row, i) => i > here && isFence(row, width));
   const close = open < 0 ? -1 : all.findIndex((row, i) => i > open && isFence(row, width));
@@ -211,9 +221,9 @@ export function dialogScreen(screen: ScreenLine[]): Dialog {
 
   // The dialog's own marker is the lowest one; the same words may be printed in a command or plan above it.
   const markers = [
-    { at: lastIndex(rows, PROCEED), read: () => (opened ? permission(rows, width) : OTHER) },
-    { at: lastIndex(rows, "Enter to select"), read: () => question(rows) },
-    { at: lastIndex(rows, "Would you like to proceed?"), read: () => plan(rows, all, width) },
+    { at: lastIndex(rows, PERMISSION_QUESTION), read: () => (opened ? permission(rows, width) : OTHER) },
+    { at: lastIndex(rows, QUESTION_FOOTER), read: () => question(rows) },
+    { at: lastIndex(rows, PLAN_QUESTION), read: () => plan(rows, all, width) },
   ].filter((m) => m.at >= 0);
   if (markers.length > 0) return markers.reduce((a, b) => (b.at > a.at ? b : a)).read();
   return rows.some((text) => isDialogRow({ text, dim: [] })) ? OTHER : { kind: "none" };
