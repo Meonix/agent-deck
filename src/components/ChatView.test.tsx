@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import css from "../index.css?raw";
 import { labels } from "../labels";
 import { ActivityBar } from "./ActivityBar";
-import { type Activity, type ChatEntry, type ChatState, activityText } from "./chatState";
+import { type Activity, type ChatEntry, type ChatState } from "./chatState";
 import { ChatView } from "./ChatView";
 
 const chat = (items: ChatEntry[], over: Partial<ChatState> = {}): ChatState => ({ loading: false, unreadable: false, items, held: {}, ...over });
@@ -155,7 +155,7 @@ describe("Activity Bar (SRS-FR-152)", () => {
     render(<ActivityBar state="Running" activity={ALL} />);
     const bar = screen.getByRole("status");
     expect(bar).toHaveTextContent(/^Bash npm test · 42% context · 1 shell · 2 subagent$/);
-    expect(bar.textContent).toBe(activityText(ALL));
+    expect(bar.textContent).toBe("Bash npm test · 42% context · 1 shell · 2 subagent");
     expect(bar).toHaveClass("h-7");
     expect(bar.querySelector(".dot.dot-busy")).not.toBeNull();
     expect(within(bar).getByText("npm test")).toHaveClass("font-mono");
@@ -165,6 +165,11 @@ describe("Activity Bar (SRS-FR-152)", () => {
   it("leaves out the parts not known yet", () => {
     render(<ActivityBar state="Running" activity={{ tool: "Bash", arg: "npm install", context: null, shells: 0, subagents: 0 }} />);
     expect(screen.getByRole("status").textContent).toBe("Bash npm install");
+  });
+
+  it("shows the tool alone when arg is null", () => {
+    render(<ActivityBar state="Running" activity={{ tool: "Read", arg: null, context: null, shells: 0, subagents: 0 }} />);
+    expect(screen.getByRole("status").textContent).toBe("Read");
   });
 
   it("reads the counts alone when no tool is running", () => {

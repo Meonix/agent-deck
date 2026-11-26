@@ -55,11 +55,11 @@ export function applyChat(state: ChatState, message: ChatMessage): ChatState {
   return { ...base, items, held };
 }
 
-export function activityText(activity: Activity): string {
+/** The Activity Bar's count parts in order; unknown context and zero counts are left out. */
+export function activityParts(activity: Activity): string[] {
   const parts: string[] = [];
-  if (activity.tool) parts.push(activity.arg ? `${activity.tool} ${activity.arg}` : activity.tool);
   if (activity.context !== null) parts.push(labels.activity.context(activity.context));
   if (activity.shells > 0) parts.push(labels.activity.shells(activity.shells));
   if (activity.subagents > 0) parts.push(labels.activity.subagents(activity.subagents));
-  return parts.join(" · ");
+  return parts;
 }

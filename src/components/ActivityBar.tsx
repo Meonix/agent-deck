@@ -1,5 +1,5 @@
 import type { SessionState } from "../api/sessions";
-import { type Activity, activityText } from "./chatState";
+import { type Activity, activityParts } from "./chatState";
 
 const NONE: Activity = { tool: null, arg: null, context: null, shells: 0, subagents: 0 };
 
@@ -7,11 +7,7 @@ const NONE: Activity = { tool: null, arg: null, context: null, shells: 0, subage
 export function ActivityBar({ state, activity }: { state: SessionState; activity: Activity | null }) {
   if (state !== "Running") return null;
   const a = activity ?? NONE;
-  const counts = [
-    { text: activityText({ ...NONE, context: a.context }), className: "ctx-ok" },
-    { text: activityText({ ...NONE, shells: a.shells }), className: "" },
-    { text: activityText({ ...NONE, subagents: a.subagents }), className: "" },
-  ].filter((p) => p.text);
+  const counts = activityParts(a);
   return (
     <div role="status" className="sub flex h-7 shrink-0 items-center gap-3 border-t border-border px-3 text-[11px]">
       <span className="dot dot-busy" />
@@ -31,10 +27,10 @@ export function ActivityBar({ state, activity }: { state: SessionState; activity
       {a.tool && counts.length > 0 && <span className="sr-only"> · </span>}
       {counts.length > 0 && (
         <span className="shrink-0 whitespace-nowrap">
-          {counts.map((p, i) => (
-            <span key={p.className + p.text}>
+          {counts.map((text, i) => (
+            <span key={text}>
               {i > 0 && " · "}
-              <span className={p.className || undefined}>{p.text}</span>
+              <span className={i === 0 && a.context !== null ? "ctx-ok" : undefined}>{text}</span>
             </span>
           ))}
         </span>

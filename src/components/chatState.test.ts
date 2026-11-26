@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityText, applyChat, initialChat, type ChatItem } from "./chatState";
+import { activityParts, applyChat, initialChat, type ChatItem } from "./chatState";
 
 const prompt = (key: string, text = key): ChatItem => ({ kind: "prompt", key, text });
 const tool = (key: string, id: string): ChatItem => ({ kind: "tool", key, id, name: "Bash", arg: "ls" });
@@ -86,21 +86,19 @@ describe("applyChat (5.2)", () => {
   });
 });
 
-describe("activityText (5.2)", () => {
+describe("activityParts (5.2)", () => {
   const base = { tool: null, arg: null, context: null, shells: 0, subagents: 0 };
 
-  it("joins all parts in order", () => {
-    expect(activityText({ tool: "Bash", arg: "npm test", context: 42, shells: 1, subagents: 2 })).toBe(
-      "Bash npm test · 42% context · 1 shell · 2 subagent",
-    );
-  });
-
-  it("shows the tool alone when arg is null", () => {
-    expect(activityText({ ...base, tool: "Read" })).toBe("Read");
+  it("lists the count parts in order", () => {
+    expect(activityParts({ tool: "Bash", arg: "npm test", context: 42, shells: 1, subagents: 2 })).toEqual([
+      "42% context",
+      "1 shell",
+      "2 subagent",
+    ]);
   });
 
   it("leaves out unknown parts and zero counts", () => {
-    expect(activityText({ ...base, context: 7, subagents: 3 })).toBe("7% context · 3 subagent");
-    expect(activityText(base)).toBe("");
+    expect(activityParts({ ...base, context: 7, subagents: 3 })).toEqual(["7% context", "3 subagent"]);
+    expect(activityParts({ ...base, tool: "Read" })).toEqual([]);
   });
 });
