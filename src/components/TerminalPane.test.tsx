@@ -27,18 +27,22 @@ function entry(adapter: FakeAdapter | null, over: Partial<PaneEntry> = {}): Pane
     prompted: false,
     view: "term",
     returnView: "term",
+    draft: "",
+    sentPrompts: [],
     ...over,
   };
 }
 
 function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn(), close: vi.fn() }, focused = true) {
   const view = render(
-    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={on.focus} onClose={on.close} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} />,
+    <TerminalPane entry={e} client={client} focused={focused} maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={on.focus} onClose={on.close} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} onDraft={vi.fn()} onSent={vi.fn()} />,
   );
   return { client, on, view };
 }
 
 const flush = () => act(async () => {});
+/** The Term layer of the only pane, which holds the Session ended note. */
+const termLayer = () => document.querySelector<HTMLElement>("[data-view=term]")!;
 
 /** Returns a function that fires every observer callback, as a layout change would. */
 function stubResizeObserver() {
@@ -116,9 +120,9 @@ describe("TerminalPane (5.3)", () => {
     const { client, view } = renderPane(entry(adapter));
     await flush();
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} onDraft={vi.fn()} onSent={vi.fn()} />,
     );
-    expect(screen.getByText(labels.sessionEnded)).toBeInTheDocument();
+    expect(within(termLayer()).getByText(labels.sessionEnded)).toBeInTheDocument();
     expect(screen.getByText(labels.state["Ended"])).toBeInTheDocument();
     expect(adapter.dispose).not.toHaveBeenCalled();
     adapter.type("x");
@@ -151,7 +155,7 @@ describe("TerminalPane (5.3)", () => {
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledWith("p1", "\x1b[M #!");
     view.rerender(
-      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} />,
+      <TerminalPane entry={entry(adapter, { ended: true })} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} onDraft={vi.fn()} onSent={vi.fn()} />,
     );
     adapter.sendBinary("\x1b[M #!");
     expect(client.write).toHaveBeenCalledTimes(1);
@@ -197,7 +201,7 @@ describe("TerminalPane (5.3)", () => {
     expect(screen.getByText(labels.state["Error"], { selector: "span.chip" })).toBeInTheDocument();
     expect(screen.queryByText(labels.state["Ended"], { selector: "span.chip" })).not.toBeInTheDocument();
     expect(screen.getByRole("region")).toHaveClass("pane-err");
-    expect(screen.getByText(labels.sessionEnded)).toBeInTheDocument();
+    expect(within(termLayer()).getByText(labels.sessionEnded)).toBeInTheDocument();
   });
 
   it("shows the Ended badge after a normal exit", () => {
@@ -257,7 +261,7 @@ describe("TerminalPane attention and dimming (app-theme)", () => {
   const classes = (state: PaneEntry["status"]["state"], focused: boolean, maximized = false) => {
     const status = { state, since: 1, reason: null, tracked: true };
     const view = render(
-      <TerminalPane entry={entry(fakeAdapter(), { status })} client={fakeSessions()} focused={focused} maximized={maximized} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} />,
+      <TerminalPane entry={entry(fakeAdapter(), { status })} client={fakeSessions()} focused={focused} maximized={maximized} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} onDraft={vi.fn()} onSent={vi.fn()} />,
     );
     const cls = screen.getByRole("region").className.split(/\s+/);
     view.unmount();
@@ -403,7 +407,7 @@ describe("Shell view focus", () => {
   function paneWith(view: "term" | "shell", adapter: FakeAdapter, shellAdapter: FakeAdapter, client = fakeSessions()) {
     const e = entry(adapter, { view, shell: { adapter: shellAdapter, stream: fakeStream(), activity: null } });
     return (
-      <TerminalPane entry={e} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} />
+      <TerminalPane entry={e} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={vi.fn()} onDismissShellFailure={vi.fn()} onDraft={vi.fn()} onSent={vi.fn()} />
     );
   }
 

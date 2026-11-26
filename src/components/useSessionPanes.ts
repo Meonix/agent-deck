@@ -47,9 +47,12 @@ export type SessionPanes = PanesState & {
   resizeSplit(path: SplitPath, ratio: number): void;
   /** Puts the pane on one side of the target, which it splits in half; the moved pane gets the keyboard. */
   movePane(paneId: string, targetId: string, side: Side): void;
-  /** Shell starts the pane's shell when it has none; Chat and Plan are not built yet and only give the keyboard back. */
+  /** Shell starts the pane's shell when it has none; Plan is not built yet and only gives the keyboard back. */
   chooseView(paneId: string, view: PaneView): Promise<void>;
   dismissShellFailure(paneId: string): void;
+  setDraft(paneId: string, draft: string): void;
+  /** A prompt reached the session from the pane's Composer (SRS-FR-154, SRS-FR-158). */
+  promptSent(paneId: string, prompt: string): void;
   /** Once per launch: resumes the panes remembered from the last one (SRS-FR-085, SRS-FR-086). */
   reopenPanes(workspaces: Workspace[]): Promise<void>;
   /** Counts for the diagnostic report. */
@@ -192,8 +195,10 @@ export function useSessionPanes(
         shell: null,
         shellFailed: false,
         prompted: resumed !== undefined,
-        view: "term",
-        returnView: "term",
+        view: "chat",
+        returnView: "chat",
+        draft: "",
+        sentPrompts: [],
       };
       return entry;
     },
@@ -452,6 +457,11 @@ export function useSessionPanes(
   );
 
   const dismissShellFailure = useCallback((paneId: string) => update(paneId, () => ({ shellFailed: false })), [update]);
+  const setDraft = useCallback((paneId: string, draft: string) => update(paneId, () => ({ draft })), [update]);
+  const promptSent = useCallback(
+    (paneId: string, prompt: string) => update(paneId, (e) => ({ draft: "", sentPrompts: [...e.sentPrompts, prompt] })),
+    [update],
+  );
 
   // SRS-FR-058: one interval asks for every hidden shell; a failed call keeps the last answer.
   const hiddenShells = layout.entries
@@ -500,6 +510,8 @@ export function useSessionPanes(
     movePane,
     chooseView,
     dismissShellFailure,
+    setDraft,
+    promptSent,
     reopenPanes,
     diagnostics,
   };
@@ -507,12 +519,12 @@ export function useSessionPanes(
 
 /** What takes the keyboard in the view the pane shows; the other layers are inert and cannot take focus. */
 function shownView(entry: PaneEntry): { focus(): void } | null {
-  if (entry.view === "chat") return chatLog(entry.pane.paneId);
+  if (entry.view === "chat") return composerOf(entry.pane.paneId);
   return entry.view === "shell" ? (entry.shell?.adapter ?? null) : entry.adapter;
 }
 
-function chatLog(paneId: string): HTMLElement | null {
-  return document.querySelector<HTMLElement>(`[data-chat-log="${CSS.escape(paneId)}"]`);
+function composerOf(paneId: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`[data-composer="${CSS.escape(paneId)}"]`);
 }
 
 function openHolder(entries: PaneEntry[], sessionId: string): PaneEntry | undefined {

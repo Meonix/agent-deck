@@ -58,14 +58,17 @@ async function openPane(sessions = fakeSessions(), sizes: TerminalSize[] = []) {
 const viewItem = (name: string, i = 0) =>
   within(within(paneAt(i)).getByRole("group", { name: labels.viewSwitch })).getByRole("button", { name: new RegExp(`^${name}`) });
 const shellView = (i = 0) => paneAt(i).querySelector<HTMLElement>("[data-view=shell]");
+const termView = (i = 0) => paneAt(i).querySelector<HTMLElement>("[data-view=term]");
 
 async function openShell(user: User, i = 0) {
   await user.click(viewItem(labels.views.shell, i));
   await vi.waitFor(() => expect(shellView(i)).not.toBeNull());
 }
 
-async function paneWithShell(sessions = fakeSessions()) {
+/** A pane showing its shell, opened from Chat (where panes open) or from Term. */
+async function paneWithShell(sessions = fakeSessions(), { fromTerm = false } = {}) {
   const ctx = await openPane(sessions);
+  if (fromTerm) await ctx.user.click(viewItem(labels.views.term));
   await openShell(ctx.user);
   return { ...ctx, shell: sessions.shells[0].stream, shellTerminal: ctx.adapters[1] };
 }
@@ -175,7 +178,7 @@ describe("Pane Shell exit, life after the session, start failure (3.3)", () => {
     const { sessions, session, shellTerminal } = await paneWithShell();
     act(() => session.exit(1));
 
-    expect(within(paneAt()).getByText(labels.sessionEnded)).toBeInTheDocument();
+    expect(within(termView()!).getByText(labels.sessionEnded)).toBeInTheDocument();
     expect(shellView()).not.toBeNull();
     expect(shellTerminal.dispose).not.toHaveBeenCalled();
     shellTerminal.type("ls\r");
@@ -370,7 +373,6 @@ describe("Closing a pane with a shell (3.4)", () => {
 });
 
 describe("Shell view (CR-016)", () => {
-  const termView = (i = 0) => paneAt(i).querySelector<HTMLElement>("[data-view=term]");
   const pressed = (i = 0) =>
     within(within(paneAt(i)).getByRole("group", { name: labels.viewSwitch }))
       .getAllByRole("button")
@@ -401,6 +403,7 @@ describe("Shell view (CR-016)", () => {
       }),
     );
     const { user } = await openPane(sessions);
+    await user.click(viewItem(labels.views.term));
     await user.click(viewItem(labels.views.shell));
     expect(pressed()).toEqual([labels.views.term]);
     expect(shellView()).toBeNull();
@@ -536,7 +539,7 @@ describe("Shell view (CR-016)", () => {
   });
 
   it("returns to Term when the shown shell exits; the next Shell opens a new one without the old output (SRS-FR-061)", async () => {
-    const { user, sessions, adapters, shell, shellTerminal } = await paneWithShell();
+    const { user, sessions, adapters, shell, shellTerminal } = await paneWithShell(fakeSessions(), { fromTerm: true });
     act(() => shell.emit("bye"));
     act(() => shell.exit(0));
 
@@ -565,6 +568,7 @@ describe("Shell view (CR-016)", () => {
     const sessions = fakeSessions({ openShell: vi.fn(async () => Promise.reject("shell_failed")) });
     const { user, adapters, session } = await openPane(sessions);
     act(() => session.status({ state: "Running" }));
+    await user.click(viewItem(labels.views.term));
 
     await user.click(viewItem(labels.views.shell));
 

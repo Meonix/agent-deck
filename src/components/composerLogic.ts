@@ -2,9 +2,12 @@ export type Delivery =
   | { ok: true; bytes: string }
   | { ok: false; reason: "empty" | "unrecognized" };
 
+/** The prompt as it is sent and kept in the history: line endings as `\n`, nothing trimmed. */
+export const normalisePrompt = (text: string) => text.replace(/\r\n?/g, "\n");
+
 /** The bytes that submit `text` as one prompt, as if typed in Term and submitted. */
 export function sendPrompt(text: string, bracketedPaste: boolean): Delivery {
-  const body = text.replace(/\r\n?/g, "\n");
+  const body = normalisePrompt(text);
   if (body.trim() === "") return { ok: false, reason: "empty" };
   if (bracketedPaste) return { ok: true, bytes: `\x1b[200~${body}\x1b[201~\r` };
   // Without bracketed paste a newline would submit early, so only one line is safe.

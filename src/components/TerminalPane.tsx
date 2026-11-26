@@ -1,12 +1,14 @@
 import { Archive, Maximize2, Minimize2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
+import type { OpenedPane, PaneStatus, PaneStream, SessionState, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
 import { labels } from "../labels";
 import type { Activity, ChatState } from "./chatState";
 import { ActivityBar } from "./ActivityBar";
 import { ChatView } from "./ChatView";
+import { Composer } from "./Composer";
+import { type HistoryPosition, historyStep, normalisePrompt, sendPrompt } from "./composerLogic";
 import { ICON } from "./icon";
-import type { ScreenLine } from "./inputReady";
+import { inputReadiness, type Readiness, type ScreenLine } from "./inputReady";
 import { mayTakeFocus } from "./paneFocus";
 import { ShellArea, ShellFailure } from "./PaneShell";
 import { type MaximizedBadge, needsUser } from "./statusHighlight";
@@ -63,10 +65,14 @@ export type PaneEntry = {
   shellFailed: boolean;
   /** Resumed, or a prompt was sent: the session has a history to resume. */
   prompted: boolean;
-  /** Per pane and never saved: reopened panes show Term. */
+  /** Per pane and never saved: every pane opens in Chat (SRS-FR-147). */
   view: PaneView;
   /** Where the pane goes back to when its shell exits (SRS-FR-061). */
   returnView: PaneView;
+  /** The Composer's text; kept here so it survives view switches. Never saved. */
+  draft: string;
+  /** Prompts sent from this pane's Composer, oldest first (SRS-FR-158). Never saved. */
+  sentPrompts: string[];
 };
 
 // Like the session's, the shell's adapter outlives a hide: output keeps flowing into it (SRS-FR-057).
@@ -97,6 +103,9 @@ type Props = {
   onClose(paneId: string): void;
   onChooseView(paneId: string, view: PaneView): void;
   onDismissShellFailure(paneId: string): void;
+  onDraft(paneId: string, draft: string): void;
+  /** The prompt reached the session: the Composer empties and the prompt joins the history. */
+  onSent(paneId: string, prompt: string): void;
 };
 
 export function TerminalPane({
@@ -115,23 +124,29 @@ export function TerminalPane({
   onClose,
   onChooseView,
   onDismissShellFailure,
+  onDraft,
+  onSent,
 }: Props) {
-  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, view, chat, activity } = entry;
+  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, view, chat, activity, draft, sentPrompts } =
+    entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
-  const chatBox = useRef<HTMLDivElement>(null);
+  const composer = useRef<HTMLTextAreaElement>(null);
   const endedRef = useRef(ended);
   endedRef.current = ended;
   const header = useRef<HTMLElement>(null);
   const [compact, setCompact] = useState(false);
   const lastSize = useRef(openedSize);
+  const lastView = useRef(view);
   const refit = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const container = body.current;
     if (!adapter || !container) return;
     adapter.open(container);
-    adapter.focus();
+    // A new pane takes the keyboard even from the sidebar it was opened from (SRS-FR-014).
+    if (lastView.current === "term") adapter.focus();
+    else composer.current?.focus();
 
     // Write and resize failures mean the session is gone; the pane shows that on exit.
     const fit = () => {
@@ -188,19 +203,82 @@ export function TerminalPane({
   }, [textSize]);
 
   // Showing Term refits it, as it may have missed an observation while hidden, and gives it the keyboard;
-  // showing Chat gives the keyboard to its log. After the commit, as a hidden element cannot take focus.
-  const lastView = useRef(view);
+  // showing Chat gives the keyboard to its Composer. After the commit, as a hidden element cannot take focus.
   useEffect(() => {
     if (lastView.current === view) return;
     lastView.current = view;
     if (view === "chat") {
-      if (mayTakeFocus(chatBox.current)) chatBox.current?.focus();
+      if (mayTakeFocus(composer.current)) composer.current?.focus();
       return;
     }
     if (view !== "term") return;
     refit.current?.();
     if (mayTakeFocus(body.current)) adapter?.focus();
   }, [adapter, view]);
+
+  // RULE-12 is read from the session terminal's screen: per frame of output, and on each status change.
+  const state = ended ? "Ended" : status.state;
+  const [readiness, setReadiness] = useState(() => readinessOf(adapter, state));
+  const showReadiness = (next: Readiness) => setReadiness((prev) => (sameReadiness(prev, next) ? prev : next));
+  useEffect(() => {
+    const refresh = () => showReadiness(readinessOf(adapter, state));
+    refresh();
+    if (!adapter) return;
+    let frame = 0;
+    const stop = adapter.onScreenChange(() => {
+      frame ||= requestAnimationFrame(() => {
+        frame = 0;
+        refresh();
+      });
+    });
+    return () => {
+      stop();
+      cancelAnimationFrame(frame);
+    };
+  }, [adapter, state]);
+
+  const history = useRef<HistoryPosition>(null);
+  const changeDraft = (text: string) => {
+    history.current = null;
+    onDraft(paneId, text);
+  };
+  const recall = (dir: "up" | "down") => {
+    const step = historyStep(sentPrompts, history.current, dir);
+    if (!step) return;
+    history.current = step.position;
+    onDraft(paneId, step.text);
+  };
+  // Until the write lands the screen may still show the empty box, so a second Enter would send twice.
+  const sending = useRef(false);
+  // SRS-FR-156: the screen is read again at the moment of sending, as a dialog may have appeared since the last frame.
+  const send = () => {
+    if (sending.current) return;
+    const now = readinessOf(adapter, state);
+    showReadiness(now);
+    if (!now.ready || !adapter) return;
+    const delivery = sendPrompt(draft, adapter.bracketedPaste());
+    if (!delivery.ok) {
+      if (delivery.reason === "unrecognized") showReadiness({ ready: false, reason: "unrecognized" });
+      return;
+    }
+    const prompt = normalisePrompt(draft);
+    sending.current = true;
+    // A failed write leaves the prompt in the Composer.
+    client
+      .write(paneId, delivery.bytes)
+      .then(
+        () => {
+          history.current = null;
+          onSent(paneId, prompt);
+        },
+        () => {},
+      )
+      .finally(() => (sending.current = false));
+  };
+  const running = state === "Running";
+  const stop = () => {
+    if (running) client.write(paneId, "\x1b").catch(() => {});
+  };
 
   // After an abnormal exit the header keeps the Error chip, matching the session row.
   const endedBadge = ended && !(status.tracked && status.state === "Error");
@@ -306,8 +384,19 @@ export function TerminalPane({
           and Chat its scroll and open cards. */}
       <div className="relative flex-1 min-h-0 min-w-0">
         <ViewLayer view="chat" shown={view === "chat"} className="flex flex-col bg-background">
-          <ChatView chat={chat} paneId={paneId} boxRef={chatBox} started={pane.started} />
-          <ActivityBar state={ended ? "Ended" : status.state} activity={activity} />
+          <ChatView chat={chat} started={pane.started} />
+          <ActivityBar state={state} activity={activity} />
+          <Composer
+            paneId={paneId}
+            value={draft}
+            onChange={changeDraft}
+            readiness={readiness}
+            running={running}
+            onSend={send}
+            onStop={stop}
+            onHistory={recall}
+            inputRef={composer}
+          />
         </ViewLayer>
         <ViewLayer view="term" shown={view === "term"} className="flex flex-col">
           {pane.started ? (
@@ -333,6 +422,15 @@ export function TerminalPane({
       {shellFailed && <ShellFailure onDismiss={() => onDismissShellFailure(paneId)} />}
     </section>
   );
+}
+
+// A pane whose session never started has nothing to send to.
+function readinessOf(adapter: TerminalAdapter | null, state: SessionState): Readiness {
+  return adapter ? inputReadiness(adapter.screen(), state) : { ready: false, reason: "ended" };
+}
+
+function sameReadiness(a: Readiness, b: Readiness) {
+  return a.ready ? b.ready : !b.ready && a.reason === b.reason;
 }
 
 function onButton(target: EventTarget) {

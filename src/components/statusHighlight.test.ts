@@ -26,6 +26,8 @@ function e(id: string, workspaceId: string, status: Partial<PaneStatus>, session
     prompted: false,
     view: "term",
     returnView: "term",
+    draft: "",
+    sentPrompts: [],
   };
 }
 

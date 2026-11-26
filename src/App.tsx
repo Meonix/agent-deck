@@ -327,6 +327,8 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
                   onClose={(paneId) => void requestClose(paneId)}
                   onChooseView={(paneId, view) => void panes.chooseView(paneId, view)}
                   onDismissShellFailure={panes.dismissShellFailure}
+                  onDraft={panes.setDraft}
+                  onSent={panes.promptSent}
                 />
               ),
             }))}

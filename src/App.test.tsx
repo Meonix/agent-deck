@@ -6,6 +6,7 @@ import type { ZoomClient } from "./api/zoom";
 import App from "./App";
 import type { TerminalSize } from "./components/TerminalPane";
 import { readSnapshot, writeSnapshot, type Snapshot } from "./components/paneSnapshot";
+import * as claude from "./components/fixtures/claude-screens";
 import type { CountTone } from "./components/statusHighlight";
 import { fakeAdapter, fakeSessions, type FakeAdapter, type FakeSessions } from "./test/fakes";
 import { labels } from "./labels";
@@ -70,7 +71,11 @@ const panes = () => within(screen.getByTestId("pane-grid")).getAllByRole("region
 /** An item of the pane's View Switch; the Shell item may carry " · <command>". */
 const viewItem = (pane: HTMLElement, name: string) =>
   within(within(pane).getByRole("group", { name: labels.viewSwitch })).getByRole("button", { name: new RegExp(`^${name}`) });
+/** The Composer of a pane, which has the keyboard while the pane shows Chat (SRS-FR-147). */
+const composerOf = (pane: HTMLElement) => within(pane).getByRole("textbox", { name: labels.composerLabel });
 const GRID = new DOMRect(0, 0, 1200, 800);
+/** The Term layer of the only pane, which holds the Session ended note. */
+const termLayer = () => document.querySelector<HTMLElement>("[data-view=term]")!;
 type DropSide = "left" | "right" | "top" | "bottom";
 
 /** Pixel box of a pane in a 1200 x 800 grid, from the percentages the grid places it with. */
@@ -141,13 +146,13 @@ describe("New Session (5.4)", () => {
   it("opens a pane titled after the folder, focuses it, then shows the session title", async () => {
     let resolveTitle: (t: string) => void = () => {};
     const sessions = fakeSessions({ title: vi.fn(() => new Promise<string>((r) => (resolveTitle = r))) });
-    const { user, adapters } = setup([ws("a", "agent-deck")], sessions);
+    const { user } = setup([ws("a", "agent-deck")], sessions);
     await newSessionIn(user, "agent-deck");
     expect(await screen.findByRole("region", { name: `agent-deck · ${labels.title("(untitled)")}` })).toBeInTheDocument();
     await act(async () => resolveTitle("Fix login"));
     expect(screen.getByRole("region", { name: "agent-deck · Fix login" })).toBeInTheDocument();
     expect(sessions.open).toHaveBeenCalledWith("a", 80, 24, undefined);
-    expect(adapters[0].focus).toHaveBeenCalled();
+    expect(composerOf(panes()[0])).toHaveFocus();
     expect(screen.queryByText(labels.noPanes)).not.toBeInTheDocument();
   });
 
@@ -216,7 +221,7 @@ describe("New Session (5.4)", () => {
     await screen.findByTestId("pane-grid");
     act(() => sessions.opened[0].stream.emit("Done."));
     act(() => sessions.opened[0].stream.exit(1));
-    expect(screen.getByText(labels.sessionEnded)).toBeInTheDocument();
+    expect(within(termLayer()).getByText(labels.sessionEnded)).toBeInTheDocument();
     expect(adapters[0].written).toEqual(["Done."]);
     expect(adapters[0].dispose).not.toHaveBeenCalled();
     adapters[0].type("x");
@@ -305,14 +310,14 @@ describe("Close pane on normal exit (1.2)", () => {
     const { sessions } = await startPanes(1);
     vi.mocked(sessions.close).mockRejectedValueOnce("io");
     act(() => sessions.opened[0].stream.exit(0));
-    expect(await screen.findByText(labels.sessionEnded)).toBeInTheDocument();
+    expect(await within(termLayer()).findByText(labels.sessionEnded)).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(labels.closeFailed);
   });
 
   it("keeps the pane with Session ended when the process dies from a signal (SRS-FR-028)", async () => {
     const { sessions } = await startPanes(1);
     act(() => sessions.opened[0].stream.exit(null));
-    expect(screen.getByText(labels.sessionEnded)).toBeInTheDocument();
+    expect(within(termLayer()).getByText(labels.sessionEnded)).toBeInTheDocument();
     expect(sessions.close).not.toHaveBeenCalled();
   });
 });
@@ -1066,7 +1071,7 @@ describe("Session Chooser (CR-016)", () => {
     });
 
     it("closes and opens a focused pane in that folder on Phiên mới (SRS-FR-018, SRS-FR-014)", async () => {
-      const { user, sessions, adapters } = setup([ws("a", "agent-deck"), ws("m", "mokairo")]);
+      const { user, sessions } = setup([ws("a", "agent-deck"), ws("m", "mokairo")]);
       await openChooser(user, "mokairo");
 
       await user.click(within(chooser("mokairo")).getByRole("button", { name: labels.newSession }));
@@ -1074,7 +1079,7 @@ describe("Session Chooser (CR-016)", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       await screen.findByTestId("pane-grid");
       expect(sessions.open).toHaveBeenCalledWith("m", 80, 24, undefined);
-      expect(adapters[0].focus).toHaveBeenCalled();
+      expect(composerOf(panes()[0])).toHaveFocus();
     });
 
     it("starts a session on Enter right after opening, and only one (SRS-FR-018)", async () => {
@@ -1101,7 +1106,7 @@ describe("Session Chooser (CR-016)", () => {
     });
 
     it("closes and resumes the clicked row in a focused pane (SRS-FR-013)", async () => {
-      const { user, sessions, adapters } = setup([ws("a", "agent-deck")], fakeSessions({ list: listOf({ a: three }), titles: ["Scaffold Tauri app"] }));
+      const { user, sessions } = setup([ws("a", "agent-deck")], fakeSessions({ list: listOf({ a: three }), titles: ["Scaffold Tauri app"] }));
       await openChooser(user);
 
       await user.click(await within(chooser()).findByRole("button", { name: /^Scaffold Tauri app/ }));
@@ -1109,7 +1114,7 @@ describe("Session Chooser (CR-016)", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" })).toBeInTheDocument();
       expect(sessions.open).toHaveBeenCalledWith("a", 80, 24, "s-a");
-      expect(adapters[0].focus).toHaveBeenCalled();
+      expect(composerOf(panes()[0])).toHaveFocus();
     });
 
     it("resumes a row on Enter, keeping that Enter out of the terminal (SRS-FR-013)", async () => {
@@ -1128,18 +1133,17 @@ describe("Session Chooser (CR-016)", () => {
     it("focuses the pane of an Đang mở row without a second pane (SRS-FR-015, SRS-FR-037)", async () => {
       const listed = [{ id: "s1", title: "Refactor API client", lastActivity: now }];
       const sessions = fakeSessions({ list: listOf({ a: listed }), titles: ["Refactor API client", "Other"] });
-      const { user, adapters } = setup([ws("a", "agent-deck")], sessions);
+      const { user } = setup([ws("a", "agent-deck")], sessions);
       await newSessionIn(user);
       await screen.findByRole("region", { name: "agent-deck · Refactor API client" });
       await newSessionIn(user);
       await vi.waitFor(() => expect(panes()).toHaveLength(2));
-      const focusCalls = vi.mocked(adapters[0].focus).mock.calls.length;
       await openChooser(user);
 
       await user.click(await within(chooser()).findByRole("button", { name: new RegExp(`^Refactor API client.*${labels.live}`) }));
 
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(adapters[0].focus).toHaveBeenCalledTimes(focusCalls + 1);
+      expect(composerOf(panes()[0])).toHaveFocus();
       expect(panes()).toHaveLength(2);
       expect(panes()[0]).toHaveClass("pane-focus");
       expect(panes()[0]).toContainElement(document.activeElement as HTMLElement);
@@ -1322,11 +1326,11 @@ describe("Resume (2.1, 2.2)", () => {
 
   it("opens the session with its id in a focused pane titled after the row", async () => {
     const title = vi.fn(() => new Promise<string>(() => {}));
-    const { user, sessions, adapters } = setup([ws("a", "agent-deck")], fakeSessions({ list: list(), title }));
+    const { user, sessions } = setup([ws("a", "agent-deck")], fakeSessions({ list: list(), title }));
     await resumeRow(user, "agent-deck", "Scaffold");
     expect(await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" })).toBeInTheDocument();
     expect(sessions.open).toHaveBeenCalledWith("a", 80, 24, SCAFFOLD);
-    expect(adapters[0].focus).toHaveBeenCalled();
+    expect(composerOf(panes()[0])).toHaveFocus();
     expect(panes()).toHaveLength(1);
     await openChooser(user);
     await vi.waitFor(() => expect(row("Scaffold")).toHaveTextContent(labels.live));
@@ -1335,7 +1339,7 @@ describe("Resume (2.1, 2.2)", () => {
 
   it("focuses the pane that already holds the session instead of opening another", async () => {
     const sessions = fakeSessions({ list: list(), title: vi.fn(async (id: string) => (id === "p1" ? "Scaffold Tauri app" : "Other")) });
-    const { user, adapters } = setup([ws("a", "agent-deck")], sessions);
+    const { user } = setup([ws("a", "agent-deck")], sessions);
     await resumeRow(user, "agent-deck", "Scaffold");
     await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" });
     await newSessionIn(user);
@@ -1343,9 +1347,8 @@ describe("Resume (2.1, 2.2)", () => {
     const focusedLabel = () => panes().find((p) => p.classList.contains("pane-focus"))?.getAttribute("aria-label");
     expect(focusedLabel()).not.toBe("agent-deck · Scaffold Tauri app");
 
-    const focusCalls = vi.mocked(adapters[0].focus).mock.calls.length;
     await resumeRow(user, "agent-deck", "Scaffold");
-    expect(adapters[0].focus).toHaveBeenCalledTimes(focusCalls + 1);
+    expect(composerOf(panes()[0])).toHaveFocus();
     expect(sessions.open).toHaveBeenCalledTimes(2);
     expect(panes()).toHaveLength(2);
     expect(focusedLabel()).toBe("agent-deck · Scaffold Tauri app");
@@ -1354,13 +1357,11 @@ describe("Resume (2.1, 2.2)", () => {
   it("moves keyboard focus to the pane even when it is already the focused one", async () => {
     // A title that never answers keeps the row named after the listed session.
     const title = vi.fn(() => new Promise<string>(() => {}));
-    const { user, adapters } = setup([ws("a", "agent-deck")], fakeSessions({ list: list(), title }));
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ list: list(), title }));
     await resumeRow(user, "agent-deck", "Scaffold");
     await screen.findByRole("region", { name: /agent-deck/ });
-    const focusCalls = vi.mocked(adapters[0].focus).mock.calls.length;
     await resumeRow(user, "agent-deck", "Scaffold");
-    expect(adapters[0].focus).toHaveBeenCalledTimes(focusCalls + 1);
-    expect(panes()[0]).toContainElement(document.activeElement as HTMLElement);
+    expect(composerOf(panes()[0])).toHaveFocus();
   });
 
   it("shows Folder not found when the backend reports the folder missing, focus back on its + (SRS-FR-016)", async () => {
@@ -1417,12 +1418,12 @@ describe("Split layout (2.1 to 2.3)", () => {
   }
 
   it("puts the new session to the right of the focused pane and focuses it (SRS-FR-021)", async () => {
-    const { user, sessions, adapters } = await startOne();
+    const { user, sessions } = await startOne();
     await newSession(user, "p2");
     expect(sessions.open).toHaveBeenLastCalledWith("a", 80, 24, undefined);
     expect(rectOf(paneNamed("p1"))).toEqual([0, 0, 50, 100]);
     expect(rectOf(paneNamed("p2"))).toEqual([50, 0, 50, 100]);
-    expect(adapters[1].focus).toHaveBeenCalled();
+    expect(composerOf(paneNamed("p2"))).toHaveFocus();
     expect(paneNamed("p2")).toHaveClass("pane-focus");
   });
 
@@ -1629,7 +1630,7 @@ describe("Drag a pane (3.1 to 3.3)", () => {
     const { sessions, adapters } = await start(2);
     act(() => sessions.opened[0].stream.status({ state: "Running" }));
     const opens = vi.mocked(adapters[0].open).mock.calls.length;
-    const focusCalls = vi.mocked(adapters[0].focus).mock.calls.length;
+    expect(composerOf(paneNamed("p1"))).not.toHaveFocus();
 
     dragPane("p1", "p2", "bottom");
 
@@ -1641,7 +1642,7 @@ describe("Drag a pane (3.1 to 3.3)", () => {
     expect(sessions.close).not.toHaveBeenCalled();
     expect(vi.mocked(adapters[0].open).mock.calls.length).toBe(opens);
     expect(adapters[0].container!.isConnected).toBe(true);
-    expect(adapters[0].focus).toHaveBeenCalledTimes(focusCalls + 1);
+    expect(composerOf(paneNamed("p1"))).toHaveFocus();
   });
 
   it("gives the old place of the moved pane to the others (SRS-FR-081)", async () => {
@@ -1864,13 +1865,12 @@ describe("Maximize pane (2.1 to 2.4)", () => {
   });
 
   it("moves the keyboard into the pane it maximizes", async () => {
-    const { user, adapters } = await threePanes();
-    fireEvent.focus(paneNamed("p1"));
-    const focusCalls = vi.mocked(adapters[1].focus).mock.calls.length;
+    const { user } = await threePanes();
+    act(() => composerOf(paneNamed("p1")).focus());
 
     await user.click(button("p2", labels.maximizePane));
 
-    expect(vi.mocked(adapters[1].focus).mock.calls.length).toBe(focusCalls + 1);
+    expect(composerOf(paneNamed("p2"))).toHaveFocus();
     expect(paneNamed("p2")).toHaveClass("pane-focus");
     expect(paneNamed("p1")).not.toHaveClass("pane-focus");
   });
@@ -1970,14 +1970,14 @@ describe("Maximize pane (2.1 to 2.4)", () => {
   });
 
   it("restores and focuses the most urgent session when the badge is clicked (SRS-FR-045)", async () => {
-    const { user, sessions, adapters } = await threePanes();
+    const { user, sessions } = await threePanes();
     const [, p2, p3] = sessions.opened.map((o) => o.stream);
     await user.click(button("p1", labels.maximizePane));
     act(() => p2.status({ state: "Needs Approval", since: new Date(2026, 9, 17, 14, 0).getTime() }));
     act(() => p3.status({ state: "Error", since: new Date(2026, 9, 17, 14, 5).getTime() }));
     // A browser ignores focus() inside an inert subtree, so the fake records whether the pane was still inert.
     const focusedWhileInert: boolean[] = [];
-    vi.mocked(adapters[2].focus).mockImplementation(() => focusedWhileInert.push(wrapper("p3").hasAttribute("inert")));
+    vi.spyOn(composerOf(paneNamed("p3")), "focus").mockImplementation(() => focusedWhileInert.push(wrapper("p3").hasAttribute("inert")));
 
     await user.click(badge("p1")!);
 
@@ -2288,6 +2288,8 @@ describe("Jump from the Folder Tree (2.3)", () => {
     await vi.waitFor(() => expect(panes()).toHaveLength(2));
     await within(sidebar()).findByText("Second");
     act(() => ctx.sessions.opened[1].stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
+    // In Term, so the next key reaches the session terminal.
+    for (const pane of panes()) await ctx.user.click(viewItem(pane, labels.views.term));
     fireEvent.focus(panes()[0]);
     expect(panes()[0]).toHaveClass("pane-focus");
     return { ...ctx, focusCalls: vi.mocked(ctx.adapters[1].focus).mock.calls.length };
@@ -3240,20 +3242,22 @@ describe("View Switch (CR-016)", () => {
       .map((b) => b.textContent);
   const zones = () => document.querySelector("[data-drop-target]");
 
-  async function start(count: number, sessions = fakeSessions()) {
+  /** `count` panes, each switched from Chat, where it opens, to Term unless `inTerm` is false. */
+  async function start(count: number, sessions = fakeSessions(), inTerm = true) {
     sessions.title = vi.fn(async (id: string) => id);
     const ctx = setup([ws("a", "agent-deck")], sessions);
     for (let n = 1; n <= count; n++) {
       await newSessionIn(ctx.user);
       await screen.findByRole("region", { name: `agent-deck · p${n}` });
+      if (inTerm) await ctx.user.click(viewItem(paneNamed(`p${n}`), labels.views.term));
     }
     return ctx;
   }
 
-  it("opens a new pane in Term with the keyboard in its session terminal (SRS-FR-014)", async () => {
-    const { adapters } = await start(1);
-    expect(pressed("p1")).toEqual([labels.views.term]);
-    expect(adapters[0].container).toContainElement(document.activeElement as HTMLElement);
+  it("opens a new pane in Chat with the keyboard in its Composer (SRS-FR-147, SRS-FR-014)", async () => {
+    await start(1, fakeSessions(), false);
+    expect(pressed("p1")).toEqual([labels.views.chat]);
+    expect(composerOf(paneNamed("p1"))).toHaveFocus();
   });
 
   it("switches only the pane whose View Switch is used (SRS-FR-146)", async () => {
@@ -3279,7 +3283,7 @@ describe("View Switch (CR-016)", () => {
     expect(adapters[0].container).toContainElement(document.activeElement as HTMLElement);
   });
 
-  it("reopens panes in Term without a shell after a relaunch (SRS-FR-085)", async () => {
+  it("reopens panes in Chat without a shell after a relaunch (SRS-FR-085, SRS-FR-147)", async () => {
     const { user } = await start(1);
     await vi.waitFor(() => expect(readSnapshot()).not.toBeNull());
     await user.click(viewItem(paneNamed("p1"), labels.views.shell));
@@ -3291,7 +3295,7 @@ describe("View Switch (CR-016)", () => {
     setup([ws("a", "agent-deck")], sessions);
 
     await screen.findByRole("region", { name: "agent-deck · p1" });
-    expect(pressed("p1")).toEqual([labels.views.term]);
+    expect(pressed("p1")).toEqual([labels.views.chat]);
     expect(sessions.openShell).not.toHaveBeenCalled();
   });
 
@@ -3399,6 +3403,7 @@ describe("Chat view (CR-016)", () => {
   const RESULT = { kind: "result" as const, key: "u2:0", toolId: "t1", text: "export function login() {}", isError: false };
   const REPLY = { kind: "reply" as const, key: "a2:0", text: "Đã sửa lỗi token hết hạn." };
 
+  /** Panes switched to Term, so each test chooses Chat itself. */
   async function start(count = 1) {
     const sessions = fakeSessions();
     sessions.title = vi.fn(async (id: string) => id);
@@ -3406,6 +3411,7 @@ describe("Chat view (CR-016)", () => {
     for (let n = 1; n <= count; n++) {
       await newSessionIn(ctx.user);
       await screen.findByRole("region", { name: `agent-deck · p${n}` });
+      await ctx.user.click(viewItem(paneNamed(`p${n}`), labels.views.term));
     }
     return { ...ctx, stream: sessions.opened[0].stream };
   }
@@ -3420,7 +3426,7 @@ describe("Chat view (CR-016)", () => {
     const log = chatLog("p1");
     expect(layerOf(log)).not.toHaveAttribute("inert");
     expect(layerOf(adapters[0].container!)).toHaveAttribute("inert");
-    expect(log).toHaveFocus();
+    expect(composerOf(paneNamed("p1"))).toHaveFocus();
     expect(within(log).getByText(PROMPT.text)).toHaveClass("bubble");
     expect(within(log).getByText(REPLY.text)).toBeInTheDocument();
     const card = within(log).getByRole("button", { name: "Read src/login.ts" });
@@ -3501,29 +3507,29 @@ describe("Chat view (CR-016)", () => {
     expect(bar()).toBeNull();
   });
 
-  it("opens a new pane in Term with the keyboard in its terminal (SRS-FR-014)", async () => {
-    const { user, adapters } = await start();
-    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+  it("opens a new pane in Chat with the keyboard in its Composer, whatever the other panes show (SRS-FR-147)", async () => {
+    const { user } = await start();
     await newSessionIn(user);
     await screen.findByRole("region", { name: "agent-deck · p2" });
-    expect(pressed("p2")).toEqual([labels.views.term]);
-    expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
+    expect(pressed("p1")).toEqual([labels.views.term]);
+    expect(pressed("p2")).toEqual([labels.views.chat]);
+    expect(composerOf(paneNamed("p2"))).toHaveFocus();
   });
 
-  it("puts the keyboard back in the Chat log when Chat is chosen again (SRS-FR-146)", async () => {
+  it("puts the keyboard back in the Composer when Chat is chosen again (SRS-FR-146)", async () => {
     const { user } = await start();
     await user.click(viewItem(paneNamed("p1"), labels.views.chat));
     await user.click(viewItem(paneNamed("p1"), labels.views.chat));
-    expect(chatLog("p1")).toHaveFocus();
+    expect(composerOf(paneNamed("p1"))).toHaveFocus();
   });
 
-  it("jumps from a Session Row into the Chat log of a pane showing Chat (SRS-FR-037)", async () => {
+  it("jumps from a Session Row into the Composer of a pane showing Chat (SRS-FR-037)", async () => {
     const { user, adapters } = await start(2);
     await user.click(viewItem(paneNamed("p1"), labels.views.chat));
     await user.click(viewItem(paneNamed("p2"), labels.views.term));
     expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
     await user.click(within(sessionRow("p1")).getByRole("button"));
-    expect(chatLog("p1")).toHaveFocus();
+    expect(composerOf(paneNamed("p1"))).toHaveFocus();
   });
 
   it("goes back to Chat when the shell exits after Chat was shown (SRS-FR-061)", async () => {
@@ -3533,6 +3539,226 @@ describe("Chat view (CR-016)", () => {
     await vi.waitFor(() => expect(pressed("p1")).toEqual([labels.views.shell]));
     act(() => sessions.shells[0].stream.exit(0));
     expect(pressed("p1")).toEqual([labels.views.chat]);
-    expect(chatLog("p1")).toHaveFocus();
+    expect(composerOf(paneNamed("p1"))).toHaveFocus();
+  });
+});
+
+describe("Composer (CR-016)", () => {
+  const paneNamed = (title: string) => screen.getByRole("region", { name: `agent-deck · ${title}` });
+  const pressed = (title: string) =>
+    within(within(paneNamed(title)).getByRole("group", { name: labels.viewSwitch }))
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-pressed") === "true")
+      .map((b) => b.textContent);
+  const composer = (title = "p1") => within(paneNamed(title)).getByRole("textbox", { name: labels.composerLabel });
+  const sendOf = (title = "p1") => within(paneNamed(title)).getByRole("button", { name: labels.send });
+  const stopOf = (title = "p1") => within(paneNamed(title)).queryByRole("button", { name: labels.stop });
+  const reads = (text: string, title = "p1") => vi.waitFor(() => expect(composer(title)).toHaveAttribute("placeholder", text));
+  const SENT = "\x1b[200~chạy lại test\x1b[201~\r";
+
+  async function start(count = 1, sessions = fakeSessions()) {
+    sessions.title = vi.fn(async (id: string) => id);
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    for (let n = 1; n <= count; n++) {
+      await newSessionIn(ctx.user);
+      await screen.findByRole("region", { name: `agent-deck · p${n}` });
+    }
+    return { ...ctx, stream: sessions.opened[0].stream };
+  }
+
+  /** Panes whose session terminals show Claude Code's empty input box. */
+  async function ready(count = 1, sessions = fakeSessions()) {
+    const ctx = await start(count, sessions);
+    for (let n = 0; n < count; n++) act(() => ctx.adapters[n].showScreen(claude.idle));
+    for (let n = 1; n <= count; n++) await reads(labels.composerPlaceholder, `p${n}`);
+    return ctx;
+  }
+
+  it("sends exactly the typed prompt as one pasted, submitted write and empties (SC-1, SRS-FR-154)", async () => {
+    const { user, sessions, stream } = await ready();
+    await user.type(composer(), "chạy lại test{Enter}");
+    expect(sessions.write).toHaveBeenCalledTimes(1);
+    expect(sessions.write).toHaveBeenCalledWith("p1", SENT);
+    await vi.waitFor(() => expect(composer()).toHaveValue(""));
+    act(() => stream.status({ state: "Running" }));
+    expect(stopOf()).not.toBeNull();
+  });
+
+  it("sends a single line without paste markers when bracketed paste is off", async () => {
+    const { user, sessions, adapters } = await ready();
+    vi.mocked(adapters[0].bracketedPaste).mockReturnValue(false);
+    await user.type(composer(), "xin chào{Enter}");
+    expect(sessions.write).toHaveBeenCalledWith("p1", "xin chào\r");
+  });
+
+  it("sends nothing for a prompt of spaces only", async () => {
+    const { user, sessions } = await ready();
+    await user.type(composer(), "   {Enter}");
+    expect(sessions.write).not.toHaveBeenCalled();
+    expect(composer()).toHaveValue("   ");
+  });
+
+  it("locks with Claude Code đang chờ duyệt on a permission dialog and sends nothing (SC-2, SRS-FR-155)", async () => {
+    const { user, sessions, adapters } = await ready();
+    act(() => adapters[0].showScreen(claude.permission));
+    await reads(labels.composerLockApproval);
+    expect(sendOf()).toHaveAttribute("aria-disabled", "true");
+    await user.type(composer(), "chạy lại test{Enter}");
+    await user.click(sendOf());
+    expect(sessions.write).not.toHaveBeenCalled();
+    expect(composer()).toHaveValue("chạy lại test");
+  });
+
+  it("locks on Needs Approval even at an empty input box", async () => {
+    const { stream } = await ready();
+    act(() => stream.status({ state: "Needs Approval" }));
+    await reads(labels.composerLockApproval);
+  });
+
+  it("locks as unrecognized for text typed in Term, and when the session ended", async () => {
+    const { adapters, stream } = await ready();
+    act(() => adapters[0].showScreen(claude.typed));
+    await reads(labels.composerLockUnrecognized);
+    act(() => stream.exit(1));
+    await reads(labels.composerLockEnded);
+  });
+
+  it("delivers nothing when a dialog appeared after the last render (SC-3, SRS-FR-156)", async () => {
+    const { user, sessions, adapters } = await ready();
+    await user.type(composer(), "1 thêm test");
+    // On screen before any frame could redraw the Composer.
+    vi.mocked(adapters[0].screen).mockReturnValue(claude.permission);
+    await user.keyboard("{Enter}");
+    expect(sessions.write).not.toHaveBeenCalled();
+    expect(composer()).toHaveValue("1 thêm test");
+    expect(composer()).toHaveAttribute("placeholder", labels.composerLockApproval);
+  });
+
+  it("stops a running turn with Esc and shows no Dừng when Idle (SC-4, SRS-FR-157)", async () => {
+    const { user, sessions, stream, adapters } = await ready();
+    expect(stopOf()).toBeNull();
+    act(() => stream.status({ state: "Running" }));
+    act(() => adapters[0].showScreen(claude.running));
+    await user.type(composer(), "tiếp{Enter}");
+    expect(sessions.write).not.toHaveBeenCalled();
+    await user.click(stopOf()!);
+    expect(sessions.write).toHaveBeenCalledTimes(1);
+    expect(sessions.write).toHaveBeenCalledWith("p1", "\x1b");
+
+    act(() => stream.status({ state: "Idle" }));
+    expect(stopOf()).toBeNull();
+    expect(sendOf()).toBeInTheDocument();
+  });
+
+  it("recalls with ↑ only the prompts sent from that pane (SC-5, SRS-FR-158)", async () => {
+    const { user, sessions } = await ready(2);
+    await user.type(composer("p1"), "chạy lại test{Enter}");
+    expect(sessions.write).toHaveBeenCalledWith("p1", SENT);
+    await vi.waitFor(() => expect(composer("p1")).toHaveValue(""));
+
+    await user.keyboard("{ArrowUp}");
+    expect(composer("p1")).toHaveValue("chạy lại test");
+    await user.click(composer("p2"));
+    await user.keyboard("{ArrowUp}");
+    expect(composer("p2")).toHaveValue("");
+  });
+
+  it("walks back to older prompts", async () => {
+    const { user } = await ready();
+    await user.type(composer(), "một{Enter}");
+    await vi.waitFor(() => expect(composer()).toHaveValue(""));
+    await user.type(composer(), "hai{Enter}");
+    await vi.waitFor(() => expect(composer()).toHaveValue(""));
+    await user.keyboard("{ArrowUp}{ArrowUp}");
+    expect(composer()).toHaveValue("một");
+  });
+
+  it("keeps the prompt when the write fails", async () => {
+    const sessions = fakeSessions({ write: vi.fn(async () => Promise.reject("gone")) });
+    const { user } = await ready(1, sessions);
+    await user.type(composer(), "chạy lại test{Enter}");
+    await act(async () => {});
+    expect(sessions.write).toHaveBeenCalledWith("p1", SENT);
+    expect(composer()).toHaveValue("chạy lại test");
+  });
+
+  it("sends a prompt once when Enter is pressed again before its write lands", async () => {
+    let land: () => void = () => {};
+    const sessions = fakeSessions({ write: vi.fn(() => new Promise<void>((resolve) => (land = resolve))) });
+    const { user } = await ready(1, sessions);
+    await user.type(composer(), "chạy lại test{Enter}{Enter}");
+    expect(sessions.write).toHaveBeenCalledTimes(1);
+    await act(async () => land());
+    expect(composer()).toHaveValue("");
+  });
+
+  it("keeps the draft while Term is shown", async () => {
+    const { user } = await ready();
+    await user.type(composer(), "nháp");
+    await user.click(viewItem(paneNamed("p1"), labels.views.term));
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    expect(composer()).toHaveValue("nháp");
+  });
+
+  describe("panes open in Chat (SRS-FR-147, SRS-FR-014)", () => {
+    it("opens a new pane in Chat with the keyboard in its Composer (SC-6)", async () => {
+      await start(2);
+      expect(pressed("p2")).toEqual([labels.views.chat]);
+      expect(composer("p2")).toHaveFocus();
+    });
+
+    it("puts what is typed right after Phiên mới in the Composer", async () => {
+      const { user, sessions } = await start();
+      await user.keyboard("xin chào");
+      expect(composer()).toHaveValue("xin chào");
+      expect(sessions.write).not.toHaveBeenCalled();
+    });
+
+    it("opens a resumed pane in Chat with the keyboard in its Composer", async () => {
+      const sessions = fakeSessions({
+        list: vi.fn(async () => ({ sessions: [{ id: "old-1", title: "Scaffold Tauri app", lastActivity: 1 }], unreadable: 0 })),
+        title: vi.fn(async () => "Scaffold Tauri app"),
+      });
+      const { user } = setup([ws("a", "agent-deck")], sessions);
+      await openChooser(user);
+      await user.click(await within(chooser()).findByRole("button", { name: /^Scaffold/ }));
+      await screen.findByRole("region", { name: "agent-deck · Scaffold Tauri app" });
+      expect(pressed("Scaffold Tauri app")).toEqual([labels.views.chat]);
+      expect(composer("Scaffold Tauri app")).toHaveFocus();
+    });
+
+    it("reopens panes in Chat at launch, the keyboard in the last one's Composer (SC-6)", async () => {
+      const { user } = await start(2);
+      await vi.waitFor(() => expect(readSnapshot()).not.toBeNull());
+      await user.click(viewItem(paneNamed("p1"), labels.views.term));
+      await user.click(viewItem(paneNamed("p2"), labels.views.shell));
+
+      cleanup();
+      const sessions = fakeSessions();
+      sessions.title = vi.fn(async (id: string) => id);
+      setup([ws("a", "agent-deck")], sessions);
+
+      await screen.findByRole("region", { name: "agent-deck · p2" });
+      expect(pressed("p1")).toEqual([labels.views.chat]);
+      expect(pressed("p2")).toEqual([labels.views.chat]);
+      expect(composer("p2")).toHaveFocus();
+    });
+
+    it("moves the keyboard into the Composer when Chat is chosen, also again (SRS-FR-146)", async () => {
+      const { user } = await start();
+      await user.click(viewItem(paneNamed("p1"), labels.views.term));
+      await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+      expect(composer()).toHaveFocus();
+      await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+      expect(composer()).toHaveFocus();
+    });
+
+    it("jumps from a Session Row into the Composer of a pane showing Chat (SRS-FR-037)", async () => {
+      const { user, adapters } = await start(2);
+      await user.click(viewItem(paneNamed("p2"), labels.views.term));
+      expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
+      await user.click(within(sessionRow("p1")).getByRole("button"));
+      expect(composer("p1")).toHaveFocus();
+    });
   });
 });

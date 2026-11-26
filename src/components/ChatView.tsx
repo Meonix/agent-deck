@@ -1,5 +1,5 @@
 import { Bot, FilePlus, FileText, Pencil, Search, Terminal, TriangleAlert, Wrench, type LucideIcon } from "lucide-react";
-import { type RefObject, useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { labels } from "../labels";
 import type { ChatEntry, ChatState } from "./chatState";
 import { ICON } from "./icon";
@@ -23,19 +23,8 @@ const FAMILY: Record<string, LucideIcon> = {
 };
 
 /** The conversation of a pane's session, read from its transcript (SRS-FR-149). */
-export function ChatView({
-  chat,
-  paneId,
-  boxRef,
-  started = true,
-}: {
-  chat: ChatState;
-  paneId?: string;
-  boxRef?: RefObject<HTMLDivElement | null>;
-  started?: boolean;
-}) {
-  const own = useRef<HTMLDivElement>(null);
-  const box = boxRef ?? own;
+export function ChatView({ chat, started = true }: { chat: ChatState; started?: boolean }) {
+  const box = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
 
   useLayoutEffect(() => {
@@ -47,7 +36,6 @@ export function ChatView({
     <div
       ref={box}
       role="log"
-      data-chat-log={paneId}
       aria-label={labels.chatLog}
       aria-live="polite"
       aria-busy={chat.loading || undefined}
