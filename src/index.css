@@ -45,6 +45,11 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .w-app { color: var(--approval-foreground); }
 .w-err { color: var(--error-foreground); }
 
+/* Chat view, from design/agent-deck/cr016 CHAT1 to CHAT3 and activity(). */
+.bubble { background: var(--primary); color: var(--primary-foreground); border-radius: 15px; }
+.tool { color: var(--muted-foreground); border-left: 2px solid var(--border); }
+.ctx-ok { color: var(--ctx-ok); }
+
 /*
  * Folder Tree rows. The Row Focus Mark is always the iris bar (SRS-FR-099), not the remote's yellow/red one on tinted rows;
  * the tints come after .side-on so a focused Needs Approval or Error row keeps its colour.
@@ -68,7 +73,7 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .pane-focus.pane-app::after { box-shadow: inset 0 0 0 2px var(--ring), inset 0 0 0 4px var(--approval); }
 .pane-focus.pane-err::after { box-shadow: inset 0 0 0 2px var(--ring), inset 0 0 0 4px var(--error); }
 
-/* View Switch, from design/agent-deck/cr016 seg(); Chat and Plan stay muted until they are built. */
+/* View Switch, from design/agent-deck/cr016 seg(); Plan stays muted until it is built. */
 .seg { border: 1px solid var(--border); border-radius: 22px; display: flex; overflow: hidden; white-space: nowrap; font-size: 12px; }
 .seg > button { padding: 2px 8px; color: var(--muted-foreground); transition: color var(--duration); }
 .seg > button:not(.seg-on):not([aria-disabled="true"]):hover { color: var(--foreground); }

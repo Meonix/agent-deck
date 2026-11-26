@@ -99,6 +99,10 @@ export const labels = {
   shellRunning: (command: string) => ["Shell ·", command] as const,
   viewNotReady: "Chưa có",
   shellFailed: "Không khởi động được shell",
+  chatLog: "Hội thoại",
+  chatUnreadable: "Không đọc được hội thoại, xem ở Term",
+  /** A tool call whose result has not come back yet. */
+  toolRunning: "đang chạy…",
   dismiss: "Đóng thông báo",
 
   cancel: "Huỷ",

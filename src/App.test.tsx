@@ -3356,9 +3356,9 @@ describe("View Switch (CR-016)", () => {
     expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
   });
 
-  it("puts the keyboard back in the shown terminal on a click on Chat or Plan (SRS-FR-146)", async () => {
+  it("puts the keyboard back in the shown terminal on a click on Plan (SRS-FR-146)", async () => {
     const { user, adapters } = await start(1);
-    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    await user.click(viewItem(paneNamed("p1"), labels.views.plan));
     expect(pressed("p1")).toEqual([labels.views.term]);
     expect(adapters[0].container).toContainElement(document.activeElement as HTMLElement);
 
@@ -3382,5 +3382,146 @@ describe("View Switch (CR-016)", () => {
     fireEvent.pointerDown(viewItem(paneNamed("p1"), labels.views.term), { clientX: 400, clientY: 10, button: 0, pointerId: 1 });
     fireEvent.pointerMove(window, { ...sidePoint("p2", "bottom"), pointerId: 1 });
     expect(zones()).toBeNull();
+  });
+});
+
+describe("Chat view (CR-016)", () => {
+  const paneNamed = (title: string) => screen.getByRole("region", { name: `agent-deck · ${title}` });
+  const pressed = (title: string) =>
+    within(within(paneNamed(title)).getByRole("group", { name: labels.viewSwitch }))
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-pressed") === "true")
+      .map((b) => b.textContent);
+  /** The Chat log of a pane, also while hidden. */
+  const chatLog = (title: string) => within(paneNamed(title)).getByRole("log", { name: labels.chatLog, hidden: true });
+  const layerOf = (el: HTMLElement) => el.closest("[data-view]")!;
+  const PROMPT = { kind: "prompt" as const, key: "u1:0", text: "sửa lỗi đăng nhập" };
+  const READ = { kind: "tool" as const, key: "a1:0", id: "t1", name: "Read", arg: "src/login.ts" };
+  const RESULT = { kind: "result" as const, key: "u2:0", toolId: "t1", text: "export function login() {}", isError: false };
+  const REPLY = { kind: "reply" as const, key: "a2:0", text: "Đã sửa lỗi token hết hạn." };
+
+  async function start(count = 1) {
+    const sessions = fakeSessions();
+    sessions.title = vi.fn(async (id: string) => id);
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    for (let n = 1; n <= count; n++) {
+      await newSessionIn(ctx.user);
+      await screen.findByRole("region", { name: `agent-deck · p${n}` });
+    }
+    return { ...ctx, stream: sessions.opened[0].stream };
+  }
+
+  it("shows the conversation and hides Term without stopping the session (SRS-FR-149, SRS-FR-146)", async () => {
+    const { user, sessions, stream, adapters } = await start();
+    act(() => stream.status({ state: "Running" }));
+    act(() => stream.chat({ reset: true, items: [PROMPT, READ, RESULT, REPLY] }));
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+
+    expect(pressed("p1")).toEqual([labels.views.chat]);
+    const log = chatLog("p1");
+    expect(layerOf(log)).not.toHaveAttribute("inert");
+    expect(layerOf(adapters[0].container!)).toHaveAttribute("inert");
+    expect(log).toHaveFocus();
+    expect(within(log).getByText(PROMPT.text)).toHaveClass("bubble");
+    expect(within(log).getByText(REPLY.text)).toBeInTheDocument();
+    const card = within(log).getByRole("button", { name: "Read src/login.ts" });
+    await user.click(card);
+    expect(within(log).getByText(RESULT.text)).toBeInTheDocument();
+
+    expect(sessions.close).not.toHaveBeenCalled();
+    expect(within(paneNamed("p1")).getByText(labels.state.Running)).toBeInTheDocument();
+  });
+
+  it("shows the skeleton until the first chat message", async () => {
+    const { user, stream } = await start();
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    expect(chatLog("p1").querySelectorAll(".skel").length).toBeGreaterThan(0);
+    act(() => stream.chat({ reset: true, items: [] }));
+    expect(chatLog("p1")).toBeEmptyDOMElement();
+  });
+
+  it("has the entries sent while Term is shown when Chat is chosen (SRS-FR-150)", async () => {
+    const { user, stream } = await start();
+    act(() => stream.chat({ reset: true, items: [] }));
+    act(() => stream.chat({ items: [PROMPT] }));
+    act(() => stream.chat({ items: [READ, RESULT] }));
+    act(() => stream.chat({ items: [REPLY] }));
+    expect(pressed("p1")).toEqual([labels.views.term]);
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    const log = chatLog("p1");
+    expect(within(log).getByText(PROMPT.text)).toBeInTheDocument();
+    expect(within(log).getByRole("button", { name: "Read src/login.ts" })).toBeInTheDocument();
+    expect(within(log).getByText(REPLY.text)).toBeInTheDocument();
+  });
+
+  it("shows only the new conversation after the session moves on (SRS-FR-151)", async () => {
+    const { user, stream } = await start();
+    act(() => stream.chat({ reset: true, items: [PROMPT, REPLY] }));
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    act(() => stream.session("s9"));
+    act(() => stream.chat({ reset: true, items: [{ kind: "prompt", key: "n1:0", text: "viết test cho login" }] }));
+    const log = chatLog("p1");
+    expect(within(log).getByText("viết test cho login")).toBeInTheDocument();
+    expect(within(log).queryByText(PROMPT.text)).toBeNull();
+    expect(within(log).queryByText(REPLY.text)).toBeNull();
+  });
+
+  it("shows the unreadable message while Term still takes input (SRS-FR-153)", async () => {
+    const { user, sessions, stream, adapters } = await start();
+    act(() => stream.chat({ unreadable: true }));
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    expect(within(chatLog("p1")).getByText(labels.chatUnreadable)).toBeInTheDocument();
+
+    await user.click(viewItem(paneNamed("p1"), labels.views.term));
+    expect(adapters[0].container).toContainElement(document.activeElement as HTMLElement);
+    adapters[0].type("y");
+    expect(sessions.write).toHaveBeenCalledWith("p1", "y");
+  });
+
+  it("shows the Activity Bar while Running and drops it on Idle (SRS-FR-152)", async () => {
+    const { user, stream } = await start();
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    const bar = () => within(layerOf(chatLog("p1")) as HTMLElement).queryByRole("status");
+    act(() => stream.activity({ tool: "Bash", arg: "npm test", context: 42, shells: 1, subagents: 2 }));
+    expect(bar()).toBeNull();
+    act(() => stream.status({ state: "Running" }));
+    expect(bar()).toHaveTextContent("Bash npm test · 42% context · 1 shell · 2 subagent");
+    act(() => stream.status({ state: "Idle" }));
+    expect(bar()).toBeNull();
+  });
+
+  it("opens a new pane in Term with the keyboard in its terminal (SRS-FR-014)", async () => {
+    const { user, adapters } = await start();
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    await newSessionIn(user);
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    expect(pressed("p2")).toEqual([labels.views.term]);
+    expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("puts the keyboard back in the Chat log when Chat is chosen again (SRS-FR-146)", async () => {
+    const { user } = await start();
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    expect(chatLog("p1")).toHaveFocus();
+  });
+
+  it("jumps from a Session Row into the Chat log of a pane showing Chat (SRS-FR-037)", async () => {
+    const { user, adapters } = await start(2);
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    await user.click(viewItem(paneNamed("p2"), labels.views.term));
+    expect(adapters[1].container).toContainElement(document.activeElement as HTMLElement);
+    await user.click(within(sessionRow("p1")).getByRole("button"));
+    expect(chatLog("p1")).toHaveFocus();
+  });
+
+  it("goes back to Chat when the shell exits after Chat was shown (SRS-FR-061)", async () => {
+    const { user, sessions } = await start();
+    await user.click(viewItem(paneNamed("p1"), labels.views.chat));
+    await user.click(viewItem(paneNamed("p1"), labels.views.shell));
+    await vi.waitFor(() => expect(pressed("p1")).toEqual([labels.views.shell]));
+    act(() => sessions.shells[0].stream.exit(0));
+    expect(pressed("p1")).toEqual([labels.views.chat]);
+    expect(chatLog("p1")).toHaveFocus();
   });
 });

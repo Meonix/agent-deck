@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
 import { labels } from "../labels";
 import type { Activity, ChatState } from "./chatState";
+import { ActivityBar } from "./ActivityBar";
+import { ChatView } from "./ChatView";
 import { ICON } from "./icon";
 import { mayTakeFocus } from "./paneFocus";
 import { ShellArea, ShellFailure } from "./PaneShell";
@@ -109,9 +111,10 @@ export function TerminalPane({
   onChooseView,
   onDismissShellFailure,
 }: Props) {
-  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, view } = entry;
+  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, view, chat, activity } = entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
+  const chatBox = useRef<HTMLDivElement>(null);
   const endedRef = useRef(ended);
   endedRef.current = ended;
   const header = useRef<HTMLElement>(null);
@@ -180,11 +183,15 @@ export function TerminalPane({
   }, [textSize]);
 
   // Showing Term refits it, as it may have missed an observation while hidden, and gives it the keyboard;
-  // after the commit, as a hidden element cannot take focus.
+  // showing Chat gives the keyboard to its log. After the commit, as a hidden element cannot take focus.
   const lastView = useRef(view);
   useEffect(() => {
     if (lastView.current === view) return;
     lastView.current = view;
+    if (view === "chat") {
+      if (mayTakeFocus(chatBox.current)) chatBox.current?.focus();
+      return;
+    }
     if (view !== "term") return;
     refit.current?.();
     if (mayTakeFocus(body.current)) adapter?.focus();
@@ -290,8 +297,13 @@ export function TerminalPane({
           </button>
         </span>
       </header>
-      {/* Both views stay laid out while hidden, so each terminal keeps its size and output (SRS-FR-148). */}
+      {/* Every view stays laid out while hidden, so each terminal keeps its size and output (SRS-FR-148),
+          and Chat its scroll and open cards. */}
       <div className="relative flex-1 min-h-0 min-w-0">
+        <ViewLayer view="chat" shown={view === "chat"} className="flex flex-col bg-background">
+          <ChatView chat={chat} paneId={paneId} boxRef={chatBox} />
+          <ActivityBar state={ended ? "Ended" : status.state} activity={activity} />
+        </ViewLayer>
         <ViewLayer view="term" shown={view === "term"} className="flex flex-col">
           {pane.started ? (
             // FitAddon sizes from the parent of the terminal and ignores that parent's padding,

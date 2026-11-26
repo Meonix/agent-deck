@@ -28,6 +28,6 @@ describe("useSessionPanes chooseView", () => {
 
     const pane = result.current.entries[0];
     expect(pane.shell).not.toBeNull();
-    expect(pane.view).toBe("term");
+    expect(pane.view).toBe("chat");
   });
 });

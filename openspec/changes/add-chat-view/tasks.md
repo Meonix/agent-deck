@@ -30,11 +30,11 @@
 
 ## 6. Chat view, Activity Bar, View Switch (tests first) — seam 8
 
-- [ ] 6.1 RED in `src/components/ViewSwitch.test.tsx`: Chat is not `aria-disabled` and calls `onChoose("chat")`; Plan still disabled (pane-views › SRS-FR-146)
-- [ ] 6.2 RED in new `src/components/ChatView.test.tsx`: prompt bubble, tool card "Read src/login.ts" with `aria-expanded="false"`, opening shows the result, error result in red, tool without result shows "đang chạy…", reply text with line breaks kept; skeleton while loading with no "Đang tải"; empty body for no items; unreadable shows "Không đọc được hội thoại, xem ở Term" with the `triangle-alert` icon; follows new entries at the bottom, not when scrolled up (SRS-FR-149, SRS-FR-153)
-- [ ] 6.3 RED: `ActivityBar` shows `activityText` with the busy dot while the status is `Running`, nothing otherwise (SRS-FR-152)
-- [ ] 6.4 RED in `src/App.test.tsx` › new `describe("Chat view (CR-016)")` with the fake client: choosing Chat shows the pane's conversation and hides Term without stopping the session; entries sent while Term is shown are there when Chat is chosen; a reset after `{"session"}` shows only the new conversation; unreadable then Term still takes input; Activity Bar appears on `Running` and goes on `Idle`; a new pane still opens in Term with focus in its terminal (SRS-FR-014); a Shell exit while Chat was the previous view returns to Chat
-- [ ] 6.5 Implement `ChatView.tsx`, `ActivityBar.tsx`, the Chat `ViewLayer` in `TerminalPane.tsx`, `UNAVAILABLE = {"plan"}` and `chooseView("chat")`, `.bubble`/`.tool`/`.dot-busy`/`.ctx-ok` in `src/index.css`, labels in `src/labels.ts` with `labels.test.ts` cases — GREEN
+- [x] 6.1 RED in `src/components/ViewSwitch.test.tsx`: Chat is not `aria-disabled` and calls `onChoose("chat")`; Plan still disabled (pane-views › SRS-FR-146)
+- [x] 6.2 RED in new `src/components/ChatView.test.tsx`: prompt bubble, tool card "Read src/login.ts" with `aria-expanded="false"`, opening shows the result, error result in red, tool without result shows "đang chạy…", reply text with line breaks kept; skeleton while loading with no "Đang tải"; empty body for no items; unreadable shows "Không đọc được hội thoại, xem ở Term" with the `triangle-alert` icon; follows new entries at the bottom, not when scrolled up (SRS-FR-149, SRS-FR-153)
+- [x] 6.3 RED: `ActivityBar` shows `activityText` with the busy dot while the status is `Running`, nothing otherwise (SRS-FR-152)
+- [x] 6.4 RED in `src/App.test.tsx` › new `describe("Chat view (CR-016)")` with the fake client: choosing Chat shows the pane's conversation and hides Term without stopping the session; entries sent while Term is shown are there when Chat is chosen; a reset after `{"session"}` shows only the new conversation; unreadable then Term still takes input; Activity Bar appears on `Running` and goes on `Idle`; a new pane still opens in Term with focus in its terminal (SRS-FR-014); a Shell exit while Chat was the previous view returns to Chat
+- [x] 6.5 Implement `ChatView.tsx`, `ActivityBar.tsx`, the Chat `ViewLayer` in `TerminalPane.tsx`, `UNAVAILABLE = {"plan"}` and `chooseView("chat")`, `.bubble`/`.tool`/`.dot-busy`/`.ctx-ok` in `src/index.css`, labels in `src/labels.ts` with `labels.test.ts` cases — GREEN
 
 ## 7. Close
 

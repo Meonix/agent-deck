@@ -131,7 +131,7 @@ export function useSessionPanes(
   const focusHolder = useCallback(
     (holder: PaneEntry) => {
       focusPane(holder.pane.paneId);
-      shownTerminal(holder)?.focus();
+      shownView(holder)?.focus();
     },
     [focusPane],
   );
@@ -209,9 +209,9 @@ export function useSessionPanes(
         const prompted = next.state === "Running" || next.state === "Needs Approval";
         update(pane.paneId, (e) => ({ status: next, prompted: e.prompted || prompted }));
       });
-      // After `/clear` the pane holds a new session; reopening must resume that one (SRS-FR-084).
       stream.onChat((message) => update(pane.paneId, (e) => ({ chat: applyChat(e.chat, message) })));
       stream.onActivity((activity) => update(pane.paneId, () => ({ activity })));
+      // After `/clear` the pane holds a new session; reopening must resume that one (SRS-FR-084).
       stream.onSession((sessionId) => update(pane.paneId, (e) => ({ pane: { ...e.pane, sessionId } })));
       // SRS-FR-083: a normal exit takes its pane along; any other exit, or a failed close, leaves
       // "Session ended" (SRS-FR-028).
@@ -404,10 +404,10 @@ export function useSessionPanes(
       if (starting && view !== "shell") starting.show = false;
       // A view that changes takes the keyboard in TerminalPane once it is shown.
       if (entry.view === view || !isAvailable(view)) {
-        shownTerminal(entry)?.focus();
+        shownView(entry)?.focus();
         return;
       }
-      if (view === "term" || entry.shell) {
+      if (view === "term" || view === "chat" || entry.shell) {
         update(paneId, (e) =>
           view === "shell"
             ? // The last answer goes stale while shown; the next hide waits for a new one.
@@ -505,9 +505,14 @@ export function useSessionPanes(
   };
 }
 
-/** The terminal of the view the pane shows; the other layer is inert and cannot take focus. */
-function shownTerminal(entry: PaneEntry): TerminalAdapter | null {
+/** What takes the keyboard in the view the pane shows; the other layers are inert and cannot take focus. */
+function shownView(entry: PaneEntry): { focus(): void } | null {
+  if (entry.view === "chat") return chatLog(entry.pane.paneId);
   return entry.view === "shell" ? (entry.shell?.adapter ?? null) : entry.adapter;
+}
+
+function chatLog(paneId: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`[data-chat-log="${CSS.escape(paneId)}"]`);
 }
 
 function openHolder(entries: PaneEntry[], sessionId: string): PaneEntry | undefined {

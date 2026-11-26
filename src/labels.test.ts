@@ -52,3 +52,11 @@ describe("View Switch labels (CR-016)", () => {
     expect(labels.viewNotReady).toBe("Chưa có");
   });
 });
+
+describe("Chat view labels (CR-016)", () => {
+  it("names the Chat log and its messages in Vietnamese", () => {
+    expect(labels.chatUnreadable).toBe("Không đọc được hội thoại, xem ở Term");
+    expect(labels.chatLog).toBe("Hội thoại");
+    expect(labels.toolRunning).toBe("đang chạy…");
+  });
+});

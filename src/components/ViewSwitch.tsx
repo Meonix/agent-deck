@@ -3,8 +3,8 @@ import { labels } from "../labels";
 export type PaneView = "chat" | "term" | "shell" | "plan";
 
 const VIEWS: PaneView[] = ["chat", "term", "shell", "plan"];
-// Chat (backlog item 38) and Plan (item 43) are not built yet.
-const UNAVAILABLE = new Set<PaneView>(["chat", "plan"]);
+// Plan (backlog item 43) is not built yet.
+const UNAVAILABLE = new Set<PaneView>(["plan"]);
 
 export const isAvailable = (view: PaneView) => !UNAVAILABLE.has(view);
 

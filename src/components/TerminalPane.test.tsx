@@ -371,7 +371,7 @@ describe("Pane header with View Switch (SRS-FR-030)", () => {
     expect(viewSwitch()).not.toHaveClass("shrink-0");
   });
 
-  it("drops Chat and Plan in a narrow header and keeps Để dành, Phóng to and ×", async () => {
+  it("drops Plan in a narrow header and keeps Để dành, Phóng to and ×", async () => {
     const observe = stubResizeObserver();
     renderPane(entry(fakeAdapter()));
     await flush();
@@ -380,7 +380,7 @@ describe("Pane header with View Switch (SRS-FR-030)", () => {
 
     width.mockReturnValue(new DOMRect(0, 0, 250, 40));
     act(() => observe());
-    expect(items()).toEqual([labels.views.term, labels.views.shell]);
+    expect(items()).toEqual([labels.views.chat, labels.views.term, labels.views.shell]);
     for (const name of [labels.stashSession, labels.maximizePane, labels.closePane]) {
       expect(within(header()).getByRole("button", { name })).toBeInTheDocument();
     }

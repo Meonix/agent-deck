@@ -37,26 +37,36 @@ describe("View Switch (SRS-FR-146)", () => {
     expect(onChoose).toHaveBeenLastCalledWith("term");
   });
 
-  it("shows Chat and Plan disabled and titled Chưa có, still in the tab order", () => {
+  it("shows only Plan disabled and titled Chưa có, still in the tab order (SRS-FR-146)", () => {
     const { items } = renderSwitch();
-    for (const b of [items[0], items[3]]) {
-      expect(b).toHaveAttribute("aria-disabled", "true");
-      expect(b).toHaveAttribute("title", labels.viewNotReady);
-      b.focus();
-      expect(b).toHaveFocus();
-    }
-    for (const b of [items[1], items[2]]) {
+    expect(items[3]).toHaveAttribute("aria-disabled", "true");
+    expect(items[3]).toHaveAttribute("title", labels.viewNotReady);
+    items[3].focus();
+    expect(items[3]).toHaveFocus();
+    for (const b of items.slice(0, 3)) {
       expect(b).not.toHaveAttribute("aria-disabled");
       expect(b).not.toHaveAttribute("title");
     }
   });
 
-  // The pane ignores the choice and puts the keyboard back in the shown terminal.
-  it("passes a click or Enter on Chat and Plan to the pane", async () => {
+  it("chooses Chat on click and on Enter (SRS-FR-146)", async () => {
     const user = userEvent.setup();
     const { onChoose, items } = renderSwitch();
     await user.click(items[0]);
     expect(onChoose).toHaveBeenLastCalledWith("chat");
+    onChoose.mockClear();
+    items[0].focus();
+    await user.keyboard("{Enter}");
+    expect(onChoose).toHaveBeenLastCalledWith("chat");
+  });
+
+  // The pane ignores the choice and puts the keyboard back in the shown view.
+  it("passes a click or Enter on Plan to the pane", async () => {
+    const user = userEvent.setup();
+    const { onChoose, items } = renderSwitch();
+    await user.click(items[3]);
+    expect(onChoose).toHaveBeenLastCalledWith("plan");
+    onChoose.mockClear();
     items[3].focus();
     await user.keyboard("{Enter}");
     expect(onChoose).toHaveBeenLastCalledWith("plan");
@@ -74,9 +84,9 @@ describe("View Switch (SRS-FR-146)", () => {
     expect(within(items[2]).getByText("npm run dev")).toHaveClass("min-w-0");
   });
 
-  it("keeps only Term and a bare Shell when compact", () => {
+  it("keeps only Chat, Term and a bare Shell when compact", () => {
     const { items } = renderSwitch("term", "npm run dev", true);
-    expect(items.map((b) => b.textContent)).toEqual([labels.views.term, labels.views.shell]);
+    expect(items.map((b) => b.textContent)).toEqual([labels.views.chat, labels.views.term, labels.views.shell]);
   });
 });
 
