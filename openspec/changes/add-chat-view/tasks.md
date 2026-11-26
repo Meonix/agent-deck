@@ -1,8 +1,8 @@
 ## 1. Transcript records (tests first) — seam 1
 
-- [ ] 1.1 RED in new `src-tauri/src/transcript.rs` tests: `parse_record` on fixture lines in the measured shapes — user string → Prompt; user array of `text` → Prompt; slash command record → Prompt "/x a"; `<bash-input>` → Prompt "! cmd"; `<local-command-stdout>`, `<system-reminder>` and the other wrappers → Ignored; `isMeta`, `isSidechain`, `thinking` → Ignored; assistant `text` → Reply; `tool_use` → Tool with id, name, arg; `tool_result` string, array, `image` ("[ảnh]"), `is_error`, over 8 KiB (capped with "…") → Result; types `attachment`, `system`, `mode`, `ai-title` → Ignored; not JSON → Invalid; `user` with `message.content` a number or missing → Unrecognized; item keys are `uuid` + block index (SRS-FR-149, SRS-FR-153)
-- [ ] 1.2 RED: `tool_arg` — Read/Edit/MultiEdit/Write/NotebookEdit `file_path` relative to the workspace when inside it, absolute otherwise; Bash first line capped at 120 chars; Grep/Glob `pattern`; WebFetch `url`; WebSearch `query`; Agent/Task and others `description`; none
-- [ ] 1.3 Implement `parse_record`, `ChatItem`, `tool_arg` — GREEN
+- [x] 1.1 RED in new `src-tauri/src/transcript.rs` tests: `parse_record` on fixture lines in the measured shapes — user string → Prompt; user array of `text` → Prompt; slash command record → Prompt "/x a"; `<bash-input>` → Prompt "! cmd"; `<local-command-stdout>`, `<system-reminder>` and the other wrappers → Ignored; `isMeta`, `isSidechain`, `thinking` → Ignored; assistant `text` → Reply; `tool_use` → Tool with id, name, arg; `tool_result` string, array, `image` ("[ảnh]"), `is_error`, over 8 KiB (capped with "…") → Result; types `attachment`, `system`, `mode`, `ai-title` → Ignored; not JSON → Invalid; `user` with `message.content` a number or missing → Unrecognized; item keys are `uuid` + block index (SRS-FR-149, SRS-FR-153)
+- [x] 1.2 RED: `tool_arg` — Read/Edit/MultiEdit/Write/NotebookEdit `file_path` relative to the workspace when inside it, absolute otherwise; Bash first line capped at 120 chars; Grep/Glob `pattern`; WebFetch `url`; WebSearch `query`; Agent/Task and others `description`; none
+- [x] 1.3 Implement `parse_record`, `ChatItem`, `tool_arg` — GREEN
 
 ## 2. Transcript tail (tests first) — seam 2
 
