@@ -4,7 +4,7 @@ import { fakeAdapter, fakeSessions, type FakeSessions } from "../test/fakes";
 import { useSessionPanes } from "./useSessionPanes";
 
 describe("useSessionPanes new panes (SRS-FR-147)", () => {
-  it("starts new and resumed panes in Chat, with an empty draft and no sent prompts", async () => {
+  it("starts new and resumed panes in Chat, with no sent prompts", async () => {
     const paneArea = { current: null };
     const { result } = renderHook(() => useSessionPanes(fakeSessions(), () => fakeAdapter(), vi.fn(), paneArea));
     const workspace = { id: "a", name: "a", path: "/a", missing: false };
@@ -12,7 +12,7 @@ describe("useSessionPanes new panes (SRS-FR-147)", () => {
     await act(async () => void (await result.current.resume(workspace, { id: "old", title: "Cũ" })));
 
     for (const pane of result.current.entries) {
-      expect(pane).toMatchObject({ view: "chat", returnView: "chat", draft: "", sentPrompts: [] });
+      expect(pane).toMatchObject({ view: "chat", returnView: "chat", sentPrompts: [] });
     }
     expect(result.current.entries).toHaveLength(2);
   });

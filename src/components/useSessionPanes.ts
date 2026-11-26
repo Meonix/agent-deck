@@ -50,7 +50,6 @@ export type SessionPanes = PanesState & {
   /** Shell starts the pane's shell when it has none; Plan is not built yet and only gives the keyboard back. */
   chooseView(paneId: string, view: PaneView): Promise<void>;
   dismissShellFailure(paneId: string): void;
-  setDraft(paneId: string, draft: string): void;
   /** A prompt reached the session from the pane's Composer (SRS-FR-154, SRS-FR-158). */
   promptSent(paneId: string, prompt: string): void;
   /** Once per launch: resumes the panes remembered from the last one (SRS-FR-085, SRS-FR-086). */
@@ -197,7 +196,6 @@ export function useSessionPanes(
         prompted: resumed !== undefined,
         view: "chat",
         returnView: "chat",
-        draft: "",
         sentPrompts: [],
       };
       return entry;
@@ -457,9 +455,8 @@ export function useSessionPanes(
   );
 
   const dismissShellFailure = useCallback((paneId: string) => update(paneId, () => ({ shellFailed: false })), [update]);
-  const setDraft = useCallback((paneId: string, draft: string) => update(paneId, () => ({ draft })), [update]);
   const promptSent = useCallback(
-    (paneId: string, prompt: string) => update(paneId, (e) => ({ draft: "", sentPrompts: [...e.sentPrompts, prompt] })),
+    (paneId: string, prompt: string) => update(paneId, (e) => ({ sentPrompts: [...e.sentPrompts, prompt] })),
     [update],
   );
 
@@ -510,7 +507,6 @@ export function useSessionPanes(
     movePane,
     chooseView,
     dismissShellFailure,
-    setDraft,
     promptSent,
     reopenPanes,
     diagnostics,

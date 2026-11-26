@@ -3692,6 +3692,35 @@ describe("Composer (CR-016)", () => {
     expect(composer()).toHaveValue("");
   });
 
+  it("keeps what was typed while the write was pending", async () => {
+    let land: () => void = () => {};
+    const sessions = fakeSessions({ write: vi.fn(() => new Promise<void>((resolve) => (land = resolve))) });
+    const { user } = await ready(1, sessions);
+    await user.type(composer(), "chạy lại test{Enter} nữa");
+    await act(async () => land());
+    expect(composer()).toHaveValue("chạy lại test nữa");
+  });
+
+  it("does not rewrite the remembered panes on each keystroke", async () => {
+    const { user } = await ready();
+    await vi.waitFor(() => expect(readSnapshot()).not.toBeNull());
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    try {
+      await user.type(composer(), "chạy lại test");
+      expect(setItem).not.toHaveBeenCalled();
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
+  it("keeps the draft when the pane is maximized and restored", async () => {
+    const { user } = await ready();
+    await user.type(composer(), "nháp");
+    await user.click(within(paneNamed("p1")).getByRole("button", { name: labels.maximizePane }));
+    await user.click(within(paneNamed("p1")).getByRole("button", { name: labels.restorePane }));
+    expect(composer()).toHaveValue("nháp");
+  });
+
   it("keeps the draft while Term is shown", async () => {
     const { user } = await ready();
     await user.type(composer(), "nháp");

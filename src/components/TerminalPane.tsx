@@ -1,18 +1,18 @@
 import { Archive, Maximize2, Minimize2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { OpenedPane, PaneStatus, PaneStream, SessionState, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
+import type { OpenedPane, PaneStatus, PaneStream, SessionsClient, ShellActivity, ShellStream } from "../api/sessions";
 import { labels } from "../labels";
 import type { Activity, ChatState } from "./chatState";
 import { ActivityBar } from "./ActivityBar";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
-import { type HistoryPosition, historyStep, normalisePrompt, sendPrompt } from "./composerLogic";
 import { ICON } from "./icon";
-import { inputReadiness, type Readiness, type ScreenLine } from "./inputReady";
+import type { ScreenLine } from "./inputReady";
 import { mayTakeFocus } from "./paneFocus";
 import { ShellArea, ShellFailure } from "./PaneShell";
 import { type MaximizedBadge, needsUser } from "./statusHighlight";
 import { type Mark, RoundMark, tone } from "./statusTone";
+import { useComposer } from "./useComposer";
 import { ViewLayer } from "./ViewLayer";
 import { type PaneView, ViewSwitch } from "./ViewSwitch";
 
@@ -71,8 +71,6 @@ export type PaneEntry = {
   view: PaneView;
   /** Where the pane goes back to when its shell exits (SRS-FR-061). */
   returnView: PaneView;
-  /** The Composer's text; kept here so it survives view switches. Never saved. */
-  draft: string;
   /** Prompts sent from this pane's Composer, oldest first (SRS-FR-158). Never saved. */
   sentPrompts: string[];
 };
@@ -105,8 +103,7 @@ type Props = {
   onClose(paneId: string): void;
   onChooseView(paneId: string, view: PaneView): void;
   onDismissShellFailure(paneId: string): void;
-  onDraft(paneId: string, draft: string): void;
-  /** The prompt reached the session: the Composer empties and the prompt joins the history. */
+  /** A prompt from the Composer reached the session and joins the pane's history. */
   onSent(paneId: string, prompt: string): void;
 };
 
@@ -126,10 +123,9 @@ export function TerminalPane({
   onClose,
   onChooseView,
   onDismissShellFailure,
-  onDraft,
   onSent,
 }: Props) {
-  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, view, chat, activity, draft, sentPrompts } =
+  const { pane, workspaceName, adapter, openedSize, ended, status, title, graceOver, shell, shellFailed, view, chat, activity, sentPrompts } =
     entry;
   const paneId = pane.paneId;
   const body = useRef<HTMLDivElement>(null);
@@ -218,69 +214,8 @@ export function TerminalPane({
     if (mayTakeFocus(body.current)) adapter?.focus();
   }, [adapter, view]);
 
-  // RULE-12 is read from the session terminal's screen: per frame of output, and on each status change.
   const state = ended ? "Ended" : status.state;
-  const [readiness, setReadiness] = useState(() => readinessOf(adapter, state));
-  const showReadiness = (next: Readiness) => setReadiness((prev) => (sameReadiness(prev, next) ? prev : next));
-  useEffect(() => {
-    const refresh = () => showReadiness(readinessOf(adapter, state));
-    refresh();
-    if (!adapter) return;
-    let frame = 0;
-    const stop = adapter.onScreenChange(() => {
-      frame ||= requestAnimationFrame(() => {
-        frame = 0;
-        refresh();
-      });
-    });
-    return () => {
-      stop();
-      cancelAnimationFrame(frame);
-    };
-  }, [adapter, state]);
-
-  const history = useRef<HistoryPosition>(null);
-  const changeDraft = (text: string) => {
-    history.current = null;
-    onDraft(paneId, text);
-  };
-  const recall = (dir: "up" | "down") => {
-    const step = historyStep(sentPrompts, history.current, dir);
-    if (!step) return;
-    history.current = step.position;
-    onDraft(paneId, step.text);
-  };
-  // Until the write lands the screen may still show the empty box, so a second Enter would send twice.
-  const sending = useRef(false);
-  // SRS-FR-156: the screen is read again at the moment of sending, as a dialog may have appeared since the last frame.
-  const send = () => {
-    if (sending.current) return;
-    const now = readinessOf(adapter, state);
-    showReadiness(now);
-    if (!now.ready || !adapter) return;
-    const delivery = sendPrompt(draft, adapter.bracketedPaste());
-    if (!delivery.ok) {
-      if (delivery.reason === "unrecognized") showReadiness({ ready: false, reason: "unrecognized" });
-      return;
-    }
-    const prompt = normalisePrompt(draft);
-    sending.current = true;
-    // A failed write leaves the prompt in the Composer.
-    client
-      .write(paneId, delivery.bytes)
-      .then(
-        () => {
-          history.current = null;
-          onSent(paneId, prompt);
-        },
-        () => {},
-      )
-      .finally(() => (sending.current = false));
-  };
-  const running = state === "Running";
-  const stop = () => {
-    if (running) client.write(paneId, "\x1b").catch(() => {});
-  };
+  const composerState = useComposer({ paneId, adapter, state, client, sentPrompts, onSent: (prompt) => onSent(paneId, prompt) });
 
   // After an abnormal exit the header keeps the Error chip, matching the session row.
   const endedBadge = ended && !(status.tracked && status.state === "Error");
@@ -388,17 +323,7 @@ export function TerminalPane({
         <ViewLayer view="chat" shown={view === "chat"} className="flex flex-col bg-background">
           <ChatView chat={chat} started={pane.started} />
           <ActivityBar state={state} activity={activity} />
-          <Composer
-            paneId={paneId}
-            value={draft}
-            onChange={changeDraft}
-            readiness={readiness}
-            running={running}
-            onSend={send}
-            onStop={stop}
-            onHistory={recall}
-            inputRef={composer}
-          />
+          <Composer paneId={paneId} inputRef={composer} {...composerState} />
         </ViewLayer>
         <ViewLayer view="term" shown={view === "term"} className="flex flex-col">
           {pane.started ? (
@@ -424,15 +349,6 @@ export function TerminalPane({
       {shellFailed && <ShellFailure onDismiss={() => onDismissShellFailure(paneId)} />}
     </section>
   );
-}
-
-// A pane whose session never started has nothing to send to.
-function readinessOf(adapter: TerminalAdapter | null, state: SessionState): Readiness {
-  return adapter ? inputReadiness(adapter.screen(), state, adapter.cols()) : { ready: false, reason: "ended" };
-}
-
-function sameReadiness(a: Readiness, b: Readiness) {
-  return a.ready ? b.ready : !b.ready && a.reason === b.reason;
 }
 
 function onButton(target: EventTarget) {
