@@ -58,6 +58,16 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .send:focus-visible, .send-off:focus-visible, .stop:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .ctx-ok { color: var(--ctx-ok); }
 
+/* Approval Strip and the Question and plan cards, from design/agent-deck/cr016 strip(), QCARD and PCARD; .allow is above. */
+.strip { background: var(--approval-bg); color: var(--approval-foreground); border-top: 2px solid var(--approval-border); }
+.deny { border: 1px solid var(--approval-foreground); border-radius: 22px; color: var(--approval-foreground); }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
+.card-app { border-color: var(--approval-border); }
+.pick-on { background: var(--accent); color: var(--accent-foreground); }
+.allow:focus-visible, .deny:focus-visible, .card .outline-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.card .outline-btn:disabled { opacity: 0.5; }
+.card label:has(> input:focus-visible) { outline: 2px solid var(--ring); outline-offset: -2px; }
+
 /*
  * Folder Tree rows. The Row Focus Mark is always the iris bar (SRS-FR-099), not the remote's yellow/red one on tinted rows;
  * the tints come after .side-on so a focused Needs Approval or Error row keeps its colour.

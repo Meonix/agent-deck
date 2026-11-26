@@ -80,3 +80,17 @@ describe("Composer labels (CR-016)", () => {
     expect(labels.stop).toBe("Dừng");
   });
 });
+
+describe("Approval labels (CR-016)", () => {
+  it("names the Approval Strip, the Question Card and the plan card in Vietnamese", () => {
+    expect(labels.allow).toBe("Cho phép");
+    expect(labels.deny).toBe("Từ chối");
+    expect(labels.requestChanged).toBe("Yêu cầu đã thay đổi");
+    expect(labels.other).toBe("Khác…");
+    expect(labels.approvePlan).toBe("Duyệt kế hoạch");
+    expect(labels.keepPlanning).toBe("Tiếp tục lên kế hoạch");
+    expect(labels.permissionGroup).toBe("Yêu cầu quyền");
+    expect(labels.planFeedback).toBe("Góp ý cho kế hoạch");
+    expect(labels.planInTerm).toBe("Xem kế hoạch ở Term");
+  });
+});
