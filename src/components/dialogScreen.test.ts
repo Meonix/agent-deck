@@ -100,7 +100,7 @@ describe("dialogScreen", () => {
   });
 
   it("joins a question that wraps over several rows", () => {
-    const screen = rows(RULE, " ☐ Lib", "", "Which one", "  do you want?", "", "❯ 1. zod", "  2. Type something.", "Enter to select");
+    const screen = rows(RULE, " ☐ Lib", "", "Which one", "  do you want?", "", "❯ 1. zod", "  2. Type something.", "  3. Chat about this", "Enter to select");
     expect(dialogScreen(screen)).toMatchObject({ kind: "question", question: "Which one do you want?" });
   });
 
@@ -233,7 +233,7 @@ describe("dialogScreen", () => {
     });
 
     it("ignores a description row starting with 1.", () => {
-      const screen = questionWith("❯ 1. A", "     1. first step", "  2. B", "  3. Type something.");
+      const screen = questionWith("❯ 1. A", "     1. first step", "  2. B", "  3. Type something.", "  4. Chat about this");
       expect(dialogScreen(screen)).toEqual({
         kind: "question",
         question: "Which one?",
@@ -243,6 +243,61 @@ describe("dialogScreen", () => {
         ],
         other: "3",
       });
+    });
+
+    it.each([
+      ["A", "B"],
+      ["B", "A"],
+    ])("ignores a numbered list after a blank row in a description (%s, %s)", (first, second) => {
+      const screen = questionWith(
+        `❯ 1. ${first}`,
+        `     about ${first}`,
+        "     ",
+        "     1. foo",
+        "     2. Type something.",
+        `  2. ${second}`,
+        "  3. Type something.",
+        RULE,
+        "  4. Chat about this",
+      );
+      expect(dialogScreen(screen)).toEqual({
+        kind: "question",
+        question: "Which one?",
+        options: [
+          { label: first, key: "1" },
+          { label: second, key: "2" },
+        ],
+        other: "3",
+      });
+    });
+
+    it("takes the other key by position, not by the first Type something. label", () => {
+      const screen = questionWith("❯ 1. Type something.", "  2. B", "  3. Type something.", RULE, "  4. Chat about this");
+      expect(dialogScreen(screen)).toEqual({
+        kind: "question",
+        question: "Which one?",
+        options: [
+          { label: "Type something.", key: "1" },
+          { label: "B", key: "2" },
+        ],
+        other: "3",
+      });
+    });
+
+    it("is other when Chat about this is not the last option", () => {
+      expect(dialogScreen(questionWith("❯ 1. A", "  2. Type something.", "  3. Chat about this", "  4. B"))).toEqual({
+        kind: "other",
+      });
+    });
+
+    it("is other when a permission's last option is not No", () => {
+      const screen = screens.permissionNo4.map((l) => (l.text === "   4. No" ? rows("   4. Maybe")[0] : l));
+      expect(dialogScreen(screen)).toEqual({ kind: "other" });
+    });
+
+    it("is other when a permission's first option is not Yes", () => {
+      const screen = screens.permissionNo4.map((l) => (l.text === " ❯ 1. Yes" ? rows(" ❯ 1. Sure")[0] : l));
+      expect(dialogScreen(screen)).toEqual({ kind: "other" });
     });
 
     it("is other when a numbered row breaks the menu", () => {

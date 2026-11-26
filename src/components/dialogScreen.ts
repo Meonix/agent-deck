@@ -11,58 +11,59 @@ export type Dialog =
 const OPTION_ROW = /^\s*(?:❯ )?(\d+)\. (.+)$/;
 const DASH_RULE = /^╌+$/;
 const BOX_ROW = /^│ ?/;
-const OTHER_LABEL = "Type something.";
-const CHAT_LABEL = "Chat about this";
 
 type Option = { label: string; key: string };
 
-const option = (text: string): (Option & { column: number }) | null => {
+const option = (text: string) => {
   const match = OPTION_ROW.exec(text);
   return match ? { label: match[2], key: match[1], column: text.indexOf(match[1]) } : null;
 };
 
-type Menu = { start: number; column: number; options: Option[] };
+/**
+ * Whether a walk over the menu steps past `row`: a blank or rule row, or, once the digit column is
+ * known, a row starting deeper than it (a description, a wrapped label, "shift+tab to approve…").
+ */
+const passes = (row: string, column: number) =>
+  row.trim() === "" || /^[─╌]+$/.test(row.trim()) || (column >= 0 && row.search(/\S/) > column);
 
 /**
- * The last run of rows numbered 1, 2, 3… before `end`, every digit in one column. Claude Code prints
- * commands, plans and questions that may hold numbered rows of their own, so keys come only from this
- * run. Between two options may sit an option's indented description (numbered or not), a wrapped
- * label, or a `─` separator. A run broken by a numbered row out of sequence is no menu at all.
+ * The menu just above `footer`, read bottom-up: digits in one column counting down to 1. Text Claude
+ * Code prints above it (a command, a plan, a question) may hold numbered rows of its own, which the
+ * walk never reaches. `start` is the row of "1.".
  */
-function menu(rows: string[], end = rows.length): Menu | null {
-  let last: Menu | null = null;
-  let run: Menu | null = null;
-  for (let i = 0; i < end; i++) {
+function menuAbove(rows: string[], footer: number): { start: number; options: Option[] } | null {
+  const options: Option[] = [];
+  let column = -1;
+  for (let i = footer - 1; i >= 0; i--) {
+    if (passes(rows[i], column)) continue;
     const o = option(rows[i]);
-    if (!o) {
-      if (!(/^─+$/.test(rows[i]) || /^\s+\S/.test(rows[i]))) run = null;
-    } else if (run && o.column !== run.column) {
-      continue;
-    } else if (run && Number(o.key) === run.options.length + 1) {
-      run.options.push({ label: o.label, key: o.key });
-    } else if (o.key === "1") {
-      run = { start: i, column: o.column, options: [{ label: o.label, key: o.key }] };
-    } else {
-      run = last = null;
-    }
-    if (run) last = run;
+    if (!o || (column >= 0 && (o.column !== column || Number(o.key) !== Number(options[0].key) - 1))) return null;
+    column = o.column;
+    options.unshift({ label: o.label, key: o.key });
+    if (o.key === "1") return { start: i, options };
   }
-  return last;
+  return null;
 }
 
-const keyOf = (m: Menu | null, label: string) => m?.options.find((o) => o.label === label)?.key;
+/** The menu just below `anchor`, read top-down: digits in one column counting up from 1. */
+function menuBelow(rows: string[], anchor: number): Option[] {
+  const options: Option[] = [];
+  let column = -1;
+  for (let i = anchor + 1; i < rows.length; i++) {
+    if (passes(rows[i], column)) continue;
+    const o = option(rows[i]);
+    if (!o || (column >= 0 && o.column !== column) || Number(o.key) !== options.length + 1) break;
+    column = o.column;
+    options.push({ label: o.label, key: o.key });
+  }
+  return options;
+}
 
 // The last match: the same words may appear earlier in a command, plan or question Claude Code prints.
 const lastIndex = (rows: string[], words: string, end = rows.length) => {
   for (let i = end - 1; i >= 0; i--) if (rows[i].includes(words)) return i;
   return -1;
 };
-
-/** The menu, when a row holding `anchor` comes before it. */
-function menuAfter(rows: string[], anchor: string): Menu | null {
-  const m = menu(rows);
-  return m && lastIndex(rows, anchor, m.start) >= 0 ? m : null;
-}
 
 const joined = (rows: string[]) =>
   rows
@@ -89,32 +90,41 @@ function dialogRows(screen: ScreenLine[]): string[] {
   return rows;
 }
 
+const OTHER: Dialog = { kind: "other" };
+
 function permission(rows: string[]): Dialog {
-  const m = menuAfter(rows, "Do you want to proceed?");
-  const yes = keyOf(m, "Yes");
-  const no = keyOf(m, "No");
+  const m = menuAbove(rows, lastIndex(rows, "Esc to cancel"));
+  if (!m || lastIndex(rows, "Do you want to proceed?", m.start) < 0) return OTHER;
+  const yes = m.options[0];
+  const no = m.options[m.options.length - 1];
+  if (yes.label !== "Yes" || no.label !== "No" || m.options.length < 2) return OTHER;
+
   const start = rows.findIndex((row) => DASH_RULE.test(row.trim()));
   const end = start < 0 ? -1 : rows.findIndex((row, i) => i > start && DASH_RULE.test(row.trim()));
   const body = end < 0 ? rows.filter((row) => BOX_ROW.test(row.trim())) : rows.slice(start + 1, end);
   const command = joined(body.map((row) => row.trim().replace(BOX_ROW, "")));
-  return yes && no && command ? { kind: "permission", command, yes, no } : { kind: "other" };
+  return command ? { kind: "permission", command, yes: yes.key, no: no.key } : OTHER;
 }
 
+/** The last two items are always "Type something." and "Chat about this"; Claude's options come before. */
 function question(rows: string[]): Dialog {
-  const m = menu(rows, lastIndex(rows, "Enter to select"));
+  const m = menuAbove(rows, lastIndex(rows, "Enter to select"));
   const header = rows.findIndex((row) => /^\s*☐ /.test(row));
-  if (!m || header < 0 || header > m.start) return { kind: "other" };
+  if (!m || header < 0 || header > m.start) return OTHER;
+  const options = m.options.slice(0, -2);
+  const [other, chat] = m.options.slice(-2);
   const text = joined(rows.slice(header + 1, m.start));
-  const other = keyOf(m, OTHER_LABEL);
-  const options = m.options.filter((o) => o.label !== OTHER_LABEL && o.label !== CHAT_LABEL);
-  return text && other && options.length > 0 ? { kind: "question", question: text, options, other } : { kind: "other" };
+  if (options.length === 0 || other.label !== "Type something." || chat.label !== "Chat about this" || !text)
+    return OTHER;
+  return { kind: "question", question: text, options, other: other.key };
 }
 
 function plan(rows: string[]): Dialog {
-  const m = menuAfter(rows, "Would you like to proceed?");
-  const approve = keyOf(m, "Yes, manually approve edits");
-  const keepPlanning = keyOf(m, "Tell Claude what to change");
-  return approve && keepPlanning ? { kind: "plan", approve, keepPlanning } : { kind: "other" };
+  const options = menuBelow(rows, lastIndex(rows, "Would you like to proceed?"));
+  const keyOf = (label: string) => options.find((o) => o.label === label)?.key;
+  const approve = keyOf("Yes, manually approve edits");
+  const keepPlanning = keyOf("Tell Claude what to change");
+  return approve && keepPlanning ? { kind: "plan", approve, keepPlanning } : OTHER;
 }
 
 /** Which Claude Code dialog is on screen, with what a button needs to answer it (SRS-FR-163, SRS-FR-166). */
@@ -125,5 +135,5 @@ export function dialogScreen(screen: ScreenLine[]): Dialog {
   if (has("Do you want to proceed?")) return permission(rows);
   if (has("Enter to select")) return question(rows);
   if (has("Would you like to proceed?")) return plan(rows);
-  return rows.some((text) => isDialogRow({ text, dim: [] })) ? { kind: "other" } : { kind: "none" };
+  return rows.some((text) => isDialogRow({ text, dim: [] })) ? OTHER : { kind: "none" };
 }
