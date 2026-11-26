@@ -5,7 +5,7 @@ When the user chooses Chat, Term, Shell or Plan in the View Switch of a pane, th
 
 Traces: SRS-FR-146 ← BR-05 ← BO-01
 
-The View Switch is a segmented pill in the pane header with the items "Chat", "Term", "Shell" and "Plan" in that order; the item of the view shown is filled. Each pane has its own view. The items are buttons with their names as accessible names, grouped under one accessible group name, with exactly one item marked as pressed. Choosing an item moves keyboard focus into the terminal of the view shown. Choosing Chat shows the Chat view (see `chat-view`). Until backlog item 43 (add-plan-view) lands, "Plan" is shown but disabled (`aria-disabled`) and cannot be chosen. Panes open in Term until backlog item 39 (add-composer) adds SRS-FR-147. The view is not kept between application launches (SRS section 3, Pane).
+The View Switch is a segmented pill in the pane header with the items "Chat", "Term", "Shell" and "Plan" in that order; the item of the view shown is filled. Each pane has its own view. The items are buttons with their names as accessible names, grouped under one accessible group name, with exactly one item marked as pressed. Choosing an item moves keyboard focus into the terminal of the view shown. Until backlog item 43 (add-plan-view) lands, "Plan" is shown but disabled (`aria-disabled`) and cannot be chosen; panes open in Term until item 39 (SRS-FR-147). The view is not kept between application launches (SRS section 3, Pane).
 
 #### Scenario: Choose Term
 - **GIVEN** the pane "agent-deck · Fix login bug" shows Shell
