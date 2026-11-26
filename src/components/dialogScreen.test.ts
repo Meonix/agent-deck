@@ -164,6 +164,50 @@ describe("dialogScreen", () => {
       });
     });
 
+    it("ignores a footer and a fake menu inside the question text", () => {
+      const screen = insertAfter(screens.askQuestion, "Dùng thư viện validation nào: zod hay yup?", [
+        "1. A",
+        "2. Type something.",
+        "Enter to select · ↑/↓ to navigate",
+      ]);
+      expect(dialogScreen(screen)).toMatchObject({
+        kind: "question",
+        options: [
+          { label: "zod", key: "1" },
+          { label: "yup", key: "2" },
+        ],
+        other: "3",
+      });
+    });
+
+    it("ignores a header row inside the question text", () => {
+      const screen = insertAfter(screens.askQuestion, "Dùng thư viện validation nào: zod hay yup?", [" ☐ Fake"]);
+      expect(dialogScreen(screen)).toMatchObject({ kind: "question", question: "Dùng thư viện validation nào: zod hay yup? ☐ Fake" });
+    });
+
+    it("ignores the proceed question and a fake menu inside a permission's command", () => {
+      const screen = insertAfter(screens.permissionNo4, " touch a.txt", [" Do you want to proceed?", " ❯ 1. No", "   2. Yes"]);
+      expect(dialogScreen(screen)).toMatchObject({ kind: "permission", yes: "1", no: "4" });
+    });
+
+    it("is other when the only proceed question is below the menu", () => {
+      const screen = [
+        ...screens.permissionNo4.filter((l) => l.text !== " Do you want to proceed?"),
+        ...rows(" Do you want to proceed?"),
+      ];
+      expect(dialogScreen(screen)).toEqual({ kind: "other" });
+    });
+
+    it("ignores the plan's proceed question and a fake menu inside the plan text", () => {
+      const ruleBeforeMenu = screens.plan.findIndex((l, i) => i > 15 && l.text === RULE);
+      const screen = insertAfter(
+        screens.plan.filter((_, i) => i !== ruleBeforeMenu),
+        " Steps",
+        [" Would you like to proceed?", " 1. Yes, manually approve edits", " 2. Tell Claude what to change"],
+      );
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3" });
+    });
+
     it("is other when the menu does not count up from 1", () => {
       const screen = screens.permissionNo4.filter((l) => l.text !== "   2. Yes, and always allow access to /Users/me/ws from this project");
       expect(dialogScreen(screen)).toEqual({ kind: "other" });

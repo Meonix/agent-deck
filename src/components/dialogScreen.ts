@@ -43,11 +43,16 @@ function menu(rows: string[], end = rows.length): Menu | null {
 
 const keyOf = (m: Menu | null, label: string) => m?.options.find((o) => o.label === label)?.key;
 
-/** The menu, when it comes after the row holding `anchor`. */
+// The last match: the same words may appear earlier in a command, plan or question Claude Code prints.
+const lastIndex = (rows: string[], words: string, end = rows.length) => {
+  for (let i = end - 1; i >= 0; i--) if (rows[i].includes(words)) return i;
+  return -1;
+};
+
+/** The menu, when a row holding `anchor` comes before it. */
 function menuAfter(rows: string[], anchor: string): Menu | null {
-  const at = rows.findIndex((row) => row.includes(anchor));
   const m = menu(rows);
-  return m && m.start > at ? m : null;
+  return m && lastIndex(rows, anchor, m.start) >= 0 ? m : null;
 }
 
 const joined = (rows: string[]) =>
@@ -87,7 +92,7 @@ function permission(rows: string[]): Dialog {
 }
 
 function question(rows: string[]): Dialog {
-  const m = menu(rows, rows.findIndex((row) => row.includes("Enter to select")));
+  const m = menu(rows, lastIndex(rows, "Enter to select"));
   const header = rows.findIndex((row) => /^\s*☐ /.test(row));
   if (!m || header < 0 || header > m.start) return { kind: "other" };
   const text = joined(rows.slice(header + 1, m.start));
