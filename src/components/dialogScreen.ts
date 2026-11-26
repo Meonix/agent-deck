@@ -75,9 +75,7 @@ const joined = (rows: string[]) =>
  * The rows of the dialog: those below the last full-width rule. A rule right before a numbered
  * option (short `─` rows aside) only separates a question's options, so it does not start the dialog.
  */
-function dialogRows(screen: ScreenLine[]): string[] {
-  const rows = screen.map((line) => line.text.trimEnd());
-  const width = Math.max(0, ...rows.map((row) => row.length));
+function dialogRows(rows: string[], width: number): string[] {
   const isRule = (row: string) => /^─+$/.test(row) && row.length * 2 >= width;
 
   for (let i = rows.length - 1; i >= 0; i--) {
@@ -92,15 +90,17 @@ function dialogRows(screen: ScreenLine[]): string[] {
 
 const OTHER: Dialog = { kind: "other" };
 
-function permission(rows: string[]): Dialog {
+function permission(rows: string[], width: number): Dialog {
   const m = menuAbove(rows, lastIndex(rows, "Esc to cancel"));
   if (!m || lastIndex(rows, "Do you want to proceed?", m.start) < 0) return OTHER;
   const yes = m.options[0];
   const no = m.options[m.options.length - 1];
   if (yes.label !== "Yes" || no.label !== "No" || m.options.length < 2) return OTHER;
 
-  const start = rows.findIndex((row) => DASH_RULE.test(row.trim()));
-  const end = start < 0 ? -1 : rows.findIndex((row, i) => i > start && DASH_RULE.test(row.trim()));
+  // The fence spans the screen from column 0; a shorter or indented `╌` row is printed text.
+  const isFence = (row: string) => DASH_RULE.test(row) && row.length >= 0.9 * width;
+  const start = rows.findIndex(isFence);
+  const end = start < 0 ? -1 : rows.findIndex((row, i) => i > start && isFence(row));
   const body = end < 0 ? rows.filter((row) => BOX_ROW.test(row.trim())) : rows.slice(start + 1, end);
   const command = joined(body.map((row) => row.trim().replace(BOX_ROW, "")));
   return command ? { kind: "permission", command, yes: yes.key, no: no.key } : OTHER;
@@ -129,11 +129,16 @@ function plan(rows: string[]): Dialog {
 
 /** Which Claude Code dialog is on screen, with what a button needs to answer it (SRS-FR-163, SRS-FR-166). */
 export function dialogScreen(screen: ScreenLine[]): Dialog {
-  const rows = dialogRows(screen);
-  const has = (words: string) => rows.some((row) => row.includes(words));
+  const all = screen.map((line) => line.text.trimEnd());
+  const width = Math.max(0, ...all.map((row) => row.length));
+  const rows = dialogRows(all, width);
 
-  if (has("Do you want to proceed?")) return permission(rows);
-  if (has("Enter to select")) return question(rows);
-  if (has("Would you like to proceed?")) return plan(rows);
+  // The dialog's own marker is the lowest one; the same words may be printed in a command or plan above it.
+  const markers = [
+    { at: lastIndex(rows, "Do you want to proceed?"), read: () => permission(rows, width) },
+    { at: lastIndex(rows, "Enter to select"), read: () => question(rows) },
+    { at: lastIndex(rows, "Would you like to proceed?"), read: () => plan(rows) },
+  ].filter((m) => m.at >= 0);
+  if (markers.length > 0) return markers.reduce((a, b) => (b.at > a.at ? b : a)).read();
   return rows.some((text) => isDialogRow({ text, dim: [] })) ? OTHER : { kind: "none" };
 }
