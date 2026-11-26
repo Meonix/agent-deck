@@ -51,12 +51,18 @@ export function useDialog({ paneId, adapter, status, ended, chat, client }: Opti
   // whatever dialog comes next, unseen. So a dialog is answered once, until the screen shows another one.
   const answered = useRef<Dialog | null>(null);
   const writing = useRef(false);
+  // A redraw may pass through an unreadable or empty frame, so only another dialog, or an idle screen
+  // seen twice running, means the answered one is gone.
+  const idleFrames = useRef(0);
 
   // Once the dialog leaves the screen, answered here or in Term, the strip or card goes (SRS-FR-168).
   useEffect(() => {
     const refresh = () => {
       const dialog = readDialog(adapter);
-      if (answered.current && !sameDialog(answered.current, dialog)) answered.current = null;
+      idleFrames.current = dialog.kind === "none" ? idleFrames.current + 1 : 0;
+      if (answered.current && (isReal(dialog) ? !sameDialog(answered.current, dialog) : idleFrames.current >= 2)) {
+        answered.current = null;
+      }
       show(viewOf(dialog, status, ended, chat.items));
     };
     refresh();
@@ -158,7 +164,7 @@ function screenShows(adapter: TerminalAdapter, dialog: Dialog, ok: (d: Dialog) =
       const d = dialogScreen(adapter.screen());
       if (sameDialog(dialog, d)) {
         if (ok(d)) finish(d);
-      } else if (d.kind !== "none" && d.kind !== "other") finish(null);
+      } else if (isReal(d)) finish(null);
     };
     const timer = setTimeout(() => finish(null), STEP_WAIT_MS);
     const stop = adapter.onScreenChange(check);
@@ -188,6 +194,9 @@ function sameDialog(a: Dialog, b: Dialog) {
   );
 }
 
+/** A dialog a button can answer, as opposed to none or one that cannot be read. */
+const isReal = (d: Dialog) => d.kind === "permission" || d.kind === "question" || d.kind === "plan";
+
 // A pane whose session never started shows no dialog.
 const readDialog = (adapter: TerminalAdapter | null): Dialog => (adapter ? dialogScreen(adapter.screen()) : { kind: "none" });
 
@@ -209,7 +218,11 @@ function viewOf(dialog: Dialog, status: PaneStatus, ended: boolean, items: ChatE
     if (dialog.cursor === dialog.other) return NOTHING;
     return { ...NOTHING, dialog, question: { text: asked.text, options: asked.options } };
   }
-  if (dialog.kind === "plan") return { ...NOTHING, dialog, plan: { text: pendingPlan(pending) } };
+  if (dialog.kind === "plan") {
+    // With the cursor already in the feedback field (moved there in Term), a digit would be typed into it.
+    if (dialog.cursor === dialog.keepPlanning) return NOTHING;
+    return { ...NOTHING, dialog, plan: { text: pendingPlan(pending) } };
+  }
   return NOTHING;
 }
 

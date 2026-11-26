@@ -3926,12 +3926,28 @@ describe("Approval (CR-016)", () => {
     await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
     expect(sessions.write).toHaveBeenCalledTimes(1);
 
+    // The answered dialog is gone once the screen stays idle for two frames.
     act(() => adapters[0].showScreen(claude.idle));
-    await vi.waitFor(() => expect(strip()).toBeNull());
-    act(() => adapters[0].showScreen(claude.permissionNo4));
+    await frame();
+    act(() => adapters[0].showScreen(claude.idle));
+    await frame();
+    expect(strip()).toBeNull();
+    act(() => adapters[0].showScreen(npmInstall));
     await vi.waitFor(() => expect(strip()).not.toBeNull());
     await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
     expect(sessions.write).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a dialog answered through a single idle frame, as a redraw may pass through one", async () => {
+    const { user, sessions, adapters } = await bashPending();
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    await act(async () => {});
+    act(() => adapters[0].showScreen(claude.idle));
+    await vi.waitFor(() => expect(strip()).toBeNull());
+    act(() => adapters[0].showScreen(npmInstall));
+    await vi.waitFor(() => expect(strip()).not.toBeNull());
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    expect(sessions.write).toHaveBeenCalledTimes(1);
   });
 
   it("lets the answer be sent again when the write failed", async () => {
@@ -4049,6 +4065,20 @@ describe("Approval (CR-016)", () => {
         expect(await screen.findByRole("alert", {}, { timeout: 3000 })).toHaveTextContent(labels.requestChanged);
         expect(writes(sessions)).toEqual(["3"]);
       });
+
+      it("writes nothing more after a stopped answer, even past an unreadable frame", async () => {
+        const { user, sessions, adapters } = await showing(claude.askQuestionStart, [askTool({ text: STAGED })]);
+        await typeValibot(user);
+        await screen.findByRole("alert", {}, { timeout: 3000 });
+        act(() => adapters[0].showScreen(claude.trust));
+        await frame();
+        act(() => adapters[0].showScreen(claude.askQuestionStart));
+        await frame();
+        const c = within(pane()).getByRole("group", { name: STAGED });
+        await user.click(within(c).getByRole("radio", { name: "zod" }));
+        await user.click(within(c).getByRole("button", { name: labels.send }));
+        expect(writes(sessions)).toEqual(["3"]);
+      });
     });
 
     it("shows no card while the cursor already sits in Type something., moved there in Term", async () => {
@@ -4107,6 +4137,14 @@ describe("Approval (CR-016)", () => {
       await user.click(keep());
       expect(await screen.findByRole("alert")).toHaveTextContent(labels.requestChanged);
       expect(writes(sessions)).toEqual(["3"]);
+    });
+
+    it("shows no card while the cursor already sits in Tell Claude what to change, moved there in Term", async () => {
+      await showing(claude.planOnKeep, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      expect(within(pane()).queryByRole("button", { name: labels.approvePlan })).toBeNull();
+      cleanup();
+      await showing(claude.planTyped, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      expect(within(pane()).queryByRole("button", { name: labels.approvePlan })).toBeNull();
     });
 
     it("shows only the pending plan, else points to Term", async () => {
