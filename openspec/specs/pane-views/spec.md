@@ -10,7 +10,7 @@ When the user chooses Chat, Term, Shell or Plan in the View Switch of a pane, th
 
 Traces: SRS-FR-146 ← BR-05 ← BO-01
 
-The View Switch is a segmented pill in the pane header with the items "Chat", "Term", "Shell" and "Plan" in that order; the item of the view shown is filled. Each pane has its own view. The items are buttons with their names as accessible names, grouped under one accessible group name, with exactly one item marked as pressed. Choosing an item moves keyboard focus into the terminal of the view shown. Until backlog item 43 (add-plan-view) lands, "Plan" is shown but disabled (`aria-disabled`) and cannot be chosen; panes open in Term until item 39 (SRS-FR-147). The view is not kept between application launches (SRS section 3, Pane).
+The View Switch is a segmented pill in the pane header with the items "Chat", "Term", "Shell" and "Plan" in that order; the item of the view shown is filled. Each pane has its own view. The items are buttons with their names as accessible names, grouped under one accessible group name, with exactly one item marked as pressed. Choosing an item moves keyboard focus into the view shown: the Composer for Chat, the terminal for Term and Shell. Until backlog item 43 (add-plan-view) lands, "Plan" is shown but disabled (`aria-disabled`) and cannot be chosen. The view is not kept between application launches (SRS section 3, Pane).
 
 #### Scenario: Choose Term
 - **GIVEN** the pane "agent-deck · Fix login bug" shows Shell
@@ -34,6 +34,7 @@ The View Switch is a segmented pill in the pane header with the items "Chat", "T
 - **WHEN** the user chooses Chat in its View Switch
 - **THEN** the pane body shows the Chat view of its session
 - **AND** the Chat item is filled and the session terminal is hidden but still running
+- **AND** keyboard focus is in its Composer
 
 #### Scenario: Keyboard
 - **GIVEN** keyboard focus is on the Shell item of a pane showing Term
@@ -43,7 +44,7 @@ The View Switch is a segmented pill in the pane header with the items "Chat", "T
 #### Scenario: View is not kept between launches
 - **GIVEN** pane 1 shows Shell when the user quits the application
 - **WHEN** the application starts and reopens pane 1 (SRS-FR-085)
-- **THEN** pane 1 shows Term and has no Pane Shell
+- **THEN** pane 1 shows Chat and has no Pane Shell (SRS-FR-147)
 
 ### Requirement: Hidden views keep running (SRS-FR-148)
 While a view of a pane is hidden, the system SHALL keep its session and Pane Shell running and keep their output.
@@ -60,3 +61,19 @@ Traces: SRS-FR-148 ← BR-05 ← BO-01
 - **GIVEN** a pane whose session is `Running`
 - **WHEN** the user switches the pane to Shell
 - **THEN** the session is still `Running` and its process has not been stopped or restarted
+
+### Requirement: Default view (SRS-FR-147)
+When a pane opens, the system SHALL show it in Chat.
+
+Traces: SRS-FR-147 ← BR-05 ← BO-01
+
+Keyboard focus goes to the pane's Composer. This holds for new, resumed and reopened panes; the view is not kept between launches.
+
+#### Scenario: New session opens in Chat
+- **WHEN** the user chooses + on `agent-deck` and then "Phiên mới"
+- **THEN** the new pane shows Chat and keyboard focus is in its Composer
+
+#### Scenario: Reopened pane shows Chat
+- **GIVEN** pane 1 showed Term when the user quit the application
+- **WHEN** the application starts and reopens pane 1 (SRS-FR-085)
+- **THEN** pane 1 shows Chat
