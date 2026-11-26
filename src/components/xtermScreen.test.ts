@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { Terminal } from "@xterm/xterm";
+import { describe, expect, it, vi } from "vitest";
 import { inputReadiness, type ScreenLine } from "./inputReady";
 import { createXtermAdapter } from "./xtermAdapter";
 
@@ -39,6 +40,28 @@ describe("xterm adapter screen", () => {
     expect(screen.filter((row) => row.text === "─".repeat(80))).toHaveLength(2);
     expect(adapter.bracketedPaste()).toBe(true);
     expect(inputReadiness(screen, "Idle")).toEqual({ ready: true });
+    adapter.dispose();
+  });
+
+  it("reads the live screen while the user has scrolled up", async () => {
+    // The adapter keeps its Terminal private; the spy hands the test the real instance.
+    const attach = vi.spyOn(Terminal.prototype, "attachCustomKeyEventHandler");
+    const adapter = createXtermAdapter();
+    const terminal = attach.mock.contexts[0] as Terminal;
+    attach.mockRestore();
+
+    const filler = Array.from({ length: 30 }, (_, i) => `line ${i}\r\n`).join("");
+    adapter.write(new TextEncoder().encode(`${IDLE_BOX}${filler} Esc to cancel`));
+    await screenWhen(
+      () => adapter.screen(),
+      (rows) => rows.some((row) => row.text.includes("Esc to cancel")),
+    );
+    terminal.scrollLines(-20);
+
+    const screen = adapter.screen();
+    expect(terminal.buffer.active.viewportY).toBeLessThan(terminal.buffer.active.baseY);
+    expect(screen[screen.length - 1].text).toBe(" Esc to cancel");
+    expect(inputReadiness(screen, "Idle")).toEqual({ ready: false, reason: "approval" });
     adapter.dispose();
   });
 });

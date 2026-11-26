@@ -37,6 +37,10 @@ describe("inputReadiness (RULE-12)", () => {
     expect(inputReadiness(screens.readyBoxAboveTyped, "Idle")).toEqual(locked("unrecognized"));
   });
 
+  it("waits for approval on a dialog below the live box", () => {
+    expect(inputReadiness(screens.dialogBelowBox, "Idle")).toEqual(locked("approval"));
+  });
+
   it("ignores dialog words above the live box", () => {
     expect(inputReadiness(screens.dialogTextAboveBox, "Idle")).toEqual(ready);
   });

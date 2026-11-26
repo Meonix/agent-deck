@@ -177,6 +177,8 @@ export const readyBoxAboveTyped = [
 /** A dialog's words left in the transcript above a live, empty box. */
 export const dialogTextAboveBox = [...toScreen([" Do you want to proceed?", " ❯ 1. Yes"]), ...afterEsc];
 
+export const dialogBelowBox = [...idle, ...toScreen(["", " Esc to cancel"])];
+
 export const noBox = [...idle.slice(0, 5), ...idle.slice(9)];
 
 export const shortRules = idle.map((line) => (line.text === RULE ? toScreen(["─".repeat(50)])[0] : line));

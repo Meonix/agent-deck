@@ -31,7 +31,7 @@ export interface TerminalAdapter {
   onBinary(cb: (data: string) => void): () => void;
   focus(): void;
   fit(): TerminalSize;
-  /** The rows of the visible viewport. */
+  /** The rows of the live screen, wherever the user has scrolled. */
   screen(): ScreenLine[];
   bracketedPaste(): boolean;
   dispose(): void;

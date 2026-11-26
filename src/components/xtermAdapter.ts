@@ -110,7 +110,8 @@ export function createXtermAdapter({ mac = false }: { mac?: boolean } = {}): Ter
       const cell = buffer.getNullCell();
       const rows: ScreenLine[] = [];
       for (let y = 0; y < terminal.rows; y++) {
-        const line = buffer.getLine(buffer.viewportY + y);
+        // The live screen, not the viewport: a user scrolled up must not show an old box (RULE-12).
+        const line = buffer.getLine(buffer.baseY + y);
         let text = "";
         const dim: boolean[] = [];
         for (let x = 0; line && x < terminal.cols; x++) {
