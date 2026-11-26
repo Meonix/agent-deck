@@ -53,7 +53,7 @@ export const BUILTIN_COMMANDS: readonly CommandItem[] = [
   b("design-sync", "Sync your design system to Claude Design"),
   b("desktop", "Continue the current session in Claude Desktop"),
   b("diff", "Toggle the diff panel showing uncommitted changes"),
-  b("doctor", "Health-check your setup and fix issues: installation, unused extensions, duplicated or bloated memory files, s"),
+  b("doctor", "Health-check your setup and fix issues: installation, unused extensions, duplicated or bloated memory files"),
   b("effort", "Set the model's effort level"),
   b("exit", "Exit the CLI"),
   b("export", "Export this session to a file or clipboard"),
@@ -171,7 +171,7 @@ export function matchFiles(entries: readonly FileEntry[], query: string): FileEn
   const ranked: { entry: FileEntry; rank: number }[] = [];
   for (const entry of entries) {
     const path = entry.path.toLowerCase();
-    if (!path.includes(q)) continue;
+    if (!path.includes(q) || path === q) continue;
     const trimmed = path.endsWith("/") ? path.slice(0, -1) : path;
     const name = trimmed.slice(trimmed.lastIndexOf("/") + 1);
     ranked.push({ entry, rank: name.startsWith(q) ? 0 : path.startsWith(q) ? 1 : 2 });

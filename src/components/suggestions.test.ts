@@ -40,6 +40,18 @@ describe("BUILTIN_COMMANDS", () => {
     expect(names).toContain("compact");
     expect(BUILTIN_COMMANDS.find((c) => c.name === "model")?.description).toBe("Switch model");
   });
+
+  it("keeps the overridden descriptions and a whole-phrase /doctor", () => {
+    const d = (n: string) => BUILTIN_COMMANDS.find((c) => c.name === n)?.description;
+    expect(d("model")).toBe("Switch model");
+    expect(d("fast")).toBe("Toggle fast mode");
+    expect(d("sandbox")).toBe("Configure the sandbox");
+    expect(d("code-review")).toBe("Review the current diff or a PR for bugs");
+    expect(d("ultrareview")).toBe("Start a cloud agent that finds and verifies bugs in your branch");
+    expect(d("doctor")).toBe(
+      "Health-check your setup and fix issues: installation, unused extensions, duplicated or bloated memory files",
+    );
+  });
 });
 
 describe("mergeCommands / matchCommands", () => {
@@ -106,6 +118,12 @@ describe("matchFiles", () => {
     expect(matchFiles([f("zz/aa/zeta.ts"), f("a/b/zeta/")], "zet")[0].path).toBe("a/b/zeta/");
   });
 
+  it("drops the entry that equals the query, so a chosen folder does not list itself", () => {
+    const entries = [f("src/components/"), f("src/components/PaneGrid.tsx")];
+    expect(matchFiles(entries, "src/components/").map((e) => e.path)).toEqual(["src/components/PaneGrid.tsx"]);
+    expect(matchFiles(entries, "SRC/Components/").map((e) => e.path)).toEqual(["src/components/PaneGrid.tsx"]);
+  });
+
   it("caps the rows", () => {
     const entries = Array.from({ length: 20 }, (_, i) => f(`src/App${String(i).padStart(2, "0")}.ts`));
     expect(matchFiles(entries, "App")).toHaveLength(FILE_ROWS);
@@ -126,6 +144,16 @@ describe("apply", () => {
   it("completes a command and adds a space", () => {
     const t = { kind: "command" as const, query: "comm", start: 0, end: 5 };
     expect(apply("/comm", t, { kind: "command", name: "commit" })).toEqual({ text: "/commit ", caret: 8 });
+  });
+
+  it("replaces the whole word when the caret sits inside a command", () => {
+    const t = { kind: "command" as const, query: "com", start: 0, end: 4 };
+    expect(apply("/commx", t, { kind: "command", name: "commit" })).toEqual({ text: "/commit ", caret: 8 });
+  });
+
+  it("keeps the text after a folder and adds no space", () => {
+    const t = { kind: "file" as const, query: "sr", start: 0, end: 3 };
+    expect(apply("@sr x", t, file("src/"))).toEqual({ text: "@src/ x", caret: 5 });
   });
 
   it("completes a file and adds a space", () => {

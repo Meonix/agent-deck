@@ -384,9 +384,20 @@ describe("suggestion menus (SRS-FR-159, SRS-FR-160)", () => {
     await screen.findByRole("listbox");
     await user.keyboard("{ArrowDown}{Enter}");
     expect(box()).toHaveValue("@src/components/");
-    expect(names()).toContain("src/components/PaneGrid.tsx");
+    expect(names()[0]).toBe("src/components/PaneGrid.tsx");
+    expect(names()).not.toContain("src/components/");
     expect(names()).not.toContain("src/comp.ts");
     expect(suggest.files).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores Enter during IME composition while the menu is open", async () => {
+    const { user, on } = renderComposer({ suggest: source() });
+    await user.type(box(), "/comm");
+    await screen.findByRole("listbox");
+    fireEvent.keyDown(box(), { key: "Enter", keyCode: 229 });
+    expect(box()).toHaveValue("/comm");
+    expect(menu()).not.toBeNull();
+    expect(on.send).not.toHaveBeenCalled();
   });
 
   it("chooses a row on click and keeps the focus", async () => {

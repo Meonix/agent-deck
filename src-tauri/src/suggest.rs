@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -196,12 +196,18 @@ fn enabled_plugin_installs(home: &Path, workspace: &Path) -> Vec<(PathBuf, Strin
         .into_iter()
         .filter(|(_, on)| *on)
         .filter_map(|(id, _)| {
-            let path = installed
-                .get("plugins")?
-                .get(&id)?
-                .get(0)?
-                .get("installPath")?
-                .as_str()?;
+            let all = installed.get("plugins")?.get(&id)?.as_array()?;
+            let by_project = |e: &&serde_json::Value| {
+                e.get("projectPath").and_then(|v| v.as_str()) == workspace.to_str()
+            };
+            let by_user =
+                |e: &&serde_json::Value| e.get("scope").and_then(|v| v.as_str()) == Some("user");
+            let pick = all
+                .iter()
+                .find(by_project)
+                .or_else(|| all.iter().find(by_user))
+                .or_else(|| all.first())?;
+            let path = pick.get("installPath")?.as_str()?;
             let plugin = id.split('@').next().unwrap_or(&id).to_string();
             Some((PathBuf::from(path), plugin))
         })
@@ -332,7 +338,16 @@ fn build_list(workspace: &Path, paths: Vec<String>, cap: usize) -> FileList {
             at += i + 1;
             entries.insert(path[..at].to_string(), true);
         }
-        entries.insert(path, false);
+        if path.ends_with('/') {
+            continue;
+        }
+        // A submodule is listed like a file but is a directory on disk.
+        let is_dir = fs::symlink_metadata(workspace.join(&path)).is_ok_and(|m| m.is_dir());
+        if is_dir {
+            entries.insert(format!("{path}/"), true);
+        } else {
+            entries.insert(path, false);
+        }
     }
     finish(workspace, entries, cap)
 }
@@ -350,31 +365,40 @@ fn finish(workspace: &Path, entries: BTreeMap<String, bool>, cap: usize) -> File
 
 fn walk_files(workspace: &Path, cap: usize) -> FileList {
     let mut entries = BTreeMap::new();
-    walk(workspace, "", cap, &mut entries);
+    walk(workspace, cap, &mut entries);
     finish(workspace, entries, cap)
 }
 
-fn walk(dir: &Path, prefix: &str, cap: usize, out: &mut BTreeMap<String, bool>) {
-    let Ok(read) = fs::read_dir(dir) else {
-        return;
-    };
-    for entry in read.flatten() {
-        if out.len() >= cap {
-            return;
-        }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if name.starts_with('.') {
-            continue;
-        }
-        let Ok(kind) = entry.file_type() else {
+/// Breadth-first with sorted folders, so the cap keeps shallow files deterministically.
+fn walk(root: &Path, cap: usize, out: &mut BTreeMap<String, bool>) {
+    let mut queue = VecDeque::from([(root.to_path_buf(), String::new())]);
+    while let Some((dir, prefix)) = queue.pop_front() {
+        let Ok(read) = fs::read_dir(&dir) else {
             continue;
         };
-        if kind.is_dir() {
-            let path = format!("{prefix}{name}/");
-            out.insert(path.clone(), true);
-            walk(&entry.path(), &path, cap, out);
-        } else {
-            out.insert(format!("{prefix}{name}"), false);
+        let mut children: Vec<_> = read.flatten().collect();
+        children.sort_by_key(|e| e.file_name());
+        for entry in children {
+            if out.len() >= cap {
+                return;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.starts_with('.') {
+                continue;
+            }
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            let path = entry.path();
+            if kind.is_dir() {
+                let rel = format!("{prefix}{name}/");
+                out.insert(rel.clone(), true);
+                queue.push_back((path, rel));
+            } else if kind.is_symlink() && fs::metadata(&path).is_ok_and(|m| m.is_dir()) {
+                out.insert(format!("{prefix}{name}/"), true);
+            } else {
+                out.insert(format!("{prefix}{name}"), false);
+            }
         }
     }
 }
@@ -483,6 +507,56 @@ mod tests {
         assert_eq!(b.source, CommandSource::Plugin);
         assert_eq!(b.description, "think");
         assert!(find(&items, "superpowers:go").is_some());
+    }
+
+    #[test]
+    fn plugin_install_prefers_workspace_then_user_scope() {
+        let (h, w) = dirs();
+        for name in ["other", "mine", "usr"] {
+            write(
+                &h.path().join(name),
+                "commands/go.md",
+                &format!("---\ndescription: {name}\n---\n"),
+            );
+        }
+        let entry = |name: &str, scope: &str, project: Option<&Path>| {
+            let pp = project
+                .map(|p| format!(r#","projectPath":"{}""#, p.display()))
+                .unwrap_or_default();
+            format!(
+                r#"{{"scope":"{scope}","installPath":"{}"{pp}}}"#,
+                h.path().join(name).display()
+            )
+        };
+        let json =
+            |entries: Vec<String>| format!(r#"{{"plugins":{{"p@m":[{}]}}}}"#, entries.join(","));
+        write(
+            h.path(),
+            ".claude/settings.json",
+            r#"{"enabledPlugins":{"p@m":true}}"#,
+        );
+        let installed = ".claude/plugins/installed_plugins.json";
+        write(
+            h.path(),
+            installed,
+            &json(vec![
+                entry("other", "project", Some(Path::new("/elsewhere"))),
+                entry("usr", "user", None),
+                entry("mine", "project", Some(w.path())),
+            ]),
+        );
+        let items = commands(h.path(), w.path());
+        assert_eq!(find(&items, "p:go").unwrap().description, "mine");
+        write(
+            h.path(),
+            installed,
+            &json(vec![
+                entry("other", "project", Some(Path::new("/elsewhere"))),
+                entry("usr", "user", None),
+            ]),
+        );
+        let items = commands(h.path(), w.path());
+        assert_eq!(find(&items, "p:go").unwrap().description, "usr");
     }
 
     #[test]
@@ -653,7 +727,51 @@ mod tests {
         std::os::unix::fs::symlink(d.path(), d.path().join("real/loop")).unwrap();
         let list = walk_files(d.path(), 100);
         assert!(paths(&list).contains(&"real/a.txt".to_string()));
-        assert!(!paths(&list).iter().any(|p| p.starts_with("real/loop/")));
+        assert!(!paths(&list)
+            .iter()
+            .any(|p| p.starts_with("real/loop/") && p != "real/loop/"));
+    }
+
+    #[test]
+    fn untracked_nested_repo_is_a_folder_not_a_file() {
+        let d = TempDir::new().unwrap();
+        git(d.path(), &["init", "-q"]);
+        write(d.path(), "top.txt", "t");
+        let nested = d.path().join("nested");
+        fs::create_dir_all(&nested).unwrap();
+        git(&nested, &["init", "-q"]);
+        write(&nested, "inner.txt", "i");
+        let list = files(d.path());
+        let entry = list.entries.iter().find(|e| e.path == "nested/").unwrap();
+        assert!(entry.dir);
+        assert!(!paths(&list).contains(&"nested".to_string()));
+    }
+
+    #[test]
+    fn walk_lists_root_files_before_deep_trees() {
+        let d = TempDir::new().unwrap();
+        write(d.path(), "z.md", "z");
+        for i in 0..10 {
+            write(d.path(), &format!("a/f{i}.txt"), "x");
+        }
+        let list = walk_files(d.path(), 3);
+        assert!(paths(&list).contains(&"z.md".to_string()));
+        assert_eq!(list.entries.len(), 3);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn walk_records_a_symlink_to_a_folder_as_a_folder() {
+        let d = TempDir::new().unwrap();
+        write(d.path(), "real/a.txt", "a");
+        std::os::unix::fs::symlink(d.path().join("real"), d.path().join("link")).unwrap();
+        let list = walk_files(d.path(), 100);
+        let link = list.entries.iter().find(|e| e.path == "link/").unwrap();
+        assert!(link.dir);
+        assert!(!paths(&list)
+            .iter()
+            .any(|p| p.starts_with("link/") && p != "link/"));
+        assert!(!paths(&list).contains(&"link".to_string()));
     }
 
     #[test]
