@@ -13,7 +13,10 @@ export type ChatEntry =
 
 export type ChatMessage = { reset?: true; items?: ChatItem[]; unreadable?: true };
 
-export type ChatState = { loading: boolean; unreadable: boolean; items: ChatEntry[] };
+export type ChatState = { loading: boolean; unreadable: boolean; items: ChatEntry[];
+  /** Results whose tool has not arrived yet, by tool id. */
+  held: Record<string, { key: string; result: ToolResult }>;
+};
 
 export type Activity = {
   tool: string | null;
@@ -23,20 +26,15 @@ export type Activity = {
   subagents: number;
 };
 
-export const initialChat: ChatState = { loading: true, unreadable: false, items: [] };
-
-type Held = Map<string, { key: string; result: ToolResult }>;
-
-// Results whose tool has not arrived yet; a side table keeps ChatState to its three fields.
-const held = new WeakMap<ChatState, Held>();
+export const initialChat: ChatState = { loading: true, unreadable: false, items: [], held: {} };
 
 export function applyChat(state: ChatState, message: ChatMessage): ChatState {
   if (message.unreadable) return { ...state, loading: false, unreadable: true };
-  const base: ChatState = message.reset ? { loading: false, unreadable: false, items: [] } : state;
+  const base: ChatState = message.reset ? { loading: false, unreadable: false, items: [], held: {} } : state;
   const items = [...base.items];
-  const orphans: Held = new Map(message.reset ? [] : held.get(state));
+  const held = { ...base.held };
   const keys = new Set(items.map((i) => i.key));
-  for (const o of orphans.values()) keys.add(o.key);
+  for (const o of Object.values(held)) keys.add(o.key);
   for (const item of message.items ?? []) {
     if (keys.has(item.key)) continue;
     keys.add(item.key);
@@ -44,18 +42,15 @@ export function applyChat(state: ChatState, message: ChatMessage): ChatState {
       const result = { text: item.text, isError: item.isError };
       const at = items.findIndex((i) => i.kind === "tool" && i.id === item.toolId);
       if (at >= 0) items[at] = { ...(items[at] as Extract<ChatEntry, { kind: "tool" }>), result };
-      else orphans.set(item.toolId, { key: item.key, result });
+      else held[item.toolId] = { key: item.key, result };
     } else if (item.kind === "tool") {
-      const orphan = orphans.get(item.id);
-      orphans.delete(item.id);
-      items.push({ ...item, result: orphan?.result ?? null });
+      items.push({ ...item, result: held[item.id]?.result ?? null });
+      delete held[item.id];
     } else {
       items.push(item);
     }
   }
-  const next = { ...base, items };
-  held.set(next, orphans);
-  return next;
+  return { ...base, items, held };
 }
 
 export function activityText(activity: Activity): string {

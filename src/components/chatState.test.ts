@@ -7,7 +7,7 @@ const result = (key: string, toolId: string, isError = false): ChatItem => ({ ki
 
 describe("applyChat (5.2)", () => {
   it("starts loading with nothing", () => {
-    expect(initialChat).toEqual({ loading: true, unreadable: false, items: [] });
+    expect(initialChat).toEqual({ loading: true, unreadable: false, items: [], held: {} });
   });
 
   it("a reset ends loading and replaces all items", () => {
@@ -40,6 +40,28 @@ describe("applyChat (5.2)", () => {
     expect(b.items[0]).toMatchObject({ kind: "tool", result: { text: "out", isError: false } });
   });
 
+  it("keeps an orphan result through unreadable", () => {
+    const a = applyChat(initialChat, { reset: true, items: [result("r", "id1")] });
+    const b = applyChat(a, { unreadable: true });
+    const c = applyChat(b, { items: [tool("t", "id1")] });
+    expect(c.items[0]).toMatchObject({ result: { text: "out" } });
+  });
+
+  it("a reset clears an orphan result", () => {
+    const a = applyChat(initialChat, { items: [result("r", "id1")] });
+    const b = applyChat(a, { reset: true, items: [] });
+    expect(applyChat(b, { items: [tool("t", "id1")] }).items[0]).toMatchObject({ result: null });
+  });
+
+  it("holds an orphan across several appends", () => {
+    let s = applyChat(initialChat, { items: [result("r", "id1")] });
+    s = applyChat(s, { items: [prompt("a")] });
+    s = applyChat(s, { items: [prompt("b")] });
+    s = applyChat(s, { items: [tool("t", "id1")] });
+    expect(s.items[2]).toMatchObject({ kind: "tool", result: { text: "out" } });
+    expect(s.held).toEqual({});
+  });
+
   it("a tool without a result has result null", () => {
     expect(applyChat(initialChat, { items: [tool("t", "id1")] }).items[0]).toMatchObject({ result: null });
   });
@@ -60,7 +82,7 @@ describe("applyChat (5.2)", () => {
     const frozen = JSON.stringify(a);
     applyChat(a, { items: [result("r", "id1")] });
     expect(JSON.stringify(a)).toBe(frozen);
-    expect(JSON.stringify(initialChat)).toBe('{"loading":true,"unreadable":false,"items":[]}');
+    expect(JSON.stringify(initialChat)).toBe('{"loading":true,"unreadable":false,"items":[],"held":{}}');
   });
 });
 
