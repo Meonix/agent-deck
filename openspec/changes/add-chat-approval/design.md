@@ -62,19 +62,22 @@ Measured on this Mac (Claude Code 2.1.332, 2026-11-26): real sessions in a 120×
 - **Reading the dialog: `dialogScreen(screen)`**, a pure function in new `src/components/dialogScreen.ts`, beside `inputReady.ts`.
   - It works on the rows below the last full-width rule row that has no input box after it, the same region `inputReadiness` treats as a dialog.
   - It returns `{ kind: "none" }`, or one of:
-    - `{ kind: "permission", command: string, yes: string, no: string }`:
-      - the footer contains "Do you want to proceed?";
-      - `yes` is the digit of the row `/^\s*(?:❯ )?(\d+)\. Yes$/`;
-      - `no` is the digit of the row `/^\s*(?:❯ )?(\d+)\. No$/`;
-      - `command` is the text between the first pair of `╌` rules, or of the `│` box, joined with single spaces.
-    - `{ kind: "question", question: string, options: { label: string, key: string }[], other: string }`:
-      - the footer contains "Enter to select";
-      - `options` are the numbered rows other than "Type something." and "Chat about this";
-      - `other` is the digit of "Type something.".
-    - `{ kind: "plan", approve: string, keepPlanning: string }`:
-      - the rows contain "Would you like to proceed?";
-      - the digits of the rows "Yes, manually approve edits" and "Tell Claude what to change".
+    - `{ kind: "permission", title, subject, command, yes, no }`:
+      - The anchor is the last row asking "Do you want to proceed?", "Do you want to create <file>?" or "Do you want to make this edit to <file>?". Write and Edit were measured with the last two.
+      - `title` is the header row, such as "Bash command", "Create file" or "Edit file".
+      - `subject` is what is being approved: for a file dialog, the path row; otherwise the fenced command, with its lines kept.
+      - `command` is the same fenced text on one line, the identity compared at click time.
+      - A fence is a row of `╌` at column 0, at least 90% of the width.
+      - `yes` is the digit of menu item 1 "Yes", and `no` that of the last item "No".
+    - `{ kind: "question", question, options, other, otherLabel, cursor }`:
+      - The menu sits above the last "Enter to select" footer.
+      - Its last item is "Chat about this", and the one before it, "Type something.", is `other`. The items before those are `options`.
+      - `cursor` is the digit under `❯`.
+    - `{ kind: "plan", approve, keepPlanning, keepPlanningLabel, cursor }`:
+      - The menu sits below the last "Would you like to proceed?".
+      - It includes the digits of "Yes, manually approve edits" and "Tell Claude what to change".
     - `{ kind: "other" }`: any other dialog marker from item 39, or a known dialog missing a row the answer needs.
+  - The menu is read from the dialog's own footer or anchor. It takes one digit column and consecutive digits ending at 1. Deeper rows, which are descriptions, are skipped, and roles are taken by position. So text that Claude Code prints (commands, plans, questions, descriptions) can never supply a digit.
   - Missing anything means no button can answer, so the result is `other`, and the strip or card is not shown.
 - **What the strip and cards show.**
   - Approval Strip: shown while `status.state === "Needs Approval"` and `dialogScreen` is `permission`.
@@ -144,7 +147,7 @@ These seams are approved at GATE 2; no test is written elsewhere.
    - a permission dialog missing its "No" row (→ `other`);
    - a command in a `│` box.
 2. `transcript.rs` parse: `cargo test` that an AskUserQuestion and an ExitPlanMode record produce a tool item with `detail`, an empty `{}` ExitPlanMode gives no plan, and other tools have no `detail`.
-3. Answer bytes (`answerBytes(dialog, choice)`, a pure helper): the exact digit for Yes/No/option/plan, digit + cleaned text + `\r` for Khác and feedback, and newlines turned into spaces.
+3. Answer steps (`answerSteps(dialog, choice)`, a pure helper): the exact digit for Yes/No/option/plan, and for Khác and feedback the digit, the cleaned text (newlines and tabs to spaces, control characters dropped) and `\r` as screen-gated steps.
 4. App level, RTL with the fake client and a fake adapter whose `screen()` is a fixture:
    - the strip text and buttons;
    - Cho phép writes exactly `1` and Từ chối exactly the No digit;
