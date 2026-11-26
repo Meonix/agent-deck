@@ -39,14 +39,23 @@ type Options = {
  */
 export function useDialog({ paneId, adapter, status, ended, chat, client }: Options) {
   const showToast = useToast();
-  const [view, setView] = useState<View>(() => viewOf(adapter, status, ended, chat.items));
+  const [view, setView] = useState<View>(() => viewOf(readDialog(adapter), status, ended, chat.items));
   const shown = useRef(view);
   shown.current = view;
   const show = (next: View) => setView((prev) => (sameView(prev, next) ? prev : next));
 
+  // Until Claude Code redraws, the answered dialog is still on screen, and a second digit would land on
+  // whatever dialog comes next, unseen. So a dialog is answered once, until the screen shows another one.
+  const answered = useRef<Dialog | null>(null);
+  const writing = useRef(false);
+
   // Once the dialog leaves the screen, answered here or in Term, the strip or card goes (SRS-FR-168).
   useEffect(() => {
-    const refresh = () => show(viewOf(adapter, status, ended, chat.items));
+    const refresh = () => {
+      const dialog = readDialog(adapter);
+      if (answered.current && !sameDialog(answered.current, dialog)) answered.current = null;
+      show(viewOf(dialog, status, ended, chat.items));
+    };
     refresh();
     if (!adapter) return;
     let frame = 0;
@@ -62,23 +71,26 @@ export function useDialog({ paneId, adapter, status, ended, chat, client }: Opti
     };
   }, [adapter, status, ended, chat.items]);
 
-  // Until the write lands the dialog may still be on screen, so a second click would answer twice.
-  const writing = useRef(false);
-  // SRS-FR-165: the screen is read again at the click, as the request may have been answered or replaced since the last frame.
+  // SRS-FR-165: the screen and the status are read again at the click, as the request may have been answered or
+  // replaced, or the session may have moved on, since the last frame.
   const answer = (choice: PaneChoice) => {
-    if (writing.current || !adapter) return;
-    const fresh = dialogScreen(adapter.screen());
-    const bytes = stillShown(shown.current.dialog, fresh, choice);
+    if (writing.current || answered.current) return;
+    const now = viewOf(readDialog(adapter), status, ended, chat.items);
+    const bytes = stillShown(shown.current.dialog, now.dialog, choice);
     if (bytes === null) {
       showToast(labels.requestChanged);
-      show(viewOf(adapter, status, ended, chat.items));
+      show(now);
       return;
     }
     writing.current = true;
-    client
-      .write(paneId, bytes)
-      .catch(() => {})
-      .finally(() => (writing.current = false));
+    answered.current = now.dialog;
+    client.write(paneId, bytes).then(
+      () => (writing.current = false),
+      () => {
+        writing.current = false;
+        answered.current = null;
+      },
+    );
   };
 
   return { strip: view.strip, question: view.question, plan: view.plan, answer };
@@ -86,20 +98,27 @@ export function useDialog({ paneId, adapter, status, ended, chat, client }: Opti
 
 /** The bytes answering `fresh`, or null when it is not the dialog the user answered. */
 function stillShown(seen: Dialog, fresh: Dialog, choice: PaneChoice): string | null {
-  const same =
-    (seen.kind === "permission" && fresh.kind === "permission" && fresh.command === seen.command) ||
-    (seen.kind === "question" && fresh.kind === "question" && fresh.question === seen.question) ||
-    (seen.kind === "plan" && fresh.kind === "plan");
-  if (!same) return null;
+  if (!sameDialog(seen, fresh)) return null;
   if (choice.kind !== "option") return answerBytes(fresh, choice);
   // The digit of an option is the one on screen now, found by the label the user chose.
   const key = fresh.kind === "question" ? fresh.options.find((o) => o.label === choice.label)?.key : undefined;
   return key ? answerBytes(fresh, { kind: "option", key }) : null;
 }
 
-function viewOf(adapter: TerminalAdapter | null, status: PaneStatus, ended: boolean, items: ChatEntry[]): View {
-  if (!adapter || ended) return NOTHING;
-  const dialog = dialogScreen(adapter.screen());
+/** The same request: a permission for the same command, the same question, or a plan. */
+function sameDialog(a: Dialog, b: Dialog) {
+  return (
+    (a.kind === "permission" && b.kind === "permission" && a.command === b.command) ||
+    (a.kind === "question" && b.kind === "question" && a.question === b.question) ||
+    (a.kind === "plan" && b.kind === "plan")
+  );
+}
+
+// A pane whose session never started shows no dialog.
+const readDialog = (adapter: TerminalAdapter | null): Dialog => (adapter ? dialogScreen(adapter.screen()) : { kind: "none" });
+
+function viewOf(dialog: Dialog, status: PaneStatus, ended: boolean, items: ChatEntry[]): View {
+  if (ended) return NOTHING;
   const pending = newestPending(items);
 
   if (dialog.kind === "permission") {

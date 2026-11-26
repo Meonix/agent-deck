@@ -224,6 +224,19 @@ export function TerminalPane({
   const composerState = useComposer({ paneId, adapter, state, client, sentPrompts, onSent: (prompt) => onSent(paneId, prompt) });
   const dialog = useDialog({ paneId, adapter, status, ended, chat, client });
 
+  // An answered strip or card goes away with the keyboard in it; the keyboard then goes back to the Composer.
+  const shownDialog = dialog.strip ? "strip" : dialog.question ? "question" : dialog.plan ? "plan" : null;
+  const focusInDialog = useRef(false);
+  const lastDialog = useRef(shownDialog);
+  useEffect(() => {
+    if (lastDialog.current === shownDialog) return;
+    lastDialog.current = shownDialog;
+    if (!focusInDialog.current) return;
+    focusInDialog.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body) composer.current?.focus();
+  }, [shownDialog]);
+
   // After an abnormal exit the header keeps the Error chip, matching the session row.
   const endedBadge = ended && !(status.tracked && status.state === "Error");
   const badge = !pane.started
@@ -330,23 +343,32 @@ export function TerminalPane({
         <ViewLayer view="chat" shown={view === "chat"} className="flex flex-col bg-background">
           <ChatView chat={chat} started={pane.started} />
           <ActivityBar state={ended ? "Ended" : status.state} activity={activity} />
-          {/* Only one dialog is on screen, so at most one of these shows. */}
-          {dialog.strip && (
-            <ApprovalStrip
-              strip={dialog.strip}
-              onAllow={() => dialog.answer({ kind: "allow" })}
-              onDeny={() => dialog.answer({ kind: "deny" })}
-            />
-          )}
-          {/* Keyed by the question, so a choice made for one question is not carried to the next. */}
-          {dialog.question && <QuestionCard key={dialog.question.text} question={dialog.question} onAnswer={dialog.answer} />}
-          {dialog.plan && (
-            <PlanCard
-              plan={dialog.plan}
-              onApprove={() => dialog.answer({ kind: "approvePlan" })}
-              onKeepPlanning={(feedback) => dialog.answer({ kind: "keepPlanning", feedback })}
-            />
-          )}
+          {/* Only one dialog is on screen, so at most one of these shows. Removing the focused strip blurs
+              with no relatedTarget, so only a move to another element clears the flag. */}
+          <div
+            className="contents"
+            onFocus={() => (focusInDialog.current = true)}
+            onBlur={(e) => {
+              if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) focusInDialog.current = false;
+            }}
+          >
+            {dialog.strip && (
+              <ApprovalStrip
+                strip={dialog.strip}
+                onAllow={() => dialog.answer({ kind: "allow" })}
+                onDeny={() => dialog.answer({ kind: "deny" })}
+              />
+            )}
+            {/* Keyed by the question, so a choice made for one question is not carried to the next. */}
+            {dialog.question && <QuestionCard key={dialog.question.text} question={dialog.question} onAnswer={dialog.answer} />}
+            {dialog.plan && (
+              <PlanCard
+                plan={dialog.plan}
+                onApprove={() => dialog.answer({ kind: "approvePlan" })}
+                onKeepPlanning={(feedback) => dialog.answer({ kind: "keepPlanning", feedback })}
+              />
+            )}
+          </div>
           <Composer paneId={paneId} inputRef={composer} {...composerState} />
         </ViewLayer>
         <ViewLayer view="term" shown={view === "term"} className="flex flex-col">

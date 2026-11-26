@@ -3893,6 +3893,47 @@ describe("Approval (CR-016)", () => {
     await act(async () => land());
   });
 
+  it("sends one answer while the answered dialog is still drawn after the write landed, and answers the next one", async () => {
+    const { user, sessions, adapters } = await bashPending();
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    await act(async () => {});
+    // Claude Code has not redrawn yet: a second digit would land on whatever dialog comes next.
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    expect(sessions.write).toHaveBeenCalledTimes(1);
+
+    act(() => adapters[0].showScreen(claude.idle));
+    await vi.waitFor(() => expect(strip()).toBeNull());
+    act(() => adapters[0].showScreen(claude.permissionNo4));
+    await vi.waitFor(() => expect(strip()).not.toBeNull());
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    expect(sessions.write).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets the answer be sent again when the write failed", async () => {
+    const { user, sessions } = await bashPending();
+    vi.mocked(sessions.write).mockRejectedValueOnce("gone");
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    await act(async () => {});
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    expect(sessions.write).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives the keyboard back to the Composer when the strip it was in goes away", async () => {
+    const { user, adapters } = await bashPending();
+    await user.click(within(strip()!).getByRole("button", { name: labels.allow }));
+    act(() => adapters[0].showScreen(claude.idle));
+    await vi.waitFor(() => expect(strip()).toBeNull());
+    expect(composer()).toHaveFocus();
+  });
+
+  it("leaves the keyboard in Term when the dialog was answered there", async () => {
+    const { user, adapters } = await bashPending();
+    await user.click(viewItem(pane(), labels.views.term));
+    act(() => adapters[0].showScreen(claude.idle));
+    await vi.waitFor(() => expect(strip()).toBeNull());
+    expect(adapters[0].container).toContainElement(document.activeElement as HTMLElement);
+  });
+
   it("sends nothing and says Yêu cầu đã thay đổi once the request was answered in Term (SC-3, SRS-FR-165)", async () => {
     const { user, sessions, adapters } = await bashPending();
     // Answered before any frame could take the strip away.
