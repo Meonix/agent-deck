@@ -968,3 +968,19 @@ Phiên bản: SRS v1.16 → v1.17. BRD không đổi.
 - SRS-FR-141 thêm Ví dụ: "Mở app, chưa ô nào mở, Workspace List có 3 folder → nhóm "Folder khác (3)" mở sẵn, thấy cả 3 folder."
 - Mục 14: v1.17 · 2026-11-24 · PO · CR-017: SRS-FR-141 nhóm Folder khác mở sẵn khi không folder nào có phiên mở.
 Việc tiếp theo: sửa delta spec FR-141 trong `update-folder-tree` → code → archive cùng change đó.
+
+## CR-018 — Chuyển SRS-FR-147 (ô mở mặc định ở Chat) từ mục 37 sang mục 38
+Ngày: 2026-11-26
+Yêu cầu: "Tạo CR-018 để chuyển FR-147 (ô mở mặc định ở Chat) từ mục 37 sang mục 38." — ghi chú bàn giao sau khi archive `update-pane-views`; design của change đó ghi SRS-FR-147 không làm được khi Chat còn tắt, dời sang `add-chat-view`.
+Status: Approved (2026-11-26)
+Ảnh hưởng:
+- Backlog mục 37 (`update-pane-views`, archived): đang liệt kê SRS-FR-147 nhưng change không làm requirement này (`openspec/changes/archive/2026-11-25-update-pane-views/design.md`, `proposal.md`). Chỉ sửa tài liệu, không có code cần `/dev-update`.
+- Backlog mục 38 (`add-chat-view`, todo): thêm SRS-FR-147 → làm trong `/dev-feature add-chat-view`.
+- `openspec/specs/session-pane/spec.md:40` đang ghi "While Chat is disabled … a pane opens in Term" và hẹn SRS-FR-147 cho mục 38 → delta MODIFIED nằm trong `add-chat-view`, không sửa ở đây.
+- SRS-FR-147 câu SHALL, Ví dụ, Kiểm chứng giữ nguyên. Không đụng BO, BR, SRS.
+Diff đề xuất:
+Phiên bản: BRD v7.0, SRS v1.17 giữ nguyên (chỉ sửa backlog).
+- Backlog mục 37 cột SRS-ID: bỏ SRS-FR-147 → "SRS-FR-014, SRS-FR-025, SRS-FR-026, SRS-FR-030, SRS-FR-055, SRS-FR-056, SRS-FR-057, SRS-FR-058, SRS-FR-059, SRS-FR-060, SRS-FR-061, SRS-FR-066, SRS-FR-080, SRS-FR-146, SRS-FR-148".
+- Backlog mục 38 cột SRS-ID: "SRS-FR-147, SRS-FR-149, SRS-FR-150, SRS-FR-151, SRS-FR-152, SRS-FR-153"; cột Lý do: "Must; CR-016; CR-018 thêm SRS-FR-147 (Should) từ mục 37; → /dev-feature, sửa requirement mở ô ở Term trong spec `session-pane`".
+- Backlog dòng Nguồn: thêm "CR-018 chuyển SRS-FR-147 từ mục 37 sang mục 38".
+Việc tiếp theo: /dev-feature add-chat-view
