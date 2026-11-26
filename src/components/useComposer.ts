@@ -44,15 +44,16 @@ export function useComposer({ paneId, adapter, state, client, sentPrompts, onSen
     };
   }, [adapter, state]);
 
-  const history = useRef<HistoryPosition>(null);
+  // Where ↑/↓ stand in the history; null once the user edits, so ↑ and ↓ go back to moving the caret.
+  const [position, setPosition] = useState<HistoryPosition>(null);
   const onChange = (text: string) => {
-    history.current = null;
+    setPosition(null);
     setDraft(text);
   };
   const onHistory = (dir: "up" | "down") => {
-    const step = historyStep(sentPrompts, history.current, dir);
+    const step = historyStep(sentPrompts, position, dir);
     if (!step) return;
-    history.current = step.position;
+    setPosition(step.position);
     setDraft(step.text);
   };
 
@@ -76,7 +77,7 @@ export function useComposer({ paneId, adapter, state, client, sentPrompts, onSen
       .write(paneId, delivery.bytes)
       .then(
         () => {
-          history.current = null;
+          setPosition(null);
           // Text typed while the write was pending is a new prompt, not the one sent.
           setDraft((current) => (current === sent ? "" : current));
           onSent(normalisePrompt(sent));
@@ -91,7 +92,7 @@ export function useComposer({ paneId, adapter, state, client, sentPrompts, onSen
     if (running) client.write(paneId, "\x1b").catch(() => {});
   };
 
-  return { value: draft, onChange, readiness, running, onSend, onStop, onHistory };
+  return { value: draft, onChange, readiness, running, onSend, onStop, onHistory, browsing: position !== null };
 }
 
 // A pane whose session never started has nothing to send to.

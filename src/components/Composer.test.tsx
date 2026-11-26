@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import css from "../index.css?raw";
 import { labels } from "../labels";
@@ -17,17 +17,25 @@ type Over = {
   onHistory?: (dir: "up" | "down") => string | null;
 };
 
-/** A Composer whose value is held like the pane holds its draft; `onHistory` answers the recalled text. */
+/**
+ * A Composer whose value is held like useComposer holds it; `onHistory` answers the recalled text, and the
+ * Composer browses while a recalled prompt is shown unedited.
+ */
 function renderComposer({ value = "", readiness = READY, running = false, onHistory }: Over = {}) {
   const on = { send: vi.fn(), stop: vi.fn(), change: vi.fn(), history: vi.fn() };
   function Harness() {
     const [text, setText] = useState(value);
+    const [browsing, setBrowsing] = useState(false);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
     return (
       <Composer
         paneId="p1"
+        inputRef={inputRef}
         value={text}
+        browsing={browsing}
         onChange={(t) => {
           on.change(t);
+          setBrowsing(false);
           setText(t);
         }}
         readiness={readiness}
@@ -37,7 +45,9 @@ function renderComposer({ value = "", readiness = READY, running = false, onHist
         onHistory={(dir) => {
           on.history(dir);
           const recalled = onHistory?.(dir);
-          if (recalled != null) setText(recalled);
+          if (recalled == null) return;
+          setText(recalled);
+          setBrowsing(recalled !== "");
         }}
       />
     );

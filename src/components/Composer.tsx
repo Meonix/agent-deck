@@ -1,5 +1,5 @@
 import { ArrowUp, Square } from "lucide-react";
-import { type RefObject, useId, useLayoutEffect, useRef } from "react";
+import { type RefObject, useId, useLayoutEffect } from "react";
 import { labels } from "../labels";
 import { ICON } from "./icon";
 import type { Readiness } from "./inputReady";
@@ -24,18 +24,18 @@ type Props = {
   onStop(): void;
   /** ↑ asks for the next older prompt, ↓ for the next newer one (SRS-FR-158). */
   onHistory(dir: "up" | "down"): void;
-  inputRef?: RefObject<HTMLTextAreaElement | null>;
+  /** The text is a recalled prompt the user has not edited, so ↑ and ↓ keep walking the history. */
+  browsing: boolean;
+  /** The pane focuses the Composer through it when it opens or Chat is chosen. */
+  inputRef: RefObject<HTMLTextAreaElement | null>;
 };
 
 /** The pane's prompt input under the Chat log (SRS-FR-154 to SRS-FR-158). */
-export function Composer({ paneId, value, onChange, readiness, running, onSend, onStop, onHistory, inputRef }: Props) {
-  const own = useRef<HTMLTextAreaElement>(null);
-  const area = inputRef ?? own;
-  // The text is a recalled prompt the user has not edited, so ↑ and ↓ keep walking the history.
-  const browsing = useRef(false);
+export function Composer({ paneId, value, onChange, readiness, running, onSend, onStop, onHistory, browsing, inputRef: area }: Props) {
   const reasonId = useId();
+  // Running is not a lock: the Composer shows Stop instead of a reason.
   const lock = readiness.ready || readiness.reason === "running" ? null : LOCK[readiness.reason];
-  const canSend = readiness.ready && !running;
+  const canSend = readiness.ready;
 
   useLayoutEffect(() => {
     const el = area.current;
@@ -71,10 +71,7 @@ export function Composer({ paneId, value, onChange, readiness, running, onSend, 
             aria-describedby={lock ? reasonId : undefined}
             placeholder={lock ?? labels.composerPlaceholder}
             value={value}
-            onChange={(e) => {
-              browsing.current = false;
-              onChange(e.target.value);
-            }}
+            onChange={(e) => onChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 // Enter that ends a Vietnamese IME composition only commits the word.
@@ -87,11 +84,10 @@ export function Composer({ paneId, value, onChange, readiness, running, onSend, 
               const el = e.currentTarget;
               const onFirstRow = !el.value.slice(0, el.selectionStart).includes("\n");
               const onLastRow = !el.value.slice(el.selectionEnd).includes("\n");
-              if (e.key === "ArrowUp" && onFirstRow && (el.value === "" || browsing.current)) {
+              if (e.key === "ArrowUp" && onFirstRow && (el.value === "" || browsing)) {
                 e.preventDefault();
-                browsing.current = true;
                 onHistory("up");
-              } else if (e.key === "ArrowDown" && onLastRow && browsing.current) {
+              } else if (e.key === "ArrowDown" && onLastRow && browsing) {
                 e.preventDefault();
                 onHistory("down");
               }
