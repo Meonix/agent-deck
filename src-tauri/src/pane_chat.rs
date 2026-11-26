@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 
-use crate::pane_status::StatusOut;
+use crate::pane_status::{StatusOut, StatusTracker, now_ms};
 use crate::transcript::{ChatItem, POLL_INTERVAL, Tail, TailThread, TailUpdate, expected_path};
 
 const CHUNK: usize = 500;
@@ -15,6 +15,7 @@ pub(crate) struct PaneChat {
     projects_dir: PathBuf,
     cwd: PathBuf,
     out: Arc<dyn StatusOut>,
+    tracker: Arc<StatusTracker>,
     state: Mutex<State>,
 }
 
@@ -31,11 +32,13 @@ impl PaneChat {
         cwd: &Path,
         session_id: &str,
         out: Arc<dyn StatusOut>,
+        tracker: Arc<StatusTracker>,
     ) -> Self {
         PaneChat {
             projects_dir: projects_dir.to_path_buf(),
             cwd: cwd.to_path_buf(),
             out,
+            tracker,
             state: Mutex::new(State {
                 session: session_id.to_string(),
                 path: expected_path(projects_dir, cwd, session_id),
@@ -52,10 +55,14 @@ impl PaneChat {
             return;
         }
         let out = self.out.clone();
+        let tracker = self.tracker.clone();
         state.thread = Some(TailThread::spawn(
             Tail::new(state.path.clone(), self.cwd.clone()),
             POLL_INTERVAL,
-            Box::new(move |update| send(out.as_ref(), update)),
+            Box::new(move |update| match update {
+                TailUpdate::Interrupted => tracker.turn_interrupted(now_ms()),
+                update => send(out.as_ref(), update),
+            }),
         ));
     }
 
@@ -119,6 +126,7 @@ fn send(out: &dyn StatusOut, update: TailUpdate) {
         TailUpdate::Reset(items) => send_items(out, &items, true),
         TailUpdate::Append(items) => send_items(out, &items, false),
         TailUpdate::Unreadable => send_unreadable(out),
+        TailUpdate::Interrupted => {}
     }
 }
 

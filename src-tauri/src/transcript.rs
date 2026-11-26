@@ -138,6 +138,8 @@ pub enum TailUpdate {
     Reset(Vec<ChatItem>),
     Append(Vec<ChatItem>),
     Unreadable,
+    /// The user stopped the turn: Claude Code fires no Stop hook for that.
+    Interrupted,
 }
 
 /// Reads the lines appended to a transcript since the last poll.
@@ -150,6 +152,7 @@ pub struct Tail {
     misses: usize,
     reset_due: bool,
     unreadable_sent: bool,
+    interrupted: bool,
 }
 
 impl Tail {
@@ -163,6 +166,7 @@ impl Tail {
             misses: 0,
             reset_due: true,
             unreadable_sent: false,
+            interrupted: false,
         }
     }
 
@@ -191,12 +195,18 @@ impl Tail {
         self.unreadable_sent = false;
         if self.reset_due {
             self.reset_due = false;
+            self.interrupted = false;
             Some(TailUpdate::Reset(items))
         } else if items.is_empty() {
             None
         } else {
             Some(TailUpdate::Append(items))
         }
+    }
+
+    /// Whether the last read ended on an interrupt; reading it clears it.
+    pub fn take_interrupted(&mut self) -> bool {
+        std::mem::take(&mut self.interrupted)
     }
 
     fn restart(&mut self) {
@@ -244,9 +254,18 @@ impl Tail {
             if line.trim().is_empty() {
                 continue;
             }
+            if is_interrupt(&line) {
+                self.interrupted = true;
+            }
             match parse_line(&line, &self.cwd) {
                 (Parsed::Items(found), _) => {
                     self.hits += 1;
+                    if found
+                        .iter()
+                        .any(|item| matches!(item, ChatItem::Prompt { .. }))
+                    {
+                        self.interrupted = false;
+                    }
                     items.extend(found);
                 }
                 (Parsed::Ignored, true) => self.hits += 1,
@@ -281,6 +300,9 @@ impl TailThread {
                 if let Some(update) = tail.poll() {
                     sink(update);
                 }
+                if tail.take_interrupted() {
+                    sink(TailUpdate::Interrupted);
+                }
                 match inbox.recv_timeout(interval) {
                     Ok(Command::Switch(path)) => tail.switch(path),
                     Ok(Command::Stop) | Err(RecvTimeoutError::Disconnected) => return,
@@ -314,6 +336,28 @@ impl Drop for TailThread {
     fn drop(&mut self) {
         self.stop();
     }
+}
+
+/// A main-agent user record that is only Claude Code's interrupt marker.
+fn is_interrupt(line: &str) -> bool {
+    if !line.contains("[Request interrupted by user") {
+        return false;
+    }
+    let Ok(record) = serde_json::from_str::<Value>(line) else {
+        return false;
+    };
+    if record["type"] != "user" || record["isSidechain"] == true {
+        return false;
+    }
+    let content = &record["message"]["content"];
+    let text = match content {
+        Value::Array(blocks) => match blocks.as_slice() {
+            [block] if block["type"] == "text" => block["text"].as_str(),
+            _ => None,
+        },
+        other => other.as_str(),
+    };
+    text.is_some_and(|t| INTERRUPTS.contains(&t.trim()))
 }
 
 pub fn tool_arg(name: &str, input: &Value, cwd: &Path) -> Option<String> {
@@ -1285,6 +1329,86 @@ mod tail_tests {
         );
         append(&old, &prompt_line("c", "cũ nữa"));
         assert_eq!(tail.poll(), None);
+    }
+
+    fn interrupt_line(uuid: &str, text: &str) -> String {
+        json!({"type": "user", "uuid": uuid, "message": {"role": "user", "content": [{"type": "text", "text": text}]}})
+            .to_string()
+            + "\n"
+    }
+
+    #[test]
+    fn an_appended_interrupt_marks_the_turn_interrupted_once() {
+        for text in INTERRUPTS {
+            let dir = TempDir::new().unwrap();
+            let (path, mut tail) = tail_at(&dir, "s.jsonl");
+            append(&path, &prompt_line("a", "làm đi"));
+            tail.poll();
+            assert!(!tail.take_interrupted());
+            append(&path, &interrupt_line("b", text));
+            assert_eq!(tail.poll(), None);
+            assert!(tail.take_interrupted(), "{text}");
+            assert!(!tail.take_interrupted());
+        }
+    }
+
+    #[test]
+    fn a_prompt_after_the_interrupt_in_the_same_read_starts_a_new_turn() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        tail.poll();
+        append(
+            &path,
+            &(interrupt_line("b", INTERRUPTS[0]) + &prompt_line("c", "tiếp")),
+        );
+        assert_eq!(
+            tail.poll(),
+            Some(TailUpdate::Append(vec![prompt("c", "tiếp")]))
+        );
+        assert!(!tail.take_interrupted());
+    }
+
+    #[test]
+    fn an_interrupt_already_in_the_file_is_history() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        append(&path, &interrupt_line("b", INTERRUPTS[0]));
+        assert_eq!(tail.poll(), Some(TailUpdate::Reset(vec![])));
+        assert!(!tail.take_interrupted());
+    }
+
+    #[test]
+    fn a_sidechain_interrupt_is_not_the_main_turn() {
+        let dir = TempDir::new().unwrap();
+        let (path, mut tail) = tail_at(&dir, "s.jsonl");
+        tail.poll();
+        let line = json!({"type": "user", "uuid": "s", "isSidechain": true, "message": {"content": INTERRUPTS[0]}});
+        append(&path, &(line.to_string() + "\n"));
+        tail.poll();
+        assert!(!tail.take_interrupted());
+    }
+
+    #[test]
+    fn poll_thread_delivers_an_interrupt() {
+        let dir = TempDir::new().unwrap();
+        let (path, tail) = tail_at(&dir, "s.jsonl");
+        let (tx, rx) = mpsc::channel();
+        let _thread = TailThread::spawn(
+            tail,
+            POLL_INTERVAL,
+            Box::new(move |update| {
+                let _ = tx.send(update);
+            }),
+        );
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            TailUpdate::Reset(vec![])
+        );
+        append(&path, &interrupt_line("b", INTERRUPTS[1]));
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            TailUpdate::Interrupted
+        );
     }
 
     #[test]

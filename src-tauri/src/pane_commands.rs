@@ -445,6 +445,7 @@ impl Spawner for PtySpawner<'_> {
                 cwd,
                 &session_id.0,
                 self.session_out.clone(),
+                self.tracker.clone(),
             ))
         });
         let user_line = self
@@ -1551,9 +1552,16 @@ mod tests {
 
         fn pane(projects: &Path, cwd: &Path, session: &str) -> Pane {
             let out = Outbox::default();
-            let chat = Arc::new(PaneChat::new(projects, cwd, session, Arc::new(out.clone())));
+            let tracker = tracker(&out);
+            let chat = Arc::new(PaneChat::new(
+                projects,
+                cwd,
+                session,
+                Arc::new(out.clone()),
+                tracker.clone(),
+            ));
             let hooks = PaneHooks {
-                tracker: tracker(&Outbox::default()),
+                tracker,
                 follower: Arc::new(SessionFollower::new(session.into(), Arc::new(out.clone()))),
                 chat: Some(chat.clone()),
                 activity: Arc::new(PaneActivity::new(cwd, Arc::new(out.clone()))),
@@ -1671,6 +1679,44 @@ mod tests {
             );
             quiet();
             assert_eq!(feed(&out), Vec::<Value>::new());
+        }
+
+        fn states(out: &Outbox) -> Vec<String> {
+            out.0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter_map(|j| {
+                    let m: Value = serde_json::from_str(j).unwrap();
+                    m["status"]["state"].as_str().map(String::from)
+                })
+                .collect()
+        }
+
+        #[test]
+        fn an_interrupt_in_the_transcript_makes_a_running_pane_idle() {
+            let projects = tempfile::tempdir().unwrap();
+            let cwd = Path::new("/work/app");
+            let pane = pane(projects.path(), cwd, "s1");
+            assert_eq!(wait_feed(&pane.out, 1), [reset(vec![])]);
+            pane.hooks
+                .hook(json!({"hook_event_name": "UserPromptSubmit", "session_id": "s1"}));
+            assert_eq!(states(&pane.out), ["Running"]);
+
+            let interrupt = json!({"type": "user", "uuid": "b", "message": {"role": "user",
+                "content": [{"type": "text", "text": "[Request interrupted by user]"}]}});
+            append(
+                &expected_path(projects.path(), cwd, "s1"),
+                &(interrupt.to_string() + "\n"),
+            );
+
+            let end = Instant::now() + Duration::from_secs(2);
+            while states(&pane.out).len() < 2 {
+                assert!(Instant::now() < end, "still {:?}", states(&pane.out));
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            assert_eq!(states(&pane.out), ["Running", "Idle"]);
+            pane.chat.stop();
         }
 
         #[test]

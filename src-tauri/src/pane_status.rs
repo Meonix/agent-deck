@@ -108,6 +108,19 @@ impl StatusTracker {
         }
     }
 
+    /// The transcript shows the user stopped the turn, which fires no Stop hook.
+    pub fn turn_interrupted(&self, now: u64) {
+        let mut inner = self.inner.lock().unwrap();
+        if inner.silent() {
+            return;
+        }
+        if inner.apply(HookSignal::Apply(Signal::TurnFinished), now) {
+            let tracked = inner.tracked;
+            self.out
+                .send_json(status_json(&inner.machine.current(), tracked));
+        }
+    }
+
     pub fn close_by_user(&self) {
         self.inner.lock().unwrap().closed = true;
     }
@@ -505,6 +518,33 @@ mod tests {
         let (t, out) = waiting_for_agent_a();
         t.hook(idle);
         assert_eq!(states(&out), ["Idle"]);
+    }
+
+    /// An interrupt ends the turn at once; `idle_prompt` comes only after a minute.
+    #[test]
+    fn an_interrupt_finishes_the_turn() {
+        let (t, out) = tracker(1000);
+        t.hook(json!({"hook_event_name": "UserPromptSubmit"}));
+        t.turn_interrupted(2000);
+        assert_eq!(states(&out), ["Running", "Idle"]);
+
+        let (t, out) = waiting_for_agent_a();
+        t.turn_interrupted(2000);
+        assert_eq!(states(&out), ["Idle"]);
+    }
+
+    #[test]
+    fn an_interrupt_while_idle_or_ended_sends_nothing() {
+        let (t, out) = tracker(1000);
+        t.turn_interrupted(2000);
+        assert_eq!(out.take(), Vec::<Value>::new());
+
+        let (t, out) = tracker(1000);
+        t.hook(json!({"hook_event_name": "UserPromptSubmit"}));
+        t.exited(Some(0), 1500);
+        out.take();
+        t.turn_interrupted(2000);
+        assert_eq!(out.take(), Vec::<Value>::new());
     }
 
     /// F-I3: no hook fires when the user answers a dialog; the key they press does.
