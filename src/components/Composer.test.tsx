@@ -82,6 +82,32 @@ describe("Composer (SRS-FR-154, SRS-FR-155, SRS-FR-157)", () => {
     expect(box()).toHaveValue("chạy lại test");
   });
 
+  it("shows the lock reason above the field once it holds text, and on Gửi as a tip", () => {
+    renderComposer({ value: "chạy lại test", readiness: lockedBy("approval") });
+    const reason = screen.getByText(labels.composerLockApproval);
+    expect(reason).not.toHaveClass("sr-only");
+    expect(reason).toHaveClass("text-[11px]", "truncate");
+    expect(screen.getByRole("button", { name: labels.send })).toHaveAttribute("title", labels.composerLockApproval);
+    expect(box()).toHaveAccessibleDescription(labels.composerLockApproval);
+  });
+
+  it("keeps the reason to the placeholder while the field is empty", () => {
+    renderComposer({ readiness: lockedBy("approval") });
+    expect(screen.getByText(labels.composerLockApproval)).toHaveClass("sr-only");
+    expect(box()).toHaveAccessibleDescription(labels.composerLockApproval);
+  });
+
+  it("shows no reason when ready or running", () => {
+    renderComposer({ value: "chạy lại test" });
+    expect(screen.queryByText(labels.composerLockApproval)).toBeNull();
+    expect(screen.queryByText(labels.composerLockUnrecognized)).toBeNull();
+  });
+
+  it("shows no reason line while running", () => {
+    renderComposer({ value: "tiếp", readiness: lockedBy("approval"), running: true });
+    expect(screen.getByText(labels.composerLockApproval)).toHaveClass("sr-only");
+  });
+
   it("lets the user type ahead while locked", async () => {
     const { user } = renderComposer({ readiness: lockedBy("approval") });
     await user.type(box(), "sau đó");
