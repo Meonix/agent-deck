@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PaneStatus, SessionState } from "../api/sessions";
 import type { Workspace } from "../api/workspaces";
 import type { StashedSession } from "./stash";
-import { folderTree, maximizedBadge, needsUser } from "./statusHighlight";
+import { folderTree, knownState, maximizedBadge, needsUser } from "./statusHighlight";
 import type { PaneEntry } from "./TerminalPane";
 import { initialChat } from "./chatState";
 
@@ -29,6 +29,15 @@ function e(id: string, workspaceId: string, status: Partial<PaneStatus>, session
     sentPrompts: [],
   };
 }
+
+describe("knownState (SRS-FR-036)", () => {
+  it("is the status's state while tracked, and Idle while not", () => {
+    const status = (state: SessionState, tracked: boolean): PaneStatus => ({ state, since: 1, reason: null, tracked });
+    expect(knownState(status("Running", true))).toBe("Running");
+    expect(knownState(status("Running", false))).toBe("Idle");
+    expect(knownState(status("Error", false))).toBe("Idle");
+  });
+});
 
 describe("needsUser", () => {
   it("is true for Error and Needs Approval only", () => {

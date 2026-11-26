@@ -10,7 +10,7 @@ import { ICON } from "./icon";
 import type { ScreenLine } from "./inputReady";
 import { mayTakeFocus } from "./paneFocus";
 import { ShellArea, ShellFailure } from "./PaneShell";
-import { type MaximizedBadge, needsUser } from "./statusHighlight";
+import { knownState, type MaximizedBadge, needsUser } from "./statusHighlight";
 import { type Mark, RoundMark, tone } from "./statusTone";
 import { useComposer } from "./useComposer";
 import { ViewLayer } from "./ViewLayer";
@@ -214,7 +214,8 @@ export function TerminalPane({
     if (mayTakeFocus(body.current)) adapter?.focus();
   }, [adapter, view]);
 
-  const state = ended ? "Ended" : status.state;
+  // An ended pane locks as ended even after an Error exit; an untracked one counts as Idle (SRS-FR-036).
+  const state = ended ? "Ended" : knownState(status);
   const composerState = useComposer({ paneId, adapter, state, client, sentPrompts, onSent: (prompt) => onSent(paneId, prompt) });
 
   // After an abnormal exit the header keeps the Error chip, matching the session row.

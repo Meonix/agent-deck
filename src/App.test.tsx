@@ -3609,6 +3609,15 @@ describe("Composer (CR-016)", () => {
     expect(composer()).toHaveValue("chạy lại test");
   });
 
+  it("reads the screen and shows no Dừng while the status is not tracked, whatever it says (SRS-FR-036)", async () => {
+    const { stream } = await ready();
+    act(() => stream.status({ state: "Running", tracked: false }));
+    await act(async () => {});
+    expect(stopOf()).toBeNull();
+    expect(sendOf()).not.toHaveAttribute("aria-disabled");
+    expect(composer()).toHaveAttribute("placeholder", labels.composerPlaceholder);
+  });
+
   it("locks on Needs Approval even at an empty input box", async () => {
     const { stream } = await ready();
     act(() => stream.status({ state: "Needs Approval" }));

@@ -1,4 +1,4 @@
-import type { SessionState } from "../api/sessions";
+import type { PaneStatus, SessionState } from "../api/sessions";
 import type { Workspace } from "../api/workspaces";
 import type { StashedSession } from "./stash";
 import type { PaneEntry } from "./TerminalPane";
@@ -65,10 +65,15 @@ export type CountTone = WaitingState | "grey";
 export type WorkspaceNode = { workspace: Workspace; rows: SessionRow[]; count: { n: number; tone: CountTone } };
 export type FolderTree = { open: WorkspaceNode[]; other: Workspace[]; stash: StashedSession[] };
 
+/** The state a pane is taken to be in: an untracked pane's state is unknown, so it counts as Idle (SRS-FR-036). */
+export function knownState(status: PaneStatus): SessionState {
+  return status.tracked ? status.state : "Idle";
+}
+
 function sessionRow({ pane, workspaceId, title, openedAt, ended, status }: PaneEntry): SessionRow {
-  // An untracked pane's state is unknown, so it waits with the Idle rows (SRS-FR-036).
-  const state: SessionState =
-    status.tracked && status.state === "Error" ? "Error" : ended ? "Ended" : status.tracked ? status.state : "Idle";
+  // After an abnormal exit the row keeps its Error.
+  const known = knownState(status);
+  const state: SessionState = known === "Error" ? "Error" : ended ? "Ended" : known;
   return {
     paneId: pane.paneId,
     sessionId: pane.sessionId,
