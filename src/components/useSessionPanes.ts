@@ -185,7 +185,7 @@ export function useSessionPanes(
         openedSize,
         ended: false,
         status,
-        chat: initialChat,
+        chat: pane.started ? initialChat : { ...initialChat, loading: false },
         activity: null,
         title: resumed?.title ?? UNTITLED,
         graceOver: false,

@@ -23,7 +23,17 @@ const FAMILY: Record<string, LucideIcon> = {
 };
 
 /** The conversation of a pane's session, read from its transcript (SRS-FR-149). */
-export function ChatView({ chat, paneId, boxRef }: { chat: ChatState; paneId?: string; boxRef?: RefObject<HTMLDivElement | null> }) {
+export function ChatView({
+  chat,
+  paneId,
+  boxRef,
+  started = true,
+}: {
+  chat: ChatState;
+  paneId?: string;
+  boxRef?: RefObject<HTMLDivElement | null>;
+  started?: boolean;
+}) {
   const own = useRef<HTMLDivElement>(null);
   const box = boxRef ?? own;
   const atBottom = useRef(true);
@@ -48,7 +58,12 @@ export function ChatView({ chat, paneId, boxRef }: { chat: ChatState; paneId?: s
       }}
       className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-3 text-[13px] text-foreground outline-none"
     >
-      {chat.unreadable ? (
+      {!started ? (
+        <div className="font-mono text-xs leading-5">
+          <div>{labels.startFailed}</div>
+          <div className="mt-5">{labels.startFailedHint}</div>
+        </div>
+      ) : chat.unreadable ? (
         <div className="callout-err px-3 py-2 text-[12px] flex gap-2">
           <TriangleAlert {...ICON} />
           {labels.chatUnreadable}

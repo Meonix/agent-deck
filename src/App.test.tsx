@@ -179,7 +179,7 @@ describe("New Session (5.4)", () => {
   it("shows the start failure without a terminal when Claude Code did not start", async () => {
     const { user, adapters } = setup([ws("a", "agent-deck")], fakeSessions({ started: false }));
     await newSessionIn(user, "agent-deck");
-    expect(await screen.findByText(labels.startFailed)).toBeInTheDocument();
+    expect(await screen.findAllByText(labels.startFailed)).toHaveLength(2);
     // The terminal made to measure the pane is not kept.
     expect(adapters).toHaveLength(1);
     expect(adapters[0].dispose).toHaveBeenCalled();
@@ -373,7 +373,7 @@ describe("Pane state (4.2 to 4.4)", () => {
     const sessions = fakeSessions({ started: false });
     setup([ws("a", "agent-deck")], sessions);
     await newSessionIn(userEvent.setup(), "agent-deck");
-    await screen.findByText(labels.startFailed);
+    await screen.findAllByText(labels.startFailed);
     expect(sessions.title).not.toHaveBeenCalled();
   });
 
@@ -2993,7 +2993,7 @@ describe("Stashed Sessions (CR-011)", () => {
     seed(stashed("old-1", "Fix login bug"));
     const { user } = setup([ws("a", "agent-deck")], fakeSessions({ started: false, list: onDisk("old-1") }));
     await user.click(await within(stashList()).findByRole("button", { name: /^Fix login bug/ }));
-    await screen.findByText(labels.startFailed);
+    await screen.findAllByText(labels.startFailed);
     expect(within(stashList()).getByText("Fix login bug")).toBeInTheDocument();
   });
 
@@ -3438,6 +3438,18 @@ describe("Chat view (CR-016)", () => {
     expect(chatLog("p1").querySelectorAll(".skel").length).toBeGreaterThan(0);
     act(() => stream.chat({ reset: true, items: [] }));
     expect(chatLog("p1")).toBeEmptyDOMElement();
+  });
+
+  it("shows the start failure instead of the skeleton when Claude Code did not start", async () => {
+    const { user } = setup([ws("a", "agent-deck")], fakeSessions({ started: false }));
+    await newSessionIn(user);
+    const pane = await screen.findByRole("region", { name: /^agent-deck · / });
+    await user.click(viewItem(pane, labels.views.chat));
+    const log = within(pane).getByRole("log", { name: labels.chatLog });
+    expect(log.querySelector(".skel")).toBeNull();
+    expect(log).not.toHaveAttribute("aria-busy");
+    expect(within(log).getByText(labels.startFailed)).toBeInTheDocument();
+    expect(within(log).getByText(labels.startFailedHint)).toBeInTheDocument();
   });
 
   it("has the entries sent while Term is shown when Chat is chosen (SRS-FR-150)", async () => {

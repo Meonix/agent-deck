@@ -489,8 +489,11 @@ impl Spawner for PtySpawner<'_> {
         match PtySession::spawn(spec, sink) {
             Ok(session) => {
                 let killer = session.killer();
-                if let Some(chat) = &chat {
-                    chat.start();
+                match &chat {
+                    Some(chat) => chat.start(),
+                    None => self
+                        .session_out
+                        .send_json(serde_json::json!({"chat": {"unreadable": true}}).to_string()),
                 }
                 Some(Box::new(TrackedProcess {
                     inner: QueuedProcess::new(Box::new(session), Some(killer)),
@@ -1588,6 +1591,31 @@ mod tests {
                 .expect("spawned");
 
             assert_eq!(wait_feed(&out, 1)[0], reset(vec![]));
+            process.close();
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn a_pane_without_a_projects_dir_sends_unreadable_once() {
+            let bin = tempfile::tempdir().unwrap();
+            let cwd = tempfile::tempdir().unwrap();
+            let launch = fake_claude(bin.path(), "printf ready", 0);
+            let out = Outbox::default();
+            let mut spawner = spawner(&launch, vec![], tracker(&Outbox::default()), None);
+            spawner.session_out = Arc::new(out.clone());
+            let (tx, _rx) = mpsc::channel();
+
+            let mut process = spawner
+                .spawn(
+                    cwd.path(),
+                    &SessionId("s1".into()),
+                    false,
+                    Box::new(ExitSink(Arc::default(), Mutex::new(tx))),
+                )
+                .expect("spawned");
+            quiet();
+
+            assert_eq!(feed(&out), [json!({"chat": {"unreadable": true}})]);
             process.close();
         }
 

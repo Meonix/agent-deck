@@ -301,7 +301,7 @@ export function TerminalPane({
           and Chat its scroll and open cards. */}
       <div className="relative flex-1 min-h-0 min-w-0">
         <ViewLayer view="chat" shown={view === "chat"} className="flex flex-col bg-background">
-          <ChatView chat={chat} paneId={paneId} boxRef={chatBox} />
+          <ChatView chat={chat} paneId={paneId} boxRef={chatBox} started={pane.started} />
           <ActivityBar state={ended ? "Ended" : status.state} activity={activity} />
         </ViewLayer>
         <ViewLayer view="term" shown={view === "term"} className="flex flex-col">

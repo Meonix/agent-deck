@@ -103,8 +103,11 @@ describe("TerminalPane (5.3)", () => {
   it("explains a start failure and takes no input", async () => {
     renderPane(entry(null));
     await flush();
-    expect(screen.getByText(labels.startFailed)).toBeInTheDocument();
-    expect(screen.getByText(labels.startFailedHint)).toBeInTheDocument();
+    for (const view of ["term", "chat"]) {
+      const layer = document.querySelector<HTMLElement>(`[data-view="${view}"]`)!;
+      expect(within(layer).getByText(labels.startFailed)).toBeInTheDocument();
+      expect(within(layer).getByText(labels.startFailedHint)).toBeInTheDocument();
+    }
     expect(screen.getByText(labels.notStarted)).toBeInTheDocument();
   });
 
