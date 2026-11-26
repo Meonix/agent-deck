@@ -412,6 +412,10 @@ fn prompt_text(text: &str) -> Option<String> {
         return None;
     }
     if let Some(name) = between(text, "<command-name>", "</command-name>") {
+        // /clear opens a new conversation; it starts with the next prompt (SRS-FR-151).
+        if name.trim() == "/clear" {
+            return None;
+        }
         let args = between(text, "<command-args>", "</command-args>").unwrap_or_default();
         return Some(
             format!("{} {}", name.trim(), args.trim())
@@ -563,11 +567,17 @@ mod tests {
 
     #[test]
     fn slash_command_without_args() {
-        let text = "<command-name>/clear</command-name>\n<command-message>clear</command-message>\n<command-args></command-args>";
+        let text = "<command-name>/compact</command-name>\n<command-message>compact</command-message>\n<command-args></command-args>";
         assert_eq!(
             items(parse(user("u1", json!(text)))),
-            vec![prompt("u1:0", "/clear")]
+            vec![prompt("u1:0", "/compact")]
         );
+    }
+
+    #[test]
+    fn clear_command_is_ignored() {
+        let text = "<command-name>/clear</command-name>\n            <command-message>clear</command-message>\n            <command-args></command-args>";
+        assert_eq!(parse(user("u1", json!(text))), Parsed::Ignored);
     }
 
     #[test]
