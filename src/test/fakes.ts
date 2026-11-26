@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import type { OpenedPane, PaneStatus, PaneStream, SessionsClient } from "../api/sessions";
 import type { Activity, ChatMessage } from "../components/chatState";
-import type { ScreenLine } from "../components/inputReady";
+import type { ScreenLine } from "../components/TerminalPane";
 import type { TerminalAdapter, TerminalSize } from "../components/TerminalPane";
 
 export type FakeAdapter = TerminalAdapter & {

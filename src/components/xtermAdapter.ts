@@ -2,8 +2,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import type { ScreenLine } from "./inputReady";
-import type { TerminalAdapter } from "./TerminalPane";
+import type { ScreenLine, TerminalAdapter } from "./TerminalPane";
 
 const SCROLLBACK = 10_000;
 

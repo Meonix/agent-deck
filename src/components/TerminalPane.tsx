@@ -7,7 +7,6 @@ import { ActivityBar } from "./ActivityBar";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ICON } from "./icon";
-import type { ScreenLine } from "./inputReady";
 import { mayTakeFocus } from "./paneFocus";
 import { ShellArea, ShellFailure } from "./PaneShell";
 import { knownState, type MaximizedBadge, needsUser } from "./statusHighlight";
@@ -23,6 +22,9 @@ const ICON_BTN = `${ICON_BTN_BASE} text-muted-foreground`;
 const COMPACT_HEADER_PX = 360;
 
 export type TerminalSize = { cols: number; rows: number };
+
+/** One terminal row; `dim[i]` is the dim flag of `text[i]`. Trailing whitespace is trimmed. */
+export type ScreenLine = { text: string; dim: boolean[] };
 
 export interface TerminalAdapter {
   open(container: HTMLElement): void;

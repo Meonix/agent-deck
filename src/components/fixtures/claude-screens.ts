@@ -1,4 +1,4 @@
-import type { ScreenLine } from "../inputReady";
+import type { ScreenLine } from "../TerminalPane";
 
 // Screens of Claude Code 2.1.332 at 120×40, read back through @xterm/xterm. A row is its text,
 // or its text and a dim mask with one character per cell ("d" dim, "." not).

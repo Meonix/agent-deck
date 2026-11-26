@@ -1,6 +1,7 @@
 import { Terminal } from "@xterm/xterm";
 import { describe, expect, it, vi } from "vitest";
-import { inputReadiness, type ScreenLine } from "./inputReady";
+import { inputReadiness } from "./inputReady";
+import type { ScreenLine } from "./TerminalPane";
 import { createXtermAdapter } from "./xtermAdapter";
 
 // Claude Code's idle input box as it wrote it, with the rules cut to xterm's default 80 columns.

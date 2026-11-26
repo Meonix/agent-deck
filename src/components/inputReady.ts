@@ -1,7 +1,5 @@
 import type { SessionState } from "../api/sessions";
-
-/** One terminal row; `dim[i]` is the dim flag of `text[i]`. Trailing whitespace is trimmed. */
-export type ScreenLine = { text: string; dim: boolean[] };
+import type { ScreenLine } from "./TerminalPane";
 
 export type Readiness =
   | { ready: true }
