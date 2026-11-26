@@ -345,3 +345,101 @@ export const plan = toScreen([
 
 /** A permission dialog with its "No" row gone. */
 export const permissionWithoutNo = permissionNo4.filter((line) => line.text !== "   4. No");
+
+/** The Write tool's permission dialog: the path under the title, the content between the fences. */
+export const writeDialog = toScreen([
+  ...HEADER,
+  "❯ Use the Write tool to create c.txt with the content hi.",
+  "",
+  "⏺ Write(c.txt)",
+  "",
+  RULE,
+  " Create file",
+  " c.txt",
+  DASHES,
+  ["  1 hi", ".ddd"],
+  DASHES,
+  " Do you want to create c.txt?",
+  " ❯ 1. Yes",
+  "   2. Yes, and switch to accept edits (auto-approve file edits and common file commands) for this session (shift+tab)",
+  "   3. No",
+  "",
+  " Esc to cancel · Tab to amend",
+]);
+
+/** The Edit tool's permission dialog: the path under the title, the diff between the fences. */
+export const editDialog = toScreen([
+  ...HEADER,
+  "❯ Use the Edit tool to change ws to workspace in README.md.",
+  "",
+  "  Read 1 file (ctrl+o to expand)",
+  "",
+  "⏺ Update(README.md)",
+  "",
+  RULE,
+  " Edit file",
+  " README.md",
+  DASHES,
+  " 1 -# ws",
+  " 1 +# workspace",
+  DASHES,
+  " Do you want to make this edit to README.md?",
+  " ❯ 1. Yes",
+  "   2. Yes, and switch to accept edits (auto-approve file edits and common file commands) for this session (shift+tab)",
+  "   3. No",
+  "",
+  " Esc to cancel · Tab to amend",
+]);
+
+/** A two-line Bash command, drawn in a `│` box between the fences. */
+export const multilineDialog = toScreen([
+  ...HEADER,
+  "❯ Run exactly this two-line bash command with a newline between the lines:",
+  "  echo one",
+  "  touch d.txt",
+  "",
+  "⏺ Bash(echo one",
+  "      touch d.txt)",
+  "  ⎿  Waiting…",
+  "",
+  RULE,
+  " Bash command",
+  ' Tip: auto mode handles these prompts for you — choose "switch to auto mode" below',
+  " Echo one and create d.txt in the current directory",
+  DASHES,
+  [" │ echo one", ".d"],
+  [" │ touch d.txt", ".d"],
+  DASHES,
+  " Do you want to proceed?",
+  " ❯ 1. Yes",
+  "   2. Yes, and always allow access to /Users/me/ws from this project",
+  "   3. Yes, and switch to auto mode · auto mode handles these prompts for you",
+  "   4. No",
+  "",
+  " Esc to cancel · Tab to amend",
+]);
+
+const replaceRow = (screen: ScreenLine[], from: string, to: Row) =>
+  screen.map((line) => (line.text === from ? toScreen([to])[0] : line));
+
+// A typed answer is staged: the digit moves the cursor to the field, the text then replaces its label.
+
+/** askQuestionOnOther before the digit: the cursor on the first option. */
+export const askQuestionStart = replaceRow(
+  replaceRow(askQuestionOnOther, "❯ 3. Type something.", "  3. Type something."),
+  "  1. zod",
+  "❯ 1. zod",
+);
+
+/** askQuestionOnOther after "valibot" was typed into the field. */
+export const askQuestionTyped = replaceRow(askQuestionOnOther, "❯ 3. Type something.", "❯ 3. valibot");
+
+/** The plan after the keep-planning digit: the cursor on "Tell Claude what to change". */
+export const planOnKeep = replaceRow(
+  replaceRow(plan, " ❯ 1. Yes, and use auto mode", "   1. Yes, and use auto mode"),
+  "   3. Tell Claude what to change",
+  [" ❯ 3. Tell Claude what to change", "......dddddddddddddddddddddddddd"],
+);
+
+/** planOnKeep after the feedback was typed into the field. */
+export const planTyped = replaceRow(planOnKeep, " ❯ 3. Tell Claude what to change", " ❯ 3. thêm bước viết test");

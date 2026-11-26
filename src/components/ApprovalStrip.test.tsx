@@ -29,6 +29,13 @@ describe("ApprovalStrip (SRS-FR-163)", () => {
     expect(on.deny).toHaveBeenCalledTimes(1);
   });
 
+  it("shows a multi-line command whole: its lines kept, up to four rows, the whole of it in the title", () => {
+    const { group } = renderStrip({ tool: "Bash", detail: "echo one\ntouch d.txt" });
+    const detail = within(group).getByText((_, el) => el?.textContent === "echo one\ntouch d.txt");
+    expect(detail).toHaveClass("font-mono", "whitespace-pre-wrap", "max-h-20", "overflow-y-auto");
+    expect(detail).toHaveAttribute("title", "echo one\ntouch d.txt");
+  });
+
   it("shows only the command when the tool is unknown", () => {
     const { group } = renderStrip({ tool: null, detail: "touch a.txt" });
     expect(group).toHaveTextContent(/^touch a\.txt/);

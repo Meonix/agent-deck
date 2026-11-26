@@ -4,19 +4,42 @@ import type { ScreenLine } from "./TerminalPane";
 export type Dialog =
   | { kind: "none" }
   | { kind: "other" }
-  | { kind: "permission"; command: string; yes: string; no: string }
-  | { kind: "question"; question: string; options: { label: string; key: string }[]; other: string }
-  | { kind: "plan"; approve: string; keepPlanning: string };
+  | {
+      kind: "permission";
+      /** The header row: "Bash command", "Create file", "Edit file"… */
+      title: string;
+      /** What is being approved, as the user must see it: a command with its lines, or a file's path. */
+      subject: string;
+      /** The fenced text on one line, the identity of the request. */
+      command: string;
+      yes: string;
+      no: string;
+    }
+  | {
+      kind: "question";
+      question: string;
+      options: { label: string; key: string }[];
+      other: string;
+      /** "Type something.", or the text typed into the field. */
+      otherLabel: string;
+      /** The digit of the row under ❯. */
+      cursor: string | null;
+    }
+  | { kind: "plan"; approve: string; keepPlanning: string; keepPlanningLabel: string; cursor: string | null };
 
 const OPTION_ROW = /^\s*(?:❯ )?(\d+)\. (.+)$/;
 const DASH_RULE = /^╌+$/;
 const BOX_ROW = /^│ ?/;
+const PROCEED = /^\s*Do you want to (proceed|create .+|make this edit to .+)\?$/;
+const OTHER_LABEL = "Type something.";
+const KEEP_PLANNING_LABEL = "Tell Claude what to change";
 
 type Option = { label: string; key: string };
+type Menu = { start: number; options: Option[]; cursor: string | null };
 
 const option = (text: string) => {
   const match = OPTION_ROW.exec(text);
-  return match ? { label: match[2], key: match[1], column: text.indexOf(match[1]) } : null;
+  return match ? { label: match[2], key: match[1], column: text.indexOf(match[1]), cursor: /^\s*❯ /.test(text) } : null;
 };
 
 /**
@@ -31,37 +54,41 @@ const passes = (row: string, column: number) =>
  * Code prints above it (a command, a plan, a question) may hold numbered rows of its own, which the
  * walk never reaches. `start` is the row of "1.".
  */
-function menuAbove(rows: string[], footer: number): { start: number; options: Option[] } | null {
+function menuAbove(rows: string[], footer: number): Menu | null {
   const options: Option[] = [];
   let column = -1;
+  let cursor: string | null = null;
   for (let i = footer - 1; i >= 0; i--) {
     if (passes(rows[i], column)) continue;
     const o = option(rows[i]);
     if (!o || (column >= 0 && (o.column !== column || Number(o.key) !== Number(options[0].key) - 1))) return null;
     column = o.column;
     options.unshift({ label: o.label, key: o.key });
-    if (o.key === "1") return { start: i, options };
+    if (o.cursor) cursor = o.key;
+    if (o.key === "1") return { start: i, options, cursor };
   }
   return null;
 }
 
 /** The menu just below `anchor`, read top-down: digits in one column counting up from 1. */
-function menuBelow(rows: string[], anchor: number): Option[] {
+function menuBelow(rows: string[], anchor: number): Menu {
   const options: Option[] = [];
   let column = -1;
+  let cursor: string | null = null;
   for (let i = anchor + 1; i < rows.length; i++) {
     if (passes(rows[i], column)) continue;
     const o = option(rows[i]);
     if (!o || (column >= 0 && o.column !== column) || Number(o.key) !== options.length + 1) break;
     column = o.column;
     options.push({ label: o.label, key: o.key });
+    if (o.cursor) cursor = o.key;
   }
-  return options;
+  return { start: anchor + 1, options, cursor };
 }
 
 // The last match: the same words may appear earlier in a command, plan or question Claude Code prints.
-const lastIndex = (rows: string[], words: string, end = rows.length) => {
-  for (let i = end - 1; i >= 0; i--) if (rows[i].includes(words)) return i;
+const lastIndex = (rows: string[], words: string | RegExp, end = rows.length) => {
+  for (let i = end - 1; i >= 0; i--) if (typeof words === "string" ? rows[i].includes(words) : words.test(rows[i])) return i;
   return -1;
 };
 
@@ -92,7 +119,7 @@ const OTHER: Dialog = { kind: "other" };
 
 function permission(rows: string[], width: number): Dialog {
   const m = menuAbove(rows, lastIndex(rows, "Esc to cancel"));
-  if (!m || lastIndex(rows, "Do you want to proceed?", m.start) < 0) return OTHER;
+  if (!m || lastIndex(rows, PROCEED, m.start) < 0) return OTHER;
   const yes = m.options[0];
   const no = m.options[m.options.length - 1];
   if (yes.label !== "Yes" || no.label !== "No" || m.options.length < 2) return OTHER;
@@ -103,10 +130,23 @@ function permission(rows: string[], width: number): Dialog {
   const end = start < 0 ? -1 : rows.findIndex((row, i) => i > start && isFence(row));
   const body = end < 0 ? rows.filter((row) => BOX_ROW.test(row.trim())) : rows.slice(start + 1, end);
   const command = joined(body.map((row) => row.trim().replace(BOX_ROW, "")));
-  return command ? { kind: "permission", command, yes: yes.key, no: no.key } : OTHER;
+
+  const titleAt = rows.findIndex((row) => row.trim() !== "");
+  const title = rows[titleAt].trim();
+  // A file dialog names the file on the row under its title; the fence holds its content or diff.
+  const subject = title.endsWith(" file")
+    ? (rows.slice(titleAt + 1).find((row) => row.trim() !== "") ?? "").trim()
+    : body
+        .map((row) => row.replace(/^\s?(│ ?)?/, "").trimEnd())
+        .filter((row) => row !== "")
+        .join("\n");
+  return subject ? { kind: "permission", title, subject, command, yes: yes.key, no: no.key } : OTHER;
 }
 
-/** The last two items are always "Type something." and "Chat about this"; Claude's options come before. */
+/**
+ * The last two items are always "Type something." and "Chat about this"; Claude's options come before.
+ * Text typed into the field replaces "Type something.", with the cursor kept on it.
+ */
 function question(rows: string[]): Dialog {
   const m = menuAbove(rows, lastIndex(rows, "Enter to select"));
   const header = rows.findIndex((row) => /^\s*☐ /.test(row));
@@ -114,17 +154,22 @@ function question(rows: string[]): Dialog {
   const options = m.options.slice(0, -2);
   const [other, chat] = m.options.slice(-2);
   const text = joined(rows.slice(header + 1, m.start));
-  if (options.length === 0 || other.label !== "Type something." || chat.label !== "Chat about this" || !text)
-    return OTHER;
-  return { kind: "question", question: text, options, other: other.key };
+  const field = other && (other.label === OTHER_LABEL || m.cursor === other.key);
+  if (options.length === 0 || !field || chat.label !== "Chat about this" || !text) return OTHER;
+  return { kind: "question", question: text, options, other: other.key, otherLabel: other.label, cursor: m.cursor };
 }
 
+/** Feedback typed into "Tell Claude what to change" replaces its label, with the cursor kept on it. */
 function plan(rows: string[]): Dialog {
-  const options = menuBelow(rows, lastIndex(rows, "Would you like to proceed?"));
-  const keyOf = (label: string) => options.find((o) => o.label === label)?.key;
-  const approve = keyOf("Yes, manually approve edits");
-  const keepPlanning = keyOf("Tell Claude what to change");
-  return approve && keepPlanning ? { kind: "plan", approve, keepPlanning } : OTHER;
+  const m = menuBelow(rows, lastIndex(rows, "Would you like to proceed?"));
+  const approve = m.options.find((o) => o.label === "Yes, manually approve edits")?.key;
+  const last = m.options[m.options.length - 1];
+  const keep =
+    m.options.find((o) => o.label === KEEP_PLANNING_LABEL) ??
+    (last && m.cursor === last.key && !last.label.startsWith("Yes") ? last : undefined);
+  return approve && keep
+    ? { kind: "plan", approve, keepPlanning: keep.key, keepPlanningLabel: keep.label, cursor: m.cursor }
+    : OTHER;
 }
 
 /** Which Claude Code dialog is on screen, with what a button needs to answer it (SRS-FR-163, SRS-FR-166). */
@@ -135,7 +180,7 @@ export function dialogScreen(screen: ScreenLine[]): Dialog {
 
   // The dialog's own marker is the lowest one; the same words may be printed in a command or plan above it.
   const markers = [
-    { at: lastIndex(rows, "Do you want to proceed?"), read: () => permission(rows, width) },
+    { at: lastIndex(rows, PROCEED), read: () => permission(rows, width) },
     { at: lastIndex(rows, "Enter to select"), read: () => question(rows) },
     { at: lastIndex(rows, "Would you like to proceed?"), read: () => plan(rows) },
   ].filter((m) => m.at >= 0);

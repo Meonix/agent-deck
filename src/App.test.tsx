@@ -3821,9 +3821,22 @@ describe("Approval (CR-016)", () => {
     arg,
     ...(detail ? { detail } : {}),
   });
-  const askTool = (over: { multiSelect?: boolean; count?: number } = {}) =>
+  const askTool = (over: { multiSelect?: boolean; count?: number; text?: string } = {}) =>
     tool("AskUserQuestion", null, {
-      question: { text: QUESTION_TEXT, multiSelect: over.multiSelect ?? false, count: over.count ?? 1, options: ["zod", "yup"] },
+      question: {
+        text: over.text ?? QUESTION_TEXT,
+        multiSelect: over.multiSelect ?? false,
+        count: over.count ?? 1,
+        options: ["zod", "yup"],
+      },
+    });
+  // The permission dialog of the spec's example: Claude Code asks to run npm install.
+  const npmInstall = claude.permissionNo4.map((l) => (l.text === " touch a.txt" ? { text: " npm install", dim: [] } : l));
+  const writes = (sessions: FakeSessions) => vi.mocked(sessions.write).mock.calls.map(([, bytes]) => bytes);
+  /** Claude Code's answer to each write: the screen it draws next. */
+  const redraws = (sessions: FakeSessions, adapter: FakeAdapter, next: Record<string, ScreenLine[]>) =>
+    vi.mocked(sessions.write).mockImplementation(async (_pane, bytes) => {
+      if (next[bytes]) adapter.showScreen(next[bytes]);
     });
 
   async function showing(lines: ScreenLine[], items: ChatItem[], status: Partial<PaneStatus> = {}) {
@@ -3840,7 +3853,7 @@ describe("Approval (CR-016)", () => {
     return { ...ctx, stream };
   }
 
-  const bashPending = () => showing(claude.permissionNo4, [tool("Bash", "npm install")], { reason: "Bash npm install" });
+  const bashPending = () => showing(npmInstall, [tool("Bash", "npm install")], { reason: "Bash npm install" });
 
   it("shows Bash · npm install with Từ chối and Cho phép above the Composer (SC-1, SRS-FR-163)", async () => {
     await bashPending();
@@ -3851,9 +3864,21 @@ describe("Approval (CR-016)", () => {
     expect(composer()).toHaveFocus();
   });
 
-  it("names the tool from the pending Chat item when the reason does not", async () => {
-    await showing(claude.permissionNo4, [tool("Edit", "src/main.rs")], { reason: "Waiting for you" });
-    expect(strip()).toHaveTextContent("Edit · src/main.rs");
+  it("shows every line of a multi-line command, not the first line the hook and Chat keep", async () => {
+    await showing(claude.multilineDialog, [tool("Bash", "echo one")], { reason: "Bash echo one" });
+    const subject = within(strip()!).getByText((_, el) => el?.textContent === "echo one\ntouch d.txt");
+    expect(subject).toHaveAttribute("title", "echo one\ntouch d.txt");
+    expect(subject).toHaveClass("whitespace-pre-wrap", "font-mono");
+  });
+
+  it("shows the file of an Edit or a Write from the screen, never the hook reason", async () => {
+    await showing(claude.editDialog, [tool("Edit", "src/other.rs")], { reason: "Edit src/other.rs" });
+    expect(strip()).toHaveTextContent("Edit · README.md");
+    cleanup();
+    const { user, sessions } = await showing(claude.writeDialog, [tool("Write", "c.txt")], { reason: "Write c.txt" });
+    expect(strip()).toHaveTextContent("Write · c.txt");
+    await user.click(within(strip()!).getByRole("button", { name: labels.deny }));
+    expect(writes(sessions)).toEqual(["3"]);
   });
 
   it("shows the command on screen alone when no tool is known", async () => {
@@ -3986,12 +4011,49 @@ describe("Approval (CR-016)", () => {
       expect(sessions.write).toHaveBeenCalledWith("p1", "1");
     });
 
-    it("answers valibot typed in Khác… with the Type something. digit, the text and Enter (SC-4)", async () => {
-      const { user, sessions } = await showing(claude.askQuestion, [askTool()]);
-      await user.type(within(card()!).getByRole("textbox", { name: labels.other }), "valibot");
-      await user.click(within(card()!).getByRole("button", { name: labels.send }));
-      expect(sessions.write).toHaveBeenCalledTimes(1);
-      expect(sessions.write).toHaveBeenCalledWith("p1", "3valibot\r");
+    describe("Khác… is typed in steps, each one seen on screen (measured: one chunk answers the first option)", () => {
+      const STAGED = "Bạn muốn dùng thư viện validation nào?";
+      const typeValibot = async (user: ReturnType<typeof userEvent.setup>) => {
+        const c = within(pane()).getByRole("group", { name: STAGED });
+        await user.type(within(c).getByRole("textbox", { name: labels.other }), "valibot");
+        await user.click(within(c).getByRole("button", { name: labels.send }));
+      };
+
+      it("writes the digit, then valibot once the cursor is in the field, then Enter once it shows the text (SC-4)", async () => {
+        const { user, sessions, adapters } = await showing(claude.askQuestionStart, [askTool({ text: STAGED })]);
+        redraws(sessions, adapters[0], { "3": claude.askQuestionOnOther, valibot: claude.askQuestionTyped, "\r": claude.idle });
+        await typeValibot(user);
+        await vi.waitFor(() => expect(writes(sessions)).toEqual(["3", "valibot", "\r"]));
+        expect(screen.queryByRole("alert")).toBeNull();
+      });
+
+      it("stops after the digit when another dialog takes the screen", async () => {
+        const { user, sessions, adapters } = await showing(claude.askQuestionStart, [askTool({ text: STAGED })]);
+        redraws(sessions, adapters[0], { "3": claude.permissionNo4 });
+        await typeValibot(user);
+        expect(await screen.findByRole("alert")).toHaveTextContent(labels.requestChanged);
+        expect(writes(sessions)).toEqual(["3"]);
+      });
+
+      it("stops before Enter when the field never shows the text", async () => {
+        const { user, sessions, adapters } = await showing(claude.askQuestionStart, [askTool({ text: STAGED })]);
+        redraws(sessions, adapters[0], { "3": claude.askQuestionOnOther });
+        await typeValibot(user);
+        expect(await screen.findByRole("alert", {}, { timeout: 3000 })).toHaveTextContent(labels.requestChanged);
+        expect(writes(sessions)).toEqual(["3", "valibot"]);
+      });
+
+      it("stops after the digit when the cursor never reaches the field", async () => {
+        const { user, sessions } = await showing(claude.askQuestionStart, [askTool({ text: STAGED })]);
+        await typeValibot(user);
+        expect(await screen.findByRole("alert", {}, { timeout: 3000 })).toHaveTextContent(labels.requestChanged);
+        expect(writes(sessions)).toEqual(["3"]);
+      });
+    });
+
+    it("shows no card while the cursor already sits in Type something., moved there in Term", async () => {
+      await showing(claude.askQuestionOnOther, [askTool({ text: "Bạn muốn dùng thư viện validation nào?" })]);
+      expect(within(pane()).queryByRole("radiogroup")).toBeNull();
     });
 
     it("sends nothing once the question was answered in Term (SRS-FR-165)", async () => {
@@ -4030,21 +4092,31 @@ describe("Approval (CR-016)", () => {
       expect(sessions.write).toHaveBeenCalledWith("p1", "2");
     });
 
-    it("keeps planning with 3, the feedback and Enter (SC-5)", async () => {
-      const { user, sessions } = await showing(claude.plan, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+    it("keeps planning with 3, then the feedback once the cursor is in the field, then Enter (SC-5)", async () => {
+      const { user, sessions, adapters } = await showing(claude.plan, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      redraws(sessions, adapters[0], { "3": claude.planOnKeep, "thêm bước viết test": claude.planTyped, "\r": claude.idle });
       await user.type(within(pane()).getByRole("textbox", { name: labels.planFeedback }), "thêm bước viết test");
       await user.click(keep());
-      expect(sessions.write).toHaveBeenCalledTimes(1);
-      expect(sessions.write).toHaveBeenCalledWith("p1", "3thêm bước viết test\r");
+      await vi.waitFor(() => expect(writes(sessions)).toEqual(["3", "thêm bước viết test", "\r"]));
     });
 
-    it("falls back to an earlier plan, else points to Term", async () => {
+    it("stops after the digit when the plan dialog goes", async () => {
+      const { user, sessions, adapters } = await showing(claude.plan, [tool("ExitPlanMode", null, { plan: PLAN_TEXT })]);
+      redraws(sessions, adapters[0], { "3": claude.askQuestion });
+      await user.type(within(pane()).getByRole("textbox", { name: labels.planFeedback }), "thêm bước viết test");
+      await user.click(keep());
+      expect(await screen.findByRole("alert")).toHaveTextContent(labels.requestChanged);
+      expect(writes(sessions)).toEqual(["3"]);
+    });
+
+    it("shows only the pending plan, else points to Term", async () => {
       const done: ChatItem = { kind: "tool", key: "old", id: "old", name: "ExitPlanMode", arg: null, detail: { plan: PLAN_TEXT } };
       const result: ChatItem = { kind: "result", key: "r", toolId: "old", text: "", isError: false };
       await showing(claude.plan, [done, result, tool("ExitPlanMode", null)]);
-      expect(within(pane()).getByText(isPlan)).toBeInTheDocument();
+      expect(within(pane()).getByText(labels.planInTerm)).toBeInTheDocument();
+      expect(within(pane()).queryByText(isPlan)).toBeNull();
       cleanup();
-      await showing(claude.plan, [tool("ExitPlanMode", null)]);
+      await showing(claude.plan, [tool("ExitPlanMode", null, { plan: PLAN_TEXT }), tool("Bash", "ls")]);
       expect(within(pane()).getByText(labels.planInTerm)).toBeInTheDocument();
     });
   });

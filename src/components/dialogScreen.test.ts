@@ -10,6 +10,8 @@ describe("dialogScreen", () => {
   it("reads a permission dialog whose No is option 4", () => {
     expect(dialogScreen(screens.permissionNo4)).toEqual({
       kind: "permission",
+      title: "Bash command",
+      subject: "touch a.txt",
       command: "touch a.txt",
       yes: "1",
       no: "4",
@@ -17,14 +19,56 @@ describe("dialogScreen", () => {
   });
 
   it("reads a permission dialog whose No is option 3, with the command in a │ box", () => {
+    const lines = [
+      "cd \"/Users/me/ws\" && printf '#!/bin/sh\\n[ -f hello.txt ] && [ \"$(cat hello.txt)\" = \"hi\" ]\\n' >",
+      'test_hello.sh && sh test_hello.sh; echo "exit=$?"',
+    ];
     expect(dialogScreen(screens.permissionNo3Box)).toEqual({
       kind: "permission",
-      command:
-        "cd \"/Users/me/ws\" && printf '#!/bin/sh\\n[ -f hello.txt ] && [ \"$(cat hello.txt)\" = \"hi\" ]\\n' > " +
-        'test_hello.sh && sh test_hello.sh; echo "exit=$?"',
+      title: "Bash command",
+      subject: lines.join("\n"),
+      command: lines.join(" "),
       yes: "1",
       no: "3",
     });
+  });
+
+  it("keeps the lines of a multi-line command in its subject", () => {
+    expect(dialogScreen(screens.multilineDialog)).toEqual({
+      kind: "permission",
+      title: "Bash command",
+      subject: "echo one\ntouch d.txt",
+      command: "echo one touch d.txt",
+      yes: "1",
+      no: "4",
+    });
+  });
+
+  it("reads the Write tool's dialog, the path as its subject", () => {
+    expect(dialogScreen(screens.writeDialog)).toEqual({
+      kind: "permission",
+      title: "Create file",
+      subject: "c.txt",
+      command: "1 hi",
+      yes: "1",
+      no: "3",
+    });
+  });
+
+  it("reads the Edit tool's dialog, the path as its subject", () => {
+    expect(dialogScreen(screens.editDialog)).toEqual({
+      kind: "permission",
+      title: "Edit file",
+      subject: "README.md",
+      command: "1 -# ws 1 +# workspace",
+      yes: "1",
+      no: "3",
+    });
+  });
+
+  it("is other when a file dialog's question is not one Claude Code asks", () => {
+    const screen = screens.writeDialog.map((l) => (l.text === " Do you want to create c.txt?" ? rows(" Do you want to delete c.txt?")[0] : l));
+    expect(dialogScreen(screen)).toEqual({ kind: "other" });
   });
 
   it("reads a command from │ rows when there are no ╌ rules", () => {
@@ -38,7 +82,14 @@ describe("dialogScreen", () => {
       "   2. No",
       " Esc to cancel · Tab to amend",
     );
-    expect(dialogScreen(screen)).toEqual({ kind: "permission", command: "npm install --save-dev vitest", yes: "1", no: "2" });
+    expect(dialogScreen(screen)).toEqual({
+      kind: "permission",
+      title: "Bash command",
+      subject: "npm install\n  --save-dev vitest",
+      command: "npm install --save-dev vitest",
+      yes: "1",
+      no: "2",
+    });
   });
 
   // That capture's top fence was drawn broken (a `╌───╌` row, then `╌╌`), so no full fence pair is left.
@@ -68,6 +119,8 @@ describe("dialogScreen", () => {
         { label: "yup", key: "2" },
       ],
       other: "3",
+      otherLabel: "Type something.",
+      cursor: "1",
     });
   });
 
@@ -80,7 +133,28 @@ describe("dialogScreen", () => {
         { label: "yup", key: "2" },
       ],
       other: "3",
+      otherLabel: "Type something.",
+      cursor: "3",
     });
+  });
+
+  it("reads the staged steps of a typed answer: the cursor, then the text in the field", () => {
+    expect(dialogScreen(screens.askQuestionStart)).toMatchObject({ kind: "question", cursor: "1", otherLabel: "Type something." });
+    expect(dialogScreen(screens.askQuestionTyped)).toMatchObject({ kind: "question", other: "3", cursor: "3", otherLabel: "valibot" });
+    expect(dialogScreen(screens.planOnKeep)).toMatchObject({ kind: "plan", keepPlanning: "3", cursor: "3" });
+    expect(dialogScreen(screens.planTyped)).toMatchObject({
+      kind: "plan",
+      keepPlanning: "3",
+      cursor: "3",
+      keepPlanningLabel: "thêm bước viết test",
+    });
+  });
+
+  it("is other when the field holds text but the cursor is not on it", () => {
+    const screen = screens.askQuestionTyped.map((l) =>
+      l.text === "❯ 3. valibot" ? rows("  3. valibot")[0] : l.text === "  1. zod" ? rows("❯ 1. zod")[0] : l,
+    );
+    expect(dialogScreen(screen)).toEqual({ kind: "other" });
   });
 
   it("reads the earlier question capture", () => {
@@ -92,6 +166,8 @@ describe("dialogScreen", () => {
         { label: "Xanh dương", key: "2" },
       ],
       other: "3",
+      otherLabel: "Type something.",
+      cursor: "1",
     });
   });
 
@@ -106,7 +182,7 @@ describe("dialogScreen", () => {
   });
 
   it("reads a plan's approve and keep-planning keys", () => {
-    expect(dialogScreen(screens.plan)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3" });
+    expect(dialogScreen(screens.plan)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1" });
   });
 
   it("is other when a plan has no Tell Claude what to change row", () => {
@@ -130,7 +206,14 @@ describe("dialogScreen", () => {
 
     it("ignores numbered rows inside a permission's command", () => {
       const screen = insertAfter(screens.permissionNo4, " touch a.txt", ["  1. No", "  2. Yes"]);
-      expect(dialogScreen(screen)).toEqual({ kind: "permission", command: "touch a.txt 1. No 2. Yes", yes: "1", no: "4" });
+      expect(dialogScreen(screen)).toEqual({
+        kind: "permission",
+        title: "Bash command",
+        subject: "touch a.txt\n 1. No\n 2. Yes",
+        command: "touch a.txt 1. No 2. Yes",
+        yes: "1",
+        no: "4",
+      });
     });
 
     it("ignores a numbered list in the plan text", () => {
@@ -144,7 +227,7 @@ describe("dialogScreen", () => {
               ? rows(" 3. Tell Claude what to change")[0]
               : l,
         );
-      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3" });
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1" });
     });
 
     it("ignores a numbered row in the question text", () => {
@@ -157,6 +240,8 @@ describe("dialogScreen", () => {
           { label: "yup", key: "2" },
         ],
         other: "3",
+        otherLabel: "Type something.",
+        cursor: "1",
       });
     });
 
@@ -173,6 +258,8 @@ describe("dialogScreen", () => {
           { label: "yup", key: "2" },
         ],
         other: "3",
+        otherLabel: "Type something.",
+        cursor: "1",
       });
     });
 
@@ -201,7 +288,7 @@ describe("dialogScreen", () => {
         " Steps",
         [" Would you like to proceed?", " 1. Yes, manually approve edits", " 2. Tell Claude what to change"],
       );
-      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3" });
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1" });
     });
 
     const questionWith = (...menuRows: string[]) =>
@@ -225,6 +312,8 @@ describe("dialogScreen", () => {
           { label: "C", key: "3" },
         ],
         other: "4",
+        otherLabel: "Type something.",
+        cursor: "1",
       });
     });
 
@@ -238,6 +327,8 @@ describe("dialogScreen", () => {
           { label: "B", key: "2" },
         ],
         other: "3",
+        otherLabel: "Type something.",
+        cursor: "1",
       });
     });
 
@@ -264,6 +355,8 @@ describe("dialogScreen", () => {
           { label: second, key: "2" },
         ],
         other: "3",
+        otherLabel: "Type something.",
+        cursor: "1",
       });
     });
 
@@ -277,6 +370,8 @@ describe("dialogScreen", () => {
           { label: "B", key: "2" },
         ],
         other: "3",
+        otherLabel: "Type something.",
+        cursor: "1",
       });
     });
 
@@ -316,7 +411,7 @@ describe("dialogScreen", () => {
         " Steps",
         [" Do you want to proceed?", " ❯ 1. Yes", "   2. No", "", " Esc to cancel · Tab to amend"],
       );
-      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3" });
+      expect(dialogScreen(screen)).toEqual({ kind: "plan", approve: "2", keepPlanning: "3", keepPlanningLabel: "Tell Claude what to change", cursor: "1" });
     });
 
     it("is other when a numbered row breaks the menu", () => {
