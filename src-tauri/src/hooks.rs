@@ -358,10 +358,9 @@ pub fn hook_settings(url: &str, status_url: &str, user: Option<&UserStatusLine>)
     json!({ "hooks": hooks, "statusLine": status_line }).to_string()
 }
 
-/// Replaces the user's status line, so it posts its input and then runs the user's
-/// own command, passed in `STATUS_LINE_ENV` to avoid quoting it here.
-/// The status line refresh waits on this post (on Windows it runs in the foreground),
-/// so its timeout is kept shorter than the hooks' 3 s.
+/// Posts the status line input, then runs the user's own command from `STATUS_LINE_ENV`
+/// (not quoted here). The Windows post runs in the foreground, so a refresh waits on it:
+/// hence a shorter timeout than the hooks' 3 s.
 #[cfg(not(windows))]
 fn status_line_command(status_url: &str) -> String {
     let env = crate::launcher::STATUS_LINE_ENV;
