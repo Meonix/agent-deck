@@ -325,7 +325,7 @@ export function TerminalPane({
       <div className="relative flex-1 min-h-0 min-w-0">
         <ViewLayer view="chat" shown={view === "chat"} className="flex flex-col bg-background">
           <ChatView chat={chat} started={pane.started} />
-          <ActivityBar state={state} activity={activity} />
+          <ActivityBar state={ended ? "Ended" : status.state} activity={activity} />
           <Composer paneId={paneId} inputRef={composer} {...composerState} />
         </ViewLayer>
         <ViewLayer view="term" shown={view === "term"} className="flex flex-col">
