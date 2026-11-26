@@ -63,7 +63,6 @@ export function QuestionCard({ question, onAnswer }: { question: Question; onAns
 }
 
 type PlanProps = {
-  /** `text` is null when the transcript holds no plan. */
   plan: { text: string | null };
   onApprove(): void;
   onKeepPlanning(feedback: string): void;

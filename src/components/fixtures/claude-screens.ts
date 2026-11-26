@@ -308,7 +308,6 @@ export const askQuestionOnOther = toScreen([
   "Enter to select · ↑/↓ to navigate · ctrl+g to edit in Vim · Esc to cancel",
 ]);
 
-/** ExitPlanMode. */
 export const plan = toScreen([
   ...HEADER,
   "❯ Plan, in 3 short steps, how to add a file hello.txt containing hi. Do not explore. Then call ExitPlanMode right away.",
