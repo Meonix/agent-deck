@@ -85,6 +85,7 @@ impl Activity {
             "SessionStart" if event["source"] == "clear" => {
                 self.tool = None;
                 self.subagents.clear();
+                self.context = None;
             }
             _ => {}
         }
@@ -399,7 +400,7 @@ mod tests {
     }
 
     #[test]
-    fn session_start_after_clear_drops_the_tool_and_subagents() {
+    fn session_start_after_clear_drops_the_tool_subagents_and_context() {
         let mut a = activity();
         a.apply_status_line(&json!({"context_window": {"used_percentage": 41.6}}));
         a.apply_hook(&post("t", json!({"backgroundTaskId": "bg1"})));
@@ -407,7 +408,7 @@ mod tests {
         a.apply_hook(&npm_test());
 
         let clear = event("SessionStart", json!({"source": "clear"}));
-        assert_eq!(a.apply_hook(&clear), snap(None, None, Some(42), 1, 0));
+        assert_eq!(a.apply_hook(&clear), snap(None, None, None, 1, 0));
     }
 
     #[test]
