@@ -22,13 +22,13 @@
 
 ## 3. Menu logic (tests first) — seam 3
 
-- [ ] 3.1 RED `src/components/suggestions.test.ts`:
+- [x] 3.1 RED `src/components/suggestions.test.ts`:
   - `trigger`: "/com" → command "com"; "sửa a/b" → none; "Xem lại @src/comp" → file "src/comp"; "a@b" → none; "/commit x" → none.
   - `matchCommands`: "/com" → `/compact` and `/commit`; "brain" → `superpowers:brainstorming`.
   - `matchFiles`: "App" → `src/App.tsx`, at most 8, ranked by design.md › Matching.
   - `apply` for a command, a file and a folder.
   (SRS-FR-159, SRS-FR-160)
-- [ ] 3.2 Implement `suggestions.ts`, with the built-in list from 1.1 → GREEN.
+- [x] 3.2 Implement `suggestions.ts`, with the built-in list from 1.1 → GREEN.
 
 ## 4. Menu in the Composer (tests first) — seam 4
 
