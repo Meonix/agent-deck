@@ -41,7 +41,7 @@ Measured on this Mac (Claude Code 2.1.332, 2026-11-26): real sessions in a 120×
     - "❯ 1. Yes, and use auto mode", "2. Yes, manually approve edits", "3. Tell Claude what to change"
   - Digit `2` approved the plan, and the next edit asked for permission.
   - Digit `3`, then text, then `\r` sent the feedback, and Claude Code stayed in plan mode and drew a new plan.
-  - The transcript holds `input.plan` as markdown. Some ExitPlanMode records have an empty input `{}`.
+  - The transcript holds `input.plan` as markdown, but it cannot be trusted. Some ExitPlanMode records have an empty input `{}`. And after "Tiếp tục lên kế hoạch", Claude Code edited its plan file and called ExitPlanMode again with the old plan text in `input.plan` (249 chars, without the new test steps), while the dialog showed the new plan (real-app verify, 2026-11-26).
 
 ## Goals / Non-Goals
 
@@ -73,9 +73,10 @@ Measured on this Mac (Claude Code 2.1.332, 2026-11-26): real sessions in a 120×
       - The menu sits above the last "Enter to select" footer.
       - Its last item is "Chat about this", and the one before it, "Type something.", is `other`. The items before those are `options`.
       - `cursor` is the digit under `❯`.
-    - `{ kind: "plan", approve, keepPlanning, keepPlanningLabel, cursor }`:
+    - `{ kind: "plan", approve, keepPlanning, keepPlanningLabel, cursor, plan }`:
       - The menu sits below the last "Would you like to proceed?".
       - It includes the digits of "Yes, manually approve edits" and "Tell Claude what to change".
+      - `plan` is the text between the two full-width `╌` fences under " Here is Claude's plan:", with the common indentation removed and the line breaks kept. It is null unless the dialog's top rule, that row and both fences are on screen.
     - `{ kind: "other" }`: any other dialog marker from item 39, or a known dialog missing a row the answer needs.
   - The menu is read from the dialog's own footer or anchor. It takes one digit column and consecutive digits ending at 1. Deeper rows, which are descriptions, are skipped, and roles are taken by position. So text that Claude Code prints (commands, plans, questions, descriptions) can never supply a digit.
   - Missing anything means no button can answer, so the result is `other`, and the strip or card is not shown.
@@ -90,8 +91,8 @@ Measured on this Mac (Claude Code 2.1.332, 2026-11-26): real sessions in a 120×
     - The card shows the transcript's question and labels.
     - The keys come from the screen, matched to the transcript labels by label text.
   - Plan card: shown while `dialogScreen` is `plan`.
-    - The plan is the non-empty `plan` of the newest pending tool item, when that item is `ExitPlanMode`. An earlier plan may not be the one being asked about, so it is never shown.
-    - Otherwise the card shows "Xem kế hoạch ở Term" in place of the plan.
+    - The plan is read from the screen (`dialogScreen` › `plan`), never from the transcript. Its `input.plan` can be stale (measured), so Duyệt kế hoạch would approve a plan the user never saw in the card.
+    - When the plan cannot be read whole from the screen, the card shows "Xem kế hoạch ở Term" in place of the plan.
     - The plan markdown is shown as preformatted text, scrollable, up to 12 rows. Rich rendering waits for the Plan view (item 43).
 - **Answering (SRS-FR-164, SRS-FR-166, SRS-FR-167): read the screen again, then one write.**
   - The click handler reads `adapter.screen()` and the status synchronously and runs `dialogScreen` again.
@@ -99,7 +100,7 @@ Measured on this Mac (Claude Code 2.1.332, 2026-11-26): real sessions in a 120×
     - the same kind;
     - for permission, the same `command`;
     - for a question, the same question text and the chosen label present;
-    - for a plan, still `plan`.
+    - for a plan, the same plan text. A plan shown without its text is answered only while its text still cannot be read.
   - Writes:
     - permission: the `yes` or `no` digit, one write;
     - option: its digit, one write;
@@ -113,10 +114,9 @@ Measured on this Mac (Claude Code 2.1.332, 2026-11-26): real sessions in a 120×
   - Otherwise (SRS-FR-165) nothing is written, and a toast shows "Yêu cầu đã thay đổi", using the app's existing Toast.
   - A second click while a write is pending is ignored.
 - **Disappearing (SRS-FR-168).** Visibility is recomputed from the screen on each `onScreenChange` frame and on each status change, as the Composer's readiness is. Once the dialog is gone from the screen, whether answered here or in Term, the strip or card goes away.
-- **Backend: tool items carry question and plan data.**
-  - In `transcript.rs`, the `ChatItem::Tool` record gains an optional `detail`:
-    - `{ question: { text, multiSelect, count, options: [label] } }` for `AskUserQuestion`, from `questions[0]` plus `questions.len()`;
-    - `{ plan: string }` for `ExitPlanMode`, when `input.plan` is a non-empty string.
+- **Backend: tool items carry question data.**
+  - In `transcript.rs`, the `ChatItem::Tool` record gains an optional `detail`, `{ question: { text, multiSelect, count, options: [label] } }`, for `AskUserQuestion`, from `questions[0]` plus `questions.len()`.
+  - ExitPlanMode carries no detail, because its `input.plan` can be stale (see Context).
   - Serialized camelCase like the other fields. The frontend `ChatEntry` tool keeps it.
   - Nothing else in Chat changes.
 - **One hook per pane: `useDialog`.** In new `src/components/useDialog.ts`. It shares the frame scheduler pattern of `useComposer`. It returns `{ strip, question, plan, answer(choice) }` and is used by `TerminalPane`.
@@ -146,7 +146,7 @@ These seams are approved at GATE 2; no test is written elsewhere.
    - idle (→ `none`);
    - a permission dialog missing its "No" row (→ `other`);
    - a command in a `│` box.
-2. `transcript.rs` parse: `cargo test` that an AskUserQuestion and an ExitPlanMode record produce a tool item with `detail`, an empty `{}` ExitPlanMode gives no plan, and other tools have no `detail`.
+2. `transcript.rs` parse: `cargo test` that an AskUserQuestion record produces a tool item with `detail`, and that ExitPlanMode and other tools have no `detail`.
 3. Answer steps (`answerSteps(dialog, choice)`, a pure helper): the exact digit for Yes/No/option/plan, and for Khác and feedback the digit, the cleaned text (newlines and tabs to spaces, control characters dropped) and `\r` as screen-gated steps.
 4. App level, RTL with the fake client and a fake adapter whose `screen()` is a fixture:
    - the strip text and buttons;

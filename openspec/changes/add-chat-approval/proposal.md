@@ -36,7 +36,7 @@ None. The conversation feed of `chat-view` gains the question and plan data that
 
 ## Impact
 
-- Backend: `src-tauri/src/transcript.rs` adds, to a tool item, the question and options of AskUserQuestion and the plan of ExitPlanMode. No new command, hook or dependency.
+- Backend: `src-tauri/src/transcript.rs` adds, to a tool item, the question and options of AskUserQuestion. The plan is read from the terminal screen, because ExitPlanMode's transcript input can hold an older plan. No new command, hook or dependency.
 - Frontend:
   - New `src/components/dialogScreen.ts`: it reads which Claude Code dialog is on the terminal screen, and the key of each choice.
   - New `ApprovalStrip.tsx` and `QuestionCard.tsx` (with plan approval).

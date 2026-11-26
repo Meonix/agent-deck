@@ -10,12 +10,11 @@
 - [x] 1.2 RED `src/components/dialogScreen.test.ts`: `dialogScreen` on each fixture, plus trust (→ `other`) and idle (→ `none`) from the existing fixtures. Check the digits, the command, the question text and the option labels. (SRS-FR-163, SRS-FR-166, SRS-FR-167)
 - [x] 1.3 Implement `src/components/dialogScreen.ts` → GREEN.
 
-## 2. Question and plan data from the transcript (tests first) — seam 2
+## 2. Question data from the transcript (tests first) — seam 2
 
 - [x] 2.1 RED `cargo test` in `src-tauri/src/transcript.rs`:
   - an AskUserQuestion tool_use gives a tool item with `detail.question { text, multiSelect, count, options }`;
-  - an ExitPlanMode tool_use with `plan` gives `detail.plan`;
-  - an ExitPlanMode with `{}` gives no `detail`;
+  - an ExitPlanMode tool_use has no `detail`, even with `plan`, because its input can be stale (measured); the plan card reads the screen;
   - a Bash tool_use has no `detail`;
   - serialization is camelCase.
 - [x] 2.2 Implement → GREEN. Carry `detail` through the frontend `ChatItem`/`ChatEntry` types and `applyChat`, and extend the `chatState.test.ts` case.
