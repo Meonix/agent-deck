@@ -519,6 +519,16 @@ describe("pasting files into the Composer (SRS-FR-161, SRS-FR-162)", () => {
     expect(within(chipList()!).getByRole("button", { name: labels.removeAttachment("screenshot.png") })).toBeInTheDocument();
   });
 
+  it("lays a chip out on one row, as .chip alone is an inline block", async () => {
+    renderAttaching(fakeSessions({ savePromptFile: vi.fn(async () => saved("screenshot.png", 219136)) }));
+    paste([png("screenshot.png")]);
+    await settleSaves();
+    expect(css).toMatch(/\.chip \{[^}]*display: inline-block/);
+    const chip = within(chipList()!).getByRole("listitem");
+    expect(chip.style.display).toBe("flex");
+    expect(chip.style.alignItems).toBe("center");
+  });
+
   it("keeps the paste order of two files even when the second save answers first", async () => {
     const answers: ((f: SavedFile) => void)[] = [];
     const client = fakeSessions({ savePromptFile: vi.fn(() => new Promise<SavedFile>((resolve) => answers.push(resolve))) });
