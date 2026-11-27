@@ -605,20 +605,21 @@ describe("Folder Tree (CR-016)", () => {
     expect(within(sessionRow("Scaffold Tauri app")).queryByText("agent-deck")).not.toBeInTheDocument();
   });
 
-  it("shows the dot and status word of each state and tints only Needs Approval and Error (SRS-FR-032)", async () => {
+  it("shows the round icon and status word of each state and tints only Needs Approval and Error (SRS-FR-032)", async () => {
     const { stream } = await openPane();
     const row = () => sessionRow("Scaffold Tauri app");
     const looks = [
-      ["Running", "dot-busy", ""],
-      ["Needs Approval", "dot-app", "row-app"],
-      ["Idle", "dot-ready", ""],
-      ["Error", "dot-err", "row-err"],
-      ["Ended", "dot-ended", ""],
+      ["Running", "state-icon-busy", ""],
+      ["Needs Approval", "state-icon-app", "row-app"],
+      ["Idle", "state-icon-ready", ""],
+      ["Error", "state-icon-err", "row-err"],
+      ["Ended", "state-icon-ring", ""],
     ] as const;
-    for (const [state, dot, tint] of looks) {
+    for (const [state, icon, tint] of looks) {
       act(() => stream.status({ state, since }));
       expect(within(row()).getByText(labels.state[state])).toBeInTheDocument();
-      expect(row().querySelector(`.${dot}`)).not.toBeNull();
+      expect(row().querySelector(`.state-icon.${icon}`)).not.toBeNull();
+      expect(row().querySelector(".dot")).toBeNull();
       for (const other of ["row-app", "row-err"]) {
         if (other === tint) expect(row()).toHaveClass(other);
         else expect(row()).not.toHaveClass(other);
@@ -638,6 +639,22 @@ describe("Folder Tree (CR-016)", () => {
 
     act(() => stream.status({ state: "Error", since, reason: null }));
     expect(within(sessionRow("Scaffold Tauri app")).getByText("14:02")).toBeInTheDocument();
+  });
+
+  it("draws the Session Row 52px high and rounded, the time and reason as a second line under the title (CR-020)", async () => {
+    const { stream } = await openPane();
+    act(() => stream.status({ state: "Needs Approval", since, reason: "Edit src/main.rs" }));
+    const row = sessionRow("Scaffold Tauri app");
+    const button = within(row).getByRole("button");
+    expect(row).toHaveClass("rounded-row");
+    expect(button).toHaveClass("h-[52px]");
+    const title = within(row).getByText("Scaffold Tauri app");
+    const detail = within(row).getByText("14:02 · Edit src/main.rs");
+    expect(detail.parentElement).toBe(title.parentElement);
+    expect(title.compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The name stays the title and the status word; the second line is the description.
+    expect(button).toHaveAccessibleName(`Scaffold Tauri app${labels.state["Needs Approval"]}`);
+    expect(button).toHaveAccessibleDescription("14:02 · Edit src/main.rs");
   });
 
   it("moves mokairo above agent-deck when one of its sessions fails (SRS-FR-052)", async () => {
@@ -2383,6 +2400,12 @@ describe("Row Focus Mark (2.3)", () => {
     await user.click(within(sessionRow("First")).getByRole("button"));
 
     expect(marked()).toEqual([sessionRow("First")]);
+  });
+
+  it("draws the mark as a 3px iris bar on the left edge with no fill of its own (SRS-FR-099, CR-020)", () => {
+    const rule = indexCss.match(/\.side-on\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/box-shadow:\s*inset 3px 0 0 var\(--row-focus\)/);
+    expect(rule).not.toMatch(/background/);
   });
 
   it("marks no row while no pane is focused or once the focused pane has closed (SRS-FR-099)", async () => {

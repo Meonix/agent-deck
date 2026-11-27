@@ -11,9 +11,9 @@
 
 ## 3. Session Row and pane header (status-board SRS-FR-032, session-pane SRS-FR-030, SC-2)
 
-- [ ] 3.1 Delete the dot-shape assertions of the old scenarios; test the 28px round icon per state (filled for Running, Needs Approval, Idle, Error; hollow for Ended) and the 52px two-line row; Row Focus Mark still a 3px left bar — RED
-- [ ] 3.2 `statusTone.tsx` RoundMark, `WorkspaceSidebar.tsx` rows — GREEN
-- [ ] 3.3 Test: pane header starts with the round icon; the View Switch item shown has `--primary`; below 560px the View Switch moves to a second line — RED, then `TerminalPane.tsx`, `ViewSwitch.tsx` — GREEN
+- [x] 3.1 Delete the dot-shape assertions of the old scenarios; test the 28px round icon per state (filled for Running, Needs Approval, Idle, Error; hollow for Ended) and the 52px two-line row; Row Focus Mark still a 3px left bar — RED
+- [x] 3.2 `statusTone.tsx` RoundMark, `WorkspaceSidebar.tsx` rows — GREEN
+- [x] 3.3 Test: pane header starts with the round icon; the View Switch item shown has `--primary`; below 560px the View Switch moves to a second line — RED, then `TerminalPane.tsx`, `ViewSwitch.tsx` — GREEN
 
 ## 4. Dialogs and Session Chooser (session-history SRS-FR-007, SC-3)
 

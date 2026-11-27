@@ -42,6 +42,7 @@ function renderPane(e: PaneEntry, client = fakeSessions(), on = { focus: vi.fn()
 const flush = () => act(async () => {});
 /** The Term layer of the only pane, which holds the Session ended note. */
 const termLayer = () => document.querySelector<HTMLElement>("[data-view=term]")!;
+const rule = (selector: string) => css.match(new RegExp(`(?:^|[\\s}])${selector.replace(/\./g, "\\.")}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
 
 /** Returns a function that fires every observer callback, as a layout change would. */
 function stubResizeObserver() {
@@ -322,7 +323,7 @@ describe("No Progress Tracking (CR-015)", () => {
 });
 
 describe("TerminalPane header", () => {
-  it("names the state as a chip when it needs the user, as a coloured word otherwise (SRS-NFR-014)", () => {
+  it("names every state as a pill chip in that state's colours (SRS-NFR-014, CR-020)", () => {
     const look = (state: PaneEntry["status"]["state"]) => {
       const { view } = renderPane(entry(fakeAdapter(), { status: { state, since: 1, reason: null, tracked: true } }));
       const cls = screen.getByText(labels.state[state]).className.split(/\s+/);
@@ -331,8 +332,16 @@ describe("TerminalPane header", () => {
     };
     expect(look("Needs Approval")).toEqual(expect.arrayContaining(["chip", "chip-app"]));
     expect(look("Error")).toEqual(expect.arrayContaining(["chip", "chip-err"]));
-    expect(look("Running")).toContain("w-busy");
-    expect(look("Idle")).toContain("w-ready");
+    expect(look("Running")).toEqual(expect.arrayContaining(["chip", "chip-busy"]));
+    expect(look("Idle")).toEqual(expect.arrayContaining(["chip", "chip-ready"]));
+  });
+
+  it("draws the chips as pills and the header with no border or fill of its own on the card (CR-020)", () => {
+    expect(rule(".chip")).toMatch(/border-radius:\s*var\(--oneui-radius-pill\)/);
+    expect(rule(".chip-busy")).toMatch(/background:\s*var\(--accent\);\s*color:\s*var\(--busy-foreground\)/);
+    expect(rule(".chip-ready")).toMatch(/background:\s*var\(--running-bg\);\s*color:\s*var\(--ready-foreground\)/);
+    expect(rule(".bar")).toMatch(/background:\s*transparent/);
+    expect(rule(".bar")).not.toMatch(/border/);
   });
 
   const header = () => screen.getByRole("region").querySelector("header")!;
@@ -344,14 +353,14 @@ describe("TerminalPane header", () => {
     expect(header()).not.toHaveClass("font-mono");
   });
 
-  it("leads the title with the state dot, or a muted icon when the status is unavailable", () => {
+  it("leads the header with the 28px round icon, or the hollow ring when the status is unavailable (CR-020)", () => {
     const status = (state: PaneEntry["status"]["state"], tracked = true) => ({ state, since: 1, reason: null, tracked });
     const { view } = renderPane(entry(fakeAdapter(), { status: status("Needs Approval") }));
-    expect(mark()).toHaveClass("dot", "dot-app");
+    expect(header().firstElementChild?.firstElementChild).toBe(mark());
+    expect(mark()).toHaveClass("state-icon", "state-icon-app");
     view.unmount();
     renderPane(entry(fakeAdapter(), { graceOver: true, status: status("Running", false) }));
-    expect(mark()).toHaveClass("text-muted-foreground");
-    expect(mark()).not.toHaveClass("rounded-full");
+    expect(mark()).toHaveClass("state-icon", "state-icon-ring");
   });
 });
 
@@ -398,6 +407,27 @@ describe("Pane header with View Switch (SRS-FR-030)", () => {
     width.mockReturnValue(new DOMRect(0, 0, 600, 40));
     act(() => observe());
     expect(items()).toEqual(["Chat", "Term", "Shell", "Plan"]);
+  });
+
+  it("moves the View Switch to a second header line below 560px (CR-020)", async () => {
+    const observe = stubResizeObserver();
+    renderPane(entry(fakeAdapter(), { title: "Fix login bug" }));
+    await flush();
+    const width = vi.spyOn(header(), "getBoundingClientRect");
+    const close = () => within(header()).getByRole("button", { name: labels.closePane });
+
+    width.mockReturnValue(new DOMRect(0, 0, 420, 88));
+    act(() => observe());
+    expect(viewSwitch().parentElement).not.toBe(close().parentElement);
+    expect(before(close(), viewSwitch())).toBe(true);
+    expect(within(viewSwitch()).getAllByRole("button").map((b) => b.textContent)).toEqual(["Chat", "Term", "Shell", "Plan"]);
+    for (const name of [labels.stashSession, labels.maximizePane, labels.closePane]) {
+      expect(within(header()).getByRole("button", { name }).parentElement).toBe(close().parentElement);
+    }
+
+    width.mockReturnValue(new DOMRect(0, 0, 600, 48));
+    act(() => observe());
+    expect(viewSwitch().parentElement).toBe(close().parentElement);
   });
 
   it("shows Term pressed on a new pane", () => {

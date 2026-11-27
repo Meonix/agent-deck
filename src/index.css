@@ -25,7 +25,8 @@
 body { background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
 
 /* Semantic classes copied from agent-deck-remote (web/src/index.css), so both apps share one look. */
-.bar { background: var(--card); border-bottom: 1px solid var(--border); }
+/* The pane header sits on the card itself (CR-020). */
+.bar { background: transparent; }
 .sub { color: var(--muted-foreground); }
 .side-label { color: var(--muted-foreground); font-size: var(--oneui-subheader-size); }
 .allow { background: var(--primary); color: var(--primary-foreground); border-radius: 22px; }
@@ -40,10 +41,12 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .skel { background: var(--muted); }
 .callout-err { background: var(--error-bg); color: var(--error-foreground); border: 1px solid var(--error-border); border-radius: 8px; }
 
-.chip { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 11px; line-height: 18px; font-weight: 600; white-space: nowrap; }
+.chip { display: inline-block; padding: 0 8px; border-radius: var(--oneui-radius-pill); font-size: 11px; line-height: 20px; font-weight: 600; white-space: nowrap; }
 .chip-app { background: var(--approval-bg); color: var(--approval-foreground); border: 1px solid var(--approval-border); }
 .chip-err { background: var(--error-bg); color: var(--error-foreground); }
 .chip-idle { background: var(--muted); color: var(--muted-foreground); }
+.chip-busy { background: var(--accent); color: var(--busy-foreground); }
+.chip-ready { background: var(--running-bg); color: var(--ready-foreground); }
 
 /* Status dot and status word, as in design/agent-deck/cr016: Running is blue, Idle green. */
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; }
@@ -52,6 +55,13 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .dot-err { background: var(--error); }
 .dot-app { background: var(--approval); box-shadow: 0 0 0 1.5px var(--approval-foreground); }
 .dot-ended { border: 1.5px solid var(--muted-foreground); }
+/* The 28px round status icon (CR-020): filled with the state colour under a black glyph; Ended and an unreadable status are a hollow ring. */
+.state-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: var(--oneui-icon); height: var(--oneui-icon); border-radius: var(--oneui-radius-pill); color: #000; }
+.state-icon-busy { background: var(--busy); }
+.state-icon-app { background: var(--approval); }
+.state-icon-ready { background: var(--running); }
+.state-icon-err { background: var(--error); }
+.state-icon-ring { border: 1.5px solid var(--muted-foreground); }
 .w-busy { color: var(--busy-foreground); }
 .w-ready { color: var(--ready-foreground); }
 .w-app { color: var(--approval-foreground); }
@@ -84,7 +94,7 @@ body { background: var(--background); color: var(--foreground); font-family: var
  * Folder Tree rows. The Row Focus Mark is always the iris bar (SRS-FR-099), not the remote's yellow/red one on tinted rows;
  * the tints come after .side-on so a focused Needs Approval or Error row keeps its colour.
  */
-.side-on { background: var(--accent); box-shadow: inset 3px 0 0 var(--row-focus); }
+.side-on { box-shadow: inset 3px 0 0 var(--row-focus); }
 .row-app { background: var(--approval-bg); color: var(--approval-foreground); }
 .row-app .sub { color: var(--approval-foreground); }
 .row-err { background: var(--error-bg); color: var(--error-foreground); }
@@ -101,10 +111,10 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .pane-err::after { box-shadow: inset 0 0 0 2px var(--error); }
 .pane-focus { outline: 2px solid var(--ring); outline-offset: 2px; }
 
-/* View Switch, from design/agent-deck/cr016 seg(); Plan stays muted until it is built. */
-.seg { border: 1px solid var(--border); border-radius: 22px; display: flex; overflow: hidden; white-space: nowrap; font-size: 12px; }
-.seg > button { padding: 2px 8px; color: var(--muted-foreground); transition: color var(--duration); }
+/* View Switch, a pill on --muted with the shown item filled (CR-020); Plan stays muted until it is built. */
+.seg { background: var(--muted); border-radius: var(--oneui-radius-pill); padding: 2px; display: flex; overflow: hidden; white-space: nowrap; font-size: 11px; }
+.seg > button { padding: 3px 10px; border-radius: var(--oneui-radius-pill); color: var(--muted-foreground); transition: color var(--duration); }
 .seg > button:not(.seg-on):not([aria-disabled="true"]):hover { color: var(--foreground); }
 .seg > button:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
 .seg > button[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
-.seg > .seg-on { background: var(--accent); color: var(--accent-foreground); }
+.seg > .seg-on { background: var(--primary); color: var(--primary-foreground); }

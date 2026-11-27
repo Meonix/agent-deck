@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, FolderPlus, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Workspace } from "../api/workspaces";
 import { labels } from "../labels";
 import { FolderMenu } from "./FolderMenu";
@@ -218,10 +218,11 @@ function WorkspaceItem({ node, selected, folded, focusedPaneId, onToggle, onOpen
 
 function SessionRowItem({ row, focused, onJump }: { row: SessionRow; focused: boolean; onJump(paneId: string): void }) {
   const tint = needsUser(row.state) ? ROW_TINT[row.state] : "";
+  const detailId = useId();
   return (
     <li
       aria-current={focused ? "location" : undefined}
-      className={`${tint} ${focused ? "side-on" : tint ? "" : "hover:bg-muted"}`}
+      className={`mx-1 rounded-row ${tint} ${focused ? "side-on" : ""} ${tint ? "" : "hover:bg-muted"}`}
     >
       <button
         onClick={() => onJump(row.paneId)}
@@ -231,17 +232,21 @@ function SessionRowItem({ row, focused, onJump }: { row: SessionRow; focused: bo
           e.preventDefault();
           onJump(row.paneId);
         }}
-        className={`flex h-8 w-full items-center gap-2 pl-8 pr-2 text-left ${FOCUS}`}
+        aria-describedby={row.highlighted ? detailId : undefined}
+        className={`flex h-[52px] w-full items-center gap-3 rounded-row pl-2 pr-2 text-left ${FOCUS}`}
       >
         <RoundMark mark={{ kind: "state", state: row.state }} />
-        <span className="min-w-0 flex-1 truncate">{labels.title(row.title)}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate">{labels.title(row.title)}</span>
+          {/* The second line describes the row rather than naming it, so the name stays the title and the state. */}
+          {row.highlighted && (
+            <span id={detailId} aria-hidden="true" className="sub block truncate text-[11px]">
+              {clock(row.since) + (row.reason ? ` · ${labels.reason(row.reason)}` : "")}
+            </span>
+          )}
+        </span>
         <span className={`shrink-0 whitespace-nowrap text-[11px] font-medium ${tone[row.state].word}`}>{labels.state[row.state]}</span>
       </button>
-      {row.highlighted && (
-        <div className="sub -mt-0.5 truncate pb-1.5 pl-12 pr-2 text-[11px]">
-          {clock(row.since) + (row.reason ? ` · ${labels.reason(row.reason)}` : "")}
-        </div>
-      )}
     </li>
   );
 }

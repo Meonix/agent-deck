@@ -32,6 +32,8 @@ const PAIRS: [text: string, background: string][] = [
   ["--approval-foreground", "--approval-bg"],
   ["--error-foreground", "--error-bg"],
   ["--running-foreground", "--running-bg"],
+  // The Idle state chip of the pane header (CR-020).
+  ["--ready-foreground", "--running-bg"],
   // Readable sidebar labels and hover (app-theme); the selected row is --accent.
   ["--muted-foreground", "--muted"],
   ["--muted-foreground", "--accent"],
@@ -59,14 +61,6 @@ describe.each([
   });
 });
 
-describe.each([
-  ["light", colours(light)],
-  ["dark", colours(dark)],
-])("sidebar hover in %s (app-theme)", (_, theme) => {
-  it("--muted stands out from --card by at least 1.05:1", () => {
-    expect(ratio(theme.get("--muted")!, theme.get("--card")!)).toBeGreaterThanOrEqual(1.05);
-  });
-});
 
 const sources = import.meta.glob(["./**/*.tsx", "!./**/*.test.tsx"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 
@@ -103,6 +97,13 @@ describe.each(oneuiThemes)("One UI shape layer contrast in %s (CR-020)", (_, bas
   it("subheader (--muted-foreground) on --oneui-canvas is at least 4.5:1", () => {
     expect(shape.get("--oneui-canvas")).toBeDefined();
     expect(ratio(base.get("--muted-foreground")!, shape.get("--oneui-canvas")!)).toBeGreaterThanOrEqual(4.5);
+  });
+  // app-theme › Readable sidebar labels and hover: a hovered row goes from --oneui-surface to --muted.
+  it("hover (--muted) stands out from --oneui-surface by at least 1.05:1", () => {
+    expect(ratio(base.get("--muted")!, shape.get("--oneui-surface")!)).toBeGreaterThanOrEqual(1.05);
+  });
+  it("--muted-foreground on the hover background --muted is at least 4.5:1", () => {
+    expect(ratio(base.get("--muted-foreground")!, base.get("--muted")!)).toBeGreaterThanOrEqual(4.5);
   });
 });
 

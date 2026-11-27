@@ -93,10 +93,12 @@ describe("View Switch (SRS-FR-146)", () => {
 describe("View Switch look in index.css (CR-016)", () => {
   const rule = (selector: string) => css.match(new RegExp(`${selector.replace(/[.>]/g, "\\$&")}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
 
-  it("draws the pill and fills the current item with the accent", () => {
-    expect(rule(".seg")).toMatch(/border:\s*1px solid var\(--border\)/);
-    expect(rule(".seg")).toMatch(/border-radius:\s*22px/);
-    expect(rule(".seg-on")).toMatch(/background:\s*var\(--accent\)/);
-    expect(rule(".seg-on")).toMatch(/color:\s*var\(--accent-foreground\)/);
+  it("draws the pill on --muted and fills the shown item with --primary (CR-020)", () => {
+    expect(rule(".seg")).toMatch(/background:\s*var\(--muted\)/);
+    expect(rule(".seg")).toMatch(/border-radius:\s*var\(--oneui-radius-pill\)/);
+    expect(rule(".seg")).not.toMatch(/border:/);
+    expect(rule(".seg > button")).toMatch(/border-radius:\s*var\(--oneui-radius-pill\)/);
+    expect(rule(".seg-on")).toMatch(/background:\s*var\(--primary\)/);
+    expect(rule(".seg-on")).toMatch(/color:\s*var\(--primary-foreground\)/);
   });
 });

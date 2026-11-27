@@ -26,6 +26,8 @@ const ICON_BTN_BASE =
 const ICON_BTN = `${ICON_BTN_BASE} text-muted-foreground`;
 // Below this header width the full View Switch would push Phóng to and × out of a pane at the grid's minimum.
 const COMPACT_HEADER_PX = 360;
+// Below this pane width the View Switch takes a second header line, so the title is never squeezed out (SRS-FR-030).
+const TWO_LINE_HEADER_PX = 560;
 
 async function copyDropped(client: SessionsClient, path: string): Promise<AttachResult | null> {
   try {
@@ -149,7 +151,7 @@ export function TerminalPane({
   const endedRef = useRef(ended);
   endedRef.current = ended;
   const header = useRef<HTMLElement>(null);
-  const [compact, setCompact] = useState(false);
+  const [headerWidth, setHeaderWidth] = useState(0);
   const lastSize = useRef(openedSize);
   const lastView = useRef(view);
   const refit = useRef<(() => void) | null>(null);
@@ -189,11 +191,7 @@ export function TerminalPane({
   useEffect(() => {
     const bar = header.current;
     if (!bar || typeof ResizeObserver === "undefined") return;
-    // A width of 0 means not laid out yet, not narrow.
-    const measure = () => {
-      const { width } = bar.getBoundingClientRect();
-      setCompact(width > 0 && width < COMPACT_HEADER_PX);
-    };
+    const measure = () => setHeaderWidth(bar.getBoundingClientRect().width);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(bar);
@@ -282,7 +280,17 @@ export function TerminalPane({
   const frame = !attention ? "" : status.state === "Error" ? "pane-err" : "pane-app";
   const dim = focused || maximized || attention ? "" : "opacity-pane-dim";
   const outline = focused ? "pane-focus" : "";
-  const chip = needsUser(status.state);
+  // A width of 0 means not laid out yet, not narrow.
+  const compact = headerWidth > 0 && headerWidth < COMPACT_HEADER_PX;
+  const twoLines = headerWidth > 0 && headerWidth < TWO_LINE_HEADER_PX;
+  const viewSwitch = (
+    <ViewSwitch
+      view={view}
+      shellCommand={shell && view !== "shell" && shell.activity?.busy ? shell.activity.command : null}
+      compact={compact}
+      onChoose={(v) => onChooseView(paneId, v)}
+    />
+  );
   const toggleMaximized = () => (maximized ? onRestore() : onMaximize(paneId));
   const headerPressed = useRef(false);
 
@@ -305,63 +313,61 @@ export function TerminalPane({
         onDoubleClick={(e) => {
           if (headerPressed.current && !onButton(e.target)) toggleMaximized();
         }}
-        className="bar flex h-10 shrink-0 items-center gap-2 pl-3 pr-2 font-sans select-none"
+        className="bar flex shrink-0 flex-col font-sans select-none"
       >
-        <RoundMark mark={mark} small />
-        {/* Basis 0: the title takes only the room the controls leave, so it gives way first. */}
-        <span className="flex-1 basis-0 min-w-0 truncate text-[13px] font-medium text-foreground">
-          <span className="font-normal text-muted-foreground">{workspaceName} ·</span> {labels.title(title)}
-        </span>
-        <span className="flex min-w-0 items-center gap-1 text-[11px] whitespace-nowrap">
-          {othersBadge && (
+        <div className="flex h-12 items-center gap-2 pl-3 pr-2">
+          <RoundMark mark={mark} />
+          {/* Basis 0: the title takes only the room the controls leave, so it gives way first. */}
+          <span className="flex-1 basis-0 min-w-0 truncate text-[13px] font-medium text-foreground">
+            <span className="font-normal text-muted-foreground">{workspaceName} ·</span> {labels.title(title)}
+          </span>
+          <span className="flex min-w-0 items-center gap-1 text-[11px] whitespace-nowrap">
+            {othersBadge && (
+              <button
+                aria-label={labels.othersBadge(othersBadge.count)}
+                onClick={() => onBadge(othersBadge.paneId)}
+                className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full pl-2 pr-3 font-medium ${othersBadge.state === "Error" ? "chip-err" : "chip-app"}`}
+              >
+                <RoundMark mark={{ kind: "state", state: othersBadge.state }} small />
+                {labels.othersBadgeText(othersBadge.count)}
+              </button>
+            )}
+            {badge ? (
+              <span className="chip chip-idle min-w-0 shrink-[10] truncate">{badge}</span>
+            ) : (
+              <span className={`min-w-0 shrink-[10] truncate ${tone[status.state].pill}`}>
+                {labels.state[status.state]}
+              </span>
+            )}
+            {!twoLines && viewSwitch}
             <button
-              aria-label={labels.othersBadge(othersBadge.count)}
-              onClick={() => onBadge(othersBadge.paneId)}
-              className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full pl-2 pr-3 font-medium ${othersBadge.state === "Error" ? "chip-err" : "chip-app"}`}
+              aria-label={labels.stashSession}
+              title={labels.stashSession}
+              disabled={!canStash}
+              onClick={() => onStash(paneId)}
+              className={`${ICON_BTN} disabled:opacity-40 disabled:hover:bg-transparent`}
             >
-              <RoundMark mark={{ kind: "state", state: othersBadge.state }} small />
-              {labels.othersBadgeText(othersBadge.count)}
+              <Archive {...ICON} />
             </button>
-          )}
-          {badge ? (
-            <span className="chip chip-idle min-w-0 shrink-[10] truncate">{badge}</span>
-          ) : (
-            <span className={`min-w-0 shrink-[10] truncate ${chip ? tone[status.state].chip : `font-medium ${tone[status.state].word}`}`}>
-              {labels.state[status.state]}
-            </span>
-          )}
-          <ViewSwitch
-            view={view}
-            shellCommand={shell && view !== "shell" && shell.activity?.busy ? shell.activity.command : null}
-            compact={compact}
-            onChoose={(v) => onChooseView(paneId, v)}
-          />
-          <button
-            aria-label={labels.stashSession}
-            title={labels.stashSession}
-            disabled={!canStash}
-            onClick={() => onStash(paneId)}
-            className={`${ICON_BTN} disabled:opacity-40 disabled:hover:bg-transparent`}
-          >
-            <Archive {...ICON} />
-          </button>
-          <button
-            aria-label={maximized ? labels.restorePane : labels.maximizePane}
-            title={maximized ? labels.restorePane : labels.maximizePane}
-            onClick={toggleMaximized}
-            className={ICON_BTN}
-          >
-            {maximized ? <Minimize2 {...ICON} /> : <Maximize2 {...ICON} />}
-          </button>
-          <button
-            aria-label={labels.closePane}
-            title={labels.closePane}
-            onClick={() => onClose(paneId)}
-            className={ICON_BTN}
-          >
-            <X {...ICON} />
-          </button>
-        </span>
+            <button
+              aria-label={maximized ? labels.restorePane : labels.maximizePane}
+              title={maximized ? labels.restorePane : labels.maximizePane}
+              onClick={toggleMaximized}
+              className={ICON_BTN}
+            >
+              {maximized ? <Minimize2 {...ICON} /> : <Maximize2 {...ICON} />}
+            </button>
+            <button
+              aria-label={labels.closePane}
+              title={labels.closePane}
+              onClick={() => onClose(paneId)}
+              className={ICON_BTN}
+            >
+              <X {...ICON} />
+            </button>
+          </span>
+        </div>
+        {twoLines && <div className="flex pb-2 pl-3 pr-2">{viewSwitch}</div>}
       </header>
       {/* Every view stays laid out while hidden, so each terminal keeps its size and output (SRS-FR-148),
           and Chat its scroll and open cards. */}
