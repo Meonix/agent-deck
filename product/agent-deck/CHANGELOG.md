@@ -1027,3 +1027,18 @@ Backlog — thêm (áp sau GATE CR):
 - Dòng Nguồn: thêm "CR-020 thêm mục 46".
 
 Việc tiếp theo: /design-ui vẽ One UI trên bố cục CR-016 (dựa bản 4d7630a) → /dev-update update-oneui-theme (mục 46).
+
+## CR-021 — Session Row dùng icon tròn 28px thay chấm 8px
+Ngày: 2026-11-27
+Yêu cầu: "duyệt, làm theo đề xuất" — PO chốt ở GATE 1 của /dev-update update-oneui-theme (mục 46): thiết kế One UI đã duyệt (`design/agent-deck/oneui/design.html`, bản v3) vẽ chấm trạng thái thành icon tròn 28px màu trạng thái; SRS mục 2 định nghĩa Session Row có "chấm trạng thái 8px". Row Focus Mark giữ dải iris 3px theo SRS, không đổi.
+Status: Approved (2026-11-27)
+Ảnh hưởng:
+- SRS mục 2 Thuật ngữ, dòng Session Row. Câu SHALL của SRS-FR-032 ("status dot and status word") giữ nguyên: icon tròn là chấm trạng thái. Không đụng BO, BR.
+- Spec `openspec/specs/status-board` (SRS-FR-032, archived `update-folder-tree`): scenario "blue dot / yellow ringed dot / hollow dot" → sửa trong change `update-oneui-theme` (mục 46, /dev-update đang chạy).
+- Code: `src/components/statusTone.tsx` (RoundMark), `WorkspaceSidebar.tsx` — làm trong `update-oneui-theme`.
+Diff đề xuất:
+Phiên bản: SRS v1.17 → v1.18. BRD v7.1 giữ nguyên.
+- SRS mục 2, Session Row: "Dòng phiên trong Folder Tree: chấm trạng thái 8px, tiêu đề, chữ trạng thái" → "Dòng phiên trong Folder Tree: chấm trạng thái (icon tròn 28px màu trạng thái), tiêu đề, chữ trạng thái".
+- SRS mục 14: v1.18 · 2026-11-27 · PO · CR-021: chấm trạng thái của Session Row thành icon tròn 28px (One UI, CR-020).
+- Backlog: dòng Nguồn thêm "CR-021 sửa thuật ngữ Session Row (SRS v1.18)"; mục 46 cột Lý do thêm "CR-021".
+Việc tiếp theo: tiếp /dev-update update-oneui-theme (mục 46).

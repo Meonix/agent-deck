@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.17 (2026-11-25)
+status: Baselined v1.18 (2026-11-27)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -94,7 +94,7 @@ Một người dùng duy nhất, cũng là PO. Người dùng quen terminal và 
 | Status Summary | Deleted (CR-014) |
 | Go-to button | Deleted (CR-014) |
 | Folder Tree | Cây ở Sidebar: mỗi workspace một dòng, phiên đang mở trong ô của workspace lồng bên dưới |
-| Session Row | Dòng phiên trong Folder Tree: chấm trạng thái 8px, tiêu đề, chữ trạng thái |
+| Session Row | Dòng phiên trong Folder Tree: chấm trạng thái (icon tròn 28px màu trạng thái), tiêu đề, chữ trạng thái |
 | Other Folders | "Folder khác (N)", nhóm thu gọn chứa workspace không có phiên đang mở |
 | Folder Menu | Menu ⋯ trên dòng workspace: Xem file, Bỏ folder, Chép đường dẫn |
 | Session Chooser | Hộp mở từ nút + trên dòng workspace: nút Phiên mới và danh sách phiên cũ của workspace đó |
@@ -2024,3 +2024,4 @@ The system shall show every status word and status-tinted row with a text contra
 | v1.15 | 2026-11-23 | PO | CR-015: bỏ Target Box và Session Goal, Progress Tracking, ghi độ trễ trạng thái (xoá SRS-FR-038, SRS-FR-091, SRS-FR-092, SRS-FR-093, SRS-FR-096, SRS-FR-097, SRS-FR-113 đến SRS-FR-131, SRS-NFR-011 đến SRS-NFR-013, RULE-10, RULE-11, A-12); SRS-NFR-007, A-07 về lại không có ngoại lệ; theo BRD v6.0 |
 | v1.16 | 2026-11-24 | PO | CR-016: giao diện theo agent-deck-remote; Folder Tree thay Workspace List, Active Sessions; Session Chooser thay Session History Panel; View Switch Chat · Term · Shell · Plan, Pane Shell thành chế độ Shell; nhãn tiếng Việt; thêm SRS-FR-141 đến SRS-FR-180, SRS-NFR-014, RULE-12, A-13, A-14, A-15; xoá SRS-FR-053, SRS-FR-059, SRS-NFR-009, SRS-NFR-010; theo BRD v7.0 |
 | v1.17 | 2026-11-25 | PO | CR-017: SRS-FR-141 nhóm Folder khác mở sẵn khi không folder nào có phiên mở; theo BRD v7.0 |
+| v1.18 | 2026-11-27 | PO | CR-021: chấm trạng thái của Session Row thành icon tròn 28px (One UI, CR-020) |
