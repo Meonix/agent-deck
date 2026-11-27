@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import tokens from "../design/agent-deck/tokens.css?raw";
+import oneui from "../design/agent-deck/tokens-oneui.css?raw";
+import indexCss from "./index.css?raw";
 
 const [light, dark] = tokens.split(/^\.dark\s*\{/m);
 
@@ -72,4 +74,45 @@ const sources = import.meta.glob(["./**/*.tsx", "!./**/*.test.tsx"], { query: "?
 it("no row hovers on --section-hover, which sits too close to --card", () => {
   const users = Object.entries(sources).filter(([, text]) => text.includes("hover:bg-section-hover")).map(([path]) => path);
   expect(users).toEqual([]);
+});
+
+/** Resolves the one-line var() aliases of tokens-oneui.css against the colours of tokens.css. */
+function oneuiColours(block: string, base: Map<string, string>): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [, name, ref] of block.matchAll(/(--oneui-[\w-]+):\s*var\((--[\w-]+)\)/g)) {
+    const hex = base.get(ref);
+    if (hex) out.set(name, hex);
+  }
+  return out;
+}
+
+const [oneuiLight, oneuiDark] = oneui.split(/^\.dark\s*\{/m);
+const oneuiThemes: [string, Map<string, string>, Map<string, string>][] = [
+  ["light", colours(light), oneuiColours(oneuiLight, colours(light))],
+  ["dark", colours(dark), oneuiColours(oneuiDark.split(/^\}/m)[0], colours(dark))],
+];
+
+describe.each(oneuiThemes)("One UI shape layer contrast in %s (CR-020)", (_, base, shape) => {
+  const onSurface = ["--muted-foreground", "--busy-foreground", "--ready-foreground", "--approval-foreground", "--error-foreground", "--running-foreground"];
+  it.each(onSurface)("%s on --oneui-surface is at least 4.5:1", (text) => {
+    expect(base.get(text), text).toBeDefined();
+    expect(shape.get("--oneui-surface")).toBeDefined();
+    expect(ratio(base.get(text)!, shape.get("--oneui-surface")!)).toBeGreaterThanOrEqual(4.5);
+  });
+  it("subheader (--muted-foreground) on --oneui-canvas is at least 4.5:1", () => {
+    expect(shape.get("--oneui-canvas")).toBeDefined();
+    expect(ratio(base.get("--muted-foreground")!, shape.get("--oneui-canvas")!)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("One UI shape layer in index.css (CR-020)", () => {
+  it("imports tokens-oneui.css after tokens.css", () => {
+    const a = indexCss.indexOf("tokens.css");
+    const b = indexCss.indexOf("tokens-oneui.css");
+    expect(a).toBeGreaterThanOrEqual(0);
+    expect(b).toBeGreaterThan(a);
+  });
+  it.each(["--color-canvas", "--color-surface", "--radius-card", "--radius-dialog", "--radius-group", "--radius-row", "--radius-pill", "--spacing-oneui"])("exposes %s", (name) => {
+    expect(indexCss).toContain(name + ":");
+  });
 });

@@ -1,7 +1,7 @@
 ## 1. Shape layer
 
-- [ ] 1.1 Extend the tokens contrast test to read `design/agent-deck/tokens-oneui.css`: `--muted-foreground` and every status word against `--oneui-surface`, subheader against `--oneui-canvas`, in `:root` and `.dark` — RED
-- [ ] 1.2 Import `tokens-oneui.css` in `src/index.css`; canvas, card and radius utilities — GREEN
+- [x] 1.1 Extend the tokens contrast test to read `design/agent-deck/tokens-oneui.css`: `--muted-foreground` and every status word against `--oneui-surface`, subheader against `--oneui-canvas`, in `:root` and `.dark` — RED
+- [x] 1.2 Import `tokens-oneui.css` in `src/index.css`; canvas, card and radius utilities — GREEN
 
 ## 2. Cards (app-theme, SC-1)
 

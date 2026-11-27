@@ -1,10 +1,23 @@
 @import "tailwindcss";
 @import "../design/agent-deck/tokens.css";
+@import "../design/agent-deck/tokens-oneui.css";
 @config "../design/agent-deck/tailwind.preset.js";
 @source "./";
 
 @theme {
   --default-transition-duration: var(--duration);
+}
+
+/* One UI shape layer (CR-020): bg-canvas, bg-surface, rounded-card, rounded-dialog, rounded-group, rounded-row, rounded-pill, gap-oneui. */
+@theme inline {
+  --color-canvas: var(--oneui-canvas);
+  --color-surface: var(--oneui-surface);
+  --radius-card: var(--oneui-radius-card);
+  --radius-dialog: var(--oneui-radius-dialog);
+  --radius-group: var(--oneui-radius-group);
+  --radius-row: var(--oneui-radius-row);
+  --radius-pill: var(--oneui-radius-pill);
+  --spacing-oneui: var(--oneui-gap);
 }
 
 :root { --sidebar-w: 240px; }
