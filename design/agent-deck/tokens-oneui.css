@@ -1,0 +1,47 @@
+/* One UI (CR-020, 2026-11-27) — lớp hình khối, nạp SAU tokens.css.
+   Dựng lại từ oneui/tokens-oneui.css (commit 4d7630a), bỏ phần vùng đỉnh (CR-014) và nền tint section (CR-016).
+   Không thêm màu, không đổi font: mọi màu là alias tới token đã có trong tokens.css.
+   Hình khối theo references.md › CR-020. Độ tương phản đo bằng script WCAG trong design-ui TOKENS.md mục 5. */
+
+:root {
+  --oneui-canvas: var(--muted);            /* gray-3 #f0f0f0 — nền cửa sổ, khoảng hở giữa thẻ */
+  --oneui-surface: var(--background);      /* gray-1 #fcfcfc — thẻ Sidebar, thẻ ô, hộp thoại · 1.11:1 so với canvas */
+  --oneui-term: var(--background);         /* #fcfcfc — nền terminal trong thẻ ô: ANSI giữ ≥4.49 (trên canvas tụt 4.05–4.18) */
+  /* Chữ trên surface: --foreground 15.88 · --muted-foreground 5.77 · --busy-foreground 6.12 · --ready-foreground 5.93 · --ctx-ok 4.85
+     Chữ trên canvas (subheader "Folder khác", "Để dành"): --foreground 14.30 · --muted-foreground 5.19
+     --ring 4.71 trên canvas, 5.23 trên surface · chấm --busy 3.18, --running 3.08 trên surface
+     Viền 2px ô Cần duyệt --approval 1.38 trên canvas (hở đã chấp nhận từ CR-001) · --error 3.43 */
+
+  --oneui-dim: rgb(0 0 0 / 0.32);          /* dim một bậc sau hộp thoại */
+  --oneui-blur: 12px;                      /* blur nền khi mở hộp thoại */
+  --oneui-shadow: 0 6px 24px rgb(0 0 0 / 0.10), 0 1px 3px rgb(0 0 0 / 0.06); /* lớp nổi liên quan: menu, toast */
+}
+
+.dark {
+  --oneui-canvas: var(--background);       /* gray-dark-1 #111111 */
+  --oneui-surface: var(--card);            /* gray-dark-2 #191919 · 1.07:1 so với canvas — tách bằng bo góc + hở (xem GATE 2) */
+  --oneui-term: var(--background);         /* #111111 — terminal lõm trong thẻ, ANSI giữ số đo cũ */
+  /* Chữ trên surface: --foreground 15.15 · --muted-foreground 8.48 · --busy-foreground 8.36 · --ready-foreground 9.37
+     --ring 3.52 trên canvas, 3.28 trên surface · --row-focus 3.45 trên --accent */
+
+  --oneui-dim: rgb(0 0 0 / 0.56);
+  --oneui-shadow: 0 6px 24px rgb(0 0 0 / 0.45);
+}
+
+:root {
+  --oneui-radius-card: 24px;               /* thẻ Sidebar, thẻ ô */
+  --oneui-radius-dialog: 26px;             /* hộp thoại, Session Chooser (giữa màn hình) */
+  --oneui-radius-group: 18px;              /* khối folder trong Sidebar, Composer, Approval Strip, Question Card, menu */
+  --oneui-radius-row: 12px;                /* dòng đang chọn / hover */
+  --oneui-radius-pill: 999px;              /* nút, chip, View Switch, Toast */
+
+  --oneui-gap: 12px;                       /* hở giữa thẻ, lề cửa sổ */
+  --oneui-pad-card: 16px;
+  --oneui-row-h: 52px;                     /* dòng hai tầng: tên + dòng phụ */
+  --oneui-icon: 28px;                      /* icon tròn đầu dòng */
+  --oneui-hit: 36px;                       /* nút icon tối thiểu (desktop, chuột) */
+  --oneui-subheader-size: 13px;            /* "Folder khác (N)", "Để dành (N)" — chữ thường, không mono */
+
+  --oneui-duration: 280ms;
+  --oneui-ease: cubic-bezier(0.22, 0.25, 0, 1);
+}

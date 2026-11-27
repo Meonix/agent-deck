@@ -193,3 +193,25 @@ Nguồn: `product/agent-deck/BRD.md` Approved v7.0, `SRS.md` Baselined v1.16 m�
 - Trạng thái: `#chooser`, `#views`, `#question`, `#composer-menus`, `#folder-menu`, `#dialogs`, `#files-view`, `#settings`, `#empty-no-folders`, `#empty-no-panes`, `#empty-chooser`, `#loading`, `#error`, `#dense-data`, `#maximized`, `#narrow`. Không vẽ No permission (app một người dùng).
 - Chữ đề xuất ngoài Bảng nhãn SRS, cần PO xác nhận khi làm code: "Chưa có folder nào", "Chưa mở phiên nào", "Bấm + trên dòng folder để mở phiên mới hoặc mở lại phiên cũ.", "Mở lại phiên cũ", "Claude Code hỏi", "Kế hoạch chờ duyệt", "Bỏ qua", "Nhắn cho Claude… (/ lệnh, @ file)", "Claude Code đang chờ duyệt", "Áp cho phiên mở sau khi đổi", "Khác bản đã kiểm".
 - Reference: `references.md` mục CR-016, ảnh ở `refs/cr016/`.
+
+## Phạm vi CR-020 · One UI trên bố cục CR-016 (2026-11-27)
+
+Nguồn: `product/agent-deck/BRD.md` Approved v7.1, `SRS.md` Baselined v1.17 mục 7, CR-020, backlog mục 46. Chức năng và bố cục giữ như "Đã chốt cho CR-016"; chỉ đổi hình dáng.
+
+- Nền tảng, người dùng: như CR-016 (Tauri 2, React/TS, macOS 14+ và Windows 11; nhãn tiếng Việt).
+- Mức: One UI đầy đủ như bản 2026-11-20 (PO chọn 2026-11-27) — canvas xám, cột trái và từng ô là thẻ nổi bo 24px hở 12px, icon tròn 28px màu trạng thái đầu mỗi dòng, Composer / Approval Strip / menu bo lớn, hộp thoại bo 26px có blur nhưng đặt giữa màn hình (CR-020). Không có vùng tóm tắt ở đỉnh (CR-014). Đánh đổi đã biết: terminal mất chỗ.
+- Giá trị cốt lõi: giữ ba giá trị của CR-016 (BO-01 không sót phiên cần mình · BO-02 mở lại ≤ 3 thao tác · BO-05 làm việc không phải gõ trong terminal).
+- Màn hình: như CR-016 — Sidebar (Folder Tree, Folder khác, Để dành, Folder Menu, Thêm folder, Cài đặt) · Session Chooser · Pane Grid (header ô + View Switch, Chat, Composer + menu "/" "@" + chip đính kèm, Approval Strip, Question Card, Activity Bar, Plan, Shell, ô phóng to có badge) · Files View · Settings Page · Close/Stash/Delete Dialog · Toast.
+- Token: giữ màu và font của `tokens.css` hiện tại (bản remote); lớp hình khối One UI là alias, không thêm màu trừ nền canvas và nền terminal nếu contrast đòi.
+- Ràng buộc SRS giữ: Focus Outline 2px iris (FR-087); viền 2px ô Cần duyệt / Lỗi; Row Focus Mark; thứ tự Để dành · Phóng to · × (FR-103); Session Chooser giữa màn hình (FR-007); chữ trạng thái và dòng tô ≥ 4.5:1 (SRS-NFR-014) — đo lại trên canvas xám.
+- Trạng thái cần vẽ (bước 7): như danh sách CR-016.
+
+## Đã chốt cho CR-020 (2026-11-27)
+
+- Bố cục: wireframe A · thẻ Sidebar 264px + thẻ từng ô bo 24px, hở 12px trên canvas (`oneui/design.html#final`). Folder là nhóm dòng trong thẻ Sidebar; "Folder khác (N)", "Để dành (N)" là subheader xám 13px. Session Row hai tầng 52px. Ô hẹp (lưới 3 cột) dùng tiêu đề hai tầng, View Switch xuống tầng dưới.
+- Màu: v3 · icon tròn đặc + nhấn iris. Icon phiên 28px nền màu trạng thái, glyph đen (≥5.37); folder icon nền --accent. Chip trạng thái nền -bg chữ -foreground. View Switch mục đang xem, bong bóng prompt, nút gửi, "Phiên mới" dùng --primary. Approval Strip nền --approval-bg; Question/Plan card nền --accent; nút chữ chia vạch dọc. Ô Cần duyệt / Lỗi viền trong 2px; Focus Outline 2px --ring ngoài.
+- Token: `tokens.css` giữ nguyên; `tokens-oneui.css` là lớp hình khối (canvas = --muted light / --background dark, surface = --background / --card). Canvas dark giữ #111111 (PO duyệt 2026-11-27, thẻ tách 1.07:1 bằng bo góc + hở).
+- Hộp thoại: giữa màn hình, bo 26px, dim + blur một bậc (CR-020).
+- Row Focus Mark: giữ dải iris 3px mép trái theo SRS (PO chốt ở GATE 1 của update-oneui-theme); vòng 2px quanh dòng trong `design.html` chỉ là bản vẽ. Chấm trạng thái 28px được SRS chấp nhận ở CR-021.
+- Trạng thái: `#final`, `#chooser`, `#dialogs`, `#question`, `#composer-menus`, `#folder-menu`, `#views`, `#empty-no-folders`, `#empty-no-panes`, `#empty-chooser`, `#loading`, `#error`, `#dense-data`, `#maximized`, `#narrow`. Không vẽ No permission. Files View, Settings Page vẽ khi làm mục 44, 45.
+- Chữ đề xuất ngoài Bảng nhãn SRS, cần PO xác nhận khi làm code: "Thêm folder để bắt đầu", "2 phiên cần bạn", "Không nhận ra màn hình Claude Code — chuyển sang Term để gõ".

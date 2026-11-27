@@ -127,3 +127,18 @@ Nimbalyst · https://www.nimbalyst.com · cột file dạng cây, khung chat có
 VS Code · https://code.visualstudio.com/docs/copilot/chat/chat-sessions · danh sách phiên để mở lại, nhóm theo workspace (chỉ có chữ, không có ảnh giao diện)
 
 Đã mở mà không dùng: Linear (https://linear.app/features — trang chỉ có lưới icon, không có giao diện), Zed (https://zed.dev/agentic — ảnh editor quá mờ để lấy ý).
+
+## CR-020 · One UI trên bố cục CR-016 (2026-11-27)
+
+Dùng lại bộ One UI chụp 2026-11-20 (`refs/oneui/`, Playwright 1440×900 full-page). Ngày 2026-11-27 mở lại cả 8 link: đều trả 200; xem lại ảnh dev-docs, comp-dialog, comp-list, large-screen-layout. "Lấy gì" viết lại cho bố cục hiện tại (cây folder, ô có View Switch, Composer).
+
+| # | Nguồn | Link | Ảnh | Lấy gì |
+| --- | --- | --- | --- | --- |
+| 1 | One UI Docs | https://developer.samsung.com/one-ui/index.html | `refs/oneui/dev-docs.png` | Ba thẻ trắng bo ~24px nổi trên nền xám nhạt, hở ~20px; mục đang chọn nền xanh nhạt bo tròn — khung chính: thẻ Sidebar + thẻ từng ô trên canvas |
+| 2 | One UI · Lists | https://developer.samsung.com/one-ui/comp/list.html | `refs/oneui/comp-list.png` | Dòng hai tầng, icon tròn màu trước tên, vạch mảnh trong khối, subheader nhỏ xám giữa các khối bo — Folder Tree: mỗi folder một khối, phiên là dòng con có icon tròn trạng thái; "Folder khác", "Để dành" là subheader |
+| 3 | One UI · Dialog | https://developer.samsung.com/one-ui/comp/dialog.html | `refs/oneui/comp-dialog.png` | Hộp bo lớn, tiêu đề đậm, nút chữ màu nhấn chia vạch dọc, không viền nút; menu ngữ cảnh là thẻ nổi không tiêu đề — Close/Stash/Delete Dialog, Session Chooser, Folder Menu. Samsung đặt hộp xác nhận ở đáy màn điện thoại; agent-deck đặt giữa (CR-020) như hộp thông tin của họ |
+| 4 | One UI · Visual depth | https://developer.samsung.com/one-ui/structure/visual-depth.html | `refs/oneui/structure-visual-depth.png` | Blur + dim một bậc khi mở lớp không liên quan, bóng mềm cho lớp liên quan — scrim hộp thoại; bóng cho menu "/" "@", Folder Menu, Toast |
+| 5 | One UI · Large screen layout | https://developer.samsung.com/one-ui/largescreen-and-foldable/large_screen_layout.html | `refs/oneui/largescreen-and-foldable-large-screen-layout.png` | Menu luôn hiện cạnh nội dung, lưới thẻ nhiều cột, pop-up nhỏ thay vì đổi cả màn — Sidebar cạnh Pane Grid, Session Chooser là pop-up |
+| 6 | One UI · App bar | https://developer.samsung.com/one-ui/comp/app-bar.html | `refs/oneui/comp-app-bar.png` | Thanh gọn, tối đa 3 nút hành động bên phải — tiêu đề ô: tên phiên trái, View Switch dạng viên, Để dành · Phóng to · × phải |
+| 7 | One UI · Basic layout | https://developer.samsung.com/one-ui/layout/basic.html | `refs/oneui/layout-basic.png` | Interaction area ở dưới, trong tầm tay — Composer và Approval Strip là khối bo lớn ở đáy ô |
+| 8 | One UI · Color system | https://developer.samsung.com/one-ui/color/system.html | `refs/oneui/color-system.png` | Nền đơn sắc dịu, màu chỉ cho điểm nhấn và icon — giữ màu tokens.css, màu trạng thái chỉ ở icon tròn, chấm và dòng tô |
