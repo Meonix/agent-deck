@@ -367,7 +367,11 @@ describe("suggestion menus (SRS-FR-159, SRS-FR-160)", () => {
     const { user } = renderComposer({ suggest: source() });
     await user.type(box(), "Xem lại @src/comp");
     const list = await screen.findByRole("listbox", { name: labels.menuFiles("agent-deck") });
-    expect(within(list).getByText(labels.menuFiles("agent-deck"))).toHaveClass("side-label");
+    const heading = within(list).getByText(labels.menuFiles("agent-deck"));
+    expect(heading).toHaveClass("side-label");
+    // A long folder name stays on one line, so the 8 rows fit without scrolling.
+    expect(heading).toHaveClass("truncate");
+    expect(heading).toHaveAttribute("title", labels.menuFiles("agent-deck"));
     expect(names()).toEqual(["src/comp.ts", "src/components/", "src/components/PaneGrid.tsx"]);
     await user.keyboard("{ArrowDown}{ArrowDown}{Tab}");
     const chosen = "Xem lại @src/components/PaneGrid.tsx ";

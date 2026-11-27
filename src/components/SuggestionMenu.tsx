@@ -48,7 +48,7 @@ export function SuggestionMenu({ menu, choose }: { menu: MenuView; choose(index:
       aria-label={menu.heading}
       className="menu absolute bottom-full left-0 z-20 mb-1 max-h-[18.25rem] w-[380px] max-w-full overflow-y-auto py-1"
     >
-      <div aria-hidden className="px-3 py-1 side-label">
+      <div aria-hidden title={menu.heading} className="truncate px-3 py-1 side-label">
         {menu.heading}
       </div>
       {menu.kind === "command"
