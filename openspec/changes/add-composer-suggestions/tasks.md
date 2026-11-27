@@ -44,4 +44,4 @@
 
 ## 5. Verify
 
-- [ ] 5.1 Real app on macOS (`qa-verify-after-dev`): SC-1 to SC-7 in a pane of `agent-deck` and of a folder without git. Then submit a chosen "/commit"-style command and an "@" file to check that Claude Code takes them.
+- [x] 5.1 Real app on macOS (`qa-verify-after-dev`): SC-1 to SC-7 in a pane of `agent-deck` and of a folder without git. Then submit a chosen "/commit"-style command and an "@" file to check that Claude Code takes them.
