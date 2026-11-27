@@ -69,9 +69,9 @@ export function SessionChooser({ workspaceName, blocked, returnFocusTo, onNewSes
         aria-modal="true"
         aria-labelledby="session-chooser-title"
         onFocus={onFocusIn}
-        className="dlg flex max-h-[calc(100%-2rem)] w-[440px] max-w-[calc(100%-2rem)] flex-col overflow-hidden"
+        className="dlg flex max-h-[calc(100%-2rem)] w-[440px] max-w-[calc(100%-2rem)] flex-col gap-3 overflow-hidden"
       >
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
+        <div className="flex shrink-0 items-center gap-2">
           <h2 id="session-chooser-title" className="min-w-0 flex-1 truncate text-[14px] font-semibold text-foreground">
             {workspaceName}
           </h2>
@@ -83,20 +83,19 @@ export function SessionChooser({ workspaceName, blocked, returnFocusTo, onNewSes
             <X {...ICON} />
           </button>
         </div>
-        <div className="shrink-0 p-3">
+        <div className="shrink-0">
           <button
             ref={newSession}
             onClick={onNewSession}
             onKeyDown={onEnter(onNewSession)}
-            className="send flex h-10 w-full items-center justify-center gap-2 text-[13px] font-medium hover:opacity-90 transition-opacity"
+            className="send rounded-pill flex h-11 w-full items-center justify-center gap-2 text-[13px] font-medium hover:opacity-90 transition-opacity"
           >
             <Plus {...ICON} />
             {labels.newSession}
           </button>
         </div>
-        <div className="side-label shrink-0 px-4 py-1 text-[11px]">{labels.oldSessions}</div>
+        <div className="side-label shrink-0 px-1 text-[11px]">{labels.oldSessions}</div>
         <SessionList {...list} />
-        <div className="h-2 shrink-0" />
       </div>
     </div>
   );
@@ -148,17 +147,17 @@ function SessionList({ sessions: state, openSessions, now, onResume, onDelete, s
           )}
           {ticked.length > 0 && (
             // Below the scrolling rows, so it stays in view and moves no row.
-            <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2">
+            <div className="dlg-actions shrink-0">
               <button
                 onClick={() => onSelect(rows.map((r) => r.id))}
-                className={`flex-1 rounded text-left text-[12px] text-muted-foreground hover:text-foreground ${FOCUS}`}
+                className="hover:opacity-80 transition-opacity"
               >
                 {labels.selectAll}
               </button>
               <button
                 disabled={deletingSelection}
                 onClick={() => onDeleteSelected(workspaceId, ticked)}
-                className="btn-danger shrink-0 px-3 py-1 text-[12px] font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="btn-danger hover:opacity-80 transition-opacity"
               >
                 {labels.deleteSelected(ticked.length)}
               </button>
@@ -180,9 +179,9 @@ function SessionRows({ workspaceId, rows, now, onResume, onDelete, ticked, onTic
   onTick(id: string, on: boolean): void;
 }) {
   return (
-    <ul aria-label={labels.oldSessions} className="min-h-0 overflow-auto">
+    <ul aria-label={labels.oldSessions} className="min-h-0 overflow-auto rounded-group bg-canvas">
       {rows.map((row) => (
-        <li key={row.id} data-session-row className="group flex h-10 items-center gap-2 px-4 hover:bg-muted transition-colors">
+        <li key={row.id} data-session-row className="group flex h-10 items-center gap-2 px-4 hover:bg-surface transition-colors">
           <input
             type="checkbox"
             aria-label={labels.select(labels.title(row.title))}

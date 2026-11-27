@@ -432,9 +432,13 @@ describe("Pane state (4.2 to 4.4)", () => {
       expect(within(dialog()).getByRole("button", { name: labels.closeAndTrash })).toHaveClass("btn-danger");
       expect(within(dialog()).getByRole("button", { name: labels.close })).toHaveClass("outline-btn");
       expect(within(dialog()).getByRole("button", { name: labels.cancel })).toHaveClass("outline-btn");
-      // Centred over the 45% black scrim, as in agent-deck-remote.
+      // Centred over the blurred dim backdrop (CR-020).
       expect(dialog()).toHaveClass("dlg");
       expect(dialog().parentElement).toHaveClass("scrim", "items-center", "justify-center");
+      // Text actions in one row, split by rules.
+      const actions = within(dialog()).getByRole("button", { name: labels.cancel }).parentElement!;
+      expect(actions).toHaveClass("dlg-actions");
+      expect(within(actions).getAllByRole("button")).toHaveLength(3);
       expect(dialog()).not.toHaveTextContent("still running");
       expect(within(dialog()).getByRole("button", { name: labels.cancel })).toHaveFocus();
       expect(sessions.close).not.toHaveBeenCalled();
@@ -913,7 +917,8 @@ describe("Session Chooser (CR-016)", () => {
       expect(dialog).toHaveClass("dlg", "w-[440px]");
       expect(dialog.parentElement).toHaveClass("scrim", "items-center", "justify-center");
       expect(within(dialog).getByRole("button", { name: labels.close })).toBeInTheDocument();
-      expect(within(dialog).getByRole("button", { name: labels.newSession })).toHaveClass("send");
+      expect(within(dialog).getByRole("button", { name: labels.newSession })).toHaveClass("send", "rounded-pill", "w-full");
+      expect(within(dialog).getByRole("list", { name: labels.oldSessions })).toHaveClass("bg-canvas", "rounded-group");
       expect(within(dialog).getByText(labels.oldSessions)).toHaveClass("side-label");
       await within(dialog).findByText("Scaffold Tauri app");
       expect(rowTitles()).toEqual([
@@ -1273,6 +1278,7 @@ describe("Session Chooser (CR-016)", () => {
       await user.click(box("Fix login bug"));
 
       expect(footer(labels.deleteSelected(2))).toHaveClass("btn-danger");
+      expect(footer(labels.deleteSelected(2))?.parentElement).toHaveClass("dlg-actions");
       expect(footer(labels.selectAll)).toBeInTheDocument();
       expect(chooserList().contains(footer(labels.selectAll))).toBe(false);
       expect(chooser()).toBeInTheDocument();
@@ -4263,5 +4269,30 @@ describe("Approval (CR-016)", () => {
       expect(sessions.write).not.toHaveBeenCalled();
       expect(await screen.findByRole("alert")).toHaveTextContent(labels.requestChanged);
     });
+  });
+});
+
+describe("Dialog CSS (CR-020, design.html #dialogs and #chooser)", () => {
+  const rule = (selector: string) => indexCss.match(new RegExp(`${selector.replace(/[.:>*+ ]/g, "\\$&")}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+
+  it("dims and blurs behind the dialog instead of a flat 45% black", () => {
+    expect(rule(".scrim")).toMatch(/background:\s*var\(--oneui-dim\)/);
+    expect(rule(".scrim")).toMatch(/backdrop-filter:\s*blur\(var\(--oneui-blur\)\)/);
+    expect(rule(".scrim")).not.toMatch(/0\.45/);
+  });
+
+  it("draws the dialog on the surface at 26px with no border and 24px padding", () => {
+    expect(rule(".dlg")).toMatch(/background:\s*var\(--oneui-surface\)/);
+    expect(rule(".dlg")).toMatch(/border-radius:\s*var\(--oneui-radius-dialog\)/);
+    expect(rule(".dlg")).toMatch(/padding:\s*24px/);
+    expect(rule(".dlg")).not.toMatch(/border:\s*1px/);
+  });
+
+  it("splits text actions by 1px vertical rules, the last semibold, danger in the error colour", () => {
+    expect(rule(".dlg-actions > * + *")).toMatch(/border-left:\s*1px solid var\(--border\)/);
+    expect(rule(".dlg-actions > :last-child")).toMatch(/font-weight:\s*600/);
+    expect(rule(".dlg .btn-danger")).toMatch(/color:\s*var\(--error-foreground\)/);
+    expect(rule(".dlg .btn-danger")).toMatch(/background:\s*transparent/);
+    expect(rule(".dlg .allow")).toMatch(/color:\s*var\(--accent-foreground\)/);
   });
 });

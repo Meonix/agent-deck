@@ -26,22 +26,22 @@ export function ConfirmDialog({ title, detail, action, extra, danger = false, on
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
-        className="dlg flex w-[400px] max-w-[calc(100%-2rem)] flex-col gap-3 p-4"
+        className="dlg flex w-[400px] max-w-[calc(100%-2rem)] flex-col gap-3"
       >
         <div id="confirm-dialog-title" className="text-[14px] font-semibold text-foreground">
           {title}
         </div>
         {detail && <div className="text-[12px] text-muted-foreground">{detail}</div>}
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <button ref={cancel} onClick={onCancel} className={`${CHOICE} outline-btn text-foreground`}>
+        <div className="dlg-actions">
+          <button ref={cancel} onClick={onCancel} className="outline-btn hover:opacity-80 transition-opacity">
             {labels.cancel}
           </button>
           {extra && (
-            <button onClick={extra.onChoose} className={`${CHOICE} outline-btn text-foreground`}>
+            <button onClick={extra.onChoose} className="outline-btn hover:opacity-80 transition-opacity">
               {extra.label}
             </button>
           )}
-          <button onClick={onConfirm} className={`${CHOICE} font-medium ${danger ? "btn-danger" : "allow"}`}>
+          <button onClick={onConfirm} className={`${danger ? "btn-danger" : "allow"} hover:opacity-80 transition-opacity`}>
             {action}
           </button>
         </div>
@@ -49,5 +49,3 @@ export function ConfirmDialog({ title, detail, action, extra, danger = false, on
     </div>
   );
 }
-
-const CHOICE = "whitespace-nowrap px-3 py-1.5 text-[13px] hover:opacity-90 transition-opacity";

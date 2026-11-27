@@ -17,8 +17,8 @@
 
 ## 4. Dialogs and Session Chooser (session-history SRS-FR-007, SC-3)
 
-- [ ] 4.1 Delete the "45% scrim" assertion; test the dialog radius, the blurred dim backdrop and text actions split by a rule, still centred — RED
-- [ ] 4.2 `.scrim`, `.dlg`, `ConfirmDialog.tsx`, `SessionChooser.tsx` — GREEN
+- [x] 4.1 Delete the "45% scrim" assertion; test the dialog radius, the blurred dim backdrop and text actions split by a rule, still centred — RED
+- [x] 4.2 `.scrim`, `.dlg`, `ConfirmDialog.tsx`, `SessionChooser.tsx` — GREEN
 
 ## 5. Blocks in the pane
 
