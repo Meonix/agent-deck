@@ -2,10 +2,13 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { CommandItem, FileEntry, FileList } from "../api/sessions";
+import type { CommandItem, FileEntry, FileList, SavedFile, SessionsClient } from "../api/sessions";
 import css from "../index.css?raw";
 import { labels } from "../labels";
+import { fakeAdapter, fakeSessions } from "../test/fakes";
 import { Composer } from "./Composer";
+import * as claude from "./fixtures/claude-screens";
+import { useComposer } from "./useComposer";
 import type { Readiness } from "./inputReady";
 import type { SuggestSource } from "./useSuggestionMenu";
 
@@ -40,6 +43,9 @@ function renderComposer({ value = "", readiness = READY, running = false, onHist
         paneId="p1"
         inputRef={inputRef}
         suggest={suggest}
+        chips={[]}
+        onRemoveChip={vi.fn()}
+        onPasteFiles={vi.fn()}
         value={text}
         browsing={browsing}
         onChange={(t) => {
@@ -476,6 +482,142 @@ describe("suggestion menus (SRS-FR-159, SRS-FR-160)", () => {
     expect(menu()).toBeNull();
     await act(async () => pending[1]([]));
     expect(names()).toEqual(["/compact"]);
+  });
+});
+
+/** A Composer driven by the real useComposer, over a session showing Claude Code's empty prompt box. */
+function renderAttaching(client: SessionsClient = fakeSessions()) {
+  const adapter = fakeAdapter();
+  vi.mocked(adapter.screen).mockReturnValue(claude.idle);
+  function Harness() {
+    const inputRef = useRef<HTMLTextAreaElement>(null);
+    const state = useComposer({ paneId: "p1", adapter, state: "Idle", client, sentPrompts: [], onSent: () => {}, inputRef });
+    return <Composer paneId="p1" inputRef={inputRef} {...state} />;
+  }
+  render(<Harness />);
+  return { user: userEvent.setup(), client };
+}
+
+const png = (name: string, bytes = 3) => new File([new Uint8Array(bytes)], name, { type: "image/png" });
+const saved = (name: string, size = 3): SavedFile => ({ path: `/prompt-files/1-0/${name}`, name, size });
+const paste = (files: File[]) => fireEvent.paste(box(), { clipboardData: { files, getData: () => "" } });
+const chipList = () => screen.queryByRole("list", { name: labels.attachments });
+const chipTexts = () => (chipList() ? within(chipList()!).getAllByRole("listitem").map((c) => c.textContent) : []);
+const settleSaves = () => act(async () => {});
+
+describe("pasting files into the Composer (SRS-FR-161, SRS-FR-162)", () => {
+  it("stores a pasted file, inserts its path at the caret and shows its chip", async () => {
+    const client = fakeSessions({ savePromptFile: vi.fn(async () => saved("screenshot.png", 219136)) });
+    renderAttaching(client);
+    expect(paste([png("screenshot.png")])).toBe(false);
+    await settleSaves();
+    expect(client.savePromptFile).toHaveBeenCalledWith("screenshot.png", expect.any(Uint8Array));
+    expect(box()).toHaveValue("/prompt-files/1-0/screenshot.png ");
+    expect(chipTexts()).toEqual(["screenshot.png · 214 KB"]);
+    expect(box()).toHaveFocus();
+    expect((box() as HTMLTextAreaElement).selectionStart).toBe("/prompt-files/1-0/screenshot.png ".length);
+    expect(within(chipList()!).getByRole("button", { name: labels.removeAttachment("screenshot.png") })).toBeInTheDocument();
+  });
+
+  it("keeps the paste order of two files even when the second save answers first", async () => {
+    const answers: ((f: SavedFile) => void)[] = [];
+    const client = fakeSessions({ savePromptFile: vi.fn(() => new Promise<SavedFile>((resolve) => answers.push(resolve))) });
+    const { user } = renderAttaching(client);
+    await user.type(box(), "xem lỗi trong ");
+    paste([png("a.png"), png("b.png")]);
+    await settleSaves();
+    expect(answers).toHaveLength(2);
+    await act(async () => answers[1](saved("b.png")));
+    expect(box()).toHaveValue("xem lỗi trong ");
+    await act(async () => answers[0](saved("a.png")));
+    expect(box()).toHaveValue("xem lỗi trong /prompt-files/1-0/a.png /prompt-files/1-0/b.png ");
+    expect(chipTexts()).toEqual(["a.png · 3 B", "b.png · 3 B"]);
+  });
+
+  it("refuses a file over 50 MB without sending it and shows an error chip", async () => {
+    const { user, client } = renderAttaching();
+    await user.type(box(), "xem");
+    const big = new File(["x"], "video.mov");
+    Object.defineProperty(big, "size", { value: 120 * 1024 * 1024 });
+    paste([big]);
+    await settleSaves();
+    expect(client.savePromptFile).not.toHaveBeenCalled();
+    expect(labels.attachTooLarge).toBe("File lớn hơn 50 MB");
+    expect(chipTexts()).toEqual([`video.mov · ${labels.attachTooLarge}`]);
+    expect(box()).toHaveValue("xem");
+  });
+
+  it("shows an error chip when the store answers too_large and nothing for another failure", async () => {
+    const client = fakeSessions({
+      savePromptFile: vi.fn((name: string) => Promise.reject(name === "big.png" ? "too_large" : "disk full")),
+    });
+    renderAttaching(client);
+    paste([png("big.png"), png("broken.png")]);
+    await settleSaves();
+    expect(chipTexts()).toEqual([`big.png · ${labels.attachTooLarge}`]);
+    expect(box()).toHaveValue("");
+  });
+
+  it("removes the path with the × of an ok chip and keeps the other words", async () => {
+    const { user } = renderAttaching();
+    await user.type(box(), "xem lỗi trong ");
+    paste([png("screenshot.png")]);
+    await settleSaves();
+    expect(box()).toHaveValue("xem lỗi trong /prompt-files/1-0/screenshot.png ");
+    await user.click(screen.getByRole("button", { name: labels.removeAttachment("screenshot.png") }));
+    expect(box()).toHaveValue("xem lỗi trong ");
+    expect(chipList()).toBeNull();
+  });
+
+  it("drops an error chip with its ×", async () => {
+    const { user } = renderAttaching();
+    const big = png("video.mov");
+    Object.defineProperty(big, "size", { value: 60 * 1024 * 1024 });
+    paste([big]);
+    await settleSaves();
+    expect(chipTexts()).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: labels.removeAttachment("video.mov") }));
+    expect(chipList()).toBeNull();
+  });
+
+  it("leaves a plain-text paste to the browser", async () => {
+    const { client } = renderAttaching();
+    expect(fireEvent.paste(box(), { clipboardData: { files: [], getData: () => "hello" } })).toBe(true);
+    await settleSaves();
+    expect(client.savePromptFile).not.toHaveBeenCalled();
+    expect(chipList()).toBeNull();
+  });
+
+  it("clears the chips once the prompt is sent", async () => {
+    const { user, client } = renderAttaching();
+    await user.type(box(), "xem ");
+    paste([png("screenshot.png")]);
+    await settleSaves();
+    expect(chipTexts()).toHaveLength(1);
+    await user.type(box(), "{Enter}");
+    await settleSaves();
+    expect(client.write).toHaveBeenCalled();
+    expect(box()).toHaveValue("");
+    expect(chipList()).toBeNull();
+  });
+
+  it("drops the chip of a path the user deleted by hand", async () => {
+    const { user } = renderAttaching();
+    paste([png("screenshot.png")]);
+    await settleSaves();
+    expect(chipTexts()).toHaveLength(1);
+    await user.clear(box());
+    await user.type(box(), "khác");
+    expect(chipList()).toBeNull();
+  });
+
+  it("marks an image with the image icon and another file with the file icon", async () => {
+    renderAttaching();
+    paste([png("shot.JPEG"), new File(["x"], "notes.txt")]);
+    await settleSaves();
+    const items = within(chipList()!).getAllByRole("listitem");
+    expect(items[0].querySelector("svg.lucide-image")).not.toBeNull();
+    expect(items[1].querySelector("svg.lucide-file")).not.toBeNull();
   });
 });
 

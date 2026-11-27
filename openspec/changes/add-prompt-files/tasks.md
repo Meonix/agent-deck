@@ -11,8 +11,8 @@
 
 ## 3. Paste and chips in the Composer (tests first) — seam 3
 
-- [ ] 3.1 RED `Composer` RTL tests with a fake client: paste one and two files, paste over 50 MB, × on ok and error chips, plain-text paste untouched, send clears the chips, a path deleted by hand loses its chip. (SRS-FR-161, SRS-FR-162)
-- [ ] 3.2 Implement `AttachmentChips.tsx`, paste handling and attachment state in `Composer.tsx` / `useComposer.ts`, label "File lớn hơn 50 MB", following `#composer-menus` › `ATTACH` → GREEN.
+- [x] 3.1 RED `Composer` RTL tests with a fake client: paste one and two files, paste over 50 MB, × on ok and error chips, plain-text paste untouched, send clears the chips, a path deleted by hand loses its chip. (SRS-FR-161, SRS-FR-162)
+- [x] 3.2 Implement `AttachmentChips.tsx`, paste handling and attachment state in `Composer.tsx` / `useComposer.ts`, label "File lớn hơn 50 MB", following `#composer-menus` › `ATTACH` → GREEN.
 
 ## 4. Drop routing (tests first) — seam 4
 

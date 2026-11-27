@@ -1,6 +1,7 @@
 import { ArrowUp, Square } from "lucide-react";
 import { type RefObject, useId, useLayoutEffect, useRef, useState } from "react";
 import { labels } from "../labels";
+import { AttachmentChips, type Chip } from "./AttachmentChips";
 import { ICON } from "./icon";
 import type { Readiness } from "./inputReady";
 import { SuggestionMenu } from "./SuggestionMenu";
@@ -32,10 +33,15 @@ type Props = {
   inputRef: RefObject<HTMLTextAreaElement | null>;
   /** The lists behind the "/" and "@" menus (SRS-FR-159, SRS-FR-160). */
   suggest: SuggestSource;
+  /** The files attached to the draft (SRS-FR-161, SRS-FR-162). */
+  chips: Chip[];
+  onRemoveChip(index: number): void;
+  /** Files pasted into the field; a paste without files stays a text paste. */
+  onPasteFiles(files: File[]): void;
 };
 
-/** The pane's prompt input under the Chat log (SRS-FR-154 to SRS-FR-160). */
-export function Composer({ paneId, value, onChange, readiness, running, onSend, onStop, onHistory, browsing, inputRef: area, suggest }: Props) {
+/** The pane's prompt input under the Chat log (SRS-FR-154 to SRS-FR-162). */
+export function Composer({ paneId, value, onChange, readiness, running, onSend, onStop, onHistory, browsing, inputRef: area, suggest, chips, onRemoveChip, onPasteFiles }: Props) {
   const reasonId = useId();
 
   // The caret counts only for the text the user typed or chose: a recalled prompt or a cleared draft opens
@@ -88,6 +94,7 @@ export function Composer({ paneId, value, onChange, readiness, running, onSend, 
           {lock}
         </div>
       )}
+      <AttachmentChips chips={chips} onRemove={onRemoveChip} />
       <div className="flex items-center gap-2">
         <div className={`field ${value ? "field-on" : ""} relative flex min-w-0 flex-1 px-3 py-1.5`}>
           {menu && <SuggestionMenu menu={menu} choose={choose} />}
@@ -108,6 +115,12 @@ export function Composer({ paneId, value, onChange, readiness, running, onSend, 
             }}
             // Key and mouse moves of the caret, not onSelect: that one follows document selectionchange,
             // which also fires when focus leaves a closing pane.
+            onPaste={(e) => {
+              const files = [...e.clipboardData.files];
+              if (files.length === 0) return;
+              e.preventDefault();
+              onPasteFiles(files);
+            }}
             onKeyUp={(e) => track(e.currentTarget)}
             onMouseUp={(e) => track(e.currentTarget)}
             onKeyDown={(e) => {

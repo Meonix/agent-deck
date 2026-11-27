@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { SessionState, SessionsClient } from "../api/sessions";
+import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { SavedFile, SessionState, SessionsClient } from "../api/sessions";
+import type { Chip } from "./AttachmentChips";
+import { insertPaths, removePath, tooLarge } from "./attachments";
 import { type HistoryPosition, historyStep, normalisePrompt, sendPrompt } from "./composerLogic";
 import { inputReadiness, type Readiness } from "./inputReady";
 import type { TerminalAdapter } from "./TerminalPane";
@@ -16,13 +18,17 @@ type Options = {
   sentPrompts: readonly string[];
   /** The prompt reached the session and joins the history. */
   onSent(prompt: string): void;
+  /** The Composer's textarea: attached paths go in at its caret. */
+  inputRef: RefObject<HTMLTextAreaElement | null>;
 };
+
+export type AttachResult = SavedFile | { name: string; error: "too_large" };
 
 /**
  * The Composer's state and actions for one pane (SRS-FR-154 to SRS-FR-158). The draft is local state, so a
  * keystroke re-renders this pane only; the pane stays mounted across view switches, so the draft survives them.
  */
-export function useComposer({ paneId, adapter, state, client, sentPrompts, onSent }: Options) {
+export function useComposer({ paneId, adapter, state, client, sentPrompts, onSent, inputRef }: Options) {
   const [draft, setDraft] = useState("");
 
   // RULE-12 is read from the session terminal's screen: per frame of output, and on each status change.
@@ -81,6 +87,7 @@ export function useComposer({ paneId, adapter, state, client, sentPrompts, onSen
           setPosition(null);
           // Text typed while the write was pending is a new prompt, not the one sent.
           setDraft((current) => (current === sent ? "" : current));
+          setAttached([]);
           onSent(normalisePrompt(sent));
         },
         () => {},
@@ -99,7 +106,78 @@ export function useComposer({ paneId, adapter, state, client, sentPrompts, onSen
     [client, paneId],
   );
 
-  return { value: draft, onChange, readiness, running, onSend, onStop, onHistory, browsing: position !== null, suggest };
+  const [attached, setAttached] = useState<AttachResult[]>([]);
+  // Where the caret goes once the draft holding the attached paths is in the textarea.
+  const pendingCaret = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    const at = pendingCaret.current;
+    if (!el || at === null || el.value !== draft) return;
+    pendingCaret.current = null;
+    el.setSelectionRange(at, at);
+    el.focus();
+  });
+
+  const attach = (results: AttachResult[]) => {
+    if (results.length === 0) return;
+    setAttached((prev) => [...prev, ...results]);
+    const paths = results.flatMap((r) => ("error" in r ? [] : [r.path]));
+    const el = inputRef.current;
+    if (paths.length === 0) {
+      el?.focus();
+      return;
+    }
+    setPosition(null);
+    setDraft((current) => {
+      const at = el && el.value === current ? el.selectionStart : current.length;
+      const next = insertPaths(current, at, paths);
+      pendingCaret.current = next.caret;
+      return next.text;
+    });
+  };
+
+  // A path the user deleted by hand loses its chip; the index of each chip points back into `attached`.
+  const shown = attached.flatMap((r, at): { at: number; chip: Chip }[] => {
+    if ("error" in r) return [{ at, chip: { kind: "error", name: r.name } }];
+    return draft.includes(r.path) ? [{ at, chip: { kind: "ok", name: r.name, size: r.size, path: r.path } }] : [];
+  });
+  const chips = shown.map((s) => s.chip);
+  const onRemoveChip = (index: number) => {
+    const entry = shown[index];
+    if (!entry) return;
+    if (entry.chip.kind === "ok") setDraft(removePath(draft, entry.chip.path));
+    setAttached((prev) => prev.filter((_, i) => i !== entry.at));
+  };
+
+  const onPasteFiles = (files: File[]) => {
+    void Promise.all(files.map((file) => saveFile(client, file))).then((results) => attach(results.filter((r) => r !== null)));
+  };
+
+  return {
+    value: draft,
+    onChange,
+    readiness,
+    running,
+    onSend,
+    onStop,
+    onHistory,
+    browsing: position !== null,
+    suggest,
+    attach,
+    chips,
+    onRemoveChip,
+    onPasteFiles,
+  };
+}
+
+async function saveFile(client: SessionsClient, file: File): Promise<AttachResult | null> {
+  const name = file.name || "file";
+  if (tooLarge(file.size)) return { name, error: "too_large" };
+  try {
+    return await client.savePromptFile(name, new Uint8Array(await file.arrayBuffer()));
+  } catch (reason) {
+    return reason === "too_large" ? { name, error: "too_large" } : null;
+  }
 }
 
 // A pane whose session never started has nothing to send to.

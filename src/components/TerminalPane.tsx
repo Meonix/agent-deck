@@ -222,7 +222,7 @@ export function TerminalPane({
 
   // An ended pane locks as ended even after an Error exit; an untracked one counts as Idle (SRS-FR-036).
   const state = ended ? "Ended" : knownState(status);
-  const composerState = useComposer({ paneId, adapter, state, client, sentPrompts, onSent: (prompt) => onSent(paneId, prompt) });
+  const composerState = useComposer({ paneId, adapter, state, client, sentPrompts, onSent: (prompt) => onSent(paneId, prompt), inputRef: composer });
   const dialog = useDialog({ paneId, adapter, status, ended, chat, client });
 
   // An answered strip or card goes away with the keyboard in it; the keyboard then goes back to the Composer.
