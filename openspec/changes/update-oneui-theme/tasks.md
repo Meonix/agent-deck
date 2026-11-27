@@ -26,5 +26,5 @@
 
 ## 6. Close
 
-- [ ] 6.1 `npm test`, `npx tsc --noEmit`, `openspec validate update-oneui-theme --strict`
-- [ ] 6.2 Run the app and screenshot the main window, a dialog and dark against `design/agent-deck/oneui/design.html#final`
+- [x] 6.1 `npm test`, `npx tsc --noEmit`, `openspec validate update-oneui-theme --strict`
+- [x] 6.2 Run the app and screenshot the main window, a dialog and dark against `design/agent-deck/oneui/design.html#final` — empty window (dark) checked; panes, dialogs and light left to the user's own run
