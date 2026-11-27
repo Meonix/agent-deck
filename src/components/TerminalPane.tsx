@@ -29,6 +29,15 @@ const COMPACT_HEADER_PX = 360;
 // Below this pane width the View Switch takes a second header line, so the title is never squeezed out (SRS-FR-030).
 const TWO_LINE_HEADER_PX = 560;
 
+/** Only the bucket is state, so a drag that keeps the pane in one bucket re-renders nothing. */
+type HeaderLayout = "one-line" | "two-lines" | "compact";
+
+function headerLayout(width: number): HeaderLayout {
+  // A width of 0 means not laid out yet, not narrow.
+  if (width <= 0 || width >= TWO_LINE_HEADER_PX) return "one-line";
+  return width < COMPACT_HEADER_PX ? "compact" : "two-lines";
+}
+
 async function copyDropped(client: SessionsClient, path: string): Promise<AttachResult | null> {
   try {
     return await client.copyPromptFile(path);
@@ -151,7 +160,7 @@ export function TerminalPane({
   const endedRef = useRef(ended);
   endedRef.current = ended;
   const header = useRef<HTMLElement>(null);
-  const [headerWidth, setHeaderWidth] = useState(0);
+  const [layout, setLayout] = useState<HeaderLayout>("one-line");
   const lastSize = useRef(openedSize);
   const lastView = useRef(view);
   const refit = useRef<(() => void) | null>(null);
@@ -191,7 +200,7 @@ export function TerminalPane({
   useEffect(() => {
     const bar = header.current;
     if (!bar || typeof ResizeObserver === "undefined") return;
-    const measure = () => setHeaderWidth(bar.getBoundingClientRect().width);
+    const measure = () => setLayout(headerLayout(bar.getBoundingClientRect().width));
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(bar);
@@ -280,9 +289,8 @@ export function TerminalPane({
   const frame = !attention ? "" : status.state === "Error" ? "pane-err" : "pane-app";
   const dim = focused || maximized || attention ? "" : "opacity-pane-dim";
   const outline = focused ? "pane-focus" : "";
-  // A width of 0 means not laid out yet, not narrow.
-  const compact = headerWidth > 0 && headerWidth < COMPACT_HEADER_PX;
-  const twoLines = headerWidth > 0 && headerWidth < TWO_LINE_HEADER_PX;
+  const compact = layout === "compact";
+  const twoLines = layout !== "one-line";
   const viewSwitch = (
     <ViewSwitch
       view={view}

@@ -51,16 +51,6 @@ describe.each([
   });
 });
 
-describe.each([
-  ["light", colours(light)],
-  ["dark", colours(dark)],
-])("Row Focus Mark in %s (SRS-FR-099)", (_, theme) => {
-  it.each(["--card", "--accent", "--approval-bg", "--error-bg"])("--row-focus on %s is at least 3:1", (background) => {
-    expect(theme.get(background), background).toBeDefined();
-    expect(ratio(theme.get("--row-focus")!, theme.get(background)!)).toBeGreaterThanOrEqual(3);
-  });
-});
-
 
 const sources = import.meta.glob(["./**/*.tsx", "!./**/*.test.tsx"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 
@@ -86,6 +76,15 @@ const oneuiThemes: [string, Map<string, string>, Map<string, string>][] = [
   ["light", colours(light), oneuiColours(oneuiLight, colours(light))],
   ["dark", colours(dark), oneuiColours(oneuiDark.split(/^\}/m)[0], colours(dark))],
 ];
+
+// status-board › Row Focus Mark contrast: the Sidebar card, the hover background and both row tints.
+describe.each(oneuiThemes)("Row Focus Mark in %s (SRS-FR-099)", (_, base, shape) => {
+  it.each(["--oneui-surface", "--muted", "--approval-bg", "--error-bg"])("--row-focus on %s is at least 3:1", (background) => {
+    const bg = shape.get(background) ?? base.get(background);
+    expect(bg, background).toBeDefined();
+    expect(ratio(base.get("--row-focus")!, bg!)).toBeGreaterThanOrEqual(3);
+  });
+});
 
 describe.each(oneuiThemes)("One UI shape layer contrast in %s (CR-020)", (_, base, shape) => {
   const onSurface = ["--muted-foreground", "--busy-foreground", "--ready-foreground", "--approval-foreground", "--error-foreground", "--running-foreground"];
