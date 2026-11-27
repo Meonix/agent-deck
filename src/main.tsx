@@ -3,6 +3,8 @@ import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { listenForDrops } from "./components/dropTargets";
 import { tauriDiagClient } from "./api/diag";
 import { tauriSessionsClient } from "./api/sessions";
 import { tauriWorkspacesClient } from "./api/workspaces";
@@ -19,7 +21,9 @@ const applyScheme = () => document.documentElement.classList.toggle("dark", dark
 applyScheme();
 darkScheme.addEventListener("change", applyScheme);
 
-const mac = navigator.userAgent.includes("Mac");
+listenForDrops((cb) => getCurrentWebview().onDragDropEvent(cb));
+
+const mac =navigator.userAgent.includes("Mac");
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

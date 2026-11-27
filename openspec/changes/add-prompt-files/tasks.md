@@ -16,8 +16,8 @@
 
 ## 4. Drop routing (tests first) — seam 4
 
-- [ ] 4.1 RED: a drop handler test with a fake `onDragDropEvent` and `elementFromPoint` — a drop over pane 2 attaches to pane 2 only, a drop over no pane does nothing, the physical position is divided by `devicePixelRatio`; `copyPromptFile` errors map to an error chip (`too_large`) or a skip (`not_a_file`, `not_found`). (SRS-FR-161, SRS-FR-162)
-- [ ] 4.2 Implement the window listener and the per-pane attach registry → GREEN.
+- [x] 4.1 RED: a drop handler test with a fake `onDragDropEvent` and `elementFromPoint` — a drop over pane 2 attaches to pane 2 only, a drop over no pane does nothing, the physical position is divided by `devicePixelRatio`; `copyPromptFile` errors map to an error chip (`too_large`) or a skip (`not_a_file`, `not_found`). (SRS-FR-161, SRS-FR-162)
+- [x] 4.2 Implement the window listener and the per-pane attach registry → GREEN.
 
 ## 5. Verify
 

@@ -15,7 +15,8 @@ import { mayTakeFocus } from "./paneFocus";
 import { ShellArea, ShellFailure } from "./PaneShell";
 import { knownState, type MaximizedBadge, needsUser } from "./statusHighlight";
 import { type Mark, RoundMark, tone } from "./statusTone";
-import { useComposer } from "./useComposer";
+import { registerDropTarget } from "./dropTargets";
+import { type AttachResult, useComposer } from "./useComposer";
 import { ViewLayer } from "./ViewLayer";
 import { type PaneView, ViewSwitch } from "./ViewSwitch";
 
@@ -24,6 +25,14 @@ const ICON_BTN_BASE =
 const ICON_BTN = `${ICON_BTN_BASE} text-muted-foreground`;
 // Below this header width the full View Switch would push Phóng to and × out of a pane at the grid's minimum.
 const COMPACT_HEADER_PX = 360;
+
+async function copyDropped(client: SessionsClient, path: string): Promise<AttachResult | null> {
+  try {
+    return await client.copyPromptFile(path);
+  } catch (reason) {
+    return reason === "too_large" ? { name: path.split(/[/\\]/).pop() ?? path, error: "too_large" } : null;
+  }
+}
 
 export type TerminalSize = { cols: number; rows: number };
 
@@ -224,6 +233,17 @@ export function TerminalPane({
   const state = ended ? "Ended" : knownState(status);
   const composerState = useComposer({ paneId, adapter, state, client, sentPrompts, onSent: (prompt) => onSent(paneId, prompt), inputRef: composer });
   const dialog = useDialog({ paneId, adapter, status, ended, chat, client });
+
+  // attach is a new function each render; the registration reads the latest through a ref.
+  const attachRef = useRef(composerState.attach);
+  attachRef.current = composerState.attach;
+  useEffect(
+    () =>
+      registerDropTarget(paneId, (paths) => {
+        void Promise.all(paths.map((path) => copyDropped(client, path))).then((results) => attachRef.current(results.filter((r) => r !== null)));
+      }),
+    [paneId, client],
+  );
 
   // An answered strip or card goes away with the keyboard in it; the keyboard then goes back to the Composer.
   const shownDialog = dialog.strip ? "strip" : dialog.question ? "question" : dialog.plan ? "plan" : null;
