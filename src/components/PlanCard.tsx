@@ -31,7 +31,7 @@ export function PlanCard({ plan, onApprove, onKeepPlanning }: Props) {
         onChange={(e) => setFeedback(e.target.value)}
         className={CARD_INPUT}
       />
-      <div className="flex justify-end gap-2">
+      <div className="card-actions">
         <button type="button" disabled={feedback.trim() === ""} onClick={() => onKeepPlanning(feedback)} className="outline-btn px-3 py-1">
           {labels.keepPlanning}
         </button>

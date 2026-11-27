@@ -638,13 +638,13 @@ describe("Composer CSS (design cr016 composer())", () => {
   };
 
   it("draws the field, Gửi, the locked Gửi and Dừng as in the design", () => {
-    expect(rule(".field")).toMatch(/background: var\(--background\); border: 1px solid var\(--border\); border-radius: 22px; color: var\(--muted-foreground\)/);
+    expect(rule(".field")).toMatch(/background: transparent; border: 0; border-radius: var\(--oneui-radius-pill\); color: var\(--muted-foreground\)/);
     expect(rule(".field-on")).toMatch(/color: var\(--foreground\)/);
-    expect(rule(".send-off")).toMatch(/background: var\(--muted\); color: var\(--muted-foreground\); border-radius: 22px/);
-    expect(rule(".stop")).toMatch(/background: var\(--muted\); color: var\(--foreground\); border: 1px solid var\(--border\); border-radius: 22px/);
+    expect(rule(".send-off")).toMatch(/background: var\(--muted\); color: var\(--muted-foreground\); border-radius: var\(--oneui-radius-pill\)/);
+    expect(rule(".stop")).toMatch(/background: var\(--error\); color: var\(--error-solid-foreground\); border-radius: var\(--oneui-radius-pill\)/);
   });
 
   it("draws the suggestion menu as a card", () => {
-    expect(rule(".menu")).toMatch(/background: var\(--card\); border: 1px solid var\(--border\); border-radius: 10px/);
+    expect(rule(".menu")).toMatch(/background: var\(--oneui-surface\); border: 0; border-radius: var\(--oneui-radius-group\)/);
   });
 });

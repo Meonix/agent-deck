@@ -22,7 +22,7 @@
 
 ## 5. Blocks in the pane
 
-- [ ] 5.1 Composer, Approval Strip, Question Card, Plan card, Suggestion Menu, Folder Menu, Activity Bar, Toast restyled as 18px blocks / pills per `design.html` (existing behaviour tests stay green)
+- [x] 5.1 Composer, Approval Strip, Question Card, Plan card, Suggestion Menu, Folder Menu, Activity Bar, Toast restyled as 18px blocks / pills per `design.html` (existing behaviour tests stay green)
 
 ## 6. Close
 

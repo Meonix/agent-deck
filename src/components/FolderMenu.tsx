@@ -7,7 +7,7 @@ import { useToast } from "./Toast";
 
 const MENU_W = 220;
 const ITEM =
-  "flex h-8 w-full items-center gap-2 px-3 text-left text-[13px] outline-none hover:bg-muted focus-visible:bg-muted";
+  "mx-1 flex h-8 w-[calc(100%-0.5rem)] items-center gap-2 rounded-row px-3 text-left text-[13px] outline-none hover:bg-accent focus-visible:bg-accent";
 
 /** ⋯ on a workspace row and the Folder Menu it opens (SRS-FR-143). */
 export function FolderMenu({ workspace, onRemove, hidden }: { workspace: Workspace; onRemove(id: string): void; hidden: boolean }) {

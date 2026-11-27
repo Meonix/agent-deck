@@ -88,7 +88,7 @@ export function Composer({ paneId, value, onChange, readiness, running, onSend, 
   const reasonShown = lock !== null && value !== "" && !running;
 
   return (
-    <div className="shrink-0 border-t border-border bg-card px-3 py-2">
+    <div className="mx-3 mb-2 shrink-0 rounded-group bg-canvas px-3 py-2">
       {lock && (
         <div id={reasonId} className={reasonShown ? "mb-1 truncate text-[11px] text-muted-foreground" : "sr-only"}>
           {lock}

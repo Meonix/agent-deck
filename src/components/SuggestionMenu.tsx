@@ -14,7 +14,7 @@ const TAG: Record<CommandSource, string | null> = {
   plugin: labels.tagPlugin,
 };
 
-const ROW = "px-3 h-8 flex items-center gap-2 cursor-default";
+const ROW = "mx-1 rounded-row px-3 h-8 flex items-center gap-2 cursor-default";
 
 /** The "/" or "@" menu above the Composer field (design cr016 #composer-menus). */
 export function SuggestionMenu({ menu, choose }: { menu: MenuView; choose(index: number): void }) {

@@ -33,7 +33,7 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .allow:disabled { opacity: 0.5; }
 .outline-btn { border: 1px solid var(--border); border-radius: 22px; }
 .btn-danger { background: var(--error); color: var(--error-solid-foreground); border-radius: 22px; }
-.send { background: var(--primary); color: var(--primary-foreground); border-radius: 22px; }
+.send { background: var(--primary); color: var(--primary-foreground); border-radius: var(--oneui-radius-pill); }
 .send:disabled { background: var(--muted); color: var(--muted-foreground); cursor: not-allowed; }
 .scrim { background: var(--oneui-dim); -webkit-backdrop-filter: blur(var(--oneui-blur)); backdrop-filter: blur(var(--oneui-blur)); border: 0; }
 .dlg { background: var(--oneui-surface); border: 0; border-radius: var(--oneui-radius-dialog); padding: 24px; }
@@ -45,9 +45,9 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .dlg-actions > .btn-danger { color: var(--error-foreground); }
 .dlg-actions > :disabled { opacity: 0.5; }
 .dlg-actions > :focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; border-radius: 8px; }
-.toast { background: var(--foreground); color: var(--background); border-radius: 22px; }
+.toast { background: var(--foreground); color: var(--background); border-radius: 22px; box-shadow: var(--oneui-shadow); }
 .skel { background: var(--muted); }
-.callout-err { background: var(--error-bg); color: var(--error-foreground); border: 1px solid var(--error-border); border-radius: 8px; }
+.callout-err { background: var(--error-bg); color: var(--error-foreground); border: 0; border-radius: var(--oneui-radius-group); }
 
 .chip { display: inline-block; padding: 0 8px; border-radius: var(--oneui-radius-pill); font-size: 11px; line-height: 20px; font-weight: 600; white-space: nowrap; }
 .chip-app { background: var(--approval-bg); color: var(--approval-foreground); border: 1px solid var(--approval-border); }
@@ -80,19 +80,30 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .tool { color: var(--muted-foreground); border-left: 2px solid var(--border); }
 
 /* Composer, from design/agent-deck/cr016 composer(); .send is shared with the buttons above. */
-.field { background: var(--background); border: 1px solid var(--border); border-radius: 22px; color: var(--muted-foreground); }
+.field { background: transparent; border: 0; border-radius: var(--oneui-radius-pill); color: var(--muted-foreground); }
 .field-on { color: var(--foreground); }
 .field:focus-within { outline: 2px solid var(--ring); outline-offset: -1px; }
-.send-off { background: var(--muted); color: var(--muted-foreground); border-radius: 22px; cursor: not-allowed; }
-.stop { background: var(--muted); color: var(--foreground); border: 1px solid var(--border); border-radius: 22px; }
+.send-off { background: var(--muted); color: var(--muted-foreground); border-radius: var(--oneui-radius-pill); cursor: not-allowed; }
+.stop { background: var(--error); color: var(--error-solid-foreground); border-radius: var(--oneui-radius-pill); }
 .send:focus-visible, .send-off:focus-visible, .stop:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .ctx-ok { color: var(--ctx-ok); }
 
 /* Approval Strip and the Question and plan cards, from design/agent-deck/cr016 strip(), QCARD and PCARD; .allow is above. */
-.strip { background: var(--approval-bg); color: var(--approval-foreground); border-top: 2px solid var(--approval-border); }
-.deny { border: 1px solid var(--approval-foreground); border-radius: 22px; color: var(--approval-foreground); }
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
-.card-app { border-color: var(--approval-border); }
+.strip { background: var(--approval-bg); color: var(--approval-foreground); border-radius: var(--oneui-radius-group); }
+.strip-actions { display: flex; align-items: stretch; flex-shrink: 0; }
+.strip-actions > * + * { border-left: 1px solid var(--approval-border); }
+.deny { color: var(--approval-foreground); }
+.strip .deny { border: 0; border-radius: 0; background: transparent; color: var(--approval-foreground); }
+.strip .allow { border: 0; border-radius: 0; background: transparent; color: var(--approval-foreground); font-weight: 600; }
+.card { background: var(--accent); border: 0; border-radius: var(--oneui-radius-group); }
+.card .side-label { color: var(--accent-foreground); }
+.card .field { background: var(--oneui-surface); }
+.card .opt { background: var(--oneui-surface); border-radius: var(--oneui-radius-pill); }
+.card .pick-on { background: var(--primary); color: var(--primary-foreground); }
+.card-actions { display: flex; align-items: stretch; justify-content: flex-end; }
+.card-actions > * { border: 0; border-radius: 0; background: transparent; color: var(--accent-foreground); }
+.card-actions > * + * { border-left: 1px solid var(--border); }
+.card-actions > :last-child { font-weight: 600; }
 .pick-on { background: var(--accent); color: var(--accent-foreground); }
 .allow:focus-visible, .deny:focus-visible, .card .outline-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .card .outline-btn:disabled { opacity: 0.5; }
@@ -107,7 +118,7 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .row-app .sub { color: var(--approval-foreground); }
 .row-err { background: var(--error-bg); color: var(--error-foreground); }
 .row-err .sub { color: var(--error-foreground); }
-.menu { background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
+.menu { background: var(--oneui-surface); border: 0; border-radius: var(--oneui-radius-group); box-shadow: var(--oneui-shadow); }
 
 /*
  * The attention ring is drawn on an overlay: an inset shadow on the pane itself would sit under its opaque header and body.

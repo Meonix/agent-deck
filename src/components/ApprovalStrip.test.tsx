@@ -59,9 +59,9 @@ describe("Approval CSS (design cr016 strip())", () => {
   };
 
   it("draws the strip and Từ chối in the approval colours, Cho phép in primary", () => {
-    expect(rule(".strip")).toMatch(/background: var\(--approval-bg\); color: var\(--approval-foreground\); border-top: 2px solid var\(--approval-border\)/);
-    expect(rule(".deny")).toMatch(/border: 1px solid var\(--approval-foreground\); border-radius: 22px; color: var\(--approval-foreground\)/);
+    expect(rule(".strip")).toMatch(/background: var\(--approval-bg\); color: var\(--approval-foreground\)/);
+    expect(rule(".strip")).not.toMatch(/border-top/);
+    expect(rule(".deny")).toMatch(/color: var\(--approval-foreground\)/);
     expect(rule(".allow")).toMatch(/background: var\(--primary\); color: var\(--primary-foreground\); border-radius: 22px/);
-    expect(rule(".card-app")).toMatch(/border-color: var\(--approval-border\)/);
   });
 });

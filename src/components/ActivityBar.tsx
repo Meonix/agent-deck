@@ -9,7 +9,7 @@ export function ActivityBar({ state, activity }: { state: SessionState; activity
   const a = activity ?? NONE;
   const counts = activityParts(a);
   return (
-    <div role="status" className="sub flex h-7 shrink-0 items-center gap-3 border-t border-border px-3 text-[11px]">
+    <div role="status" className="sub flex h-7 shrink-0 items-center gap-3 px-3 text-[11px]">
       <span className="dot dot-busy" />
       {a.tool && (
         <span className="min-w-0 truncate">
