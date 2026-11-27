@@ -380,7 +380,7 @@ export function TerminalPane({
       {/* Every view stays laid out while hidden, so each terminal keeps its size and output (SRS-FR-148),
           and Chat its scroll and open cards. */}
       <div className="relative flex-1 min-h-0 min-w-0">
-        <ViewLayer view="chat" shown={view === "chat"} className="flex flex-col bg-background">
+        <ViewLayer view="chat" shown={view === "chat"} className="flex flex-col bg-surface">
           <ChatView chat={chat} started={pane.started} />
           <ActivityBar state={ended ? "Ended" : status.state} activity={activity} />
           {/* Only one dialog is on screen, so at most one of these shows. Removing the focused strip blurs
@@ -415,11 +415,11 @@ export function TerminalPane({
           {pane.started ? (
             // FitAddon sizes from the parent of the terminal and ignores that parent's padding,
             // so the padding sits on a wrapper and xterm gets an unpadded container.
-            <div className="flex-1 min-h-0 min-w-0 flex bg-background p-2">
+            <div className="flex-1 min-h-0 min-w-0 flex m-3 mt-0 rounded-xl bg-term p-2">
               <div ref={body} data-pane-body={paneId} className="flex-1 min-h-0 min-w-0" />
             </div>
           ) : (
-            <div className="flex-1 bg-background p-3 font-mono text-xs leading-5 text-foreground">
+            <div className="flex-1 m-3 mt-0 rounded-xl bg-term p-3 font-mono text-xs leading-5 text-foreground">
               <div>{labels.startFailed}</div>
               <div className="mt-5">{labels.startFailedHint}</div>
             </div>

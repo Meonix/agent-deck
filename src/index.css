@@ -8,10 +8,11 @@
   --default-transition-duration: var(--duration);
 }
 
-/* One UI shape layer (CR-020): bg-canvas, bg-surface, rounded-card, rounded-dialog, rounded-group, rounded-row, rounded-pill, gap-oneui. */
+/* One UI shape layer (CR-020): bg-canvas, bg-surface, bg-term, rounded-card, rounded-dialog, rounded-group, rounded-row, rounded-pill, gap-oneui. */
 @theme inline {
   --color-canvas: var(--oneui-canvas);
   --color-surface: var(--oneui-surface);
+  --color-term: var(--oneui-term);
   --radius-card: var(--oneui-radius-card);
   --radius-dialog: var(--oneui-radius-dialog);
   --radius-group: var(--oneui-radius-group);

@@ -464,3 +464,38 @@ describe("Shell view focus", () => {
     }
   });
 });
+
+describe("Pane body on the card (CR-020)", () => {
+  const layer = (v: string) => document.querySelector<HTMLElement>(`[data-view=${v}]`)!;
+
+  it("lays Chat straight on the card, so the Composer block stands out from it", () => {
+    renderPane(entry(fakeAdapter(), { view: "chat" }));
+    expect(layer("chat")).toHaveClass("bg-surface");
+    expect(layer("chat")).not.toHaveClass("bg-background");
+  });
+
+  it("insets the Term terminal on the terminal colour with a 12px margin and no top margin", () => {
+    renderPane(entry(fakeAdapter()));
+    const well = document.querySelector("[data-pane-body]")!.parentElement!;
+    expect(well).toHaveClass("bg-term", "m-3", "mt-0", "rounded-xl");
+    expect(well).not.toHaveClass("bg-background");
+  });
+
+  it("insets the start failure the same way", () => {
+    renderPane(entry(null));
+    const well = within(layer("term")).getByText(labels.startFailed).parentElement!;
+    expect(well).toHaveClass("bg-term", "m-3", "mt-0", "rounded-xl");
+    expect(well).not.toHaveClass("bg-background");
+  });
+
+  it("insets the Shell terminal the same way", () => {
+    const e = entry(fakeAdapter(), { view: "shell", shell: { adapter: fakeAdapter(), stream: fakeStream(), activity: null } });
+    renderPane(e);
+    expect(layer("shell")).not.toHaveClass("bg-background");
+    expect(layer("shell").firstElementChild).toHaveClass("bg-term", "m-3", "mt-0", "rounded-xl");
+  });
+
+  it("exposes the terminal token as bg-term", () => {
+    expect(css).toMatch(/--color-term:\s*var\(--oneui-term\)/);
+  });
+});

@@ -43,10 +43,11 @@ export function createXtermAdapter({ mac = false }: { mac?: boolean } = {}): Ter
     fontFamily: token("--font-mono"),
     // xterm's default cursor and selection are light, invisible on the light theme.
     theme: {
-      background: token("--background"),
+      // The token of the inset the terminal sits on, so the canvas meets it without a seam.
+      background: token("--oneui-term"),
       foreground: token("--foreground"),
       cursor: token("--foreground"),
-      cursorAccent: token("--background"),
+      cursorAccent: token("--oneui-term"),
       selectionBackground: token("--selection"),
       ...ansiTheme(token),
     },

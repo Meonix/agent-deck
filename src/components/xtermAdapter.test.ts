@@ -74,7 +74,8 @@ describe("createXtermAdapter theme", () => {
   it("takes its font and colours from the design tokens on the root element", () => {
     const root = document.documentElement.style;
     root.setProperty("--font-mono", "Test Mono");
-    root.setProperty("--background", "#000001");
+    root.setProperty("--background", "#0000ff");
+    root.setProperty("--oneui-term", "#000001");
     root.setProperty("--foreground", "#000002");
     createXtermAdapter();
     const { fontFamily, theme } = xterm.FakeTerminal.last.options as {

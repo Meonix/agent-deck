@@ -72,8 +72,10 @@ export function ShellArea({ paneId, shell, client, shown, maximized, textSize }:
 
   return (
     // Padding on a wrapper, as for the session: FitAddon ignores the padding of the terminal's parent.
-    <ViewLayer view="shell" shown={shown} className="flex bg-background p-2">
-      <div ref={box} className="flex-1 min-h-0 min-w-0" />
+    <ViewLayer view="shell" shown={shown} className="flex">
+      <div className="flex flex-1 min-h-0 min-w-0 m-3 mt-0 rounded-xl bg-term p-2">
+        <div ref={box} className="flex-1 min-h-0 min-w-0" />
+      </div>
     </ViewLayer>
   );
 }
