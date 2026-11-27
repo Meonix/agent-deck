@@ -14,6 +14,7 @@ type Props = {
   shellCommand: string | null;
   /** A narrow header: the items not built yet and the shell command make room for the pane buttons. */
   compact?: boolean;
+  className?: string;
   onChoose(view: PaneView): void;
 };
 
@@ -21,10 +22,10 @@ type Props = {
  * Toggle buttons rather than a radiogroup: arrow keys would select in a radiogroup, and every choice
  * moves focus into the terminal anyway.
  */
-export function ViewSwitch({ view, shellCommand, compact = false, onChoose }: Props) {
+export function ViewSwitch({ view, shellCommand, compact = false, className = "", onChoose }: Props) {
   const command = compact ? null : shellCommand;
   return (
-    <div role="group" aria-label={labels.viewSwitch} className="seg min-w-0">
+    <div role="group" aria-label={labels.viewSwitch} className={`seg min-w-0 ${className}`}>
       {VIEWS.filter((v) => !compact || isAvailable(v)).map((v) => {
         const unavailable = !isAvailable(v);
         const running = v === "shell" && command;

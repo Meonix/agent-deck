@@ -24,7 +24,7 @@ import { type PaneView, ViewSwitch } from "./ViewSwitch";
 const ICON_BTN_BASE =
   "inline-flex size-7 shrink-0 items-center justify-center rounded-full hover:bg-muted hover:text-foreground transition-colors";
 const ICON_BTN = `${ICON_BTN_BASE} text-muted-foreground`;
-// Below this header width the full View Switch would push Phóng to and × out of a pane at the grid's minimum.
+// Below this header width the View Switch drops Plan and the running shell command, so its second line fits a pane at the grid's minimum.
 const COMPACT_HEADER_PX = 360;
 // Below this pane width the View Switch takes a second header line, so the title is never squeezed out (SRS-FR-030).
 const TWO_LINE_HEADER_PX = 560;
@@ -291,14 +291,6 @@ export function TerminalPane({
   const outline = focused ? "pane-focus" : "";
   const compact = layout === "compact";
   const twoLines = layout !== "one-line";
-  const viewSwitch = (
-    <ViewSwitch
-      view={view}
-      shellCommand={shell && view !== "shell" && shell.activity?.busy ? shell.activity.command : null}
-      compact={compact}
-      onChoose={(v) => onChooseView(paneId, v)}
-    />
-  );
   const toggleMaximized = () => (maximized ? onRestore() : onMaximize(paneId));
   const headerPressed = useRef(false);
 
@@ -323,13 +315,14 @@ export function TerminalPane({
         }}
         className="bar flex shrink-0 flex-col font-sans select-none"
       >
-        <div className="flex h-12 items-center gap-2 pl-3 pr-2">
+        {/* One element tree at every width: the View Switch wraps to the second line by CSS alone, so it keeps
+            its focus and its place in the tab order. One line never wraps, so the chips truncate instead. */}
+        <div className={`flex ${twoLines ? "flex-wrap" : ""} items-center gap-x-1 pl-3 pr-2 text-[11px] whitespace-nowrap`}>
           <RoundMark mark={mark} />
           {/* Basis 0: the title takes only the room the controls leave, so it gives way first. */}
-          <span className="flex-1 basis-0 min-w-0 truncate text-[13px] font-medium text-foreground">
+          <span className="mx-1 flex-1 basis-0 min-w-0 truncate text-[13px] leading-12 font-medium text-foreground">
             <span className="font-normal text-muted-foreground">{workspaceName} ·</span> {labels.title(title)}
           </span>
-          <span className="flex min-w-0 items-center gap-1 text-[11px] whitespace-nowrap">
             {othersBadge && (
               <button
                 aria-label={labels.othersBadge(othersBadge.count)}
@@ -347,7 +340,14 @@ export function TerminalPane({
                 {labels.state[status.state]}
               </span>
             )}
-            {!twoLines && viewSwitch}
+            <ViewSwitch
+              view={view}
+              shellCommand={shell && view !== "shell" && shell.activity?.busy ? shell.activity.command : null}
+              compact={compact}
+              className={twoLines ? "order-2 mb-2" : ""}
+              onChoose={(v) => onChooseView(paneId, v)}
+            />
+          <span className="flex shrink-0 items-center gap-1">
             <button
               aria-label={labels.stashSession}
               title={labels.stashSession}
@@ -374,8 +374,8 @@ export function TerminalPane({
               <X {...ICON} />
             </button>
           </span>
+          <span data-header-break aria-hidden="true" className={`basis-full ${twoLines ? "order-1" : "hidden"}`} />
         </div>
-        {twoLines && <div className="flex pb-2 pl-3 pr-2">{viewSwitch}</div>}
       </header>
       {/* Every view stays laid out while hidden, so each terminal keeps its size and output (SRS-FR-148),
           and Chat its scroll and open cards. */}

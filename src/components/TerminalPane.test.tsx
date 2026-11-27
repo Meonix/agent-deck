@@ -416,10 +416,14 @@ describe("Pane header with View Switch (SRS-FR-030)", () => {
     const width = vi.spyOn(header(), "getBoundingClientRect");
     const close = () => within(header()).getByRole("button", { name: labels.closePane });
 
+    const lineBreak = () => header().querySelector("[data-header-break]")!;
+
     width.mockReturnValue(new DOMRect(0, 0, 420, 88));
     act(() => observe());
-    expect(viewSwitch().parentElement).not.toBe(close().parentElement);
-    expect(before(close(), viewSwitch())).toBe(true);
+    expect(lineBreak()).toHaveClass("basis-full", "order-1");
+    expect(lineBreak().parentElement).toHaveClass("flex-wrap");
+    expect(lineBreak()).not.toHaveClass("hidden");
+    expect(viewSwitch()).toHaveClass("order-2");
     expect(within(viewSwitch()).getAllByRole("button").map((b) => b.textContent)).toEqual(["Chat", "Term", "Shell", "Plan"]);
     for (const name of [labels.stashSession, labels.maximizePane, labels.closePane]) {
       expect(within(header()).getByRole("button", { name }).parentElement).toBe(close().parentElement);
@@ -427,7 +431,31 @@ describe("Pane header with View Switch (SRS-FR-030)", () => {
 
     width.mockReturnValue(new DOMRect(0, 0, 600, 48));
     act(() => observe());
-    expect(viewSwitch().parentElement).toBe(close().parentElement);
+    expect(lineBreak()).toHaveClass("hidden");
+    expect(lineBreak().parentElement).not.toHaveClass("flex-wrap");
+    expect(viewSwitch()).not.toHaveClass("order-2");
+  });
+
+  it("keeps the View Switch, its place in the tab order and the focus in it across 560px (CR-020)", async () => {
+    const observe = stubResizeObserver();
+    renderPane(entry(fakeAdapter()));
+    await flush();
+    const width = vi.spyOn(header(), "getBoundingClientRect");
+    const close = () => within(header()).getByRole("button", { name: labels.closePane });
+    const wide = viewSwitch();
+    const chat = within(wide).getByRole("button", { name: labels.views.chat });
+    chat.focus();
+
+    width.mockReturnValue(new DOMRect(0, 0, 420, 88));
+    act(() => observe());
+    expect(viewSwitch()).toBe(wide);
+    expect(chat).toHaveFocus();
+    expect(before(viewSwitch(), close())).toBe(true);
+
+    width.mockReturnValue(new DOMRect(0, 0, 600, 48));
+    act(() => observe());
+    expect(viewSwitch()).toBe(wide);
+    expect(chat).toHaveFocus();
   });
 
   it("shows Term pressed on a new pane", () => {
