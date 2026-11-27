@@ -58,3 +58,13 @@ The state follows RULE-03 to RULE-08 and the transition table in SRS section 5; 
 - **WHEN** it changes to `Needs Approval`
 - **THEN** its Session Row in the Folder Tree shows "Cần duyệt" with the yellow tint
 - **AND** its row in the Session Chooser still shows "Đang mở", without a highlight (SRS-FR-012)
+
+### Requirement: Row Focus Mark contrast
+The system SHALL draw the Row Focus Mark in a colour with a contrast ratio of at least 3:1 against the Sidebar background, the selected-row background and every Session Row tint, in both light and dark themes.
+
+Traces: SRS-FR-099 ← BR-05 ← BO-01
+
+#### Scenario: Measured mark colour
+- **GIVEN** the `--row-focus` token in light and dark
+- **WHEN** its contrast is measured against `--oneui-surface`, the hover background `--muted`, `--approval-bg` and `--error-bg` of the same theme
+- **THEN** every ratio is at least 3:1
