@@ -4291,8 +4291,10 @@ describe("Dialog CSS (CR-020, design.html #dialogs and #chooser)", () => {
   it("splits text actions by 1px vertical rules, the last semibold, danger in the error colour", () => {
     expect(rule(".dlg-actions > * + *")).toMatch(/border-left:\s*1px solid var\(--border\)/);
     expect(rule(".dlg-actions > :last-child")).toMatch(/font-weight:\s*600/);
-    expect(rule(".dlg .btn-danger")).toMatch(/color:\s*var\(--error-foreground\)/);
-    expect(rule(".dlg .btn-danger")).toMatch(/background:\s*transparent/);
-    expect(rule(".dlg .allow")).toMatch(/color:\s*var\(--accent-foreground\)/);
+    expect(rule(".dlg-actions > .btn-danger")).toMatch(/color:\s*var\(--error-foreground\)/);
+    expect(rule(".dlg-actions > *")).toMatch(/color:\s*var\(--accent-foreground\)/);
+    expect(rule(".dlg-actions > *")).toMatch(/background:\s*transparent/);
+    // Scoped to the action row: no rule restyles a button anywhere else in a dialog.
+    expect(indexCss).not.toMatch(/\.dlg \.(allow|outline-btn|btn-danger)/);
   });
 });

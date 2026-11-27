@@ -113,7 +113,7 @@ function SessionList({ sessions: state, openSessions, now, onResume, onDelete, s
       return <Notice text={labels.sessionsFailed} />;
     case "loading":
       return (
-        <ul aria-label={labels.loadingSessions}>
+        <ul aria-label={labels.loadingSessions} className="rounded-group bg-canvas">
           {[1, 2, 3, 4].map((i) => (
             <li key={i} className="flex h-10 items-center gap-2 px-4">
               <span className="skel size-4 rounded-sm animate-pulse" />
