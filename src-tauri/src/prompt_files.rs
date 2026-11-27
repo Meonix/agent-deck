@@ -44,7 +44,7 @@ pub struct SavedFile {
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
-fn check_size(len: u64) -> Result<(), StoreError> {
+pub(crate) fn check_size(len: u64) -> Result<(), StoreError> {
     if len > MAX_BYTES {
         Err(StoreError::TooLarge)
     } else {
@@ -101,6 +101,13 @@ pub fn store_copy(root: &Path, source: &Path) -> Result<SavedFile, StoreError> {
     );
     let path = new_dir(root)?.join(&name);
     let size = fs::copy(source, &path)?;
+    // The file may have grown since the metadata check.
+    if let Err(e) = check_size(size) {
+        if let Some(dir) = path.parent() {
+            let _ = fs::remove_dir_all(dir);
+        }
+        return Err(e);
+    }
     Ok(saved(&path, name, size))
 }
 

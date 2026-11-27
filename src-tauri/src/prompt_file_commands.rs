@@ -46,6 +46,7 @@ pub async fn save_prompt_file(
         .and_then(|v| v.to_str().ok())
         .map(percent_decode)
         .unwrap_or_default();
+    prompt_files::check_size(bytes.len() as u64).map_err(|e| e.code())?;
     let bytes = bytes.clone();
     let root = root(&app)?;
     tauri::async_runtime::spawn_blocking(move || prompt_files::store_bytes(&root, &name, &bytes))

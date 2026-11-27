@@ -113,14 +113,14 @@ export function Composer({ paneId, value, onChange, readiness, running, onSend, 
               track(e.target);
               onChange(e.target.value);
             }}
-            // Key and mouse moves of the caret, not onSelect: that one follows document selectionchange,
-            // which also fires when focus leaves a closing pane.
             onPaste={(e) => {
               const files = [...e.clipboardData.files];
               if (files.length === 0) return;
               e.preventDefault();
               onPasteFiles(files);
             }}
+            // Key and mouse moves of the caret, not onSelect: that one follows document selectionchange,
+            // which also fires when focus leaves a closing pane.
             onKeyUp={(e) => track(e.currentTarget)}
             onMouseUp={(e) => track(e.currentTarget)}
             onKeyDown={(e) => {

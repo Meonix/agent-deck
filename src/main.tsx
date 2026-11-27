@@ -23,7 +23,7 @@ darkScheme.addEventListener("change", applyScheme);
 
 listenForDrops((cb) => getCurrentWebview().onDragDropEvent(cb));
 
-const mac =navigator.userAgent.includes("Mac");
+const mac = navigator.userAgent.includes("Mac");
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

@@ -237,9 +237,13 @@ export function TerminalPane({
   // attach is a new function each render; the registration reads the latest through a ref.
   const attachRef = useRef(composerState.attach);
   attachRef.current = composerState.attach;
+  const chooseViewRef = useRef(onChooseView);
+  chooseViewRef.current = onChooseView;
   useEffect(
     () =>
       registerDropTarget(paneId, (paths) => {
+        // The Composer sits in the Chat layer, which is inert while hidden; the copy gives it time to show.
+        chooseViewRef.current(paneId, "chat");
         void Promise.all(paths.map((path) => copyDropped(client, path))).then((results) => attachRef.current(results.filter((r) => r !== null)));
       }),
     [paneId, client],

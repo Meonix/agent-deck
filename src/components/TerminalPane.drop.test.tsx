@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { act, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { labels } from "../labels";
@@ -73,5 +74,25 @@ describe("TerminalPane drop target", () => {
     dropOnPane(["/d", "/gone"]);
     await flush();
     expect(screen.queryByRole("list", { name: labels.attachments })).toBeNull();
+  });
+
+  it("switches a pane in Term view to Chat, then puts the path in the Composer and focuses it", async () => {
+    const client = fakeSessions({ copyPromptFile: vi.fn(() => Promise.resolve({ path: "/prompt-files/1-0/a.png", name: "a.png", size: 3 })) });
+    function Harness() {
+      const [view, setView] = useState<PaneEntry["view"]>("term");
+      return (
+        <div data-pane-id="p1">
+          <TerminalPane entry={{ ...entry(), view }} client={client} focused maximized={false} textSize={1} othersBadge={null} onBadge={vi.fn()} onMaximize={vi.fn()} onRestore={vi.fn()} canStash onStash={vi.fn()} onFocus={vi.fn()} onClose={vi.fn()} onChooseView={(_, v) => setView(v)} onDismissShellFailure={vi.fn()} onSent={vi.fn()} />
+        </div>
+      );
+    }
+    render(<Harness />);
+    await flush();
+    dropOnPane(["/home/u/a.png"]);
+    await flush();
+    expect(document.querySelector('[data-view="chat"]')).not.toHaveAttribute("inert");
+    const box = screen.getByRole("textbox");
+    expect(box).toHaveValue("/prompt-files/1-0/a.png ");
+    expect(box).toHaveFocus();
   });
 });
