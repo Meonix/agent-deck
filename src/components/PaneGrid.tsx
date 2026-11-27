@@ -3,7 +3,8 @@ import { type DividerRect, type Layout, type Rect, type Side, type SplitPath, dr
 
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 120;
-const DIVIDER_SIZE = 8;
+// The gap between two pane cards, all of it a hit area (--oneui-gap).
+const DIVIDER_SIZE = 12;
 // A press on a header becomes a drag only past this distance, so clicks and double-clicks still work.
 const DRAG_THRESHOLD = 4;
 
@@ -24,9 +25,9 @@ type Props = {
   onMove(id: string, targetId: string, side: Side): void;
 };
 
-const MAXIMIZED = "fixed inset-0 z-10 flex flex-col min-h-0 min-w-0 bg-background [&>*]:flex-1";
-// Panes sit edge to edge; each divider draws the 1px line between them in the middle of its hit area.
-const LINE = "before:absolute before:bg-border before:content-['']";
+const MAXIMIZED = "fixed inset-0 z-10 flex flex-col min-h-0 min-w-0 p-oneui bg-canvas [&>*]:flex-1";
+// Each pane card is inset by half the gap, so two cards are a gap apart and the outer ones meet the area's edge.
+const HALF_GAP = "p-[calc(var(--oneui-gap)/2)]";
 
 export function PaneGrid({ layout, panes, maximizedId, onResize, onMove }: Props) {
   const grid = useRef<HTMLDivElement>(null);
@@ -116,12 +117,12 @@ export function PaneGrid({ layout, panes, maximizedId, onResize, onMove }: Props
   };
 
   return (
-    <div className="h-full">
+    <div className="relative h-full">
       <div
         ref={grid}
         data-testid="pane-grid"
         onPointerDown={pickUp}
-        className={`relative h-full min-h-0 ${draggable ? "[&_[data-drag-handle]]:cursor-grab" : ""}`}
+        className={`absolute -inset-[calc(var(--oneui-gap)/2)] ${draggable ? "[&_[data-drag-handle]]:cursor-grab" : ""}`}
       >
         {panes.map(({ id, node }) => {
           const r = rects.panes[id];
@@ -138,7 +139,7 @@ export function PaneGrid({ layout, panes, maximizedId, onResize, onMove }: Props
               key={id}
               data-pane-id={id}
               inert={covered}
-              className={`absolute flex flex-col min-h-0 min-w-0 [&>*]:flex-1 ${covered ? "invisible" : ""} ${drag?.active && drag.id === id ? "opacity-50" : ""}`}
+              className={`absolute flex flex-col min-h-0 min-w-0 ${HALF_GAP} [&>*]:flex-1 ${covered ? "invisible" : ""} ${drag?.active && drag.id === id ? "opacity-50" : ""}`}
               style={{
                 left: `${r.x * 100}%`,
                 top: `${r.y * 100}%`,
@@ -183,8 +184,8 @@ function Divider({ divider, ratioAt, onResize }: DividerProps) {
       aria-orientation={right ? "vertical" : "horizontal"}
       className={
         right
-          ? `absolute touch-none select-none cursor-col-resize ${LINE} before:inset-y-0 before:left-1/2 before:w-px`
-          : `absolute touch-none select-none cursor-row-resize ${LINE} before:inset-x-0 before:top-1/2 before:h-px`
+          ? "absolute touch-none select-none cursor-col-resize"
+          : "absolute touch-none select-none cursor-row-resize"
       }
       style={
         right

@@ -9,7 +9,7 @@ import { type FolderTree, needsUser, type SessionRow, type WaitingState, type Wo
 import { RoundMark, tone } from "./statusTone";
 import type { WorkspacesState } from "./useWorkspaces";
 
-const GROUP_LABEL = "side-label min-w-0 flex-1 truncate text-left text-[10px] uppercase";
+const GROUP_LABEL = "side-label min-w-0 flex-1 truncate text-left";
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 const ROW_TINT: Record<WaitingState, string> = { "Needs Approval": "row-app", Error: "row-err" };
 /** Every top-level row and group header: a lead box (chevron, mark or blank), then its text, so all names start in one column. */
@@ -63,8 +63,8 @@ export function WorkspaceSidebar({ workspaces, tree, focusedPaneId, onJump, onRe
   const remove = (id: string) => void removeFolder(id).then((gone) => gone && addButton.current?.focus());
 
   return (
-    <aside aria-label={labels.sidebar} hidden={hidden} inert={covered} className="side flex min-h-0 flex-col overflow-hidden">
-      <h1 className="flex h-11 shrink-0 items-center border-b border-border px-3 text-[14px] font-semibold">{labels.appTitle}</h1>
+    <aside aria-label={labels.sidebar} hidden={hidden} inert={covered} className="side flex min-h-0 flex-col overflow-hidden rounded-card bg-surface">
+      <h1 className="shrink-0 px-4 pt-5 pb-3 text-[22px] font-semibold">{labels.appTitle}</h1>
       {/* SRS-FR-088: this list area keeps its scroll position while the sidebar is hidden. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-auto py-1 text-[13px]">
         <ul>
@@ -144,7 +144,7 @@ export function WorkspaceSidebar({ workspaces, tree, focusedPaneId, onJump, onRe
 
 // The selected workspace keeps the active fill only; the row is never status-tinted (SRS-FR-040).
 function rowLook(selected: boolean): string {
-  return selected ? "bg-section-active" : "hover:bg-muted";
+  return selected ? "bg-accent" : "hover:bg-muted";
 }
 
 type OpenChooser = { workspace: Workspace; onOpenChooser(workspace: Workspace, opener: HTMLElement): void };

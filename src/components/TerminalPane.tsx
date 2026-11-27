@@ -291,7 +291,7 @@ export function TerminalPane({
       data-pane={paneId}
       aria-label={`${workspaceName} · ${labels.title(title)}`}
       onFocus={() => onFocus(paneId)}
-      className={`pane-frame ${frame} ${outline} ${dim} relative flex flex-col min-h-0 min-w-0 bg-background overflow-hidden transition-opacity`}
+      className={`pane-frame ${frame} ${outline} ${dim} relative flex flex-col min-h-0 min-w-0 rounded-card bg-surface overflow-hidden transition-opacity`}
     >
       <header
         ref={header}

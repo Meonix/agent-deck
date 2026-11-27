@@ -26,16 +26,15 @@ function ratio(a: string, b: string): number {
 const PAIRS: [text: string, background: string][] = [
   // SRS-NFR-014: status words and status-tinted rows.
   ["--busy-foreground", "--card"],
-  ["--busy-foreground", "--section-active"],
+  ["--busy-foreground", "--accent"],
   ["--ready-foreground", "--card"],
-  ["--ready-foreground", "--section-active"],
+  ["--ready-foreground", "--accent"],
   ["--approval-foreground", "--approval-bg"],
   ["--error-foreground", "--error-bg"],
   ["--running-foreground", "--running-bg"],
-  // Readable sidebar labels and hover (app-theme).
-  ["--section-label", "--card"],
+  // Readable sidebar labels and hover (app-theme); the selected row is --accent.
   ["--muted-foreground", "--muted"],
-  ["--muted-foreground", "--section-active"],
+  ["--muted-foreground", "--accent"],
 ];
 
 describe.each([
@@ -54,7 +53,7 @@ describe.each([
   ["light", colours(light)],
   ["dark", colours(dark)],
 ])("Row Focus Mark in %s (SRS-FR-099)", (_, theme) => {
-  it.each(["--card", "--section-active", "--approval-bg", "--error-bg"])("--row-focus on %s is at least 3:1", (background) => {
+  it.each(["--card", "--accent", "--approval-bg", "--error-bg"])("--row-focus on %s is at least 3:1", (background) => {
     expect(theme.get(background), background).toBeDefined();
     expect(ratio(theme.get("--row-focus")!, theme.get(background)!)).toBeGreaterThanOrEqual(3);
   });
@@ -71,8 +70,10 @@ describe.each([
 
 const sources = import.meta.glob(["./**/*.tsx", "!./**/*.test.tsx"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 
-it("no row hovers on --section-hover, which sits too close to --card", () => {
-  const users = Object.entries(sources).filter(([, text]) => text.includes("hover:bg-section-hover")).map(([path]) => path);
+it("no source uses the old section tints, which One UI dropped", () => {
+  // Built from parts, so this file does not match itself.
+  const token = new RegExp(`(--|bg-)${"section"}-`);
+  const users = Object.entries({ ...sources, "./index.css": indexCss }).filter(([, text]) => token.test(text)).map(([path]) => path);
   expect(users).toEqual([]);
 });
 

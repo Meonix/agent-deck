@@ -12,6 +12,7 @@ import * as claude from "./components/fixtures/claude-screens";
 import type { CountTone } from "./components/statusHighlight";
 import { fakeAdapter, fakeSessions, type FakeAdapter, type FakeSessions } from "./test/fakes";
 import { labels } from "./labels";
+import indexCss from "./index.css?raw";
 
 const ws = (id: string, name: string, missing = false): Workspace => ({ id, name, path: `/p/${name}`, missing });
 
@@ -3129,12 +3130,6 @@ describe("No Status Summary (CR-014)", () => {
     expect(wrapper).not.toHaveClass("top-9");
   });
 
-  it("puts the Sidebar and the panes flush against the window edges, with no gap (CR-016)", () => {
-    setup([ws("a", "agent-deck")]);
-    const grid = sidebar().parentElement!;
-    expect(grid).toHaveClass("grid");
-    expect(grid.className).not.toMatch(/(^|\s)(gap|p[xytb]?)-/);
-  });
 });
 
 describe("Confirm dialog focus", () => {
@@ -3204,36 +3199,81 @@ describe("Vietnamese labels (SRS-NFR-008)", () => {
   });
 });
 
-describe("Remote shapes, no One UI (app-theme)", () => {
-  // Built from parts, so a grep of src/ for the One UI utilities stays empty.
-  const ONE_UI = new RegExp(
-    `(^|\\s)(rounded-(card|group|row)|(gap|p[xytb]?)-${"gap"}|bg-(canvas|surface|sidebar|term|dim)|(shadow|backdrop-blur)-${"one"}ui|bg-section-(folders|stash))(\\s|$)`,
-  );
-  const oneUiClasses = () =>
-    [...document.body.querySelectorAll("[class]")].map((el) => el.getAttribute("class") ?? "").filter((c) => ONE_UI.test(c));
+describe("Floating cards on a canvas (app-theme, SC-1)", () => {
+  const HALF_GAP = "p-[calc(var(--oneui-gap)/2)]";
+  const rule = (selector: string) => indexCss.match(new RegExp(`${selector.replace(/[.:]/g, "\\$&")}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
 
-  it("draws no One UI shape with no folders", async () => {
-    setup([]);
-    await screen.findByText(labels.noFolders);
-    expect(oneUiClasses()).toEqual([]);
+  async function twoPanes() {
+    const sessions = fakeSessions();
+    sessions.title = vi.fn(async (id: string) => id);
+    const ctx = setup([ws("a", "agent-deck")], sessions);
+    await newSessionIn(ctx.user);
+    await screen.findByRole("region", { name: "agent-deck · p1" });
+    await newSessionIn(ctx.user);
+    await screen.findByRole("region", { name: "agent-deck · p2" });
+    return ctx;
+  }
+
+  it("lays the Sidebar and the pane area on the canvas, 12px apart and 12px from the window edge", () => {
+    setup([ws("a", "agent-deck")]);
+    expect(sidebar().parentElement!).toHaveClass("bg-canvas", "gap-oneui", "p-oneui");
   });
 
-  it("draws no One UI shape with the Session Chooser, a pane and the Close Dialog", async () => {
-    const sessions = fakeSessions({
-      list: vi.fn(async () => ({ sessions: [{ id: "old", title: "Old work", lastActivity: 1 }], unreadable: 0 })),
-    });
-    const { user } = setup([ws("a", "agent-deck")], sessions);
-    await openChooser(user);
-    await within(chooser()).findByText("Old work");
-    await user.click(within(chooser()).getByRole("button", { name: labels.newSession }));
-    await screen.findByTestId("pane-grid");
-    act(() => sessions.opened[0].stream.status({ state: "Needs Approval" }));
-    expect(oneUiClasses()).toEqual([]);
-    await user.click(within(panes()[0]).getByRole("button", { name: labels.closePane }));
-    await screen.findByRole("dialog");
-    expect(oneUiClasses()).toEqual([]);
+  it("draws the Sidebar as a card with the card radius", () => {
+    setup([ws("a", "agent-deck")]);
+    expect(sidebar()).toHaveClass("rounded-card", "bg-surface");
+    expect(rule(".side")).not.toMatch(/border/);
   });
-});
+
+  it("draws the empty pane area as a card", async () => {
+    setup([ws("a", "agent-deck")]);
+    const empty = (await screen.findByText(labels.noPanes)).closest(".rounded-card");
+    expect(empty).toHaveClass("bg-surface");
+  });
+
+  it("draws every pane as a card with the card radius", async () => {
+    await twoPanes();
+    for (const pane of panes()) expect(pane).toHaveClass("rounded-card", "bg-surface");
+  });
+
+  it("insets each pane by half the gap, flush with the pane area's edge", async () => {
+    await twoPanes();
+    for (const pane of panes()) expect(pane.parentElement).toHaveClass(HALF_GAP);
+    expect(screen.getByTestId("pane-grid")).toHaveClass("-inset-[calc(var(--oneui-gap)/2)]");
+  });
+
+  it("keeps the divider as a hit area filling the gap, with no line", async () => {
+    await twoPanes();
+    const divider = screen.getByRole("separator");
+    expect(divider.style.width).toBe("12px");
+    expect(divider.style.left).toBe("calc(50% - 6px)");
+    expect(divider.className).not.toMatch(/before:/);
+  });
+
+  it("keeps a maximized pane a card on the canvas", async () => {
+    const { user } = await twoPanes();
+    await user.click(within(panes()[0]).getByRole("button", { name: labels.maximizePane }));
+    const wrapper = panes()[0].closest(".fixed")!;
+    expect(wrapper).toHaveClass("bg-canvas", "p-oneui");
+    expect(panes()[0]).toHaveClass("rounded-card");
+  });
+
+  it("heads the Sidebar with a 22px semibold title and no rule under it", () => {
+    setup([ws("a", "agent-deck")]);
+    const title = within(sidebar()).getByRole("heading", { name: labels.appTitle });
+    expect(title).toHaveClass("text-[22px]", "font-semibold");
+    expect(title.className).not.toMatch(/border-b/);
+  });
+
+  it("writes group titles as 13px grey plain text, not mono and not upper case", async () => {
+    setup([ws("a", "agent-deck")]);
+    const label = await within(sidebar()).findByText(labels.otherFolders(1));
+    expect(label).toHaveClass("side-label");
+    expect(label.className).not.toMatch(/uppercase|text-\[10px\]/);
+    expect(rule(".side-label")).toMatch(/color:\s*var\(--muted-foreground\)/);
+    expect(rule(".side-label")).toMatch(/font-size:\s*var\(--oneui-subheader-size\)/);
+    expect(rule(".side-label")).not.toMatch(/font-mono|letter-spacing/);
+  });});
 
 describe("View Switch (CR-016)", () => {
   const paneNamed = (title: string) => screen.getByRole("region", { name: `agent-deck · ${title}` });

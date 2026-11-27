@@ -5,9 +5,9 @@
 
 ## 2. Cards (app-theme, SC-1)
 
-- [ ] 2.1 Test: workbench has the canvas background and gap; Sidebar and every pane are cards with the card radius — RED
-- [ ] 2.2 `App.tsx`, `WorkspaceSidebar.tsx` (card, 22px title, subheaders), `PaneGrid.tsx` (inset rects, dividers in the gap, no line), `TerminalPane.tsx` (card, inset attention ring, Focus Outline outside) — GREEN
-- [ ] 2.3 Remove `--approval-glow`, the mono uppercase `.side-label` and every use of `--section-*` in `src/`
+- [x] 2.1 Test: workbench has the canvas background and gap; Sidebar and every pane are cards with the card radius — RED
+- [x] 2.2 `App.tsx`, `WorkspaceSidebar.tsx` (card, 22px title, subheaders), `PaneGrid.tsx` (inset rects, dividers in the gap, no line), `TerminalPane.tsx` (card, inset attention ring, Focus Outline outside) — GREEN
+- [x] 2.3 Remove `--approval-glow`, the mono uppercase `.side-label` and every use of `--section-*` in `src/`
 
 ## 3. Session Row and pane header (status-board SRS-FR-032, session-pane SRS-FR-030, SC-2)
 

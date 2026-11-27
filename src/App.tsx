@@ -287,7 +287,7 @@ function Workbench({ workspaces: workspacesClient, sessions, createTerminal: mak
   const sidebar = useSidebarToggle(mac ?? false, chooserWorkspace !== null || dialog !== null);
 
   return (
-    <div className={`flex-1 min-h-0 relative grid ${gridColumns(sidebar.shown)}`}>
+    <div className={`flex-1 min-h-0 relative grid gap-oneui p-oneui bg-canvas ${gridColumns(sidebar.shown)}`}>
       <WorkspaceSidebar
         hidden={!sidebar.shown}
         workspaces={workspaces}
@@ -418,7 +418,7 @@ function isBusy({ status }: PaneEntry): boolean {
 
 function CenteredState({ title, hint, action }: CenteredStateProps) {
   return (
-    <div className="h-full flex items-center justify-center p-2 bg-background">
+    <div className="h-full flex items-center justify-center p-2 rounded-card bg-surface">
       <div className="text-center space-y-2 max-w-sm">
         <div className="text-base font-medium text-foreground">{title}</div>
         <div className="text-sm text-muted-foreground">{hint}</div>
@@ -438,7 +438,7 @@ function gridColumns(sidebarShown: boolean): string {
   return sidebarShown ? "grid-cols-[var(--sidebar-w)_1fr]" : "grid-cols-[1fr]";
 }
 
-// Below the maximized pane's z-10, which covers it (SRS-FR-088). Shown, it straddles the sidebar's right border.
+// Below the maximized pane's z-10, which covers it (SRS-FR-088). Shown, it straddles the Sidebar card's right edge.
 function SidebarToggle({ shown, covered, onToggle }: { shown: boolean; covered: boolean; onToggle(): void }) {
   return (
     <button
@@ -446,7 +446,7 @@ function SidebarToggle({ shown, covered, onToggle }: { shown: boolean; covered: 
       inert={covered}
       aria-label={shown ? labels.hideSidebar : labels.showSidebar}
       aria-expanded={shown}
-      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 w-4 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${shown ? "left-[var(--sidebar-w)] -translate-x-1/2" : "left-0 rounded-l-none border-l-0"}`}
+      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 w-4 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${shown ? "left-[calc(var(--oneui-gap)+var(--sidebar-w))] -translate-x-1/2" : "left-0 rounded-l-none border-l-0"}`}
     >
       {shown ? <ChevronLeft {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}
     </button>

@@ -249,10 +249,14 @@ describe("Pane frames in index.css (app-theme)", () => {
     expect(css).not.toMatch(/approval-glow/);
   });
 
-  it("keeps the Focus Outline outside the Needs Approval frame (SRS-FR-087)", () => {
-    expect(rule(".pane-focus::after")).toMatch(/inset 0 0 0 2px var\(--ring\)/);
-    expect(rule(".pane-focus.pane-app::after")).toMatch(/inset 0 0 0 2px var\(--ring\),\s*inset 0 0 0 4px var\(--approval\)/);
-    expect(rule(".pane-focus.pane-err::after")).toMatch(/inset 0 0 0 2px var\(--ring\),\s*inset 0 0 0 4px var\(--error\)/);
+  it("draws the Focus Outline as a 2px --ring outline outside the card (SRS-FR-087)", () => {
+    expect(rule(".pane-focus")).toMatch(/outline:\s*2px solid var\(--ring\)/);
+    expect(rule(".pane-focus")).toMatch(/outline-offset:\s*2px/);
+    expect(css).not.toMatch(/\.pane-focus[^{]*::after/);
+  });
+
+  it("rounds the attention ring with the card", () => {
+    expect(rule(".pane-frame::after")).toMatch(/border-radius:\s*inherit/);
   });
 });
 
