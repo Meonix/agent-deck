@@ -168,6 +168,18 @@ describe("tauriSessionsClient (5.1)", () => {
       ["list_files", { paneId: "p1" }],
     ]);
   });
+
+  it("sends pasted bytes raw with the encoded name in a header, and maps copyPromptFile", async () => {
+    const saved = { path: "/s/1-0/a.png", name: "a.png", size: 3 };
+    tauri.invoke.mockResolvedValue(saved);
+    const data = new Uint8Array([1, 2, 3]);
+    await expect(tauriSessionsClient.savePromptFile("ảnh chụp.png", data)).resolves.toEqual(saved);
+    await tauriSessionsClient.copyPromptFile("/Users/me/a.png");
+    expect(tauri.invoke.mock.calls).toEqual([
+      ["save_prompt_file", data, { headers: { "x-file-name": "%E1%BA%A3nh%20ch%E1%BB%A5p.png" } }],
+      ["copy_prompt_file", { path: "/Users/me/a.png" }],
+    ]);
+  });
 });
 
 describe("session messages (SRS-FR-084)", () => {

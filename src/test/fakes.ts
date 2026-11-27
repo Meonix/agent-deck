@@ -135,6 +135,8 @@ export function fakeSessions(over: Partial<SessionsClient> & { started?: boolean
     title: vi.fn(async () => titles[Math.min(titleCall++, titles.length - 1)]),
     listCommands: vi.fn(async () => []),
     listFiles: vi.fn(async () => ({ folder: "", entries: [] })),
+    savePromptFile: vi.fn(async (name: string, bytes: Uint8Array) => ({ path: `/prompt-files/1-0/${name}`, name, size: bytes.length })),
+    copyPromptFile: vi.fn(async (path: string) => ({ path: `/prompt-files/1-0/${path.split("/").pop()}`, name: path.split("/").pop() ?? "file", size: 1 })),
     list: vi.fn(async () => ({ sessions: [], unreadable: 0 })),
     deleteSession: vi.fn(async () => {}),
     openShell: vi.fn(async (paneId: string) => {

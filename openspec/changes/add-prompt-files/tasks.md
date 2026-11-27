@@ -1,8 +1,8 @@
 ## 1. Prompt File store (tests first) — seam 1
 
-- [ ] 1.1 RED `src-tauri/src/prompt_files.rs` tests for `store_bytes` and `store_copy` (design.md › Storage): name reduction, unique ids, equal bytes, 50 MB accepted and 50 MB + 1 rejected (sparse file), folder → NotAFile, missing → NotFound, symlink to a file copied. (SRS-FR-161, SRS-FR-162)
-- [ ] 1.2 Implement → GREEN.
-- [ ] 1.3 Tauri commands `save_prompt_file` (raw body + `x-file-name` header) and `copy_prompt_file(path)` on a blocking thread, root = `<app data>/prompt-files`; register in `lib.rs`. `SessionsClient.savePromptFile(name, bytes)` / `copyPromptFile(path)` with `invoke` mapping tests; fakes updated.
+- [x] 1.1 RED `src-tauri/src/prompt_files.rs` tests for `store_bytes` and `store_copy` (design.md › Storage): name reduction, unique ids, equal bytes, 50 MB accepted and 50 MB + 1 rejected (sparse file), folder → NotAFile, missing → NotFound, symlink to a file copied. (SRS-FR-161, SRS-FR-162)
+- [x] 1.2 Implement → GREEN.
+- [x] 1.3 Tauri commands `save_prompt_file` (raw body + `x-file-name` header) and `copy_prompt_file(path)` on a blocking thread, root = `<app data>/prompt-files`; register in `lib.rs`. `SessionsClient.savePromptFile(name, bytes)` / `copyPromptFile(path)` with `invoke` mapping tests; fakes updated.
 
 ## 2. Attachment helpers (tests first) — seam 2
 

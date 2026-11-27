@@ -6,8 +6,10 @@ pub mod hooks;
 pub mod launcher;
 mod pane_chat;
 mod pane_commands;
+mod prompt_file_commands;
 pub mod pane_status;
 pub mod panes;
+pub mod prompt_files;
 pub mod pty;
 mod session_commands;
 pub mod session_list;
@@ -97,6 +99,8 @@ pub fn run() {
             pane_commands::pane_title,
             pane_commands::list_commands,
             pane_commands::list_files,
+            prompt_file_commands::save_prompt_file,
+            prompt_file_commands::copy_prompt_file,
             pane_commands::close_pane,
             pane_commands::open_shell,
             pane_commands::shell_write,

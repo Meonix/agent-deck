@@ -22,6 +22,7 @@ export type CommandSource =
 export type CommandItem = { name: string; description: string; source: CommandSource };
 export type FileEntry = { path: string; dir: boolean };
 export type FileList = { folder: string; entries: FileEntry[] };
+export type SavedFile = { path: string; name: string; size: number };
 export type SessionRow = { id: string; title: string; lastActivity: number };
 export type SessionListing = { sessions: SessionRow[]; unreadable: number };
 
@@ -58,6 +59,10 @@ export interface SessionsClient {
   listCommands(paneId: string): Promise<CommandItem[]>;
   /** The workspace's files for "@"; rejects with "not_found" or "folder_missing". */
   listFiles(paneId: string): Promise<FileList>;
+  /** Stores pasted bytes as a Prompt File; rejects with "too_large" or an io message. */
+  savePromptFile(name: string, bytes: Uint8Array): Promise<SavedFile>;
+  /** Copies a dropped file as a Prompt File; rejects with "too_large", "not_a_file", "not_found" or an io message. */
+  copyPromptFile(path: string): Promise<SavedFile>;
   /** The workspace's Claude Code sessions, newest first; rejects with "folder_missing". */
   list(workspaceId: string): Promise<SessionListing>;
   /**
@@ -275,6 +280,9 @@ export const tauriSessionsClient: SessionsClient = {
   title: (paneId) => invoke<string>("pane_title", { paneId }),
   listCommands: (paneId) => invoke<CommandItem[]>("list_commands", { paneId }),
   listFiles: (paneId) => invoke<FileList>("list_files", { paneId }),
+  savePromptFile: (name, bytes) =>
+    invoke<SavedFile>("save_prompt_file", bytes, { headers: { "x-file-name": encodeURIComponent(name) } }),
+  copyPromptFile: (path) => invoke<SavedFile>("copy_prompt_file", { path }),
   list: (workspaceId) => invoke<SessionListing>("list_sessions", { workspaceId }),
   deleteSession: (workspaceId, sessionId, paneId) =>
     invoke<void>("delete_session", { workspaceId, sessionId, paneId: paneId ?? null }),
