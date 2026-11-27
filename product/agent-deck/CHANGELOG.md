@@ -1000,3 +1000,30 @@ Phiên bản: BRD v7.0, SRS v1.17 giữ nguyên (chỉ sửa backlog).
 - Backlog mục 39 cột SRS-ID: "SRS-FR-147, SRS-FR-154, SRS-FR-155, SRS-FR-156, SRS-FR-157, SRS-FR-158"; cột Phụ thuộc: "37, 38"; cột Lý do: "Must; CR-016; CR-019 thêm SRS-FR-147 (Should): ô mở ở Chat, con trỏ ở Composer; → /dev-feature, sửa requirement mở ô ở Term trong spec `session-pane`; bước đầu là chạy thử nhận ra Input Ready trên ConPTY Windows và macOS".
 - Backlog dòng Nguồn: thêm "CR-019 chuyển SRS-FR-147 từ mục 38 sang mục 39".
 Việc tiếp theo: /dev-feature add-chat-view
+
+## CR-020 — Đưa giao diện về One UI, giữ nguyên chức năng
+Ngày: 2026-11-27
+Yêu cầu: "đưa giao diện về One UI, giữ nguyên chức năng" — PO, sau khi đã xong mục 34 đến 42 của CR-016 (giao diện theo agent-deck-remote).
+Status: Approved (2026-11-27)
+Ảnh hưởng:
+- Hình dáng và màu (nền canvas xám, thẻ nổi bo lớn có khoảng hở, icon tròn, hộp thoại kiểu One UI): không có SRS-ID, như CR-013 và CR-016 đã ghi. Spec `openspec/specs/app-theme` (archived, của `update-ui-foundation` mục 34; scenario "no inner glow") → /dev-update. Spec `openspec/specs/session-history/spec.md:11` ghi Session Chooser là hộp 440px giữa màn hình trên scrim 45% → /dev-update nếu đổi vị trí hộp thoại.
+- Chức năng giữ nguyên: Folder Tree, Session Chooser, View Switch Chat · Term · Shell · Plan, Chat, Composer, Approval Strip, Question Card, gợi ý "/" "@", đính kèm file; nhãn tiếng Việt (SRS-NFR-008); SRS-NFR-014 (chữ trạng thái ≥ 4.5:1) phải đo lại trên nền One UI. Không đem lại vùng tóm tắt trạng thái ở đỉnh (đã bỏ ở CR-014) và tint section (SRS-NFR-009, SRS-NFR-010 đã xoá ở CR-016).
+- SRS-FR-007 Ví dụ ghi "Session Chooser mở giữa màn hình": giữ nguyên — PO chốt 2026-11-27 hộp thoại vẫn ở giữa màn hình, chỉ đổi sang hình One UI (bo lớn, blur, nút chữ chia vạch dọc). Spec `session-history` giữ vị trí, chỉ đổi hình.
+- BRD mục 1 Tóm tắt: "Từ CR-016, giao diện theo agent-deck-remote: …" → phần hình dáng không còn theo remote. A-02 "Giao diện tiếng Việt như agent-deck-remote" giữ nguyên (chỉ nói ngôn ngữ). Không đụng BO, BR.
+- Thiết kế: `design/agent-deck/oneui/` đã xoá ở commit a0ca306; bản cũ còn trong git ở commit 4d7630a, nhưng vẽ bố cục trước CR-016 (Active Sessions, Session History Panel, vùng đỉnh, nhãn tiếng Anh) → /design-ui vẽ lại One UI trên bố cục hiện tại. `design/agent-deck/` (tokens.css, design.html) đang là bản remote.
+- Backlog: mục 34 đến 42 archived (giữ nguyên, không mở lại); mục 43 add-plan-view, 44 add-files-view, 45 add-settings-page còn todo, sẽ vẽ trên nền mới nếu làm sau mục mới.
+- Code: `src/index.css` (lớp `.side`, `.bar`, `.dlg`, `.scrim`, `.toast`… của remote), `src/components/*` (class hình khối), `design/agent-deck/tokens.css`.
+Đã chốt: hộp thoại giữa màn hình (PO, 2026-11-27).
+Diff đề xuất:
+
+Phiên bản: BRD v7.0 → v7.1 (sửa mục 1, không đụng BO, BR). SRS v1.17 giữ nguyên (không SRS-ID nào đổi).
+
+BRD:
+- Mục 1 Tóm tắt: "Từ CR-016, giao diện theo agent-deck-remote: cột trái là cây folder …; nhãn tiếng Việt." → "Từ CR-016, chức năng theo agent-deck-remote: cột trái là cây folder …; nhãn tiếng Việt. Từ CR-020, hình dáng theo One UI: thẻ nổi bo góc trên nền canvas, hộp thoại giữa màn hình." (phần giữa giữ nguyên).
+- Lịch sử: v7.1 · 2026-11-27 · PO · CR-020: hình dáng giao diện theo One UI, chức năng giữ theo agent-deck-remote.
+
+Backlog — thêm (áp sau GATE CR):
+- 46 · Giao diện One UI, giữ chức năng · update-oneui-theme · (không SRS-ID; spec app-theme, session-history) · phụ thuộc 34 · Should; CR-020; đổi hình đã archived → /dev-update; làm trước 43, 44, 45 để các màn mới dựng thẳng trên One UI; trước đó /design-ui vẽ lại One UI trên bố cục hiện tại.
+- Dòng Nguồn: thêm "CR-020 thêm mục 46".
+
+Việc tiếp theo: /design-ui vẽ One UI trên bố cục CR-016 (dựa bản 4d7630a) → /dev-update update-oneui-theme (mục 46).

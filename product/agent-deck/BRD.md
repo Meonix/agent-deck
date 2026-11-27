@@ -2,7 +2,7 @@
 req-doc: brd
 slug: agent-deck
 scope: product
-status: Approved v7.0 (2026-11-24)
+status: Approved v7.1 (2026-11-27)
 ---
 # BRD — agent-deck
 
@@ -14,7 +14,7 @@ agent-deck là ứng dụng desktop dùng cá nhân, cài và chạy trên máy 
 Nó gom việc làm với Claude Code về một chỗ: các folder hay làm việc, lịch sử phiên của từng folder,
 nhiều phiên Claude Code tương tác cùng lúc trong một cửa sổ, và dấu báo trạng thái ở cột trái cho
 biết phiên nào đang chạy, phiên nào đang chờ mình duyệt, phiên nào đang lỗi. Mỗi ô hiện việc chính của phiên bằng chữ đỏ, người dùng tự đối chiếu để phiên chỉ làm đúng việc đó. Với phiên người dùng bật theo dõi, ô hiện danh sách các việc lớn phiên đã làm và đang làm, để quay lại phiên dài là nắm ngay tiến độ.
-Từ CR-016, giao diện theo agent-deck-remote: cột trái là cây folder với các phiên đang mở lồng bên dưới; mỗi ô chuyển được giữa hội thoại (Chat), terminal phiên (Term), terminal thường (Shell) và kế hoạch (Plan); gửi prompt từ ô nhập riêng, duyệt quyền và trả lời câu hỏi của Claude Code bằng nút; nhãn tiếng Việt.
+Từ CR-016, chức năng theo agent-deck-remote: cột trái là cây folder với các phiên đang mở lồng bên dưới; mỗi ô chuyển được giữa hội thoại (Chat), terminal phiên (Term), terminal thường (Shell) và kế hoạch (Plan); gửi prompt từ ô nhập riêng, duyệt quyền và trả lời câu hỏi của Claude Code bằng nút; nhãn tiếng Việt. Từ CR-020, hình dáng theo One UI: thẻ nổi bo góc trên nền canvas, hộp thoại giữa màn hình.
 
 ## 2. Vấn đề và lý do
 
@@ -195,3 +195,4 @@ Luật nghiệp vụ:
 | v5.2 | 2026-11-22 | PO | CR-014: BR-06 bỏ phần tóm tắt trạng thái ở đầu cửa sổ; BO-01 đọc số từ file bản ghi độ trễ |
 | v6.0 | 2026-11-23 | PO | CR-015: xoá BO-03, BO-04, BR-09, BR-10; BO-01 PO tự kiểm, app không ghi độ trễ; bỏ ràng buộc tóm tắt qua login Claude Code |
 | v7.0 | 2026-11-24 | PO | CR-016: thêm BO-05 và BR-11 đến BR-16; BR-05 terminal thường thành một chế độ của ô; giao diện theo agent-deck-remote, tiếng Việt |
+| v7.1 | 2026-11-27 | PO | CR-020: hình dáng giao diện theo One UI, chức năng giữ theo agent-deck-remote |
