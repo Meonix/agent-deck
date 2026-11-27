@@ -353,11 +353,18 @@ fn build_list(workspace: &Path, paths: Vec<String>, cap: usize) -> FileList {
 }
 
 fn finish(workspace: &Path, entries: BTreeMap<String, bool>, cap: usize) -> FileList {
+    let mut kept: Vec<(String, bool)> = entries.into_iter().collect();
+    if kept.len() > cap {
+        // Shallow paths first, as the walk keeps them, so both ways cap the same entries.
+        let depth = |p: &str| p.trim_end_matches('/').matches('/').count();
+        kept.sort_by(|a, b| depth(&a.0).cmp(&depth(&b.0)).then_with(|| a.0.cmp(&b.0)));
+        kept.truncate(cap);
+        kept.sort();
+    }
     FileList {
         folder: folder_name(workspace),
-        entries: entries
+        entries: kept
             .into_iter()
-            .take(cap)
             .map(|(path, dir)| FileEntry { path, dir })
             .collect(),
     }
@@ -727,9 +734,11 @@ mod tests {
         std::os::unix::fs::symlink(d.path(), d.path().join("real/loop")).unwrap();
         let list = walk_files(d.path(), 100);
         assert!(paths(&list).contains(&"real/a.txt".to_string()));
-        assert!(!paths(&list)
-            .iter()
-            .any(|p| p.starts_with("real/loop/") && p != "real/loop/"));
+        assert!(
+            !paths(&list)
+                .iter()
+                .any(|p| p.starts_with("real/loop/") && p != "real/loop/")
+        );
     }
 
     #[test]
@@ -759,6 +768,18 @@ mod tests {
         assert_eq!(list.entries.len(), 3);
     }
 
+    #[test]
+    fn git_list_keeps_shallow_entries_at_the_cap_like_the_walk() {
+        let d = TempDir::new().unwrap();
+        git(d.path(), &["init", "-q"]);
+        write(d.path(), "z.md", "z");
+        for i in 0..10 {
+            write(d.path(), &format!("a/f{i}.txt"), "x");
+        }
+        let list = files_capped(d.path(), 3);
+        assert_eq!(paths(&list), ["a/", "a/f0.txt", "z.md"]);
+    }
+
     #[cfg(unix)]
     #[test]
     fn walk_records_a_symlink_to_a_folder_as_a_folder() {
@@ -768,9 +789,11 @@ mod tests {
         let list = walk_files(d.path(), 100);
         let link = list.entries.iter().find(|e| e.path == "link/").unwrap();
         assert!(link.dir);
-        assert!(!paths(&list)
-            .iter()
-            .any(|p| p.starts_with("link/") && p != "link/"));
+        assert!(
+            !paths(&list)
+                .iter()
+                .any(|p| p.starts_with("link/") && p != "link/")
+        );
         assert!(!paths(&list).contains(&"link".to_string()));
     }
 
