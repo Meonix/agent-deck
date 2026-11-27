@@ -25,7 +25,7 @@ export function AttachmentChips({ chips, onRemove }: Props) {
             key={chip.kind === "ok" ? chip.path : `error-${i}`}
             role="listitem"
             // .chip is an unlayered inline block, so it outranks Tailwind's flex utilities.
-            className={`chip ${chip.kind === "ok" ? "chip-idle" : "chip-err"} whitespace-nowrap`}
+            className={`chip ${chip.kind === "ok" ? "chip-idle chip-file" : "chip-err"} whitespace-nowrap`}
             style={{ display: "flex", alignItems: "center", gap: 4 }}
           >
             <Icon {...ICON_SM} />

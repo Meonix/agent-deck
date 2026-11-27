@@ -1,4 +1,6 @@
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { AttachmentChips } from "./AttachmentChips";
 import css from "../index.css?raw";
 import activityBar from "./ActivityBar.tsx?raw";
 import composer from "./Composer.tsx?raw";
@@ -42,6 +44,19 @@ describe("Blocks in the pane (CR-020)", () => {
     expect(rule(".card .side-label")).toMatch(/color:\s*var\(--accent-foreground\)/);
     expect(rule(".card .pick-on")).toMatch(/background:\s*var\(--primary\)/);
     expect(rule(".card-actions > * + *")).toMatch(/border-left:/);
+  });
+
+  it("draws a file chip as a pill on the surface, readable on the canvas block", () => {
+    render(<AttachmentChips chips={[{ kind: "ok", name: "a.txt", size: 10, path: "/a.txt" }, { kind: "error", name: "big.bin" }]} onRemove={() => {}} />);
+    const [ok, err] = screen.getAllByRole("listitem");
+    expect(ok).toHaveClass("chip-file");
+    expect(err).not.toHaveClass("chip-file");
+    expect(rule(".chip-file")).toMatch(/background:\s*var\(--oneui-surface\);\s*color:\s*var\(--foreground\)/);
+    expect(rule(".chip")).toMatch(/border-radius:\s*var\(--oneui-radius-pill\)/);
+  });
+
+  it("draws the picked option's radio in the colour of its primary pill", () => {
+    expect(rule(".card .pick-on input")).toMatch(/accent-color:\s*var\(--primary-foreground\)/);
   });
 
   it("draws menus on the surface, 18px, no border, with the One UI shadow, picks on a 12px row", () => {

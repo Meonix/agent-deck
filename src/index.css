@@ -53,6 +53,8 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .chip-app { background: var(--approval-bg); color: var(--approval-foreground); border: 1px solid var(--approval-border); }
 .chip-err { background: var(--error-bg); color: var(--error-foreground); }
 .chip-idle { background: var(--muted); color: var(--muted-foreground); }
+/* On the Composer block (--oneui-canvas) a muted chip would vanish, so a file chip sits on the surface. */
+.chip-file { background: var(--oneui-surface); color: var(--foreground); }
 .chip-busy { background: var(--accent); color: var(--busy-foreground); }
 .chip-ready { background: var(--running-bg); color: var(--ready-foreground); }
 
@@ -100,6 +102,7 @@ body { background: var(--background); color: var(--foreground); font-family: var
 .card .field { background: var(--oneui-surface); }
 .card .opt { background: var(--oneui-surface); border-radius: var(--oneui-radius-pill); }
 .card .pick-on { background: var(--primary); color: var(--primary-foreground); }
+.card .pick-on input { accent-color: var(--primary-foreground); }
 .card-actions { display: flex; align-items: stretch; justify-content: flex-end; }
 .card-actions > * { border: 0; border-radius: 0; background: transparent; color: var(--accent-foreground); }
 .card-actions > * + * { border-left: 1px solid var(--border); }
