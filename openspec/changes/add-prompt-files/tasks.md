@@ -21,4 +21,4 @@
 
 ## 5. Verify
 
-- [ ] 5.1 Real app on macOS (`qa-verify-after-dev`): SC-1 to SC-5, a drop at a non-100% Text Size, and a paste of a file copied in Finder (measured, reported).
+- [x] 5.1 Real app on macOS (`qa-verify-after-dev`): SC-1 to SC-5, a drop at a non-100% Text Size, and a paste of a file copied in Finder (measured, reported).

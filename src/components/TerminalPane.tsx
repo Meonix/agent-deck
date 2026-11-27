@@ -242,7 +242,7 @@ export function TerminalPane({
   useEffect(
     () =>
       registerDropTarget(paneId, (paths) => {
-        // The Composer sits in the Chat layer, which is inert while hidden; the copy gives it time to show.
+        // The Composer sits in the Chat layer, inert while hidden; the switch is queued before any copy settles.
         chooseViewRef.current(paneId, "chat");
         void Promise.all(paths.map((path) => copyDropped(client, path))).then((results) => attachRef.current(results.filter((r) => r !== null)));
       }),
