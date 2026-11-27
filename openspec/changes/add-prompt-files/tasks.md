@@ -6,8 +6,8 @@
 
 ## 2. Attachment helpers (tests first) — seam 2
 
-- [ ] 2.1 RED `src/components/attachments.test.ts`: `insertPaths` at the caret (spec "Insert at the caret"), `removePath` (spec "Remove an attachment"), `formatSize` (214 KB, 2 KB, 120.0 MB), `tooLarge` at 50 MB and 50 MB + 1. (SRS-FR-161, SRS-FR-162)
-- [ ] 2.2 Implement `attachments.ts` → GREEN.
+- [x] 2.1 RED `src/components/attachments.test.ts`: `insertPaths` at the caret (spec "Insert at the caret"), `removePath` (spec "Remove an attachment"), `formatSize` (214 KB, 2 KB, 120.0 MB), `tooLarge` at 50 MB and 50 MB + 1. (SRS-FR-161, SRS-FR-162)
+- [x] 2.2 Implement `attachments.ts` → GREEN.
 
 ## 3. Paste and chips in the Composer (tests first) — seam 3
 
