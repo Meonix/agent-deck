@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ATTACH_BYTES, formatSize, insertPaths, removePath, tooLarge } from "./attachments";
+import { MAX_ATTACH_BYTES, formatSize, insertPaths, rejectedAttach, removePath, tooLarge } from "./attachments";
 
 describe("MAX_ATTACH_BYTES", () => {
   it("is 50 MB in bytes", () => {
@@ -68,5 +68,13 @@ describe("removePath", () => {
 
   it("returns the text unchanged when the path is absent", () => {
     expect(removePath("xem lỗi", "A")).toBe("xem lỗi");
+  });
+});
+
+describe("rejectedAttach", () => {
+  it("turns too_large into an error chip entry and any other failure into nothing", () => {
+    expect(rejectedAttach("demo.mov", "too_large")).toEqual({ name: "demo.mov", error: "too_large" });
+    expect(rejectedAttach("docs", "not_a_file")).toBeNull();
+    expect(rejectedAttach("x", new Error("disk full"))).toBeNull();
   });
 });

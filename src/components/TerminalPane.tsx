@@ -16,7 +16,8 @@ import { ShellArea, ShellFailure } from "./PaneShell";
 import { knownState, type MaximizedBadge, needsUser } from "./statusHighlight";
 import { type Mark, RoundMark, tone } from "./statusTone";
 import { registerDropTarget } from "./dropTargets";
-import { type AttachResult, useComposer } from "./useComposer";
+import { type AttachResult, rejectedAttach } from "./attachments";
+import { useComposer } from "./useComposer";
 import { ViewLayer } from "./ViewLayer";
 import { type PaneView, ViewSwitch } from "./ViewSwitch";
 
@@ -30,7 +31,7 @@ async function copyDropped(client: SessionsClient, path: string): Promise<Attach
   try {
     return await client.copyPromptFile(path);
   } catch (reason) {
-    return reason === "too_large" ? { name: path.split(/[/\\]/).pop() ?? path, error: "too_large" } : null;
+    return rejectedAttach(path.split(/[/\\]/).pop() ?? path, reason);
   }
 }
 

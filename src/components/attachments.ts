@@ -1,3 +1,8 @@
+import type { SavedFile } from "../api/sessions";
+
+/** A stored Prompt File, or a file rejected for its size. */
+export type AttachResult = SavedFile | { name: string; error: "too_large" };
+
 export const MAX_ATTACH_BYTES = 50 * 1024 * 1024;
 
 export function tooLarge(size: number): boolean {
@@ -30,4 +35,9 @@ export function removePath(text: string, path: string): string {
   let end = start + path.length;
   if (text[end] === " ") end += 1;
   return text.slice(0, start) + text.slice(end);
+}
+
+/** What a failed store leaves: an error chip for "too_large", nothing for any other failure. */
+export function rejectedAttach(name: string, reason: unknown): AttachResult | null {
+  return reason === "too_large" ? { name, error: "too_large" } : null;
 }
