@@ -2241,6 +2241,17 @@ describe("Sidebar toggle (2.13)", () => {
     expect(grid.className).toContain("--sidebar-w");
   });
 
+  it("draws the hidden toggle inside the canvas gap, clear of the first pane card", async () => {
+    const { user } = setup([ws("a", "agent-deck")]);
+    await newSessionIn(user);
+    expect(toggle(labels.hideSidebar)).toHaveClass("w-4", "-translate-x-1/2");
+
+    await user.click(toggle(labels.hideSidebar));
+
+    expect(toggle(labels.showSidebar)).toHaveClass("left-0", "top-1/2", "-translate-y-1/2", "w-oneui");
+    expect(toggle(labels.showSidebar)).not.toHaveClass("w-4");
+  });
+
   it("takes Cmd+B from a focused pane on macOS and leaves the focus there (SRS-FR-089)", async () => {
     const { user } = setup([ws("a", "agent-deck")], fakeSessions(), undefined, { mac: true });
     await newSessionIn(user, "agent-deck");

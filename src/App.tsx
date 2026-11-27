@@ -438,7 +438,7 @@ function gridColumns(sidebarShown: boolean): string {
   return sidebarShown ? "grid-cols-[var(--sidebar-w)_1fr]" : "grid-cols-[1fr]";
 }
 
-// Below the maximized pane's z-10, which covers it (SRS-FR-088). Shown, it straddles the Sidebar card's right edge.
+// Below the maximized pane's z-10, which covers it (SRS-FR-088). Shown, it straddles the Sidebar card's right edge; hidden, it fills the canvas gap left of the panes.
 function SidebarToggle({ shown, covered, onToggle }: { shown: boolean; covered: boolean; onToggle(): void }) {
   return (
     <button
@@ -446,7 +446,7 @@ function SidebarToggle({ shown, covered, onToggle }: { shown: boolean; covered: 
       inert={covered}
       aria-label={shown ? labels.hideSidebar : labels.showSidebar}
       aria-expanded={shown}
-      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 w-4 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${shown ? "left-[calc(var(--oneui-gap)+var(--sidebar-w))] -translate-x-1/2" : "left-0 rounded-l-none border-l-0"}`}
+      className={`absolute top-1/2 -translate-y-1/2 z-[5] h-10 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${shown ? "w-4 left-[calc(var(--oneui-gap)+var(--sidebar-w))] -translate-x-1/2" : "left-0 w-oneui rounded-l-none border-l-0"}`}
     >
       {shown ? <ChevronLeft {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}
     </button>
