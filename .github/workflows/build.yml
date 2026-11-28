@@ -41,7 +41,11 @@ jobs:
 
       - run: npm test
 
-      - run: cargo test --locked
+      - run: cargo test --locked -- --skip echo_round_trip_p95_is_under_100ms
+        working-directory: src-tauri
+
+      # A latency check measures nothing while hundreds of other tests share the cores.
+      - run: cargo test --locked echo_round_trip_p95_is_under_100ms
         working-directory: src-tauri
 
       - run: npm run tauri build
