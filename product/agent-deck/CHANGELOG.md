@@ -1042,3 +1042,30 @@ Phiên bản: SRS v1.17 → v1.18. BRD v7.1 giữ nguyên.
 - SRS mục 14: v1.18 · 2026-11-27 · PO · CR-021: chấm trạng thái của Session Row thành icon tròn 28px (One UI, CR-020).
 - Backlog: dòng Nguồn thêm "CR-021 sửa thuật ngữ Session Row (SRS v1.18)"; mục 46 cột Lý do thêm "CR-021".
 Việc tiếp theo: tiếp /dev-update update-oneui-theme (mục 46).
+
+## CR-022 — Plan lấy file đã đổi bằng git, tính từ lúc ô mở
+Ngày: 2026-11-28
+Yêu cầu: "Lấy file đã đổi bằng git diff so với lúc phiên bắt đầu; bước việc và kế hoạch vẫn đọc từ transcript. Đây là cách duy nhất có dữ liệu thật với Code Mode. Đổi lại phải sửa SRS-FR-171 qua /ba-change trước, vì git diff gồm cả thay đổi không do phiên làm." — PO chốt ở bước hỏi của /dev-feature add-plan-view (mục 43). Lý do đo được 2026-11-28: transcript trên máy dev không có Edit/Write của phiên Code Mode (Code Mode sửa file bên trong REPL), nên "file phiên đã sửa" đọc từ transcript gần như trống.
+Status: Approved (2026-11-28)
+Ảnh hưởng:
+- SRS-FR-171 (Changed files), SRS-FR-172 (File diff): đổi nguồn và mốc. SRS-FR-169, SRS-FR-170, SRS-FR-173 giữ nguyên (đọc từ transcript).
+- SRS mục 6 Giao diện ngoài: thêm dòng git cho Plan. SRS mục 7 Bảng nhãn: thêm nhãn mới.
+- BR-14 ("file đã đổi và phần thay đổi của từng file") đủ rộng, không đổi; BO-05 không đổi.
+- Backlog mục 43 `todo`, chưa có change, spec hay code → chỉ sửa tài liệu ở bước áp.
+Diff đề xuất:
+Phiên bản: SRS v1.18 → v1.19. BRD v7.1 giữ nguyên.
+- SRS-FR-171 trước: "While a pane shows Plan, the system shall list the files the session has edited or written, each with its added and removed line counts."
+  SRS-FR-171 sau: "While a pane shows Plan, the system shall list the files that changed in the pane's workspace folder since the pane opened, each with its added and removed line counts."
+  - Giải thích: so bằng git với trạng thái folder lúc ô mở (phiên mới hoặc mở lại); gồm cả thay đổi không do phiên làm (sửa tay, ô khác cùng folder); file mới chưa track tính là thêm toàn bộ dòng; file git bỏ qua không tính.
+  - Ví dụ: ô mở lúc 9:00; tới 9:30 `src/App.tsx` thêm 12 dòng bớt 3 dòng, có file mới `src/chat.ts` 40 dòng → Plan liệt kê "src/App.tsx +12 −3" và "src/chat.ts +40 −0".
+  - Ví dụ: người dùng tự sửa `README.md` trong editor khi ô đang mở → `README.md` cũng có trong danh sách.
+  - Ví dụ âm: file chỉ đọc, hoặc đã sửa từ trước khi ô mở và không đổi thêm → không có trong danh sách.
+  - Ví dụ âm: folder không dùng git → Plan không có danh sách file, hiện "Folder is not a git repository".
+- SRS-FR-172 trước: "When the user chooses a changed file in Plan, the system shall show the changes the session made to that file."
+  SRS-FR-172 sau: "When the user chooses a changed file in Plan, the system shall show the changes made to that file since the pane opened."
+  - Ví dụ: bấm `src/App.tsx` → hiện 12 dòng thêm và 3 dòng bớt so với lúc ô mở.
+- SRS mục 6, thêm dòng: git của workspace · Thay đổi của file so với lúc ô mở · Khi ô ở Plan (SRS-FR-171, SRS-FR-172) · Không có git → không có danh sách file.
+- SRS mục 7 Bảng nhãn, thêm: "Folder is not a git repository" → "Folder không dùng git".
+- SRS mục 14: v1.19 · 2026-11-28 · PO · CR-022: Plan lấy file đã đổi bằng git, tính từ lúc ô mở.
+- Backlog: dòng Nguồn thêm "CR-022 sửa SRS-FR-171, SRS-FR-172 (SRS v1.19)"; mục 43 cột Lý do thêm "CR-022".
+Việc tiếp theo: tiếp /dev-feature add-plan-view (mục 43), bước hỏi.

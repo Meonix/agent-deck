@@ -4,7 +4,7 @@ slug: agent-deck
 ---
 # Backlog — agent-deck
 
-Nguồn: `SRS.md` Baselined v1.18 (2026-11-27), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23; CR-009 thêm mục 24; CR-010 thêm mục 25; CR-011 thêm mục 26; CR-012 thêm mục 27, 28; CR-013 thêm mục 29 (SRS v1.13); CR-014 thêm mục 30 (SRS v1.14); CR-015 thêm mục 31, 32, 33 (SRS v1.15); CR-016 thêm mục 34 đến 45 (SRS v1.16); CR-018 chuyển SRS-FR-147 từ mục 37 sang mục 38; CR-019 chuyển SRS-FR-147 từ mục 38 sang mục 39; CR-020 thêm mục 46; CR-021 sửa thuật ngữ Session Row (SRS v1.18). Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
+Nguồn: `SRS.md` Baselined v1.18 (2026-11-27), CR-001 thêm mục 9, 10, 11; CR-002 thêm mục 12; CR-003 thêm mục 13; CR-004 thêm mục 14, 15, 16; CR-005 thêm mục 17, 18, 19; CR-006 thêm mục 20, 21; CR-007 thêm mục 22; CR-008 thêm mục 23; CR-009 thêm mục 24; CR-010 thêm mục 25; CR-011 thêm mục 26; CR-012 thêm mục 27, 28; CR-013 thêm mục 29 (SRS v1.13); CR-014 thêm mục 30 (SRS v1.14); CR-015 thêm mục 31, 32, 33 (SRS v1.15); CR-016 thêm mục 34 đến 45 (SRS v1.16); CR-018 chuyển SRS-FR-147 từ mục 37 sang mục 38; CR-019 chuyển SRS-FR-147 từ mục 38 sang mục 39; CR-020 thêm mục 46; CR-021 sửa thuật ngữ Session Row (SRS v1.18); CR-022 sửa SRS-FR-171, SRS-FR-172 (SRS v1.19). Thứ tự: phụ thuộc → MoSCoW → giá trị BO (BO-01 là mục tiêu chính).
 
 | # | Mục | change-id | SRS-ID | Phụ thuộc | Lý do | Trạng thái |
 |---|---|---|---|---|---|---|
@@ -50,7 +50,7 @@ Nguồn: `SRS.md` Baselined v1.18 (2026-11-27), CR-001 thêm mục 9, 10, 11; CR
 | 40 | Approval Strip và Question Card | add-chat-approval | SRS-FR-163, SRS-FR-164, SRS-FR-165, SRS-FR-166, SRS-FR-167, SRS-FR-168 | 39 | Must; CR-016; → /dev-feature | archived |
 | 41 | Gợi ý "/" và "@" | add-composer-suggestions | SRS-FR-159, SRS-FR-160 | 39 | Should; CR-016; → /dev-feature | archived |
 | 42 | Đính kèm file vào prompt | add-prompt-files | SRS-FR-161, SRS-FR-162 | 39 | Should; CR-016; → /dev-feature | archived |
-| 43 | Chế độ Plan | add-plan-view | SRS-FR-169, SRS-FR-170, SRS-FR-171, SRS-FR-172, SRS-FR-173 | 38 | Should; CR-016; → /dev-feature | todo |
+| 43 | Chế độ Plan | add-plan-view | SRS-FR-169, SRS-FR-170, SRS-FR-171, SRS-FR-172, SRS-FR-173 | 38 | Should; CR-016; CR-022; → /dev-feature | todo |
 | 44 | Files View | add-files-view | SRS-FR-174, SRS-FR-175, SRS-FR-176 | 35 | Could; CR-016; → /dev-feature | todo |
 | 45 | Trang Cài đặt | add-settings-page | SRS-FR-145, SRS-FR-177, SRS-FR-178, SRS-FR-179, SRS-FR-180 | 42 | Should; CR-016; → /dev-feature | todo |
 | 46 | Giao diện One UI, giữ chức năng | update-oneui-theme | (không SRS-ID; spec app-theme, session-history) | 34 | Should; CR-020; CR-021; đổi hình đã archived → /dev-update; làm trước 43, 44, 45 để các màn mới dựng thẳng trên One UI; trước đó /design-ui vẽ lại One UI trên bố cục hiện tại | proposed |

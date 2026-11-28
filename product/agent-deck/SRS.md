@@ -2,7 +2,7 @@
 req-doc: srs
 slug: agent-deck
 scope: product
-status: Baselined v1.18 (2026-11-27)
+status: Baselined v1.19 (2026-11-28)
 source: product/agent-deck/BRD.md
 ---
 # SRS — agent-deck
@@ -1437,16 +1437,19 @@ While a session has a task list, the system shall show "<done>/<total>" on the P
 - Nguồn: BR-14
 
 ### SRS-FR-171 — Changed files
-While a pane shows Plan, the system shall list the files the session has edited or written, each with its added and removed line counts.
-- Ví dụ: phiên sửa `src/App.tsx` thêm 12 dòng bớt 3 dòng, tạo `src/chat.ts` 40 dòng → Plan liệt kê "src/App.tsx +12 −3" và "src/chat.ts +40 −0".
-- Ví dụ âm: file phiên chỉ đọc, không sửa → không có trong danh sách.
+While a pane shows Plan, the system shall list the files that changed in the pane's workspace folder since the pane opened, each with its added and removed line counts.
+- Giải thích: so bằng git với trạng thái folder lúc ô mở (phiên mới hoặc mở lại); gồm cả thay đổi không do phiên làm (sửa tay, ô khác cùng folder); file mới chưa track tính là thêm toàn bộ dòng; file git bỏ qua không tính (CR-022).
+- Ví dụ: ô mở lúc 9:00; tới 9:30 `src/App.tsx` thêm 12 dòng bớt 3 dòng, có file mới `src/chat.ts` 40 dòng → Plan liệt kê "src/App.tsx +12 −3" và "src/chat.ts +40 −0".
+- Ví dụ: người dùng tự sửa `README.md` trong editor khi ô đang mở → `README.md` cũng có trong danh sách.
+- Ví dụ âm: file chỉ đọc, hoặc đã sửa từ trước khi ô mở và không đổi thêm → không có trong danh sách.
+- Ví dụ âm: folder không dùng git → Plan không có danh sách file, hiện "Folder is not a git repository".
 - Kiểm chứng: Test
 - Ưu tiên: Should
 - Nguồn: BR-14
 
 ### SRS-FR-172 — File diff
-When the user chooses a changed file in Plan, the system shall show the changes the session made to that file.
-- Ví dụ: bấm `src/App.tsx` → hiện các dòng phiên đã thêm và bớt trong file đó.
+When the user chooses a changed file in Plan, the system shall show the changes made to that file since the pane opened.
+- Ví dụ: bấm `src/App.tsx` → hiện 12 dòng thêm và 3 dòng bớt so với lúc ô mở.
 - Kiểm chứng: Demo
 - Ưu tiên: Should
 - Nguồn: BR-14
@@ -1615,6 +1618,7 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | Claude Code (hội thoại của phiên, chỉ đọc) | Nội dung hội thoại | Liên tục khi ô mở | Không đọc được → SRS-FR-153 |
 | Claude Code (yêu cầu quyền và câu hỏi) | Nhận lựa chọn của người dùng | Khi phiên `Needs Approval` | Yêu cầu đã đổi → SRS-FR-165 |
 | git của workspace | Danh sách file không bị bỏ qua | Khi gõ "@" (SRS-FR-160) | Không có git → duyệt folder, bỏ file ẩn |
+| git của workspace | Thay đổi của file so với lúc ô mở | Khi ô ở Plan (SRS-FR-171, SRS-FR-172) | Không có git → không có danh sách file |
 | Clipboard của hệ điều hành | Đường dẫn | Khi Chép đường dẫn (SRS-FR-144, SRS-FR-176) | |
 
 ## 7. Màn hình
@@ -1656,6 +1660,7 @@ Sự kiện: `Prompt sent` người dùng gửi yêu cầu · `Approval requeste
 | "No sessions yet" | "Chưa có phiên nào" |
 | "<N> sessions could not be read" | "<N> phiên không đọc được" |
 | "Folder not found" | "Không tìm thấy folder" |
+| "Folder is not a git repository" | "Folder không dùng git" |
 | "Claude Code could not be started" | "Không khởi động được Claude Code" |
 | "Session is still running." | "Phiên vẫn đang chạy." |
 | "Session ended" | "Phiên đã kết thúc" |
@@ -2025,3 +2030,4 @@ The system shall show every status word and status-tinted row with a text contra
 | v1.16 | 2026-11-24 | PO | CR-016: giao diện theo agent-deck-remote; Folder Tree thay Workspace List, Active Sessions; Session Chooser thay Session History Panel; View Switch Chat · Term · Shell · Plan, Pane Shell thành chế độ Shell; nhãn tiếng Việt; thêm SRS-FR-141 đến SRS-FR-180, SRS-NFR-014, RULE-12, A-13, A-14, A-15; xoá SRS-FR-053, SRS-FR-059, SRS-NFR-009, SRS-NFR-010; theo BRD v7.0 |
 | v1.17 | 2026-11-25 | PO | CR-017: SRS-FR-141 nhóm Folder khác mở sẵn khi không folder nào có phiên mở; theo BRD v7.0 |
 | v1.18 | 2026-11-27 | PO | CR-021: chấm trạng thái của Session Row thành icon tròn 28px (One UI, CR-020) |
+| v1.19 | 2026-11-28 | PO | CR-022: Plan lấy file đã đổi bằng git, tính từ lúc ô mở (SRS-FR-171, SRS-FR-172) |
