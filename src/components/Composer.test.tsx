@@ -349,6 +349,18 @@ describe("suggestion menus (SRS-FR-159, SRS-FR-160)", () => {
     expect(on.send).not.toHaveBeenCalled();
   });
 
+  it("opens once a Vietnamese IME commits a leading slash, even if change/keyup reported a stale caret (macOS WebKit)", async () => {
+    const { user: _user } = renderComposer({ suggest: source() });
+    const ta = box() as HTMLTextAreaElement;
+    ta.focus();
+    fireEvent.compositionStart(ta);
+    // WebKit shows the marked "/" but keeps reporting the pre-composition caret until the IME commits it.
+    fireEvent.change(ta, { target: { value: "/", selectionStart: 0, selectionEnd: 0 } });
+    expect(menu()).toBeNull();
+    fireEvent.compositionEnd(ta, { target: { value: "/", selectionStart: 1, selectionEnd: 1 } });
+    expect(await screen.findByRole("listbox")).toBeInTheDocument();
+  });
+
   it("opens when the caret moves back into a command word", async () => {
     const { user } = renderComposer({ suggest: source() });
     await user.type(box(), "/com x");

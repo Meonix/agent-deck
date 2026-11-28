@@ -123,6 +123,9 @@ export function Composer({ paneId, value, onChange, readiness, running, onSend, 
             // which also fires when focus leaves a closing pane.
             onKeyUp={(e) => track(e.currentTarget)}
             onMouseUp={(e) => track(e.currentTarget)}
+            // Safari/WebKit (macOS) reports a stale caret on the keyup/change that lands marked IME text; the
+            // caret only settles once the composition (e.g. Vietnamese Telex) commits.
+            onCompositionEnd={(e) => track(e.currentTarget)}
             onKeyDown={(e) => {
               // Keys that end a Vietnamese IME composition only commit the word.
               const composing = e.nativeEvent.isComposing || e.keyCode === 229;
