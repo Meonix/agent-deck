@@ -387,7 +387,8 @@ fn resolve_launch() -> Launch {
 }
 
 fn launch_for(path: String) -> Launch {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    // USERPROFILE on Windows, where HOME is usually unset.
+    let home = std::env::home_dir();
     Launch {
         claude: find_claude(&path, home.as_deref()),
         path,

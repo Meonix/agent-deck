@@ -119,10 +119,8 @@ pub fn find_in_path(name: &str, path: &str) -> Option<PathBuf> {
 /// PATH that lacks them.
 pub fn find_claude(path: &str, home: Option<&Path>) -> Option<PathBuf> {
     find_in_path("claude", path).or_else(|| {
-        install_dirs(home)
-            .into_iter()
-            .map(|dir| dir.join("claude"))
-            .find(|candidate| is_executable(candidate))
+        let dirs = std::env::join_paths(install_dirs(home)).ok()?;
+        find_in_path("claude", dirs.to_str()?)
     })
 }
 
@@ -136,8 +134,9 @@ fn install_dirs(home: Option<&Path>) -> Vec<PathBuf> {
 }
 
 #[cfg(not(unix))]
-fn install_dirs(_home: Option<&Path>) -> Vec<PathBuf> {
-    Vec::new()
+fn install_dirs(home: Option<&Path>) -> Vec<PathBuf> {
+    home.map(|h| vec![h.join(".local").join("bin")])
+        .unwrap_or_default()
 }
 
 #[cfg(unix)]
@@ -338,6 +337,19 @@ mod tests {
         assert_eq!(
             find_claude("", Some(home.path())),
             Some(local_bin.join("claude"))
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn find_claude_probes_the_native_install_dir_on_windows() {
+        let home = tempfile::tempdir().unwrap();
+        let local_bin = home.path().join(".local").join("bin");
+        std::fs::create_dir_all(&local_bin).unwrap();
+        std::fs::write(local_bin.join("claude.exe"), "").unwrap();
+        assert_eq!(
+            find_claude("", Some(home.path())),
+            Some(local_bin.join("claude.exe"))
         );
     }
 
