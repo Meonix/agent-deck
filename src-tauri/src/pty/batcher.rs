@@ -5,6 +5,7 @@ pub struct OutputBatcher {
     max_bytes: usize,
     buf: Vec<u8>,
     first_at: Option<Instant>,
+    last_flush: Option<Instant>,
 }
 
 impl OutputBatcher {
@@ -14,28 +15,39 @@ impl OutputBatcher {
             max_bytes,
             buf: Vec::new(),
             first_at: None,
+            last_flush: None,
         }
     }
 
     /// Buffers `bytes`; returns everything buffered once it reaches `max_bytes`
-    /// or the oldest buffered byte is `max_delay` old.
+    /// or the oldest buffered byte is `max_delay` old. Output after a quiet spell of
+    /// `max_delay` returns at once, so a keystroke's echo never waits on a timer.
     pub fn push(&mut self, bytes: &[u8], now: Instant) -> Option<Vec<u8>> {
         if bytes.is_empty() {
             return self.flush_due(now);
         }
+        let quiet = self.buf.is_empty()
+            && self
+                .last_flush
+                .is_none_or(|t| now.saturating_duration_since(t) >= self.max_delay);
         self.first_at.get_or_insert(now);
         self.buf.extend_from_slice(bytes);
-        if self.buf.len() >= self.max_bytes {
-            return self.flush();
+        if quiet || self.buf.len() >= self.max_bytes {
+            return self.flush_at(now);
         }
         self.flush_due(now)
     }
 
     pub fn flush_due(&mut self, now: Instant) -> Option<Vec<u8>> {
         match self.deadline() {
-            Some(deadline) if now >= deadline => self.flush(),
+            Some(deadline) if now >= deadline => self.flush_at(now),
             _ => None,
         }
+    }
+
+    fn flush_at(&mut self, now: Instant) -> Option<Vec<u8>> {
+        self.last_flush = Some(now);
+        self.flush()
     }
 
     pub fn flush(&mut self) -> Option<Vec<u8>> {
@@ -60,37 +72,52 @@ mod tests {
         OutputBatcher::new(DELAY, MAX)
     }
 
-    #[test]
-    fn push_below_both_limits_returns_none() {
+    /// A batcher that flushed at the returned instant, so output arriving within `DELAY` is batched.
+    fn busy() -> (OutputBatcher, Instant) {
         let mut b = batcher();
         let t0 = Instant::now();
-        assert_eq!(b.push(b"hello", t0), None);
-        assert_eq!(b.push(b" world", t0 + Duration::from_millis(5)), None);
+        assert_eq!(b.push(b"x", t0), Some(b"x".to_vec()));
+        (b, t0)
+    }
+
+    const MS: fn(u64) -> Duration = Duration::from_millis;
+
+    #[test]
+    fn first_output_after_a_quiet_spell_returns_at_once() {
+        let mut b = batcher();
+        let t0 = Instant::now();
+        assert_eq!(b.push(b"a", t0), Some(b"a".to_vec()));
+        assert_eq!(b.push(b"b", t0 + DELAY), Some(b"b".to_vec()));
+        assert_eq!(b.deadline(), None);
+    }
+
+    #[test]
+    fn push_below_both_limits_returns_none() {
+        let (mut b, t0) = busy();
+        assert_eq!(b.push(b"hello", t0 + MS(1)), None);
+        assert_eq!(b.push(b" world", t0 + MS(5)), None);
     }
 
     #[test]
     fn flush_due_waits_for_the_delay_from_the_first_buffered_byte() {
-        let mut b = batcher();
-        let t0 = Instant::now();
-        b.push(b"ab", t0);
-        b.push(b"cd", t0 + Duration::from_millis(10));
-        assert_eq!(b.flush_due(t0 + Duration::from_millis(15)), None);
-        assert_eq!(b.flush_due(t0 + DELAY), Some(b"abcd".to_vec()));
-        assert_eq!(b.flush_due(t0 + Duration::from_millis(100)), None);
+        let (mut b, t0) = busy();
+        b.push(b"ab", t0 + MS(1));
+        b.push(b"cd", t0 + MS(10));
+        assert_eq!(b.flush_due(t0 + MS(16)), None);
+        assert_eq!(b.flush_due(t0 + MS(17)), Some(b"abcd".to_vec()));
+        assert_eq!(b.flush_due(t0 + MS(100)), None);
     }
 
     #[test]
     fn push_after_the_delay_returns_the_buffer() {
-        let mut b = batcher();
-        let t0 = Instant::now();
-        b.push(b"ab", t0);
-        assert_eq!(b.push(b"cd", t0 + DELAY), Some(b"abcd".to_vec()));
+        let (mut b, t0) = busy();
+        b.push(b"ab", t0 + MS(1));
+        assert_eq!(b.push(b"cd", t0 + MS(17)), Some(b"abcd".to_vec()));
     }
 
     #[test]
     fn push_crossing_max_bytes_returns_a_chunk() {
-        let mut b = batcher();
-        let t0 = Instant::now();
+        let (mut b, t0) = busy();
         assert_eq!(b.push(&vec![1; MAX - 1], t0), None);
         let chunk = b.push(&[2, 3], t0).expect("chunk at 64 KiB");
         assert_eq!(chunk.len(), MAX + 1);
@@ -99,12 +126,11 @@ mod tests {
 
     #[test]
     fn deadline_is_first_byte_plus_delay_and_clears_on_flush() {
-        let mut b = batcher();
-        let t0 = Instant::now();
+        let (mut b, t0) = busy();
         assert_eq!(b.deadline(), None);
-        b.push(b"a", t0);
-        b.push(b"b", t0 + Duration::from_millis(3));
-        assert_eq!(b.deadline(), Some(t0 + DELAY));
+        b.push(b"a", t0 + MS(1));
+        b.push(b"b", t0 + MS(3));
+        assert_eq!(b.deadline(), Some(t0 + MS(1) + DELAY));
         b.flush();
         assert_eq!(b.deadline(), None);
     }
