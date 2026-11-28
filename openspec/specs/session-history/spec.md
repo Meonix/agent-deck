@@ -8,7 +8,7 @@ When the user chooses + on a workspace row, the system SHALL open the Session Ch
 
 Traces: SRS-FR-007 ← BR-02 ← BO-02
 
-The Session Chooser is a 440px modal dialog centred over a 45% scrim. Its header shows the workspace name and ×; below it come the primary button "Phiên mới", the label "Mở lại phiên cũ" and the session rows. While it is open, keyboard focus stays inside it. The sessions are read again every time it opens.
+The Session Chooser is a 440px modal dialog centred over a dimmed, blurred backdrop. It holds the workspace name and ×, the button "Phiên mới", the label "Mở lại phiên cũ" and the session rows; focus stays inside and sessions are re-read on every open.
 
 #### Scenario: Three sessions
 - **GIVEN** the workspace `agent-deck` has 3 Claude Code sessions started in `/Users/mionix/Project/personal/agent-deck`
@@ -51,6 +51,11 @@ The Session Chooser is a 440px modal dialog centred over a 45% scrim. Its header
 - **GIVEN** at least one workspace is listed and no pane is open
 - **THEN** the pane area reads "Chưa mở phiên nào" and "Bấm + trên dòng folder để mở phiên mới hoặc mở lại phiên cũ."
 - **AND** it has no "Phiên mới" button
+
+#### Scenario: One UI backdrop
+- **WHEN** the Session Chooser is open
+- **THEN** the Sidebar and the panes behind it are dimmed and blurred
+- **AND** the dialog has 26px corners and sits in the middle of the window
 
 ### Requirement: Show session title and last activity (SRS-FR-008)
 The system SHALL show the title per RULE-01 and the last activity time of each session in the Session Chooser.
@@ -391,4 +396,3 @@ Opening a session (SRS-FR-013, SRS-FR-018) also closes it. When it closes withou
 - **GIVEN** the Session Chooser of `agent-deck` was closed
 - **WHEN** the user chooses + on `agent-deck` again
 - **THEN** the Session Chooser opens and the sessions of `agent-deck` are read again (SRS-FR-007)
-

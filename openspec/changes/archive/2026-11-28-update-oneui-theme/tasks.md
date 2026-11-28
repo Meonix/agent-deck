@@ -27,4 +27,4 @@
 ## 6. Close
 
 - [x] 6.1 `npm test`, `npx tsc --noEmit`, `openspec validate update-oneui-theme --strict`
-- [ ] 6.2 Run the app and screenshot the main window, a dialog and dark against `design/agent-deck/oneui/design.html#final` — partial: empty window (dark) checked by screenshot; panes, dialogs, two-line header and light not yet seen in the running app
+- [x] 6.2 Run the app and screenshot the main window, a dialog and dark against `design/agent-deck/oneui/design.html#final` — main window, a pane (Chat/Term), the Session Chooser dialog, the narrow two-line pane header (<560px) and light mode all checked by screenshot in the running app

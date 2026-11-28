@@ -79,17 +79,17 @@ The state follows RULE-03 to RULE-08 and the transition table in SRS section 5; 
 #### Scenario: Five states on five rows
 - **GIVEN** five panes are open, one session in each of `Running`, `Needs Approval`, `Idle`, `Error` and `Ended`
 - **WHEN** the Folder Tree shows their Session Rows
-- **THEN** the `Running` row has a blue dot and "Đang chạy" on the sidebar background
-- **AND** the `Needs Approval` row has a yellow ringed dot, "Cần duyệt" and the light yellow row tint
-- **AND** the `Idle` row has a green dot and "Xong lượt" without a tint
-- **AND** the `Error` row has a red dot, "Lỗi" and the light red row tint
-- **AND** the `Ended` row has a hollow dot and "Đã kết thúc" without a tint
+- **THEN** the `Running` row has a blue 28px round icon and "Đang chạy" on the sidebar card
+- **AND** the `Needs Approval` row has a yellow 28px round icon, "Cần duyệt" and the light yellow row tint
+- **AND** the `Idle` row has a green 28px round icon and "Xong lượt" without a tint
+- **AND** the `Error` row has a red 28px round icon, "Lỗi" and the light red row tint
+- **AND** the `Ended` row has a hollow 28px ring and "Đã kết thúc" without a tint
 
 #### Scenario: Running is blue, not green
 - **GIVEN** a pane is `Running`
 - **WHEN** its Session Row is shown
-- **THEN** the row shows the `--busy` dot and no `--running-bg` background
-- **AND** green (`--running`) is left to the `Idle` ("Xong lượt") dot
+- **THEN** the row shows the `--busy` round icon and no `--running-bg` background
+- **AND** green (`--running`) is left to the `Idle` ("Xong lượt") icon
 
 #### Scenario: A failing command does not make the session an error
 - **GIVEN** a pane is `Running`
@@ -254,7 +254,7 @@ Traces: SRS-FR-099 ← BR-05 ← BO-01
 
 #### Scenario: Measured mark colour
 - **GIVEN** the `--row-focus` token in light and dark
-- **WHEN** its contrast is measured against `--card`, `--section-active`, `--approval-bg` and `--error-bg` of the same theme
+- **WHEN** its contrast is measured against `--oneui-surface`, the hover background `--muted`, `--approval-bg` and `--error-bg` of the same theme
 - **THEN** every ratio is at least 3:1
 
 ### Requirement: Status word contrast (SRS-NFR-014)
