@@ -343,11 +343,10 @@ mod tests {
             "---\ndescription: think\n---\n",
         );
         write(&install, "commands/go.md", "---\ndescription: go\n---\n");
-        let json = format!(
-            r#"{{"plugins":{{"superpowers@claude-plugins-official":[{{"installPath":"{}"}}]}}}}"#,
-            install.display()
-        );
-        write(h, ".claude/plugins/installed_plugins.json", &json);
+        let json = serde_json::json!({
+            "plugins": {"superpowers@claude-plugins-official": [{"installPath": install}]}
+        });
+        write(h, ".claude/plugins/installed_plugins.json", &json.to_string());
         install
     }
 
@@ -378,16 +377,15 @@ mod tests {
             );
         }
         let entry = |name: &str, scope: &str, project: Option<&Path>| {
-            let pp = project
-                .map(|p| format!(r#","projectPath":"{}""#, p.display()))
-                .unwrap_or_default();
-            format!(
-                r#"{{"scope":"{scope}","installPath":"{}"{pp}}}"#,
-                h.path().join(name).display()
-            )
+            let mut e = serde_json::json!({"scope": scope, "installPath": h.path().join(name)});
+            if let Some(p) = project {
+                e["projectPath"] = serde_json::json!(p);
+            }
+            e
         };
-        let json =
-            |entries: Vec<String>| format!(r#"{{"plugins":{{"p@m":[{}]}}}}"#, entries.join(","));
+        let json = |entries: Vec<serde_json::Value>| {
+            serde_json::json!({"plugins": {"p@m": entries}}).to_string()
+        };
         write(
             h.path(),
             ".claude/settings.json",
