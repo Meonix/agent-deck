@@ -346,7 +346,11 @@ mod tests {
         let json = serde_json::json!({
             "plugins": {"superpowers@claude-plugins-official": [{"installPath": install}]}
         });
-        write(h, ".claude/plugins/installed_plugins.json", &json.to_string());
+        write(
+            h,
+            ".claude/plugins/installed_plugins.json",
+            &json.to_string(),
+        );
         install
     }
 
